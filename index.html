@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Desafio família FIT 90 DIAS</title>
+    <title>Desafio Família FIT 90 DIAS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -23,12 +23,12 @@
             --leader-row-bg-orange: #ffedd5;
             --leader-row-border-orange: #f97316;
             --feedback-success-bg: #10b981;
-            --feedback-error-bg: #ef4444; /* Nova variável para fundo de erro */
+            --feedback-error-bg: #ef4444;
             --modal-bg-overlay: rgba(0,0,0,0.4);
             --error-red: #ef4444;
-            --blue-600: #2563eb; /* Adicionado para consistência */
-            --yellow-600: #ca8a04; /* Adicionado para consistência */
-            --red-600: #dc2626; /* Adicionado para consistência */
+            --blue-600: #2563eb;
+            --yellow-600: #ca8a04;
+            --red-600: #dc2626;
         }
 
         body {
@@ -40,6 +40,15 @@
             max-width: 1200px;
             margin: 2rem auto;
             padding: 1.5rem;
+            background-color: var(--container-bg);
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        /* Estilo específico para o container mobile */
+        .container-mobile-view {
+            max-width: 600px; /* Mais estreito para mobile */
+            margin: 1rem auto;
+            padding: 1rem;
             background-color: var(--container-bg);
             border-radius: 1rem;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -225,12 +234,17 @@
             background-color: var(--leader-row-bg-orange) !important;
             border-left: 4px solid var(--leader-row-border-orange);
         }
+        /* Novo estilo para o card do líder em mobile */
+        .leader-row-card {
+            background-color: var(--leader-row-bg-orange); /* Usa a cor de destaque do líder */
+            border: 1px solid var(--leader-row-border-orange);
+        }
         .feedback-message {
             position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: var(--feedback-success-bg); /* Usando variável */
+            background-color: var(--feedback-success-bg);
             color: white;
             padding: 0.75rem 1.5rem;
             border-radius: 0.5rem;
@@ -242,7 +256,7 @@
         .feedback-message.show {
             opacity: 1;
         }
-        .feedback-message.error { /* Nova classe para mensagens de erro */
+        .feedback-message.error {
             background-color: var(--feedback-error-bg);
         }
 
@@ -329,8 +343,63 @@
     </style>
 </head>
 <body class="p-4">
-    <div class="container">
-        <h1 class="text-3xl font-bold text-center mb-6 text-gray-800">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
+
+    <!-- Tela de Login -->
+    <div id="loginScreen" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 via-green-200 to-blue-300 p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-blue-300">
+            <h2 class="text-4xl font-extrabold text-center mb-10 text-gray-900 flex items-center justify-center gap-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="currentColor" class="text-blue-700"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Acesso ao Desafio FIT
+            </h2>
+            <form id="loginForm">
+                <div class="mb-4 relative">
+                    <label for="username" class="block text-gray-700 text-sm font-bold mb-2 sr-only">Usuário:</label>
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    </div>
+                    <input type="text" id="username" placeholder="Usuário" class="shadow appearance-none border rounded w-full py-3 pl-10 pr-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-6 relative">
+                    <label for="password" class="block text-gray-700 text-sm font-bold mb-2 sr-only">Senha:</label>
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    </div>
+                    <input type="password" id="password" placeholder="Senha" class="shadow appearance-none border rounded w-full py-3 pl-10 pr-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <p id="loginError" class="text-red-500 text-sm italic mb-4 hidden text-center">Usuário ou senha inválidos.</p>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl shadow-md transition duration-300 ease-in-out transform hover:scale-105 w-full">
+                    Entrar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Nova Tela Principal Mobile (visível apenas em telas pequenas) -->
+    <div id="mobileDashboard" class="container-mobile-view hidden">
+        <h1 class="text-2xl sm:text-3xl font-bold text-center mb-6 text-gray-800">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
+        <h2 class="text-xl font-bold text-center mb-4 text-gray-800">📊 Ranking Geral</h2>
+
+        <div id="leaderHighlightCard" class="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-lg shadow-lg border-2 border-orange-300 mb-6 text-center">
+            <!-- Conteúdo do líder será injetado aqui via JS -->
+            <p class="text-lg font-semibold text-orange-700">Líder Atual: <span class="text-xl font-bold text-orange-900" id="mobileLeaderName">Carregando...</span> 👑</p>
+            <p class="text-md text-gray-700">Pontuação Total: <span class="font-bold text-orange-800" id="mobileLeaderPoints">Carregando...</span> pts</p>
+        </div>
+
+        <div id="mobileRankingList" class="space-y-3">
+            <!-- Lista de participantes simplificada será injetada aqui via JS -->
+            <p class="text-center text-gray-500">Nenhum participante para exibir.</p>
+        </div>
+
+        <div class="flex justify-center mt-6">
+            <button id="viewFullDashboardBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition duration-300 ease-in-out transform hover:scale-105 w-full">
+                Ver Planilha Completa
+            </button>
+        </div>
+    </div>
+
+    <!-- Conteúdo Principal do Desafio (inicialmente oculto, visível em telas maiores) -->
+    <div class="container hidden">
+        <h1 class="text-2xl sm:text-3xl font-bold text-center mb-6 text-gray-800">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div id="leaderBox" class="leader-box">
@@ -363,8 +432,9 @@
             </div>
         </div>
 
-        <h2 class="text-2xl font-semibold mb-4 text-gray-700">🏆 Ranking e Pontuação</h2>
-        <div class="overflow-x-auto rounded-xl shadow-md">
+        <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">🏆 Ranking e Pontuação</h2>
+        <!-- Tabela para telas maiores (md e acima) -->
+        <div id="rankingTableContainer" class="overflow-x-auto rounded-xl shadow-md hidden md:block">
             <table id="rankingTable">
                 <thead>
                     <tr>
@@ -419,10 +489,22 @@
                     <!-- Data will be populated by JavaScript -->
                 </tbody>
             </table>
-            <div id="noRankingData" class="empty-table-message hidden">Nenhum participante encontrado no ranking.</div>
+            <div id="noRankingData" class="empty-table-message hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-gray-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+                Nenhum participante encontrado no ranking.
+            </div>
         </div>
 
-        <h2 class="text-2xl font-semibold mt-8 mb-4 text-gray-700">🗓️ Registro Semanal de Participação</h2>
+        <!-- Cards para telas menores (abaixo de md) - Visível apenas em telas maiores agora, pois o mobileDashboard assume o lugar -->
+        <div id="rankingCardsContainer" class="grid grid-cols-1 gap-4 hidden">
+            <div id="noRankingCardsData" class="empty-table-message hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-gray-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+                Nenhum participante encontrado no ranking.
+            </div>
+            <!-- Cards will be populated by JavaScript -->
+        </div>
+
+        <h2 class="text-xl sm:text-2xl font-semibold mt-8 mb-4 text-gray-700">🗓️ Registro Semanal de Participação</h2>
         <div class="overflow-x-auto rounded-xl shadow-md">
             <table id="weeklyParticipationTable">
                 <thead>
@@ -440,7 +522,10 @@
                     <!-- Data will be populated by JavaScript -->
                 </tbody>
             </table>
-            <div id="noWeeklyData" class="empty-table-message hidden">Nenhum participante para o registro semanal.</div>
+            <div id="noWeeklyData" class="empty-table-message hidden">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-gray-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
+                Nenhum participante para o registro semanal.
+            </div>
         </div>
 
         <div class="flex justify-center mt-6">
@@ -449,11 +534,19 @@
             </button>
         </div>
 
-        <h2 class="text-2xl font-semibold mt-8 mb-4 text-gray-700">📈 Participação nas Atividades (%)</h2>
+        <h2 class="text-xl sm:text-2xl font-semibold mt-8 mb-4 text-gray-700">📈 Participação nas Atividades (%)</h2>
         <!-- Adjusted grid gap for closer spacing -->
         <div id="activityChart" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-x-4 gap-y-6 min-h-[100px] justify-items-center">
             <!-- Chart icons will be populated by JavaScript -->
-            <div id="noChartData" class="empty-table-message hidden col-span-full">Nenhum participante para o gráfico de atividades.</div>
+            <div id="noChartData" class="empty-table-message hidden col-span-full">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-gray-400"><path d="M21.2 15.6l-3.24-3.24A7 7 0 1 0 12 2v10h8.9z"></path><path d="M22 22L15.6 15.6"></path></svg>
+                Nenhum participante para o gráfico de atividades.
+            </div>
+        </div>
+        <div class="flex justify-center mt-6">
+            <button id="backToMobileRankingBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 hidden md:hidden">
+                Voltar ao Ranking Mobile
+            </button>
         </div>
     </div>
 
@@ -471,17 +564,22 @@
                 <div class="mb-4">
                     <label for="participantName" class="block text-gray-700 text-sm font-bold mb-2">Nome:</label>
                     <input type="text" id="participantName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-                    <p class="error-message hidden" id="nameError">O nome é obrigamento.</p>
+                    <p class="error-message hidden" id="nameError">O nome é obrigatório.</p>
                 </div>
                 <div class="mb-4">
                     <label for="participantInitialWeight" class="block text-gray-700 text-sm font-bold mb-2">Peso Inicial (kg):</label>
                     <input type="number" step="any" id="participantInitialWeight" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
                     <p class="error-message hidden" id="initialWeightError">Peso inicial deve ser um número positivo.</p>
                 </div>
-                <div class="mb-6">
+                <div class="mb-4">
                     <label for="participantFinalWeight" class="block text-gray-700 text-sm font-bold mb-2">Peso Final (kg):</label>
                     <input type="number" step="any" id="participantFinalWeight" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
                     <p class="error-message hidden" id="finalWeightError">Peso final deve ser um número positivo.</p>
+                </div>
+                <div class="mb-6">
+                    <label for="participantTargetWeight" class="block text-gray-700 text-sm font-bold mb-2">Meta de Peso (kg):</label>
+                    <input type="number" step="any" id="participantTargetWeight" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    <p class="error-message hidden" id="targetWeightError">Meta de peso deve ser um número positivo (opcional).</p>
                 </div>
                 <div class="flex items-center justify-between">
                     <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
@@ -505,7 +603,7 @@
                 <button id="confirmDeleteBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                     Excluir
                 </button>
-                <button id="cancelDeleteBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                <button type="button" id="cancelDeleteBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
                     Cancelar
                 </button>
             </div>
@@ -513,6 +611,31 @@
     </div>
 
     <script>
+        // Credenciais de login e permissões
+        const USERS = {
+            admin: { password: 'admin', canEdit: true },
+            root: { password: '1', canEdit: false }
+        };
+
+        let currentUser = null; // Para armazenar o usuário logado atualmente
+
+        // Referências aos novos elementos do DOM para login
+        const loginScreen = document.getElementById('loginScreen');
+        const loginForm = document.getElementById('loginForm');
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        const loginError = document.getElementById('loginError');
+        const mainContent = document.querySelector('.container'); // O container principal da sua aplicação
+
+        // Novas referências de DOM para o dashboard mobile
+        const mobileDashboard = document.getElementById('mobileDashboard');
+        const viewFullDashboardBtn = document.getElementById('viewFullDashboardBtn');
+        const mobileLeaderName = document.getElementById('mobileLeaderName');
+        const mobileLeaderPoints = document.getElementById('mobileLeaderPoints');
+        const mobileRankingList = document.getElementById('mobileRankingList');
+        const backToMobileRankingBtn = document.getElementById('backToMobileRankingBtn');
+
+
         // Constantes para chaves do localStorage e classes CSS
         const LOCAL_STORAGE_KEY = 'challengeParticipants';
         const HIDDEN_CLASS = 'hidden';
@@ -523,15 +646,16 @@
         // Dados iniciais dos participantes (baseado na imagem e nas regras)
         // A propriedade 'semanasValidas' é um array de booleanos para cada uma das 12 semanas.
         // true = semana válida (3+ treinos), false = semana não válida.
+        // Adicionado 'targetWeight' para metas de peso e 'weightHistory' para futuros gráficos.
         const defaultParticipants = [
-            { name: "Amanda", pesoInicial: 69.1, pesoFinal: 69.1, semanasValidas: Array(12).fill(false) },
-            { name: "Hevinho", pesoInicial: 85.3, pesoFinal: 85.3, semanasValidas: [true, false, false, false, false, false, false, false, false, false, false, false] },
-            { name: "Junior", pesoInicial: 113.9, pesoFinal: 113.9, semanasValidas: Array(12).fill(false) },
-            { name: "Midian Diniz", pesoInicial: 89.85, pesoFinal: 89.85, semanasValidas: Array(12).fill(false) },
-            { name: "Midian Fernandes", pesoInicial: 65.15, pesoFinal: 65.15, semanasValidas: [true, false, false, false, false, false, false, false, false, false, false, false] },
-            { name: "Paulinha", pesoInicial: 75.9, pesoFinal: 75.9, semanasValidas: Array(12).fill(false) },
-            { name: "Rayanne", pesoInicial: 86.4, pesoFinal: 86.4, semanasValidas: Array(12).fill(false) },
-            { name: "Wellington", pesoInicial: 117.7, pesoFinal: 117.7, semanasValidas: Array(12).fill(false) },
+            { name: "Amanda", pesoInicial: 69.1, pesoFinal: 69.1, targetWeight: null, semanasValidas: Array(12).fill(false) },
+            { name: "Hevinho", pesoInicial: 85.3, pesoFinal: 85.3, targetWeight: 75.0, semanasValidas: [true, false, false, false, false, false, false, false, false, false, false, false] },
+            { name: "Junior", pesoInicial: 113.9, pesoFinal: 113.9, targetWeight: 100.0, semanasValidas: Array(12).fill(false) },
+            { name: "Midian Diniz", pesoInicial: 89.85, pesoFinal: 89.85, targetWeight: null, semanasValidas: Array(12).fill(false) },
+            { name: "Midian Fernandes", pesoInicial: 65.15, pesoFinal: 65.15, targetWeight: 60.0, semanasValidas: [true, false, false, false, false, false, false, false, false, false, false, false] },
+            { name: "Paulinha", pesoInicial: 75.9, pesoFinal: 75.9, targetWeight: 70.0, semanasValidas: Array(12).fill(false) },
+            { name: "Rayanne", pesoInicial: 86.4, pesoFinal: 86.4, targetWeight: null, semanasValidas: Array(12).fill(false) },
+            { name: "Wellington", pesoInicial: 117.7, pesoFinal: 117.7, targetWeight: 110.0, semanasValidas: Array(12).fill(false) },
         ];
 
         // Tenta carregar os dados do localStorage, se não houver, usa os dados padrão
@@ -539,6 +663,13 @@
         try {
             const storedParticipants = localStorage.getItem(LOCAL_STORAGE_KEY);
             participants = storedParticipants ? JSON.parse(storedParticipants) : defaultParticipants;
+            // Garante que os novos campos (targetWeight, etc.) existam em dados antigos
+            participants = participants.map(p => ({
+                ...p,
+                targetWeight: p.targetWeight !== undefined ? p.targetWeight : null,
+                // weightHistory: p.weightHistory !== undefined ? p.weightHistory : [], // Manter para futura implementação de histórico
+                semanasValidas: p.semanasValidas || Array(12).fill(false) // Garante que semanasValidas exista
+            }));
         } catch (e) {
             console.error("Erro ao carregar dados do localStorage:", e);
             participants = defaultParticipants; // Fallback para dados padrão em caso de erro
@@ -547,11 +678,11 @@
         // Data de início do desafio: 07/07/2025
         const CHALLENGE_START_DATE = new Date('2025-07-07T00:00:00');
         // Data final do desafio: 07/10/2025 (90 dias a partir de 07/07/2025)
-        const CHALLENGE_END_DATE = new Date('2025-10-07T23:59:59'); 
+        const CHALLENGE_END_DATE = new Date('2025-10-07T23:59:59');
         const MAX_WEEKS = 12; // Número total de semanas no desafio
         const MAX_ACTIVITY_POINTS = 50; // Pontuação máxima para atividade
 
-        // Referências aos elementos do DOM
+        // Referências aos elementos do DOM (do conteúdo principal)
         const participantModal = document.getElementById('participantModal');
         const closeModalBtn = document.getElementById('closeModalBtn');
         const cancelModalBtn = document.getElementById('cancelModalBtn');
@@ -562,6 +693,7 @@
         const participantNameInput = document.getElementById('participantName');
         const participantInitialWeightInput = document.getElementById('participantInitialWeight');
         const participantFinalWeightInput = document.getElementById('participantFinalWeight');
+        const participantTargetWeightInput = document.getElementById('participantTargetWeight'); // Novo input para meta de peso
         const searchParticipantInput = document.getElementById('searchParticipantInput');
         const feedbackMessageDiv = document.getElementById('feedbackMessage');
         const rankingTableBody = document.querySelector('#rankingTable tbody');
@@ -571,11 +703,14 @@
         const noRankingData = document.getElementById('noRankingData');
         const noWeeklyData = document.getElementById('noWeeklyData');
         const noChartData = document.getElementById('noChartData');
+        const rankingCardsContainer = document.getElementById('rankingCardsContainer'); // Novo container para cards
+        const noRankingCardsData = document.getElementById('noRankingCardsData'); // Nova mensagem para cards
 
         // Referências para mensagens de erro
         const nameError = document.getElementById('nameError');
         const initialWeightError = document.getElementById('initialWeightError');
         const finalWeightError = document.getElementById('finalWeightError');
+        const targetWeightError = document.getElementById('targetWeightError'); // Nova mensagem de erro para meta de peso
 
         // Referências para o modal de exclusão
         const deleteConfirmModal = document.getElementById('deleteConfirmModal');
@@ -590,6 +725,7 @@
         const importDataInput = document.getElementById('importDataInput');
         const importDataBtn = document.getElementById('importDataBtn');
         const resetDataBtn = document.getElementById('resetDataBtn');
+        const saveDataBtn = document.getElementById('saveDataBtn'); // Adicionado para desabilitar/habilitar
 
         /**
          * Função utilitária para debounce.
@@ -605,6 +741,117 @@
                 timeout = setTimeout(() => func.apply(context, args), delay);
             };
         }
+
+        /**
+         * Lida com o envio do formulário de login.
+         * @param {Event} event O evento de envio.
+         */
+        function handleLogin(event) {
+            event.preventDefault();
+
+            const username = usernameInput.value.trim();
+            const password = passwordInput.value.trim();
+
+            loginError.classList.add(HIDDEN_CLASS); // Esconde qualquer erro anterior
+
+            if (USERS[username] && USERS[username].password === password) {
+                currentUser = username; // Define o usuário logado
+                loginScreen.classList.add(HIDDEN_CLASS); // Esconde a tela de login
+                checkScreenWidth(); // Verifica a largura da tela para mostrar o dashboard correto
+            } else {
+                loginError.classList.remove(HIDDEN_CLASS); // Mostra mensagem de erro
+            }
+        }
+
+        /**
+         * Alterna a visibilidade entre o dashboard mobile e a planilha completa.
+         * @param {boolean} showMobile Se true, mostra o dashboard mobile; se false, mostra a planilha completa.
+         */
+        function toggleView(showMobile) {
+            if (showMobile) {
+                mobileDashboard.classList.remove(HIDDEN_CLASS);
+                mainContent.classList.add(HIDDEN_CLASS);
+                // Oculta o botão "Voltar ao Ranking Mobile" quando no dashboard mobile
+                backToMobileRankingBtn.classList.add(HIDDEN_CLASS);
+                renderMobileDashboard(); // Atualiza o conteúdo do dashboard mobile
+            } else {
+                mobileDashboard.classList.add(HIDDEN_CLASS);
+                mainContent.classList.remove(HIDDEN_CLASS);
+                // Mostra o botão "Voltar ao Ranking Mobile" quando na planilha completa (apenas em mobile)
+                if (window.innerWidth < 768) { // Ajuste o breakpoint conforme necessário
+                    backToMobileRankingBtn.classList.remove(HIDDEN_CLASS);
+                }
+                updatePlanilha(); // Garante que a planilha completa esteja atualizada
+            }
+        }
+
+        /**
+         * Verifica a largura da tela e alterna a visualização apropriada.
+         */
+        function checkScreenWidth() {
+            // Se o usuário estiver logado, gerencia a exibição
+            if (currentUser) {
+                if (window.innerWidth < 768) { // Exemplo: 768px para mobile (md breakpoint do Tailwind)
+                    toggleView(true); // Mostra o dashboard mobile
+                } else {
+                    toggleView(false); // Mostra a planilha completa
+                }
+            }
+        }
+
+        /**
+         * Aplica as permissões do usuário logado, desabilitando elementos conforme necessário.
+         */
+        function applyPermissions() {
+            const canEdit = USERS[currentUser] ? USERS[currentUser].canEdit : false;
+
+            // Desabilita botões de ação no mainContent
+            const mainActionButtons = [addParticipantBtn, exportDataBtn, importDataBtn, resetDataBtn, saveDataBtn];
+            mainActionButtons.forEach(btn => {
+                if (!canEdit) {
+                    btn.classList.add('opacity-50', 'cursor-not-allowed');
+                    btn.setAttribute('disabled', 'true');
+                } else {
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    btn.removeAttribute('disabled');
+                }
+            });
+
+            // Ajusta visibilidade do botão 'Adicionar Participante'
+            if (!canEdit) {
+                addParticipantBtn.classList.add(HIDDEN_CLASS);
+            } else {
+                addParticipantBtn.classList.remove(HIDDEN_CLASS);
+            }
+
+            // Desabilita/habilita edição na tabela de ranking e cards (links e botões)
+            const editableElements = document.querySelectorAll(
+                '#rankingTable .edit-participant, #rankingTable .edit-participant-icon, #rankingTable .delete-participant-icon, ' +
+                '#rankingCardsContainer .edit-participant-icon, #rankingCardsContainer .delete-participant-icon'
+            );
+            editableElements.forEach(element => {
+                if (canEdit) {
+                    element.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+                    element.removeAttribute('disabled');
+                } else {
+                    element.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
+                    element.setAttribute('disabled', 'true');
+                }
+            });
+
+            // Desabilita/habilita checkboxes na tabela de participação semanal
+            const weeklyCheckboxes = document.querySelectorAll('#weeklyParticipationTable input[type="checkbox"]');
+            weeklyCheckboxes.forEach(checkbox => {
+                checkbox.disabled = !canEdit;
+            });
+
+            // Desabilita/habilita inputs no modal de participante
+            participantNameInput.disabled = !canEdit;
+            participantInitialWeightInput.disabled = !canEdit;
+            participantFinalWeightInput.disabled = !canEdit;
+            participantTargetWeightInput.disabled = !canEdit; // Desabilita o novo input de meta de peso
+        }
+
 
         /**
          * Salva os dados dos participantes no localStorage.
@@ -667,6 +914,7 @@
             hideError(participantNameInput, nameError);
             hideError(participantInitialWeightInput, initialWeightError);
             hideError(participantFinalWeightInput, finalWeightError);
+            hideError(participantTargetWeightInput, targetWeightError); // Limpa erro da meta de peso
         }
 
         /**
@@ -686,12 +934,15 @@
                 participantNameInput.value = p.name;
                 participantInitialWeightInput.value = p.pesoInicial;
                 participantFinalWeightInput.value = p.pesoFinal;
+                participantTargetWeightInput.value = p.targetWeight !== null ? p.targetWeight : ''; // Preenche meta de peso
             } else {
                 // Modo de adição
                 modalTitle.textContent = 'Adicionar Novo Participante';
                 participantIndexInput.value = ''; // Limpa o índice para indicar nova adição
+                participantTargetWeightInput.value = ''; // Garante que a meta de peso esteja vazia para novos
             }
             participantModal.classList.add(SHOW_CLASS); // Adiciona a classe 'show' para exibir e aplicar transição
+            applyPermissions(); // Reaplicar permissões para os inputs do modal
         }
 
         /**
@@ -728,7 +979,8 @@
                 if (indexToDelete !== -1) {
                     participants.splice(indexToDelete, 1); // Remove o participante do array
                     saveData(); // Salva os dados atualizados
-                    updatePlanilha(); // Atualiza a UI
+                    updatePlanilha(); // Atualiza a UI da planilha completa
+                    renderMobileDashboard(); // Atualiza a UI do dashboard mobile
                     showFeedbackMessage(`Participante "${participantToDeleteName}" excluído com sucesso!`);
                 } else {
                     showFeedbackMessage(`Erro: Participante "${participantToDeleteName}" não encontrado.`, true);
@@ -748,6 +1000,8 @@
             const name = participantNameInput.value.trim();
             const initialWeight = parseFloat(participantInitialWeightInput.value);
             const finalWeight = parseFloat(participantFinalWeightInput.value);
+            const targetWeight = participantTargetWeightInput.value.trim() === '' ? null : parseFloat(participantTargetWeightInput.value); // Meta de peso pode ser nula
+
             const index = participantIndexInput.value;
 
             if (name === '') {
@@ -756,7 +1010,7 @@
             } else {
                 // Validação de nome duplicado
                 const isEditing = index !== '';
-                const isNameTaken = participants.some((p, i) => 
+                const isNameTaken = participants.some((p, i) =>
                     p.name.toLowerCase() === name.toLowerCase() && (!isEditing || i !== parseInt(index))
                 );
                 if (isNameTaken) {
@@ -772,6 +1026,11 @@
 
             if (isNaN(finalWeight) || finalWeight <= 0) {
                 displayError(participantFinalWeightInput, finalWeightError, "Peso final deve ser um número positivo.");
+                isValid = false;
+            }
+
+            if (targetWeight !== null && (isNaN(targetWeight) || targetWeight <= 0)) {
+                displayError(participantTargetWeightInput, targetWeightError, "Meta de peso deve ser um número positivo ou vazio.");
                 isValid = false;
             }
 
@@ -792,6 +1051,7 @@
             const name = participantNameInput.value.trim();
             const initialWeight = parseFloat(participantInitialWeightInput.value);
             const finalWeight = parseFloat(participantFinalWeightInput.value);
+            const targetWeight = participantTargetWeightInput.value.trim() === '' ? null : parseFloat(participantTargetWeightInput.value);
             const index = participantIndexInput.value;
 
             if (index !== '') {
@@ -800,19 +1060,22 @@
                 existingParticipant.name = name;
                 existingParticipant.pesoInicial = initialWeight;
                 existingParticipant.pesoFinal = finalWeight;
+                existingParticipant.targetWeight = targetWeight;
             } else {
                 // Adição de novo participante
                 const newParticipant = {
                     name: name,
                     pesoInicial: initialWeight,
                     pesoFinal: finalWeight,
+                    targetWeight: targetWeight,
                     semanasValidas: Array(MAX_WEEKS).fill(false) // Novas semanas vazias
                 };
                 participants.push(newParticipant);
             }
 
             saveData(); // Salva os dados no localStorage
-            updatePlanilha(); // Recalcula e atualiza a UI
+            updatePlanilha(); // Recalcula e atualiza a UI da planilha completa
+            renderMobileDashboard(); // Recalcula e atualiza a UI do dashboard mobile
             closeModal(); // Fecha o modal
         }
 
@@ -873,6 +1136,16 @@
             const totalPoints = weightPoints + activityPoints;
             const percentActivities = (activityPoints / MAX_ACTIVITY_POINTS) * 100;
 
+            let progressToTarget = null;
+            if (participant.targetWeight !== null && participant.pesoInicial !== null && participant.pesoInicial > participant.targetWeight) {
+                // Calcula o quanto do caminho até a meta foi percorrido
+                const totalReductionNeeded = participant.pesoInicial - participant.targetWeight;
+                const currentReduction = participant.pesoInicial - participant.pesoFinal;
+                progressToTarget = (currentReduction / totalReductionNeeded) * 100;
+                if (progressToTarget < 0) progressToTarget = 0; // Se ganhou peso
+                if (progressToTarget > 100) progressToTarget = 100; // Se passou da meta
+            }
+
             return {
                 ...participant, // Retorna todas as propriedades originais
                 percentLoss: parseFloat(percentLoss.toFixed(2)),
@@ -881,20 +1154,22 @@
                 activityPoints: parseFloat(activityPoints.toFixed(2)),
                 totalPoints: parseFloat(totalPoints.toFixed(2)),
                 percentActivities: parseFloat(percentActivities.toFixed(1)),
+                progressToTarget: progressToTarget !== null ? parseFloat(progressToTarget.toFixed(1)) : null
             };
         }
 
         /**
-         * Atualiza as tabelas e o gráfico da planilha com os dados dos participantes.
+         * Atualiza as tabelas e o gráfico da planilha com os dados dos participantes (visualização completa).
          */
         function updatePlanilha() {
-            rankingTableBody.innerHTML = ''; // Limpa as linhas existentes
+            rankingTableBody.innerHTML = ''; // Limpa as linhas existentes da tabela
+            rankingCardsContainer.innerHTML = ''; // Limpa os cards existentes (mantidos ocultos)
             weeklyParticipationTableBody.innerHTML = '';
             activityChartDiv.innerHTML = '';
 
             // Filtrar participantes com base na busca
             const searchTerm = searchParticipantInput.value.toLowerCase().trim();
-            const filteredParticipants = participants.filter(p => 
+            const filteredParticipants = participants.filter(p =>
                 p.name.toLowerCase().includes(searchTerm)
             );
 
@@ -904,21 +1179,26 @@
             // Ordenar participantes por pontuação total para o ranking
             const rankedParticipants = [...calculatedParticipants].sort((a, b) => b.totalPoints - a.totalPoints);
 
-            // Preencher a tabela de Ranking
+            // Preencher a tabela de Ranking (para telas maiores)
             if (rankedParticipants.length === 0) {
-                noRankingData.classList.remove(HIDDEN_CLASS);
+                noRankingData.classList.remove(HIDDEN_CLASS); // Mensagem para a tabela
             } else {
                 noRankingData.classList.add(HIDDEN_CLASS);
+
                 rankedParticipants.forEach((p, index) => {
                     let crownEmoji = '';
                     if (index === 0) {
                         crownEmoji = '👑'; // Ouro
                     } else if (index === 1) {
-                        crownEmoji = '🥈'; // Prata
+                        crownEmoji = '�'; // Prata
                     } else if (index === 2) {
                         crownEmoji = '🥉'; // Bronze
                     }
 
+                    const targetWeightDisplay = p.targetWeight !== null ? `${p.targetWeight.toFixed(1)} kg` : 'N/A';
+                    const progressToTargetDisplay = p.progressToTarget !== null ? `(${p.progressToTarget}% da meta)` : '';
+
+                    // Preencher a tabela de Ranking (para telas maiores)
                     const row = rankingTableBody.insertRow();
                     if (index === 0) { // Destaca o líder
                         row.classList.add('leader-row');
@@ -926,8 +1206,8 @@
                     row.innerHTML = `
                         <td class="font-semibold">${index + 1} ${crownEmoji}</td>
                         <td><a href="#" class="text-blue-600 hover:underline edit-participant" data-name="${p.name}">${p.name}</a></td>
-                        <td>${p.pesoInicial.toFixed(1)}</td>
-                        <td>${p.pesoFinal.toFixed(1)}</td>
+                        <td>${p.pesoInicial.toFixed(2)}</td>
+                        <td>${p.pesoFinal.toFixed(2)}</td>
                         <td>${p.percentLoss.toFixed(2)}%</td>
                         <td>${p.weightPoints.toFixed(2)}</td>
                         <td>${p.validWeeksCount}</td>
@@ -959,7 +1239,7 @@
             const today = new Date();
             const diffTime = today.getTime() - CHALLENGE_START_DATE.getTime();
             // Adiciona 1 para que a primeira semana seja a semana 1, não a semana 0
-            const currentWeek = Math.floor(diffTime / MILLISECONDS_PER_WEEK) + 1; 
+            const currentWeek = Math.floor(diffTime / MILLISECONDS_PER_WEEK) + 1;
 
             // Preencher o cabeçalho da tabela de Participação Semanal com as semanas
             let weekHeaders = `<th class="rounded-tl-xl">Nome
@@ -1060,7 +1340,73 @@
 
             // Atualizar os boxes de líder e dias restantes
             updateSummaryBoxes(rankedParticipants);
+
+            // Aplicar permissões após a renderização dos elementos
+            applyPermissions();
         }
+
+        /**
+         * Renderiza o dashboard mobile simplificado.
+         */
+        function renderMobileDashboard() {
+            mobileRankingList.innerHTML = ''; // Limpa a lista existente
+
+            const searchTerm = searchParticipantInput.value.toLowerCase().trim();
+            const filteredParticipants = participants.filter(p =>
+                p.name.toLowerCase().includes(searchTerm)
+            ).map(calculateParticipantMetrics); // Calcula as métricas
+
+            const rankedParticipants = [...filteredParticipants].sort((a, b) => b.totalPoints - a.totalPoints);
+
+            // Atualiza o card de destaque do líder
+            if (rankedParticipants.length > 0) {
+                const leader = rankedParticipants[0];
+                mobileLeaderName.textContent = leader.name;
+                mobileLeaderPoints.textContent = leader.totalPoints.toFixed(2);
+            } else {
+                mobileLeaderName.textContent = 'N/A';
+                mobileLeaderPoints.textContent = '0.00';
+            }
+
+            // Preenche a lista de ranking mobile
+            if (rankedParticipants.length === 0) {
+                mobileRankingList.innerHTML = '<p class="text-center text-gray-500">Nenhum participante encontrado.</p>';
+            } else {
+                rankedParticipants.forEach((p, index) => {
+                    let crownEmoji = '';
+                    if (index === 0) crownEmoji = '👑';
+                    else if (index === 1) crownEmoji = '🥈';
+                    else if (index === 2) crownEmoji = '🥉';
+
+                    const listItem = document.createElement('div');
+                    listItem.className = `bg-white p-3 rounded-md shadow-sm border border-gray-200 flex justify-between items-center ${index === 0 ? 'bg-yellow-50 border-orange-300' : ''}`;
+                    listItem.innerHTML = `
+                        <div>
+                            <span class="font-bold text-gray-800">${index + 1}. ${p.name} ${crownEmoji}</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-lg font-bold text-blue-700">${p.totalPoints.toFixed(2)} pts</span>
+                            <button class="text-blue-500 hover:text-blue-700 view-details-btn" data-name="${p.name}" aria-label="Ver detalhes de ${p.name}">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 11V3H7v8"></path><path d="M12 21h9"></path><path d="M7 3h14v18H7z"></path></svg>
+                            </button>
+                        </div>
+                    `;
+                    mobileRankingList.appendChild(listItem);
+                });
+
+                // Adiciona listener para os botões "Ver Detalhes"
+                mobileRankingList.querySelectorAll('.view-details-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const participantName = event.currentTarget.dataset.name;
+                        searchParticipantInput.value = participantName; // Preenche o campo de busca
+                        toggleView(false); // Alterna para a visualização completa
+                    });
+                });
+            }
+
+            applyPermissions(); // Reaplica as permissões, caso existam botões aqui
+        }
+
 
         /**
          * Lida com a mudança nos checkboxes de semanas válidas.
@@ -1074,7 +1420,8 @@
             const participant = participants.find(p => p.name === name);
             if (participant) {
                 participant.semanasValidas[weekIndex] = isChecked;
-                updatePlanilha(); // Recalcula e atualiza a UI
+                updatePlanilha(); // Recalcula e atualiza a UI da planilha completa
+                renderMobileDashboard(); // Recalcula e atualiza a UI do dashboard mobile
                 // Não salva automaticamente aqui, o botão "Salvar Dados" fará isso
             }
         }
@@ -1082,13 +1429,14 @@
         /**
          * Atualiza os boxes de líder atual e dias restantes.
          * @param {Array} rankedParticipants O array de participantes já ordenado por pontuação.
+         * @returns {void}
          */
         function updateSummaryBoxes(rankedParticipants) {
             const leaderBox = document.getElementById('leaderBox');
             const daysRemainingBox = document.getElementById('daysRemainingBox');
 
             // Líder Atual: Pega o primeiro participante do array já ordenado por pontuação
-            const currentLeader = rankedParticipants[0]; 
+            const currentLeader = rankedParticipants[0];
             if (currentLeader) {
                 leaderBox.innerHTML = `
                     <div class="text-xl font-bold text-gray-800 mb-2">👑 Líder: <span class="text-green-700">${currentLeader.name}</span></div>
@@ -1145,7 +1493,13 @@
 
         // Inicializa a planilha ao carregar a página
         window.onload = () => {
-            updatePlanilha();
+            // Esconde o conteúdo principal e o dashboard mobile por padrão
+            mainContent.classList.add(HIDDEN_CLASS);
+            mobileDashboard.classList.add(HIDDEN_CLASS);
+
+            // Listener para o formulário de login
+            loginForm.addEventListener('submit', handleLogin);
+
             // Adiciona listener para o botão de salvar
             document.getElementById('saveDataBtn').addEventListener('click', saveData);
 
@@ -1171,12 +1525,21 @@
             });
 
             // Listener para o campo de busca com debounce
-            searchParticipantInput.addEventListener('keyup', debounce(updatePlanilha, 300)); // Debounce de 300ms
+            searchParticipantInput.addEventListener('keyup', debounce(() => {
+                updatePlanilha(); // Atualiza a planilha completa
+                renderMobileDashboard(); // Atualiza o dashboard mobile
+            }, 300)); // Debounce de 300ms
 
             // Event delegation para a tabela de ranking (edição e exclusão)
             rankingTableBody.addEventListener('click', function(event) {
                 const target = event.target.closest('.edit-participant, .edit-participant-icon, .delete-participant-icon');
                 if (!target) return; // Se o clique não foi em um dos botões/links
+
+                // Verifica se o elemento está desabilitado pela permissão
+                if (target.hasAttribute('disabled')) {
+                    showFeedbackMessage("Você não tem permissão para realizar esta ação.", true);
+                    return;
+                }
 
                 event.preventDefault(); // Evita o comportamento padrão do link/botão
 
@@ -1192,15 +1555,50 @@
                 }
             });
 
+            // Event delegation para os cards de ranking (edição e exclusão) - AGORA OCULTOS POR PADRÃO EM MOBILE
+            rankingCardsContainer.addEventListener('click', function(event) {
+                const target = event.target.closest('.edit-participant-icon, .delete-participant-icon');
+                if (!target) return;
+
+                if (target.hasAttribute('disabled')) {
+                    showFeedbackMessage("Você não tem permissão para realizar esta ação.", true);
+                    return;
+                }
+
+                event.preventDefault();
+
+                const participantName = target.dataset.name;
+                if (target.classList.contains('edit-participant-icon')) {
+                    const indexToEdit = participants.findIndex(p => p.name === participantName);
+                    if (indexToEdit !== -1) {
+                        openModal(indexToEdit);
+                    }
+                } else if (target.classList.contains('delete-participant-icon')) {
+                    openDeleteModal(participantName);
+                }
+            });
+
+
             // Event delegation para checkboxes na tabela de participação semanal
             weeklyParticipationTableBody.addEventListener('change', function(event) {
                 if (event.target.type === 'checkbox') {
+                    // Verifica se o checkbox está desabilitado pela permissão
+                    if (event.target.disabled) {
+                        showFeedbackMessage("Você não tem permissão para alterar os dados.", true);
+                        // Reverte o estado do checkbox se tentar alterar sem permissão
+                        event.target.checked = !event.target.checked;
+                        return;
+                    }
                     handleCheckboxChange(event);
                 }
             });
 
             // Listeners para exportar, importar e resetar dados
             exportDataBtn.addEventListener('click', () => {
+                if (exportDataBtn.disabled) {
+                    showFeedbackMessage("Você não tem permissão para exportar dados.", true);
+                    return;
+                }
                 const dataStr = JSON.stringify(participants, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
@@ -1215,6 +1613,10 @@
             });
 
             importDataBtn.addEventListener('click', () => {
+                if (importDataBtn.disabled) {
+                    showFeedbackMessage("Você não tem permissão para importar dados.", true);
+                    return;
+                }
                 importDataInput.click(); // Simula o clique no input de arquivo
             });
 
@@ -1226,16 +1628,18 @@
                         try {
                             const importedData = JSON.parse(e.target.result);
                             // Validação básica para garantir que os dados importados são válidos
-                            if (Array.isArray(importedData) && importedData.every(p => 
+                            if (Array.isArray(importedData) && importedData.every(p =>
                                 typeof p.name === 'string' && p.name.trim() !== '' &&
                                 typeof p.pesoInicial === 'number' && p.pesoInicial > 0 &&
                                 typeof p.pesoFinal === 'number' && p.pesoFinal > 0 &&
+                                (p.targetWeight === null || (typeof p.targetWeight === 'number' && p.targetWeight > 0)) && // Valida meta de peso
                                 Array.isArray(p.semanasValidas) && p.semanasValidas.length === MAX_WEEKS &&
                                 p.semanasValidas.every(s => typeof s === 'boolean')
                             )) {
                                 participants = importedData;
                                 saveData();
-                                updatePlanilha();
+                                updatePlanilha(); // Atualiza a planilha completa
+                                renderMobileDashboard(); // Atualiza o dashboard mobile
                                 showFeedbackMessage("Dados importados com sucesso!");
                             } else {
                                 showFeedbackMessage("Formato de arquivo JSON inválido. Verifique a estrutura dos dados.", true);
@@ -1248,10 +1652,14 @@
                     reader.readAsText(file);
                 }
                 // Limpa o valor do input de arquivo para permitir a importação do mesmo arquivo novamente
-                event.target.value = ''; 
+                event.target.value = '';
             });
 
             resetDataBtn.addEventListener('click', () => {
+                if (resetDataBtn.disabled) {
+                    showFeedbackMessage("Você não tem permissão para resetar dados.", true);
+                    return;
+                }
                 // Usar um modal de confirmação customizado em vez de `confirm()`
                 openConfirmResetModal();
             });
@@ -1271,6 +1679,7 @@
                     participants = JSON.parse(JSON.stringify(defaultParticipants)); // Deep copy para não referenciar o default
                     saveData();
                     updatePlanilha();
+                    renderMobileDashboard();
                     showFeedbackMessage("Dados resetados para o padrão com sucesso!");
                     closeDeleteModal();
                     // Restaura os textos e classes originais do modal de exclusão
@@ -1294,6 +1703,19 @@
                 confirmDeleteBtn.onclick = deleteParticipant;
                 cancelDeleteBtn.onclick = closeDeleteModal;
             }
+
+            // Listeners para alternar as visualizações
+            viewFullDashboardBtn.addEventListener('click', () => {
+                toggleView(false); // Mostra a planilha completa
+            });
+
+            backToMobileRankingBtn.addEventListener('click', () => {
+                toggleView(true); // Volta ao ranking mobile
+            });
+
+            // Chama a função de verificação de largura da tela ao carregar a página
+            // para exibir a tela correta (mobile ou desktop) após o login.
+            // Isso será feito após o login, dentro de handleLogin.
         };
     </script>
 </body>
