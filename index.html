@@ -374,8 +374,8 @@
         </div>
     </div>
 
-    <!-- Nova Tela Principal Mobile (visível apenas em telas pequenas) -->
-    <div id="mobileDashboard" class="container-mobile-view hidden">
+    <!-- Nova Tela Principal Mobile (visível apenas em telas pequenas por padrão) -->
+    <div id="mobileDashboard" class="container-mobile-view md:hidden">
         <h1 class="text-2xl sm:text-3xl font-bold text-center mb-6 text-gray-800">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
         <h2 class="text-xl font-bold text-center mb-4 text-gray-800">📊 Ranking Geral</h2>
 
@@ -398,7 +398,7 @@
     </div>
 
     <!-- Conteúdo Principal do Desafio (inicialmente oculto, visível em telas maiores) -->
-    <div class="container hidden">
+    <div class="container hidden md:block">
         <h1 class="text-2xl sm:text-3xl font-bold text-center mb-6 text-gray-800">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -670,9 +670,11 @@
                 // weightHistory: p.weightHistory !== undefined ? p.weightHistory : [], // Manter para futura implementação de histórico
                 semanasValidas: p.semanasValidas || Array(12).fill(false) // Garante que semanasValidas exista
             }));
+            console.log("Dados carregados. Participantes:", participants); // Log de depuração
         } catch (e) {
             console.error("Erro ao carregar dados do localStorage:", e);
             participants = defaultParticipants; // Fallback para dados padrão em caso de erro
+            console.log("Fallback para dados padrão. Participantes:", participants); // Log de depuração
         }
 
         // Data de início do desafio: 07/07/2025
@@ -757,9 +759,11 @@
             if (USERS[username] && USERS[username].password === password) {
                 currentUser = username; // Define o usuário logado
                 loginScreen.classList.add(HIDDEN_CLASS); // Esconde a tela de login
+                console.log("Login bem-sucedido. Chamando checkScreenWidth."); // Log de depuração
                 checkScreenWidth(); // Verifica a largura da tela para mostrar o dashboard correto
             } else {
                 loginError.classList.remove(HIDDEN_CLASS); // Mostra mensagem de erro
+                console.log("Falha no login."); // Log de depuração
             }
         }
 
@@ -773,6 +777,7 @@
                 mainContent.classList.add(HIDDEN_CLASS);
                 // Oculta o botão "Voltar ao Ranking Mobile" quando no dashboard mobile
                 backToMobileRankingBtn.classList.add(HIDDEN_CLASS);
+                console.log("Exibindo dashboard mobile."); // Log de depuração
                 renderMobileDashboard(); // Atualiza o conteúdo do dashboard mobile
             } else {
                 mobileDashboard.classList.add(HIDDEN_CLASS);
@@ -780,7 +785,10 @@
                 // Mostra o botão "Voltar ao Ranking Mobile" quando na planilha completa (apenas em mobile)
                 if (window.innerWidth < 768) { // Ajuste o breakpoint conforme necessário
                     backToMobileRankingBtn.classList.remove(HIDDEN_CLASS);
+                } else {
+                    backToMobileRankingBtn.classList.add(HIDDEN_CLASS); // Oculta em desktop
                 }
+                console.log("Exibindo planilha completa."); // Log de depuração
                 updatePlanilha(); // Garante que a planilha completa esteja atualizada
             }
         }
@@ -804,6 +812,7 @@
          */
         function applyPermissions() {
             const canEdit = USERS[currentUser] ? USERS[currentUser].canEdit : false;
+            console.log("Aplicando permissões. Pode editar:", canEdit); // Log de depuração
 
             // Desabilita botões de ação no mainContent
             const mainActionButtons = [addParticipantBtn, exportDataBtn, importDataBtn, resetDataBtn, saveDataBtn];
@@ -860,6 +869,7 @@
             try {
                 localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(participants));
                 showFeedbackMessage("Dados salvos com sucesso!");
+                console.log("Dados salvos no localStorage."); // Log de depuração
             } catch (e) {
                 console.error("Erro ao salvar dados no localStorage:", e);
                 showFeedbackMessage("Erro ao salvar dados!", true); // Exibe mensagem de erro
@@ -1162,6 +1172,7 @@
          * Atualiza as tabelas e o gráfico da planilha com os dados dos participantes (visualização completa).
          */
         function updatePlanilha() {
+            console.log("Atualizando planilha completa..."); // Log de depuração
             rankingTableBody.innerHTML = ''; // Limpa as linhas existentes da tabela
             rankingCardsContainer.innerHTML = ''; // Limpa os cards existentes (mantidos ocultos)
             weeklyParticipationTableBody.innerHTML = '';
@@ -1178,19 +1189,24 @@
 
             // Ordenar participantes por pontuação total para o ranking
             const rankedParticipants = [...calculatedParticipants].sort((a, b) => b.totalPoints - a.totalPoints);
+            console.log("Participantes ranqueados para planilha completa:", rankedParticipants); // Log de depuração
 
             // Preencher a tabela de Ranking (para telas maiores)
             if (rankedParticipants.length === 0) {
                 noRankingData.classList.remove(HIDDEN_CLASS); // Mensagem para a tabela
+                noWeeklyData.classList.remove(HIDDEN_CLASS); // Mensagem para tabela semanal
+                noChartData.classList.remove(HIDDEN_CLASS); // Mensagem para o gráfico
             } else {
                 noRankingData.classList.add(HIDDEN_CLASS);
+                noWeeklyData.classList.add(HIDDEN_CLASS);
+                noChartData.classList.add(HIDDEN_CLASS);
 
                 rankedParticipants.forEach((p, index) => {
                     let crownEmoji = '';
                     if (index === 0) {
                         crownEmoji = '👑'; // Ouro
                     } else if (index === 1) {
-                        crownEmoji = '�'; // Prata
+                        crownEmoji = '&#129352;'; // Prata - CORRIGIDO PARA ENTIDADE HTML
                     } else if (index === 2) {
                         crownEmoji = '🥉'; // Bronze
                     }
@@ -1349,7 +1365,19 @@
          * Renderiza o dashboard mobile simplificado.
          */
         function renderMobileDashboard() {
+            console.log("Renderizando dashboard mobile..."); // Log de depuração
             mobileRankingList.innerHTML = ''; // Limpa a lista existente
+            mobileLeaderName.textContent = 'Carregando...'; // Reset leader info
+            mobileLeaderPoints.textContent = 'Carregando...';
+
+            // Garante que o array de participantes não esteja vazio antes de prosseguir
+            if (participants.length === 0) {
+                mobileRankingList.innerHTML = '<p class="text-center text-gray-500">Nenhum participante para exibir.</p>';
+                mobileLeaderName.textContent = 'N/A';
+                mobileLeaderPoints.textContent = '0.00';
+                console.log("Nenhum participante para exibir no dashboard mobile."); // Log de depuração
+                return; // Sai se não houver participantes
+            }
 
             const searchTerm = searchParticipantInput.value.toLowerCase().trim();
             const filteredParticipants = participants.filter(p =>
@@ -1357,6 +1385,7 @@
             ).map(calculateParticipantMetrics); // Calcula as métricas
 
             const rankedParticipants = [...filteredParticipants].sort((a, b) => b.totalPoints - a.totalPoints);
+            console.log("Participantes ranqueados para dashboard mobile:", rankedParticipants); // Log de depuração
 
             // Atualiza o card de destaque do líder
             if (rankedParticipants.length > 0) {
@@ -1375,8 +1404,8 @@
                 rankedParticipants.forEach((p, index) => {
                     let crownEmoji = '';
                     if (index === 0) crownEmoji = '👑';
-                    else if (index === 1) crownEmoji = '🥈';
-                    else if (index === 2) crownEmoji = '🥉';
+                    else if (index === 1) crownEmoji = '&#129352;'; // Prata - CORRIGIDO PARA ENTIDADE HTML
+                    else if (index === 2) crownEmoji = '�';
 
                     const listItem = document.createElement('div');
                     listItem.className = `bg-white p-3 rounded-md shadow-sm border border-gray-200 flex justify-between items-center ${index === 0 ? 'bg-yellow-50 border-orange-300' : ''}`;
@@ -1494,6 +1523,8 @@
         // Inicializa a planilha ao carregar a página
         window.onload = () => {
             // Esconde o conteúdo principal e o dashboard mobile por padrão
+            // As classes Tailwind no HTML já devem cuidar da visibilidade inicial,
+            // mas mantemos hidden aqui para garantir que o JS controle após o login.
             mainContent.classList.add(HIDDEN_CLASS);
             mobileDashboard.classList.add(HIDDEN_CLASS);
 
