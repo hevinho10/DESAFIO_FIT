@@ -541,9 +541,9 @@
 
         <!-- Seções de Conteúdo (agora com IDs para controle de visibilidade) -->
         <div id="sectionRanking" class="content-section">
-            <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700 hidden">🏆 Ranking e Pontuação</h2> <!-- Hidden as title is in nav -->
-            <!-- Tabela para telas maiores (md e acima) -->
-            <div id="rankingTableContainer" class="overflow-x-auto rounded-xl shadow-md hidden md:block">
+            <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">🏆 Ranking e Pontuação</h2>
+            <!-- Tabela de Ranking (visível em todas as telas quando a planilha completa está ativa) -->
+            <div id="rankingTableContainer" class="overflow-x-auto rounded-xl shadow-md">
                 <table id="rankingTable">
                     <thead>
                         <tr>
@@ -603,19 +603,11 @@
                     Nenhum participante encontrado no ranking.
                 </div>
             </div>
-
-            <!-- Cards para telas menores (abaixo de md) - Visível apenas em telas maiores agora, pois o mobileDashboard assume o lugar -->
-            <div id="rankingCardsContainer" class="grid grid-cols-1 gap-4 hidden">
-                <div id="noRankingCardsData" class="empty-table-message hidden">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-gray-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
-                    Nenhum participante encontrado no ranking.
-                </div>
-                <!-- Cards will be populated by JavaScript -->
-            </div>
+            <!-- O container de cards simplificados (#rankingCardsContainer) foi removido, pois a tabela completa será sempre exibida. -->
         </div>
 
         <div id="sectionWeekly" class="content-section hidden">
-            <h2 class="text-xl sm:text-2xl font-semibold mt-8 mb-4 text-gray-700 hidden">🗓️ Registro Semanal de Participação</h2> <!-- Hidden as title is in nav -->
+            <h2 class="text-xl sm:text-2xl font-semibold mt-8 mb-4 text-gray-700">🗓️ Registro Semanal de Participação</h2>
             <div class="overflow-x-auto rounded-xl shadow-md">
                 <table id="weeklyParticipationTable">
                     <thead>
@@ -641,7 +633,7 @@
         </div>
 
         <div id="sectionActivity" class="content-section hidden">
-            <h2 class="text-xl sm:text-2xl font-semibold mt-8 mb-4 text-gray-700 hidden">📈 Participação nas Atividades (%)</h2> <!-- Hidden as title is in nav -->
+            <h2 class="text-xl sm:text-2xl font-semibold mt-8 mb-4 text-gray-700">📈 Participação nas Atividades (%)</h2>
             <!-- Adjusted grid gap for closer spacing -->
             <div id="activityChart" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-x-4 gap-y-6 min-h-[100px] justify-items-center">
                 <!-- Chart icons will be populated by JavaScript -->
@@ -826,8 +818,9 @@
         const noRankingData = document.getElementById('noRankingData');
         const noWeeklyData = document.getElementById('noWeeklyData');
         const noChartData = document.getElementById('noChartData');
-        const rankingCardsContainer = document.getElementById('rankingCardsContainer'); // Novo container para cards
-        const noRankingCardsData = document.getElementById('noRankingCardsData'); // Nova mensagem para cards
+        // O rankingCardsContainer foi removido do HTML, então não precisamos mais da referência aqui.
+        // const rankingCardsContainer = document.getElementById('rankingCardsContainer');
+        // const noRankingCardsData = document.getElementById('noRankingCardsData');
 
         // Referências para mensagens de erro
         const nameError = document.getElementById('nameError');
@@ -849,6 +842,9 @@
         const importDataBtn = document.getElementById('importDataBtn');
         const resetDataBtn = document.getElementById('resetDataBtn');
         const saveDataBtn = document.getElementById('saveDataBtn'); // Adicionado para desabilitar/habilitar
+
+        // Variável para rastrear o estado dos participantes para otimização de re-renderização
+        let lastParticipantsJson = '';
 
         /**
          * Função utilitária para debounce.
@@ -890,12 +886,12 @@
 
         /**
          * Alterna a visibilidade entre o dashboard mobile e a planilha completa.
-         * @param {boolean} showMobile If true, shows the mobile dashboard; if false, shows the full spreadsheet.
+         * @param {boolean} showMobile Se true, mostra o dashboard mobile; se false, mostra a planilha completa.
          */
         function toggleView(showMobile) {
             if (showMobile) {
                 // Se já estiver na view mobile, não faz nada para evitar re-render desnecessário
-                if (currentViewIsMobile && mobileDashboard.classList.contains(SHOW_CLASS)) return;
+                if (currentViewIsMobile && !mobileDashboard.classList.contains(HIDDEN_CLASS)) return;
 
                 mobileDashboard.classList.remove(HIDDEN_CLASS);
                 mainContent.classList.add(HIDDEN_CLASS);
@@ -905,7 +901,7 @@
                 currentViewIsMobile = true;
             } else {
                 // Se já estiver na view completa, não faz nada para evitar re-render desnecessário
-                if (!currentViewIsMobile && mainContent.classList.contains(SHOW_CLASS)) return;
+                if (!currentViewIsMobile && !mainContent.classList.contains(HIDDEN_CLASS)) return;
 
                 mobileDashboard.classList.add(HIDDEN_CLASS);
                 mainContent.classList.remove(HIDDEN_CLASS);
@@ -965,7 +961,6 @@
             // Desabilita/habilita edição na tabela de ranking e cards (links e botões)
             const editableElements = document.querySelectorAll(
                 '#rankingTable .edit-participant, #rankingTable .edit-participant-icon, #rankingTable .delete-participant-icon, ' +
-                '#rankingCardsContainer .edit-participant-icon, #rankingCardsContainer .delete-participant-icon, ' +
                 '#mobileRankingList .view-details-btn' // Adicionado para desabilitar o botão de detalhes se não puder editar
             );
             editableElements.forEach(element => {
@@ -1000,6 +995,7 @@
                 localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(participants));
                 showFeedbackMessage("Dados salvos com sucesso!");
                 console.log("Dados salvos no localStorage."); // Log de depuração
+                lastParticipantsJson = JSON.stringify(participants); // Atualiza o hash após salvar
             } catch (e) {
                 console.error("Erro ao salvar dados no localStorage:", e);
                 showFeedbackMessage("Erro ao salvar dados!", true); // Exibe mensagem de erro
@@ -1252,7 +1248,7 @@
                 points = 0;
             }
 
-            return { percentLoss: percentLoss, points: points };
+            return { percentLoss: parseFloat(percentLoss.toFixed(2)), points: parseFloat(points.toFixed(2)) };
         }
 
         /**
@@ -1302,9 +1298,20 @@
          * Atualiza as tabelas e o gráfico da planilha com os dados dos participantes (visualização completa).
          */
         function updatePlanilha() {
-            console.log("Atualizando planilha completa..."); // Log de depuração
+            console.log("Attempting to update full spreadsheet...");
+
+            const currentParticipantsJson = JSON.stringify(participants);
+
+            // Só re-renderiza TUDO se os dados mudaram ou se é a primeira vez que a planilha completa é exibida
+            if (currentParticipantsJson === lastParticipantsJson && !mainContent.classList.contains(HIDDEN_CLASS)) {
+                console.log("Dados dos participantes inalterados, pulando re-renderização completa da planilha.");
+                applyPermissions(); // Ainda aplica permissões caso o usuário tenha trocado de perfil
+                return;
+            }
+
+            lastParticipantsJson = currentParticipantsJson; // Atualiza o hash
+
             rankingTableBody.innerHTML = ''; // Limpa as linhas existentes da tabela
-            rankingCardsContainer.innerHTML = ''; // Limpa os cards existentes (mantidos ocultos)
             weeklyParticipationTableBody.innerHTML = '';
             activityChartDiv.innerHTML = '';
 
@@ -1643,7 +1650,7 @@
                         <span class="date-label">🏁 Início:</span> <span class="date-value">${startDateFormatted}</span>
                     </div>
                     <div>
-                        <span class="date-label">🏆 Fim:</span> <span class="date-value">${endDateFormatted}</span>
+                        <span class="date-label">� Fim:</span> <span class="date-value">${endDateFormatted}</span>
                     </div>
                 </div>
                 <div class="countdown-message ${countdownColorClass}">
@@ -1755,30 +1762,6 @@
                     openDeleteModal(participantName);
                 }
             });
-
-            // Event delegation para os cards de ranking (edição e exclusão) - AGORA OCULTOS POR PADRÃO EM MOBILE
-            rankingCardsContainer.addEventListener('click', function(event) {
-                const target = event.target.closest('.edit-participant-icon, .delete-participant-icon');
-                if (!target) return;
-
-                if (target.hasAttribute('disabled')) {
-                    showFeedbackMessage("Você não tem permissão para realizar esta ação.", true);
-                    return;
-                }
-
-                event.preventDefault();
-
-                const participantName = target.dataset.name;
-                if (target.classList.contains('edit-participant-icon')) {
-                    const indexToEdit = participants.findIndex(p => p.name === participantName);
-                    if (indexToEdit !== -1) {
-                        openModal(indexToEdit);
-                    }
-                } else if (target.classList.contains('delete-participant-icon')) {
-                    openDeleteModal(participantName);
-                }
-            });
-
 
             // Event delegation para checkboxes na tabela de participação semanal
             weeklyParticipationTableBody.addEventListener('change', function(event) {
