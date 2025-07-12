@@ -6,8 +6,8 @@
     <title>Desafio Família FIT 90 DIAS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        /* Variáveis CSS para cores e tamanhos comuns */
         :root {
             --font-inter: 'Inter', sans-serif;
             --background-light-gray: #f3f4f6;
@@ -16,1916 +16,931 @@
             --border-light: #e5e7eb;
             --header-bg-light-blue: #e0f2f7;
             --header-text-dark-blue: #2c5282;
-            --checkbox-border-gray: #9ca3af;
-            --checkbox-checked-green: #34d399;
+            --input-valid-green: #34d399;
+            --input-missed-red: #dc2626;
             --missed-week-bg-red: #fee2e2;
-            --missed-week-border-red: #dc2626;
             --leader-row-bg-orange: #ffedd5;
             --leader-row-border-orange: #f97316;
             --feedback-success-bg: #10b981;
             --feedback-error-bg: #ef4444;
             --modal-bg-overlay: rgba(0,0,0,0.4);
-            --error-red: #ef4444;
             --blue-600: #2563eb;
-            --yellow-600: #ca8a04;
-            --red-600: #dc2626;
-            --gray-800: #1f2937;
+            --progress-bar-bg: #e5e7eb;
+            --progress-bar-fill: #22c55e;
         }
-
-        body {
-            font-family: var(--font-inter);
-            background-color: var(--background-light-gray);
-            color: var(--text-dark);
-        }
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 1.5rem;
-            background-color: var(--container-bg);
-            border-radius: 1rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-        /* Estilo específico para o container mobile */
-        .container-mobile-view {
-            max-width: 600px; /* Mais estreito para mobile */
-            margin: 1rem auto;
-            padding: 1rem;
-            background-color: var(--container-bg);
-            border-radius: 1rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-        }
-        table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-bottom: 2rem;
-            border-radius: 0.75rem;
-            overflow: hidden;
-        }
-        th, td {
-            padding: 0.5rem 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border-light);
-        }
-        th {
-            background-color: var(--header-bg-light-blue);
-            font-weight: 600;
-            color: var(--header-text-dark-blue);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            white-space: nowrap;
-        }
-        /* Specific styles for weekly participation table to make it more compact */
-        #weeklyParticipationTable th,
-        #weeklyParticipationTable td {
-            padding: 0.2rem 0.3rem;
-            white-space: nowrap;
-        }
-        #weeklyParticipationTable td:first-child {
-            min-width: 60px;
-            padding-right: 0.1rem;
-        }
-        #weeklyParticipationTable th:not(:first-child),
-        #weeklyParticipationTable td:not(:first-child) {
-            text-align: center;
-        }
-        /* Style for missed week cells - now only for the checkbox itself */
-        .missed-week-cell {
-            background-color: transparent;
-        }
-
-        /* Custom checkbox styling */
-        input[type="checkbox"] {
-            transform: scale(1.2);
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            width: 1.2em;
-            height: 1.2em;
-            border: 2px solid var(--checkbox-border-gray);
-            border-radius: 0.25em;
-            cursor: pointer;
-            vertical-align: middle;
-            display: inline-block;
-            position: relative;
-            transition: background-color 0.2s, border-color 0.2s;
-        }
-
-        /* Checked state (green) */
-        input[type="checkbox"]:checked {
-            background-color: var(--checkbox-checked-green);
-            border-color: var(--checkbox-checked-green);
-        }
-
-        /* Checkmark for checked state */
-        input[type="checkbox"]:checked::after {
-            content: '✔';
-            font-size: 0.8em;
-            color: white;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            line-height: 1;
-        }
-
-        /* Missed week, unchecked state (red checkbox) */
-        .missed-week-cell input[type="checkbox"]:not(:checked) {
-            background-color: var(--missed-week-bg-red);
-            border-color: var(--missed-week-border-red);
-        }
-        /* No checkmark for unchecked missed boxes */
-        .missed-week-cell input[type="checkbox"]:not(:checked)::after {
-            content: '';
-        }
-
-        /* If a missed-week-cell checkbox is *then* checked, it becomes green */
-        .missed-week-cell input[type="checkbox"]:checked {
-            background-color: var(--checkbox-checked-green);
-            border-color: var(--checkbox-checked-green);
-        }
-
-        tr:last-child td {
-            border-bottom: none;
-        }
-        tr:nth-child(even) {
-            background-color: #f9fafb;
-        }
-
-        /* Agrupamento de estilos para leader-box e days-remaining-box */
-        .leader-box, .days-remaining-box {
-            background-color: var(--container-bg);
-            border: 1px solid var(--border-light);
-            padding: 1.5rem;
-            border-radius: 0.75rem;
-            margin-bottom: 1.5rem;
-            font-weight: 600;
-            color: var(--text-dark);
-            text-align: center;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        .days-remaining-box .date-info {
-            font-size: 1rem;
-            margin-bottom: 0.5rem;
-            color: #4a5568;
-        }
-        .days-remaining-box .countdown-message {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--header-text-dark-blue);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-            white-space: nowrap;
-        }
-        .days-remaining-box .countdown-message .days-value {
-            font-size: 2rem;
-            color: #3182ce;
-        }
-        .days-remaining-box .duration-info {
-            font-size: 0.9rem;
-            color: #6b7280;
-            margin-top: 0.75rem;
-        }
-
-        .checkbox-cell {
-            text-align: center;
-        }
-        .tooltip {
-            position: relative;
-            display: inline-block;
-        }
-
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 180px;
-            background-color: #555;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 5px 0;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -90px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-
-        .tooltip .tooltiptext::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #555 transparent transparent transparent;
-        }
-
-        .tooltip:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
-        }
-        .leader-row {
-            background-color: var(--leader-row-bg-orange) !important;
-            border-left: 4px solid var(--leader-row-border-orange);
-        }
-        /* Novo estilo para o card do líder em mobile */
-        .leader-row-card {
-            background-color: var(--leader-row-bg-orange); /* Usa a cor de destaque do líder */
-            border: 1px solid var(--leader-row-border-orange);
-        }
-        .feedback-message {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: var(--feedback-success-bg);
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-            z-index: 1000;
-        }
-        .feedback-message.show {
-            opacity: 1;
-        }
-        .feedback-message.error {
-            background-color: var(--feedback-error-bg);
-        }
-
-        /* Modal Styles */
-        .modal {
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: var(--modal-bg-overlay);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
-        }
-        .modal.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: auto;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            width: 90%;
-            max-width: 500px;
-            position: relative;
-            transform: translateY(-50px);
-            transition: transform 0.3s ease-in-out;
-        }
-        .modal.show .modal-content {
-            transform: translateY(0);
-        }
-        .close-button {
-            position: absolute;
-            top: 10px;
-            right: 20px;
-            color: #aaa;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .close-button:hover,
-        .close-button:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .input-error {
-            border-color: var(--error-red);
-        }
-        .error-message {
-            color: var(--error-red);
-            font-size: 0.875rem;
-            margin-top: 0.25rem;
-        }
-        /* Style for empty table message */
-        .empty-table-message {
-            text-align: center;
-            padding: 2rem;
-            color: #6b7280;
-            font-style: italic;
-        }
-        /* CSS for activity bar SVG fill animation */
-        #activityChart svg g rect,
-        #activityChart svg g circle {
-            transition: fill 0.5s ease-out; /* Smooth transition for fill color */
-        }
-        /* Estilo para a semana atual */
-        .current-week {
-            background-color: #dbeafe !important; /* Light blue for current week header */
-            border-bottom: 2px solid #60a5fa !important; /* Blue border for current week */
-            color: #1e40af !important;
-        }
-        .current-week-cell {
-            background-color: #eff6ff; /* Very light blue for current week cells */
-        }
-
-        /* Styles for the new navigation menu */
-        .nav-tabs {
-            display: flex;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            border-bottom: 2px solid var(--border-light);
-            overflow-x: auto; /* Allow horizontal scrolling on small screens */
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-        }
-        .nav-tab-item {
-            padding: 0.75rem 1.25rem;
-            cursor: pointer;
-            font-weight: 600;
-            color: #6b7280;
-            border-bottom: 2px solid transparent;
-            transition: all 0.2s ease-in-out;
-            white-space: nowrap; /* Prevent wrapping */
-        }
-        .nav-tab-item:hover {
-            color: var(--header-text-dark-blue);
-            border-color: #a7d9f2;
-        }
-        .nav-tab-item.active {
-            color: var(--header-text-dark-blue);
-            border-color: var(--blue-600);
-        }
-
-        /* Mobile menu button */
-        .mobile-menu-button {
-            display: none; /* Hidden by default, shown on small screens */
-            background-color: var(--blue-600);
-            color: white;
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            width: 100%;
-            text-align: center;
-            margin-bottom: 1rem;
-            transition: background-color 0.2s;
-        }
-        .mobile-menu-button:hover {
-            background-color: var(--blue-700);
-        }
-
-        /* Mobile menu dropdown */
-        .mobile-menu-dropdown {
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            background-color: var(--container-bg);
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            margin-bottom: 1rem;
-            overflow: hidden;
-        }
-        .mobile-menu-dropdown.open {
-            display: flex;
-        }
-        .mobile-menu-dropdown .nav-tab-item {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-light);
-            text-align: left;
-        }
-        .mobile-menu-dropdown .nav-tab-item:last-child {
-            border-bottom: none;
-        }
-        .mobile-menu-dropdown .nav-tab-item.active {
-            background-color: #e0f2f7;
-        }
-
-        @media (min-width: 768px) { /* md breakpoint */
-            .nav-tabs {
-                display: flex; /* Show tabs on desktop */
-            }
-            .mobile-menu-button,
-            .mobile-menu-dropdown {
-                display: none !important; /* Hide mobile menu elements on desktop */
-            }
-        }
-        @media (max-width: 767px) { /* Below md breakpoint */
-            .nav-tabs {
-                display: none; /* Hide tabs on mobile */
-            }
-            .mobile-menu-button {
-                display: block; /* Show mobile menu button */
-            }
-        }
+        body { font-family: var(--font-inter); background-color: var(--background-light-gray); color: var(--text-dark); }
+        .container { max-width: 1200px; margin: 2rem auto; padding: 1.5rem; background-color: var(--container-bg); border-radius: 1rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+        .container-mobile-view { max-width: 600px; margin: 1rem auto; padding: 1rem; background-color: var(--container-bg); border-radius: 1rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 2rem; border-radius: 0.75rem; overflow: hidden; }
+        th, td { padding: 0.5rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+        th { background-color: var(--header-bg-light-blue); font-weight: 600; color: var(--header-text-dark-blue); position: sticky; top: 0; z-index: 10; white-space: nowrap; }
+        #weeklyParticipationTable th, #weeklyParticipationTable td { padding: 0.2rem 0.3rem; white-space: nowrap; }
+        #weeklyParticipationTable td:first-child { min-width: 60px; padding-right: 0.1rem; }
+        #weeklyParticipationTable th:not(:first-child), #weeklyParticipationTable td:not(:first-child) { text-align: center; }
+        #weeklyParticipationTable input[type="number"] { width: 40px; height: 28px; padding: 0.2rem 0.1rem; text-align: center; border-radius: 0.25em; font-size: 0.9em; -moz-appearance: textfield; background-color: white; border: 1px solid var(--input-border-gray); }
+        #weeklyParticipationTable input[type="number"]::-webkit-outer-spin-button, #weeklyParticipationTable input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .activity-content { display: flex; justify-content: center; align-items: center; gap: 0.25rem; height: 100%; width: 100%; }
+        #weeklyParticipationTable td.valid-week input[type="number"] { background-color: var(--input-valid-green); border-color: var(--input-valid-green); color: white; }
+        #weeklyParticipationTable td.valid-week .checkmark-icon { color: white; visibility: visible; opacity: 1; }
+        #weeklyParticipationTable td.missed-week input[type="number"] { background-color: var(--missed-week-bg-red); border-color: var(--input-missed-red); color: var(--input-missed-red); }
+        #weeklyParticipationTable td.missed-week .checkmark-icon { visibility: hidden; opacity: 0; }
+        .checkmark-icon { width: 16px; height: 16px; flex-shrink: 0; visibility: hidden; opacity: 0; transition: opacity 0.2s; }
+        tr:last-child td { border-bottom: none; }
+        tr:nth-child(even) { background-color: #f9fafb; }
+        .summary-box { background-color: var(--container-bg); border: 1px solid var(--border-light); padding: 1.5rem; border-radius: 0.75rem; font-weight: 600; color: var(--text-dark); text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .tooltip { position: relative; display: inline-block; cursor: help; }
+        .tooltip .tooltiptext { visibility: hidden; width: 180px; background-color: #555; color: #fff; text-align: center; border-radius: 6px; padding: 5px 0; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -90px; opacity: 0; transition: opacity 0.3s; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        .leader-row { background-color: var(--leader-row-bg-orange) !important; border-left: 4px solid var(--leader-row-border-orange); }
+        .feedback-message { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--feedback-success-bg); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); opacity: 0; transition: opacity 0.3s; z-index: 1001; }
+        .feedback-message.show { opacity: 1; }
+        .feedback-message.error { background-color: var(--feedback-error-bg); }
+        .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: var(--modal-bg-overlay); display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: opacity 0.3s; }
+        .modal.show { opacity: 1; visibility: visible; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 2rem; border-radius: 1rem; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 500px; position: relative; transform: scale(0.95); transition: transform 0.3s; }
+        .modal.show .modal-content { transform: scale(1); }
+        .close-button { position: absolute; top: 10px; right: 20px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .input-error { border-color: var(--error-red); }
+        .error-message { color: var(--error-red); font-size: 0.875rem; margin-top: 0.25rem; }
+        .empty-table-message { text-align: center; padding: 2rem; color: #6b7280; font-style: italic; }
+        .current-week { background-color: #dbeafe !important; border-bottom: 2px solid #60a5fa !important; color: #1e40af !important; }
+        .current-week-cell { background-color: #eff6ff; }
+        .nav-tabs { display: flex; justify-content: center; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-light); overflow-x: auto; }
+        .nav-tab-item { padding: 0.75rem 1.25rem; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+        .nav-tab-item:hover { color: var(--header-text-dark-blue); }
+        .nav-tab-item.active { color: var(--header-text-dark-blue); border-color: var(--blue-600); }
+        #weightHistoryChart svg, #details-chart svg { display: block; margin: auto; background-color: #fefefe; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); overflow: visible; }
+        .axis path, .axis line { fill: none; stroke: #d1d5db; shape-rendering: crispEdges; }
+        .axis text { font-size: 0.8rem; fill: #6b7280; }
+        .line { fill: none; stroke-width: 2px; }
+        .dot { fill: white; stroke-width: 1.5px; }
+        .tooltip-chart { position: absolute; text-align: center; padding: 8px; font: 12px sans-serif; background: rgba(0, 0, 0, 0.7); color: white; border-radius: 8px; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+        .progress-bar-container { width: 100%; background-color: var(--progress-bar-bg); border-radius: 9999px; height: 1.25rem; overflow: hidden; position: relative; }
+        .progress-bar-fill { height: 100%; background-color: var(--progress-bar-fill); border-radius: 9999px; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: center; }
+        .progress-bar-text { color: white; font-size: 0.75rem; font-weight: 600; }
+        .badge { font-size: 1.1rem; margin-left: 0.25rem; }
+        .mobile-menu-button { display: none; background-color: var(--blue-600); color: white; padding: 0.75rem 1rem; border-radius: 0.5rem; font-weight: 600; width: 100%; text-align: center; margin-bottom: 1rem; }
+        .mobile-menu-dropdown { display: none; flex-direction: column; background-color: var(--container-bg); border-radius: 0.5rem; box-shadow: 0 4px 8px rgba(0,0,0,0.1); margin-bottom: 1rem; overflow: hidden; }
+        .mobile-menu-dropdown.open { display: flex; }
+        .mobile-menu-dropdown .nav-tab-item { padding: 1rem; border-bottom: 1px solid var(--border-light); }
+        @media (min-width: 768px) { .nav-tabs { display: flex; } .mobile-menu-button, .mobile-menu-dropdown { display: none !important; } }
+        @media (max-width: 767px) { .nav-tabs { display: none; } .mobile-menu-button { display: block; } }
     </style>
 </head>
 <body class="p-4">
 
-    <!-- Tela de Login -->
-    <div id="loginScreen" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-200 via-green-200 to-blue-300 p-4">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-blue-300">
-            <h2 class="text-4xl font-extrabold text-center mb-10 text-gray-900 flex items-center justify-center gap-4">
-                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="currentColor" class="text-blue-700"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                Acesso ao Desafio FIT
-            </h2>
+    <div id="loginScreen" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-green-100 to-blue-200 p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
+            <h2 class="text-4xl font-extrabold text-center mb-10 text-gray-800">Acesso ao Desafio FIT</h2>
             <form id="loginForm">
-                <div class="mb-4 relative">
-                    <label for="username" class="block text-gray-700 text-sm font-bold mb-2 sr-only">Usuário:</label>
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                    </div>
-                    <input type="text" id="username" placeholder="Usuário" class="shadow appearance-none border rounded w-full py-3 pl-10 pr-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
-                <div class="mb-6 relative">
-                    <label for="password" class="block text-gray-700 text-sm font-bold mb-2 sr-only">Senha:</label>
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                    </div>
-                    <input type="password" id="password" placeholder="Senha" class="shadow appearance-none border rounded w-full py-3 pl-10 pr-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" required>
-                </div>
+                <div class="mb-4"><input type="text" id="username" placeholder="Usuário" class="shadow-sm appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" required></div>
+                <div class="mb-6"><input type="password" id="password" placeholder="Senha" class="shadow-sm appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" required></div>
                 <p id="loginError" class="text-red-500 text-sm italic mb-4 hidden text-center">Usuário ou senha inválidos.</p>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-xl shadow-md transition duration-300 ease-in-out transform hover:scale-105 w-full">
-                    Entrar
-                </button>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition w-full">Entrar</button>
             </form>
         </div>
     </div>
 
-    <!-- Nova Tela Principal Mobile (visível apenas em telas pequenas por padrão) -->
-    <div id="mobileDashboard" class="container-mobile-view md:hidden">
-        <h1 class="text-2xl sm:text-3xl font-bold text-center mb-6 text-gray-800">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
-        <h2 class="text-xl font-bold text-center mb-4 text-gray-800">📊 Ranking Geral</h2>
-
-        <div id="leaderHighlightCard" class="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-lg shadow-lg border-2 border-orange-300 mb-6 text-center">
-            <!-- Conteúdo do líder será injetado aqui via JS -->
-            <p class="text-lg font-semibold text-orange-700">Líder Atual: <span class="text-xl font-bold text-orange-900" id="mobileLeaderName">Carregando...</span> 👑</p>
-            <p class="text-md text-gray-700">Pontuação Total: <span class="font-bold text-orange-800" id="mobileLeaderPoints">Carregando...</span> pts</p>
+    <div id="mobileDashboard" class="container-mobile-view hidden">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold text-gray-800">Ranking Geral</h1>
+            <button id="logoutBtnMobile" class="text-red-500 font-semibold">Sair</button>
         </div>
-
-        <div id="mobileRankingList" class="space-y-3">
-            <!-- Lista de participantes simplificada será injetada aqui via JS -->
-            <p class="text-center text-gray-500">Nenhum participante para exibir.</p>
-        </div>
-
-        <div class="flex justify-center mt-6">
-            <button id="viewFullDashboardBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition duration-300 ease-in-out transform hover:scale-105 w-full">
-                Ver Planilha Completa
-            </button>
-        </div>
+        <div id="leaderHighlightCard" class="bg-gradient-to-r from-yellow-100 to-orange-100 p-4 rounded-lg shadow-lg border-2 border-orange-300 mb-6 text-center"></div>
+        <div id="mobileRankingList" class="space-y-3"></div>
+        <button id="viewFullDashboardBtn" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md w-full">Ver Planilha Completa</button>
     </div>
 
-    <!-- Conteúdo Principal do Desafio (inicialmente oculto, visível em telas maiores) -->
-    <div class="container hidden md:block">
-        <h1 class="text-2xl sm:text-3xl font-bold text-center mb-6 text-gray-800">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
-
-        <!-- Botão para menu mobile (visível apenas em telas pequenas) -->
-        <button id="mobileMenuToggleButton" class="mobile-menu-button md:hidden">
-            Menu <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block ml-2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        </button>
-
-        <!-- Menu de navegação (abas para desktop, dropdown para mobile) -->
-        <nav id="mainNavTabs" class="nav-tabs">
-            <a href="#" class="nav-tab-item active" data-section="ranking">🏆 Ranking e Pontuação</a>
-            <a href="#" class="nav-tab-item" data-section="weekly">🗓️ Registro Semanal de Participação</a>
-            <a href="#" class="nav-tab-item" data-section="activity">📈 Participação nas Atividades (%)</a>
-        </nav>
-
-        <!-- Dropdown do menu para mobile -->
-        <div id="mobileMenuDropdown" class="mobile-menu-dropdown">
-            <a href="#" class="nav-tab-item" data-section="ranking">🏆 Ranking e Pontuação</a>
-            <a href="#" class="nav-tab-item" data-section="weekly">🗓️ Registro Semanal de Participação</a>
-            <a href="#" class="nav-tab-item" data-section="activity">📈 Participação nas Atividades (%)</a>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div id="leaderBox" class="leader-box">
-                Líder Atual: Carregando...
-            </div>
-            <div id="daysRemainingBox" class="days-remaining-box">
-                Dias Restantes: Carregando...
-            </div>
-        </div>
-
-        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-            <button id="addParticipantBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto">
-                Adicionar Participante
-            </button>
-            <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                <button id="exportDataBtn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto">
-                    Exportar Dados
-                </button>
-                <input type="file" id="importDataInput" accept=".json" class="hidden">
-                <button id="importDataBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto">
-                    Importar Dados
-                </button>
-                <button id="resetDataBtn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 w-full sm:w-auto">
-                    Resetar Dados
-                </button>
-            </div>
-            <div class="relative w-full sm:w-1/2">
-                <input type="text" id="searchParticipantInput" placeholder="Buscar participante..." class="p-2 border border-gray-300 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <svg class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            </div>
-        </div>
-
-        <!-- Seções de Conteúdo (agora com IDs para controle de visibilidade) -->
-        <div id="sectionRanking" class="content-section">
-            <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">🏆 Ranking e Pontuação</h2>
-            <!-- Tabela de Ranking (visível em todas as telas quando a planilha completa está ativa) -->
-            <div id="rankingTableContainer" class="overflow-x-auto rounded-xl shadow-md">
-                <table id="rankingTable">
-                    <thead>
-                        <tr>
-                            <th class="rounded-tl-xl">Ranking</th>
-                            <th>Nome</th>
-                            <th>
-                                Peso Inicial
-                                <span class="tooltip">
-                                    <span class="tooltiptext">O peso do participante no início do desafio (kg). Clique no nome para editar.</span>
-                                </span>
-                            </th>
-                            <th>
-                                Peso Final
-                                <span class="tooltip">
-                                    <span class="tooltiptext">O peso atual ou final do participante (kg). Clique no nome para editar.</span>
-                                </span>
-                            </th>
-                            <th>
-                                % Perda
-                                <span class="tooltip">
-                                    <span class="tooltiptext">Porcentagem de peso perdido em relação ao peso inicial.</span>
-                                </span>
-                            </th>
-                            <th>
-                                Pts Peso
-                                <span class="tooltip">
-                                    <span class="tooltiptext">Pontos de peso baseados na % de perda. Máximo de 50 pontos.</span>
-                                </span>
-                            </th>
-                            <th>
-                                Sem. Válidas
-                                <span class="tooltip">
-                                    <span class="tooltiptext">Número de semanas com 3 ou mais treinos registrados.</span>
-                                </span>
-                            </th>
-                            <th>
-                                Pts Ativ.
-                                <span class="tooltip">
-                                    <span class="tooltiptext">Pontos de atividade baseados nas semanas válidas. Máximo de 50 pontos.</span>
-                                </span>
-                            </th>
-                            <th>
-                                Total
-                                <span class="tooltip">
-                                    <span class="tooltiptext">Soma dos pontos de peso e atividade.</span>
-                                </span>
-                            </th>
-                            <th class="rounded-tr-xl"></th> <!-- Coluna para o botão de edição/exclusão -->
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Data will be populated by JavaScript -->
-                    </tbody>
-                </table>
-                <div id="noRankingData" class="empty-table-message hidden">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-gray-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
-                    Nenhum participante encontrado no ranking.
+    <div class="container hidden">
+        <div class="mb-4 pb-4 border-b">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center mb-4">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
+            <div class="flex justify-between items-center">
+                <div id="main-action-buttons" class="flex items-center gap-2 flex-wrap">
+                   <button id="addParticipantBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Adicionar</button>
+                   <button id="exportDataBtn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Exportar</button>
+                   <input type="file" id="importDataInput" accept=".json" class="hidden">
+                   <button id="importDataBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Importar</button>
+                   <button id="resetDataBtn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md">Resetar</button>
                 </div>
-            </div>
-            <!-- O container de cards simplificados (#rankingCardsContainer) foi removido, pois a tabela completa será sempre exibida. -->
-        </div>
-
-        <div id="sectionWeekly" class="content-section hidden">
-            <h2 class="text-xl sm:text-2xl font-semibold mt-8 mb-4 text-gray-700">🗓️ Registro Semanal de Participação</h2>
-            <div class="overflow-x-auto rounded-xl shadow-md">
-                <table id="weeklyParticipationTable">
-                    <thead>
-                        <tr>
-                            <th class="rounded-tl-xl">
-                                Nome
-                                <span class="tooltip">
-                                    <span class="tooltiptext">Semanas de 1 a 12. Marque a caixa se a semana for válida (3+ treinos).</span>
-                                </span>
-                            </th>
-                            <!-- Semanas serão geradas dinamicamente pelo JavaScript para aplicar a classe 'current-week' -->
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Data will be populated by JavaScript -->
-                    </tbody>
-                </table>
-                <div id="noWeeklyData" class="empty-table-message hidden">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-gray-400"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg>
-                    Nenhum participante para o registro semanal.
-                </div>
+                <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md">Sair</button>
             </div>
         </div>
 
-        <div id="sectionActivity" class="content-section hidden">
-            <h2 class="text-xl sm:text-2xl font-semibold mt-8 mb-4 text-gray-700">📈 Participação nas Atividades (%)</h2>
-            <!-- Adjusted grid gap for closer spacing -->
-            <div id="activityChart" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-x-4 gap-y-6 min-h-[100px] justify-items-center">
-                <!-- Chart icons will be populated by JavaScript -->
-                <div id="noChartData" class="empty-table-message hidden col-span-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-gray-400"><path d="M21.2 15.6l-3.24-3.24A7 7 0 1 0 12 2v10h8.9z"></path><path d="M22 22L15.6 15.6"></path></svg>
-                    Nenhum participante para o gráfico de atividades.
-                </div>
+        <button id="mobileMenuToggleButton" class="mobile-menu-button">Menu</button>
+        <nav id="mainNavTabs" class="nav-tabs"></nav>
+        <div id="mobileMenuDropdown" class="mobile-menu-dropdown"></div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div id="leaderBox" class="summary-box"></div>
+            <div id="weeklyHighlightBox" class="summary-box"></div>
+            <div id="daysRemainingBox" class="summary-box"></div>
+        </div>
+
+        <div class="flex justify-end mb-6">
+            <div class="relative w-full sm:w-1/3">
+                <input type="text" id="searchParticipantInput" placeholder="Buscar participante..." class="p-2 border rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
         </div>
 
-        <div class="flex justify-center mt-6">
-            <button id="saveDataBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
-                Salvar Dados
-            </button>
-        </div>
+        <div id="sectionRanking" class="content-section"></div>
+        <div id="sectionWeekly" class="content-section hidden"></div>
+        <div id="sectionActivity" class="content-section hidden"></div>
+        <div id="sectionCurrentWeight" class="content-section hidden"></div>
+        <div id="sectionWeightHistory" class="content-section hidden"></div>
 
-        <div class="flex justify-center mt-6">
-            <button id="backToMobileRankingBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 hidden md:hidden">
-                Voltar ao Ranking Mobile
-            </button>
-        </div>
+        <button id="backToMobileRankingBtn" class="mt-6 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hidden md:hidden">Voltar ao Ranking</button>
     </div>
 
-    <div id="feedbackMessage" class="feedback-message">
-        Dados salvos com sucesso!
-    </div>
-
-    <!-- Modal para Adicionar/Editar Participante -->
-    <div id="participantModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" id="closeModalBtn">&times;</span>
-            <h3 class="text-2xl font-bold mb-4" id="modalTitle">Adicionar Novo Participante</h3>
-            <form id="participantForm">
-                <input type="hidden" id="participantIndex">
-                <div class="mb-4">
-                    <label for="participantName" class="block text-gray-700 text-sm font-bold mb-2">Nome:</label>
-                    <input type="text" id="participantName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-                    <p class="error-message hidden" id="nameError">O nome é obrigatório.</p>
-                </div>
-                <div class="mb-4">
-                    <label for="participantInitialWeight" class="block text-gray-700 text-sm font-bold mb-2">Peso Inicial (kg):</label>
-                    <input type="number" step="any" id="participantInitialWeight" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-                    <p class="error-message hidden" id="initialWeightError">Peso inicial deve ser um número positivo.</p>
-                </div>
-                <div class="mb-4">
-                    <label for="participantFinalWeight" class="block text-gray-700 text-sm font-bold mb-2">Peso Final (kg):</label>
-                    <input type="number" step="any" id="participantFinalWeight" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
-                    <p class="error-message hidden" id="finalWeightError">Peso final deve ser um número positivo.</p>
-                </div>
-                <div class="mb-6">
-                    <label for="participantTargetWeight" class="block text-gray-700 text-sm font-bold mb-2">Meta de Peso (kg):</label>
-                    <input type="number" step="any" id="participantTargetWeight" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
-                    <p class="error-message hidden" id="targetWeightError">Meta de peso deve ser um número positivo (opcional).</p>
-                </div>
-                <div class="flex items-center justify-between">
-                    <button type="submit" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                        Salvar
-                    </button>
-                    <button type="button" id="cancelModalBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                        Cancelar
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal de Confirmação de Exclusão -->
-    <div id="deleteConfirmModal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" id="closeDeleteModalBtn">&times;</span>
-            <h3 class="text-2xl font-bold mb-4">Confirmar Exclusão</h3>
-            <p class="mb-6">Tem certeza que deseja excluir <span id="participantNameToDelete" class="font-semibold text-red-600"></span> do desafio?</p>
-            <div class="flex justify-end gap-4">
-                <button id="confirmDeleteBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                    Excluir
-                </button>
-                <button type="button" id="cancelDeleteBtn" class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
-                    Cancelar
-                </button>
-            </div>
-        </div>
-    </div>
+    <div id="feedbackMessage" class="feedback-message"></div>
+    <div id="participantModal" class="modal"></div>
+    <div id="deleteConfirmModal" class="modal"></div>
+    <div id="participantDetailsModal" class="modal"></div>
 
     <script>
-        // Credenciais de login e permissões
-        const USERS = {
-            admin: { password: 'admin', canEdit: true },
-            root: { password: '1', canEdit: false }
-        };
+        document.addEventListener('DOMContentLoaded', () => {
+            // CONFIGURAÇÕES E CONSTANTES
+            const USERS = { admin: { password: 'admin', canEdit: true }, root: { password: '1', canEdit: false } };
+            const CHALLENGE_START_DATE = new Date('2025-07-07T00:00:00');
+            const CHALLENGE_END_DATE = new Date('2025-10-07T23:59:59');
+            const MAX_WEEKS = 12;
+            const MIN_ACTIVITIES_FOR_VALID_WEEK = 3;
+            const MAX_ACTIVITY_POINTS = 50;
+            const NAV_LINKS = [
+                { id: 'ranking', text: '🏆 Ranking' }, { id: 'weekly', text: '🗓️ Semanas' },
+                { id: 'activity', text: '📈 Atividades' }, { id: 'currentWeight', text: '⚖️ Registrar Peso' },
+                { id: 'weightHistory', text: '📊 Evolução' },
+            ];
+            const defaultParticipants = [
+                { name: "Amanda", pesoInicial: 69.1, pesoAtual: 69.1, targetWeight: 65, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 69.1 }] },
+                { name: "Hevinho", pesoInicial: 85.3, pesoAtual: 85.3, targetWeight: 75.0, semanasValidas: [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 85.3 }] },
+                { name: "Junior", pesoInicial: 113.9, pesoAtual: 113.9, targetWeight: 100.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 113.9 }] },
+                { name: "Midian Diniz", pesoInicial: 89.85, pesoAtual: 89.85, targetWeight: 80, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 89.85 }] },
+                { name: "Midian Fernandes", pesoInicial: 65.15, pesoAtual: 65.15, targetWeight: 60.0, semanasValidas: [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 65.15 }] },
+                { name: "Paulinha", pesoInicial: 75.9, pesoAtual: 75.9, targetWeight: 70.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 75.9 }] },
+                { name: "Rayanne", pesoInicial: 86.4, pesoAtual: 86.4, targetWeight: 80, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 86.4 }] },
+                { name: "Wellington", pesoInicial: 117.7, pesoAtual: 117.7, targetWeight: 110.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 117.7 }] },
+            ];
 
-        let currentUser = null; // Para armazenar o usuário logado atualmente
-        let currentViewIsMobile = false; // Flag para controlar a view atual
+            // ESTADO DA APLICAÇÃO
+            let currentUser = null;
+            let participants = [];
+            let currentViewIsMobile = window.innerWidth < 768;
 
-        // Referências aos novos elementos do DOM para login
-        const loginScreen = document.getElementById('loginScreen');
-        const loginForm = document.getElementById('loginForm');
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
-        const loginError = document.getElementById('loginError');
-        const mainContent = document.querySelector('.container'); // O container principal da sua aplicação
-
-        // Novas referências de DOM para o dashboard mobile
-        const mobileDashboard = document.getElementById('mobileDashboard');
-        const viewFullDashboardBtn = document.getElementById('viewFullDashboardBtn');
-        const mobileLeaderName = document.getElementById('mobileLeaderName');
-        const mobileLeaderPoints = document.getElementById('mobileLeaderPoints');
-        const mobileRankingList = document.getElementById('mobileRankingList');
-        const backToMobileRankingBtn = document.getElementById('backToMobileRankingBtn');
-
-        // Novas referências de DOM para o menu de navegação
-        const mobileMenuToggleButton = document.getElementById('mobileMenuToggleButton');
-        const mobileMenuDropdown = document.getElementById('mobileMenuDropdown');
-        const mainNavTabs = document.getElementById('mainNavTabs');
-        const contentSections = document.querySelectorAll('.content-section');
-
-        // Constantes para chaves do localStorage e classes CSS
-        const LOCAL_STORAGE_KEY = 'challengeParticipants';
-        const HIDDEN_CLASS = 'hidden';
-        const INPUT_ERROR_CLASS = 'input-error';
-        const SHOW_CLASS = 'show';
-        const MILLISECONDS_PER_WEEK = 1000 * 60 * 60 * 24 * 7;
-
-        // Dados iniciais dos participantes (baseado na imagem e nas regras)
-        // A propriedade 'semanasValidas' é um array de booleanos para cada uma das 12 semanas.
-        // true = semana válida (3+ treinos), false = semana não válida.
-        // Adicionado 'targetWeight' para metas de peso e 'weightHistory' para futuros gráficos.
-        const defaultParticipants = [
-            { name: "Amanda", pesoInicial: 69.1, pesoFinal: 69.1, targetWeight: null, semanasValidas: Array(12).fill(false) },
-            { name: "Hevinho", pesoInicial: 85.3, pesoFinal: 85.3, targetWeight: 75.0, semanasValidas: [true, false, false, false, false, false, false, false, false, false, false, false] },
-            { name: "Junior", pesoInicial: 113.9, pesoFinal: 113.9, targetWeight: 100.0, semanasValidas: Array(12).fill(false) },
-            { name: "Midian Diniz", pesoInicial: 89.85, pesoFinal: 89.85, targetWeight: null, semanasValidas: Array(12).fill(false) },
-            { name: "Midian Fernandes", pesoInicial: 65.15, pesoFinal: 65.15, targetWeight: 60.0, semanasValidas: [true, false, false, false, false, false, false, false, false, false, false, false] },
-            { name: "Paulinha", pesoInicial: 75.9, pesoFinal: 75.9, targetWeight: 70.0, semanasValidas: Array(12).fill(false) },
-            { name: "Rayanne", pesoInicial: 86.4, pesoFinal: 86.4, targetWeight: null, semanasValidas: Array(12).fill(false) },
-            { name: "Wellington", pesoInicial: 117.7, pesoFinal: 117.7, targetWeight: 110.0, semanasValidas: Array(12).fill(false) },
-        ];
-
-        // Tenta carregar os dados do localStorage, se não houver, usa os dados padrão
-        let participants = [];
-        try {
-            const storedParticipants = localStorage.getItem(LOCAL_STORAGE_KEY);
-            participants = storedParticipants ? JSON.parse(storedParticipants) : defaultParticipants;
-            // Garante que os novos campos (targetWeight, etc.) existam em dados antigos
-            participants = participants.map(p => ({
-                ...p,
-                targetWeight: p.targetWeight !== undefined ? p.targetWeight : null,
-                // weightHistory: p.weightHistory !== undefined ? p.weightHistory : [], // Manter para futura implementação de histórico
-                semanasValidas: p.semanasValidas || Array(12).fill(false) // Garante que semanasValidas exista
-            }));
-            console.log("Dados carregados. Participantes:", participants); // Log de depuração
-        } catch (e) {
-            console.error("Erro ao carregar dados do localStorage:", e);
-            participants = defaultParticipants; // Fallback para dados padrão em caso de erro
-            console.log("Fallback para dados padrão. Participantes:", participants); // Log de depuração
-        }
-
-        // Data de início do desafio: 07/07/2025
-        const CHALLENGE_START_DATE = new Date('2025-07-07T00:00:00');
-        // Data final do desafio: 07/10/2025 (90 dias a partir de 07/07/2025)
-        const CHALLENGE_END_DATE = new Date('2025-10-07T23:59:59');
-        const MAX_WEEKS = 12; // Número total de semanas no desafio
-        const MAX_ACTIVITY_POINTS = 50; // Pontuação máxima para atividade
-
-        // Referências aos elementos do DOM (do conteúdo principal)
-        const participantModal = document.getElementById('participantModal');
-        const closeModalBtn = document.getElementById('closeModalBtn');
-        const cancelModalBtn = document.getElementById('cancelModalBtn');
-        const addParticipantBtn = document.getElementById('addParticipantBtn');
-        const participantForm = document.getElementById('participantForm');
-        const modalTitle = document.getElementById('modalTitle');
-        const participantIndexInput = document.getElementById('participantIndex');
-        const participantNameInput = document.getElementById('participantName');
-        const participantInitialWeightInput = document.getElementById('participantInitialWeight');
-        const participantFinalWeightInput = document.getElementById('participantFinalWeight');
-        const participantTargetWeightInput = document.getElementById('participantTargetWeight'); // Novo input para meta de peso
-        const searchParticipantInput = document.getElementById('searchParticipantInput');
-        const feedbackMessageDiv = document.getElementById('feedbackMessage');
-        const rankingTableBody = document.querySelector('#rankingTable tbody');
-        const weeklyParticipationTableHead = document.querySelector('#weeklyParticipationTable thead tr'); // Para adicionar as semanas
-        const weeklyParticipationTableBody = document.querySelector('#weeklyParticipationTable tbody');
-        const activityChartDiv = document.getElementById('activityChart');
-        const noRankingData = document.getElementById('noRankingData');
-        const noWeeklyData = document.getElementById('noWeeklyData');
-        const noChartData = document.getElementById('noChartData');
-        // O rankingCardsContainer foi removido do HTML, então não precisamos mais da referência aqui.
-        // const rankingCardsContainer = document.getElementById('rankingCardsContainer');
-        // const noRankingCardsData = document.getElementById('noRankingCardsData');
-
-        // Referências para mensagens de erro
-        const nameError = document.getElementById('nameError');
-        const initialWeightError = document.getElementById('initialWeightError');
-        const finalWeightError = document.getElementById('finalWeightError');
-        const targetWeightError = document.getElementById('targetWeightError'); // Nova mensagem de erro para meta de peso
-
-        // Referências para o modal de exclusão
-        const deleteConfirmModal = document.getElementById('deleteConfirmModal');
-        const closeDeleteModalBtn = document.getElementById('closeDeleteModalBtn');
-        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-        const participantNameToDeleteSpan = document.getElementById('participantNameToDelete');
-        let participantToDeleteName = null; // Variável para armazenar o nome do participante a ser excluído
-
-        // Botões de exportar/importar/resetar
-        const exportDataBtn = document.getElementById('exportDataBtn');
-        const importDataInput = document.getElementById('importDataInput');
-        const importDataBtn = document.getElementById('importDataBtn');
-        const resetDataBtn = document.getElementById('resetDataBtn');
-        const saveDataBtn = document.getElementById('saveDataBtn'); // Adicionado para desabilitar/habilitar
-
-        // Variável para rastrear o estado dos participantes para otimização de re-renderização
-        let lastParticipantsJson = '';
-
-        /**
-         * Função utilitária para debounce.
-         * @param {Function} func A função a ser debounced.
-         * @param {number} delay O atraso em milissegundos.
-         * @returns {Function} A função debounced.
-         */
-        function debounce(func, delay) {
-            let timeout;
-            return function(...args) {
-                const context = this;
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(context, args), delay);
-            };
-        }
-
-        /**
-         * Lida com o envio do formulário de login.
-         * @param {Event} event O evento de envio.
-         */
-        function handleLogin(event) {
-            event.preventDefault();
-
-            const username = usernameInput.value.trim();
-            const password = passwordInput.value.trim();
-
-            loginError.classList.add(HIDDEN_CLASS); // Esconde qualquer erro anterior
-
-            if (USERS[username] && USERS[username].password === password) {
-                currentUser = username; // Define o usuário logado
-                loginScreen.classList.add(HIDDEN_CLASS); // Esconde a tela de login
-                console.log("Login bem-sucedido. Chamando checkScreenWidth."); // Log de depuração
-                checkScreenWidth(); // Verifica a largura da tela para mostrar o dashboard correto
-            } else {
-                loginError.classList.remove(HIDDEN_CLASS); // Mostra mensagem de erro
-                console.log("Falha no login."); // Log de depuração
+            // ELEMENTOS DO DOM
+            const loginScreen = document.getElementById('loginScreen');
+            const mainContent = document.querySelector('.container');
+            const mobileDashboard = document.getElementById('mobileDashboard');
+            const feedbackMessageDiv = document.getElementById('feedbackMessage');
+            
+            // FUNÇÕES DE INICIALIZAÇÃO E AUTENTICAÇÃO
+            function initApp() {
+                loadData();
+                setupEventListeners();
+                checkLoginState();
             }
-        }
 
-        /**
-         * Alterna a visibilidade entre o dashboard mobile e a planilha completa.
-         * @param {boolean} showMobile Se true, mostra o dashboard mobile; se false, mostra a planilha completa.
-         */
-        function toggleView(showMobile) {
-            if (showMobile) {
-                // Se já estiver na view mobile, não faz nada para evitar re-render desnecessário
-                if (currentViewIsMobile && !mobileDashboard.classList.contains(HIDDEN_CLASS)) return;
+            function loadData() {
+                try {
+                    const stored = localStorage.getItem('challengeParticipants');
+                    const parsed = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(defaultParticipants));
+                    participants = parsed.map(p => ({
+                        ...p,
+                        pesoAtual: p.pesoAtual !== undefined ? p.pesoAtual : (p.pesoFinal || p.pesoInicial),
+                        targetWeight: p.targetWeight !== undefined ? p.targetWeight : null,
+                        semanasValidas: p.semanasValidas || Array(12).fill(0),
+                        weightHistory: p.weightHistory || [{ date: new Date().toISOString(), weight: p.pesoAtual }]
+                    }));
+                } catch (e) {
+                    console.error("Error loading data:", e);
+                    participants = JSON.parse(JSON.stringify(defaultParticipants));
+                }
+            }
 
-                mobileDashboard.classList.remove(HIDDEN_CLASS);
-                mainContent.classList.add(HIDDEN_CLASS);
-                backToMobileRankingBtn.classList.add(HIDDEN_CLASS); // Oculta em mobile dashboard
-                console.log("Exibindo dashboard mobile."); // Log de depuração
-                renderMobileDashboard(); // Atualiza o conteúdo do dashboard mobile
-                currentViewIsMobile = true;
-            } else {
-                // Se já estiver na view completa, não faz nada para evitar re-render desnecessário
-                if (!currentViewIsMobile && !mainContent.classList.contains(HIDDEN_CLASS)) return;
+            function checkLoginState() {
+                currentUser = sessionStorage.getItem('currentUser');
+                if (currentUser && USERS[currentUser]) {
+                    loginScreen.classList.add('hidden');
+                    updateAllViews();
+                } else {
+                    loginScreen.classList.remove('hidden');
+                    mainContent.classList.add('hidden');
+                    mobileDashboard.classList.add('hidden');
+                }
+            }
 
-                mobileDashboard.classList.add(HIDDEN_CLASS);
-                mainContent.classList.remove(HIDDEN_CLASS);
+            function handleLogin(e) {
+                e.preventDefault();
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                if (USERS[username] && USERS[username].password === password) {
+                    currentUser = username;
+                    sessionStorage.setItem('currentUser', username);
+                    document.getElementById('loginError').classList.add('hidden');
+                    checkLoginState();
+                } else {
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+            }
+
+            function handleLogout() {
+                currentUser = null;
+                sessionStorage.removeItem('currentUser');
+                checkLoginState();
+            }
+
+            // SETUP DE EVENTOS
+            function setupEventListeners() {
+                document.getElementById('loginForm').addEventListener('submit', handleLogin);
+                document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+                document.getElementById('logoutBtnMobile').addEventListener('click', handleLogout);
+                document.getElementById('viewFullDashboardBtn').addEventListener('click', () => toggleView(false));
+                document.getElementById('backToMobileRankingBtn').addEventListener('click', () => toggleView(true));
+                document.getElementById('addParticipantBtn').addEventListener('click', () => openModal());
+                document.getElementById('exportDataBtn').addEventListener('click', exportData);
+                document.getElementById('importDataBtn').addEventListener('click', () => document.getElementById('importDataInput').click());
+                document.getElementById('importDataInput').addEventListener('change', importData);
+                document.getElementById('resetDataBtn').addEventListener('click', () => openDeleteModal(null, true));
+                document.getElementById('searchParticipantInput').addEventListener('keyup', debounce(updateAllViews, 300));
                 
-                // Mostra o botão "Voltar ao Ranking Mobile" apenas em mobile
-                if (window.innerWidth < 768) {
-                    backToMobileRankingBtn.classList.remove(HIDDEN_CLASS);
-                } else {
-                    backToMobileRankingBtn.classList.add(HIDDEN_CLASS); // Oculta em desktop
-                }
-                console.log("Exibindo planilha completa."); // Log de depuração
-                updatePlanilha(); // Garante que a planilha completa esteja atualizada
-                currentViewIsMobile = false;
-            }
-        }
-
-        /**
-         * Verifica a largura da tela e alterna a visualização apropriada.
-         */
-        function checkScreenWidth() {
-            // Se o usuário estiver logado, gerencia a exibição
-            if (currentUser) {
-                if (window.innerWidth < 768) { // Exemplo: 768px para mobile (md breakpoint do Tailwind)
-                    toggleView(true); // Mostra o dashboard mobile
-                } else {
-                    toggleView(false); // Mostra a planilha completa
-                }
-            }
-        }
-
-        /**
-         * Aplica as permissões do usuário logado, desabilitando elementos conforme necessário.
-         */
-        function applyPermissions() {
-            const canEdit = USERS[currentUser] ? USERS[currentUser].canEdit : false;
-            console.log("Aplicando permissões. Pode editar:", canEdit); // Log de depuração
-
-            // Desabilita botões de ação no mainContent
-            const mainActionButtons = [addParticipantBtn, exportDataBtn, importDataBtn, resetDataBtn, saveDataBtn];
-            mainActionButtons.forEach(btn => {
-                if (!canEdit) {
-                    btn.classList.add('opacity-50', 'cursor-not-allowed');
-                    btn.setAttribute('disabled', 'true');
-                } else {
-                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    btn.removeAttribute('disabled');
-                }
-            });
-
-            // Ajusta visibilidade do botão 'Adicionar Participante'
-            if (!canEdit) {
-                addParticipantBtn.classList.add(HIDDEN_CLASS);
-            } else {
-                addParticipantBtn.classList.remove(HIDDEN_CLASS);
-            }
-
-            // Desabilita/habilita edição na tabela de ranking e cards (links e botões)
-            const editableElements = document.querySelectorAll(
-                '#rankingTable .edit-participant, #rankingTable .edit-participant-icon, #rankingTable .delete-participant-icon, ' +
-                '#mobileRankingList .view-details-btn' // Adicionado para desabilitar o botão de detalhes se não puder editar
-            );
-            editableElements.forEach(element => {
-                if (canEdit) {
-                    element.classList.remove('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
-                    element.removeAttribute('disabled');
-                } else {
-                    element.classList.add('opacity-50', 'cursor-not-allowed', 'pointer-events-none');
-                    element.setAttribute('disabled', 'true');
-                }
-            });
-
-            // Desabilita/habilita checkboxes na tabela de participação semanal
-            const weeklyCheckboxes = document.querySelectorAll('#weeklyParticipationTable input[type="checkbox"]');
-            weeklyCheckboxes.forEach(checkbox => {
-                checkbox.disabled = !canEdit;
-            });
-
-            // Desabilita/habilita inputs no modal de participante
-            participantNameInput.disabled = !canEdit;
-            participantInitialWeightInput.disabled = !canEdit;
-            participantFinalWeightInput.disabled = !canEdit;
-            participantTargetWeightInput.disabled = !canEdit; // Desabilita o novo input de meta de peso
-        }
-
-
-        /**
-         * Salva os dados dos participantes no localStorage.
-         */
-        function saveData() {
-            try {
-                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(participants));
-                showFeedbackMessage("Dados salvos com sucesso!");
-                console.log("Dados salvos no localStorage."); // Log de depuração
-                lastParticipantsJson = JSON.stringify(participants); // Atualiza o hash após salvar
-            } catch (e) {
-                console.error("Erro ao salvar dados no localStorage:", e);
-                showFeedbackMessage("Erro ao salvar dados!", true); // Exibe mensagem de erro
-            }
-        }
-
-        /**
-         * Exibe uma mensagem de feedback temporária.
-         * @param {string} message A mensagem a ser exibida.
-         * @param {boolean} isError Se a mensagem é de erro (opcional, padrão: false).
-         */
-        function showFeedbackMessage(message, isError = false) {
-            feedbackMessageDiv.textContent = message;
-            feedbackMessageDiv.classList.remove('bg-green-500', 'bg-red-500', 'error'); // Limpa classes anteriores
-            feedbackMessageDiv.classList.add(isError ? 'bg-red-500' : 'bg-green-500'); // Adiciona cor correta
-            if (isError) {
-                feedbackMessageDiv.classList.add('error'); // Adiciona classe 'error' para estilos específicos de erro
-            }
-            feedbackMessageDiv.classList.add(SHOW_CLASS);
-            setTimeout(() => {
-                feedbackMessageDiv.classList.remove(SHOW_CLASS);
-                feedbackMessageDiv.classList.remove('error'); // Remove a classe 'error' após a transição
-            }, 3000); // Mensagem desaparece após 3 segundos
-        }
-
-        /**
-         * Exibe uma mensagem de erro para um input específico.
-         * @param {HTMLElement} inputElement O elemento input.
-         * @param {HTMLElement} errorElement O elemento onde a mensagem de erro será exibida.
-         * @param {string} message A mensagem de erro.
-         */
-        function displayError(inputElement, errorElement, message) {
-            errorElement.textContent = message;
-            errorElement.classList.remove(HIDDEN_CLASS);
-            inputElement.classList.add(INPUT_ERROR_CLASS);
-        }
-
-        /**
-         * Esconde a mensagem de erro para um input específico.
-         * @param {HTMLElement} inputElement O elemento input.
-         * @param {HTMLElement} errorElement O elemento onde a mensagem de erro é exibida.
-         */
-        function hideError(inputElement, errorElement) {
-            errorElement.classList.add(HIDDEN_CLASS);
-            inputElement.classList.remove(INPUT_ERROR_CLASS);
-        }
-
-        /**
-         * Limpa todas as mensagens de erro e estilos de erro dos inputs.
-         */
-        function clearErrorMessages() {
-            hideError(participantNameInput, nameError);
-            hideError(participantInitialWeightInput, initialWeightError);
-            hideError(participantFinalWeightInput, finalWeightError);
-            hideError(participantTargetWeightInput, targetWeightError); // Limpa erro da meta de peso
-        }
-
-        /**
-         * Abre o modal para adicionar ou editar um participante.
-         * @param {number|null} index O índice do participante a ser editado, ou null para adicionar.
-         */
-        function openModal(index = null) {
-            // Limpa os campos e mensagens de erro
-            participantForm.reset();
-            clearErrorMessages();
-
-            if (index !== null) {
-                // Modo de edição
-                modalTitle.textContent = 'Editar Participante';
-                const p = participants[index];
-                participantIndexInput.value = index;
-                participantNameInput.value = p.name;
-                participantInitialWeightInput.value = p.pesoInicial;
-                participantFinalWeightInput.value = p.pesoFinal;
-                participantTargetWeightInput.value = p.targetWeight !== null ? p.targetWeight : ''; // Preenche meta de peso
-            } else {
-                // Modo de adição
-                modalTitle.textContent = 'Adicionar Novo Participante';
-                participantIndexInput.value = ''; // Limpa o índice para indicar nova adição
-                participantTargetWeightInput.value = ''; // Garante que a meta de peso esteja vazia para novos
-            }
-            participantModal.classList.add(SHOW_CLASS); // Adiciona a classe 'show' para exibir e aplicar transição
-            applyPermissions(); // Reaplicar permissões para os inputs do modal
-        }
-
-        /**
-         * Fecha o modal.
-         */
-        function closeModal() {
-            participantModal.classList.remove(SHOW_CLASS); // Remove a classe 'show' para esconder e aplicar transição
-        }
-
-        /**
-         * Abre o modal de confirmação de exclusão.
-         * @param {string} name O nome do participante a ser excluído.
-         */
-        function openDeleteModal(name) {
-            participantNameToDeleteSpan.textContent = name;
-            participantToDeleteName = name; // Armazena o nome para uso na exclusão
-            deleteConfirmModal.classList.add(SHOW_CLASS);
-        }
-
-        /**
-         * Fecha o modal de confirmação de exclusão.
-         */
-        function closeDeleteModal() {
-            deleteConfirmModal.classList.remove(SHOW_CLASS);
-            participantToDeleteName = null; // Limpa o nome armazenado
-        }
-
-        /**
-         * Lida com a exclusão de um participante.
-         */
-        function deleteParticipant() {
-            if (participantToDeleteName) {
-                const indexToDelete = participants.findIndex(p => p.name === participantToDeleteName);
-                if (indexToDelete !== -1) {
-                    participants.splice(indexToDelete, 1); // Remove o participante do array
-                    saveData(); // Salva os dados atualizados
-                    updatePlanilha(); // Atualiza a UI da planilha completa
-                    renderMobileDashboard(); // Atualiza a UI do dashboard mobile
-                    showFeedbackMessage(`Participante "${participantToDeleteName}" excluído com sucesso!`);
-                } else {
-                    showFeedbackMessage(`Erro: Participante "${participantToDeleteName}" não encontrado.`, true);
-                }
-            }
-            closeDeleteModal(); // Fecha o modal de confirmação
-        }
-
-        /**
-         * Valida os campos do formulário do modal.
-         * @returns {boolean} True se os campos são válidos, false caso contrário.
-         */
-        function validateForm() {
-            clearErrorMessages();
-            let isValid = true;
-
-            const name = participantNameInput.value.trim();
-            const initialWeight = parseFloat(participantInitialWeightInput.value);
-            const finalWeight = parseFloat(participantFinalWeightInput.value);
-            const targetWeight = participantTargetWeightInput.value.trim() === '' ? null : parseFloat(participantTargetWeightInput.value); // Meta de peso pode ser nula
-
-            const index = participantIndexInput.value;
-
-            if (name === '') {
-                displayError(participantNameInput, nameError, "O nome é obrigatório.");
-                isValid = false;
-            } else {
-                // Validação de nome duplicado
-                const isEditing = index !== '';
-                const isNameTaken = participants.some((p, i) =>
-                    p.name.toLowerCase() === name.toLowerCase() && (!isEditing || i !== parseInt(index))
-                );
-                if (isNameTaken) {
-                    displayError(participantNameInput, nameError, "Já existe um participante com este nome.");
-                    isValid = false;
-                }
-            }
-
-            if (isNaN(initialWeight) || initialWeight <= 0) {
-                displayError(participantInitialWeightInput, initialWeightError, "Peso inicial deve ser um número positivo.");
-                isValid = false;
-            }
-
-            if (isNaN(finalWeight) || finalWeight <= 0) {
-                displayError(participantFinalWeightInput, finalWeightError, "Peso final deve ser um número positivo.");
-                isValid = false;
-            }
-
-            if (targetWeight !== null && (isNaN(targetWeight) || targetWeight <= 0)) {
-                displayError(participantTargetWeightInput, targetWeightError, "Meta de peso deve ser um número positivo ou vazio.");
-                isValid = false;
-            }
-
-            return isValid;
-        }
-
-        /**
-         * Lida com o envio do formulário do modal (adicionar/editar participante).
-         * @param {Event} event O evento de envio.
-         */
-        function handleParticipantFormSubmit(event) {
-            event.preventDefault(); // Impede o recarregamento da página
-
-            if (!validateForm()) {
-                return; // Se a validação falhar, não prossegue
-            }
-
-            const name = participantNameInput.value.trim();
-            const initialWeight = parseFloat(participantInitialWeightInput.value);
-            const finalWeight = parseFloat(participantFinalWeightInput.value);
-            const targetWeight = participantTargetWeightInput.value.trim() === '' ? null : parseFloat(participantTargetWeightInput.value);
-            const index = participantIndexInput.value;
-
-            if (index !== '') {
-                // Edição de participante existente
-                const existingParticipant = participants[parseInt(index)];
-                existingParticipant.name = name;
-                existingParticipant.pesoInicial = initialWeight;
-                existingParticipant.pesoFinal = finalWeight;
-                existingParticipant.targetWeight = targetWeight;
-            } else {
-                // Adição de novo participante
-                const newParticipant = {
-                    name: name,
-                    pesoInicial: initialWeight,
-                    pesoFinal: finalWeight,
-                    targetWeight: targetWeight,
-                    semanasValidas: Array(MAX_WEEKS).fill(false) // Novas semanas vazias
-                };
-                participants.push(newParticipant);
-            }
-
-            saveData(); // Salva os dados no localStorage
-            updatePlanilha(); // Recalcula e atualiza a UI da planilha completa
-            renderMobileDashboard(); // Recalcula e atualiza a UI do dashboard mobile
-            closeModal(); // Fecha o modal
-        }
-
-        /**
-         * Calcula a pontuação de peso com base na porcentagem de perda.
-         * @param {number} initialWeight Peso inicial do participante.
-         * @param {number} finalWeight Peso final do participante.
-         * @returns {object} Um objeto contendo a porcentagem de perda e os pontos de peso.
-         */
-        function calculateWeightLossPoints(initialWeight, finalWeight) {
-            const pesoPerdido = initialWeight - finalWeight;
-            let percentLoss = (pesoPerdido / initialWeight) * 100;
-
-            if (isNaN(percentLoss) || percentLoss < 0) {
-                percentLoss = 0; // Se ganhou peso ou cálculo inválido, % perda é 0
-            }
-
-            let points = 0;
-            if (percentLoss >= 10) {
-                points = 50;
-            } else if (percentLoss >= 8) {
-                points = 45;
-            } else if (percentLoss >= 6) {
-                points = 40;
-            } else if (percentLoss >= 4) {
-                points = 35;
-            } else if (percentLoss >= 2) {
-                points = 30;
-            } else if (percentLoss >= 1) {
-                points = 20;
-            } else if (percentLoss > 0 && percentLoss < 1) {
-                points = 10;
-            } else {
-                points = 0;
-            }
-
-            return { percentLoss: parseFloat(percentLoss.toFixed(2)), points: parseFloat(points.toFixed(2)) };
-        }
-
-        /**
-         * Calcula a pontuação de atividade com base no número de semanas válidas.
-         * @param {number} validWeeks Número de semanas em que o participante fez 3+ treinos.
-         * @returns {number} Pontos de atividade.
-         */
-        function calculateActivityPoints(validWeeks) {
-            return (validWeeks / MAX_WEEKS) * MAX_ACTIVITY_POINTS;
-        }
-
-        /**
-         * Calcula todas as métricas para um participante.
-         * @param {object} participant O objeto participante.
-         * @returns {object} O objeto participante com métricas calculadas.
-         */
-        function calculateParticipantMetrics(participant) {
-            const { percentLoss, points: weightPoints } = calculateWeightLossPoints(participant.pesoInicial, participant.pesoFinal);
-            const validWeeksCount = participant.semanasValidas.filter(s => s).length; // Conta as semanas marcadas como true
-            const activityPoints = calculateActivityPoints(validWeeksCount);
-            const totalPoints = weightPoints + activityPoints;
-            const percentActivities = (activityPoints / MAX_ACTIVITY_POINTS) * 100;
-
-            let progressToTarget = null;
-            if (participant.targetWeight !== null && participant.pesoInicial !== null && participant.pesoInicial > participant.targetWeight) {
-                // Calcula o quanto do caminho até a meta foi percorrido
-                const totalReductionNeeded = participant.pesoInicial - participant.targetWeight;
-                const currentReduction = participant.pesoInicial - participant.pesoFinal;
-                progressToTarget = (currentReduction / totalReductionNeeded) * 100;
-                if (progressToTarget < 0) progressToTarget = 0; // Se ganhou peso
-                if (progressToTarget > 100) progressToTarget = 100; // Se passou da meta
-            }
-
-            return {
-                ...participant, // Retorna todas as propriedades originais
-                percentLoss: parseFloat(percentLoss.toFixed(2)),
-                weightPoints: parseFloat(weightPoints.toFixed(2)),
-                validWeeksCount: validWeeksCount,
-                activityPoints: parseFloat(activityPoints.toFixed(2)),
-                totalPoints: parseFloat(totalPoints.toFixed(2)),
-                percentActivities: parseFloat(percentActivities.toFixed(1)),
-                progressToTarget: progressToTarget !== null ? parseFloat(progressToTarget.toFixed(1)) : null
-            };
-        }
-
-        /**
-         * Atualiza as tabelas e o gráfico da planilha com os dados dos participantes (visualização completa).
-         */
-        function updatePlanilha() {
-            console.log("Attempting to update full spreadsheet...");
-
-            const currentParticipantsJson = JSON.stringify(participants);
-
-            // Só re-renderiza TUDO se os dados mudaram ou se é a primeira vez que a planilha completa é exibida
-            if (currentParticipantsJson === lastParticipantsJson && !mainContent.classList.contains(HIDDEN_CLASS)) {
-                console.log("Dados dos participantes inalterados, pulando re-renderização completa da planilha.");
-                applyPermissions(); // Ainda aplica permissões caso o usuário tenha trocado de perfil
-                return;
-            }
-
-            lastParticipantsJson = currentParticipantsJson; // Atualiza o hash
-
-            rankingTableBody.innerHTML = ''; // Limpa as linhas existentes da tabela
-            weeklyParticipationTableBody.innerHTML = '';
-            activityChartDiv.innerHTML = '';
-
-            // Filtrar participantes com base na busca
-            const searchTerm = searchParticipantInput.value.toLowerCase().trim();
-            const filteredParticipants = participants.filter(p =>
-                p.name.toLowerCase().includes(searchTerm)
-            );
-
-            // Calcular todos os dados para cada participante filtrado
-            const calculatedParticipants = filteredParticipants.map(calculateParticipantMetrics);
-
-            // Ordenar participantes por pontuação total para o ranking
-            const rankedParticipants = [...calculatedParticipants].sort((a, b) => b.totalPoints - a.totalPoints);
-            console.log("Participantes ranqueados para planilha completa:", rankedParticipants); // Log de depuração
-
-            // Preencher a tabela de Ranking (para telas maiores)
-            if (rankedParticipants.length === 0) {
-                noRankingData.classList.remove(HIDDEN_CLASS); // Mensagem para a tabela
-                noWeeklyData.classList.remove(HIDDEN_CLASS); // Mensagem para tabela semanal
-                noChartData.classList.remove(HIDDEN_CLASS); // Mensagem para o gráfico
-            } else {
-                noRankingData.classList.add(HIDDEN_CLASS);
-                noWeeklyData.classList.add(HIDDEN_CLASS);
-                noChartData.classList.add(HIDDEN_CLASS);
-
-                rankedParticipants.forEach((p, index) => {
-                    let crownEmoji = '';
-                    if (index === 0) {
-                        crownEmoji = '👑'; // Ouro
-                    } else if (index === 1) {
-                        crownEmoji = '&#129352;'; // Prata - CORRIGIDO PARA ENTIDADE HTML
-                    } else if (index === 2) {
-                        crownEmoji = '🥉'; // Bronze
-                    }
-
-                    const targetWeightDisplay = p.targetWeight !== null ? `${p.targetWeight.toFixed(1)} kg` : 'N/A';
-                    const progressToTargetDisplay = p.progressToTarget !== null ? `(${p.progressToTarget}% da meta)` : '';
-
-                    // Preencher a tabela de Ranking (para telas maiores)
-                    const row = rankingTableBody.insertRow();
-                    if (index === 0) { // Destaca o líder
-                        row.classList.add('leader-row');
-                    }
-                    row.innerHTML = `
-                        <td class="font-semibold">${index + 1} ${crownEmoji}</td>
-                        <td><a href="#" class="text-blue-600 hover:underline edit-participant" data-name="${p.name}">${p.name}</a></td>
-                        <td>${p.pesoInicial.toFixed(2)}</td>
-                        <td>${p.pesoFinal.toFixed(2)}</td>
-                        <td>${p.percentLoss.toFixed(2)}%</td>
-                        <td>${p.weightPoints.toFixed(2)}</td>
-                        <td>${p.validWeeksCount}</td>
-                        <td>${p.activityPoints.toFixed(2)}</td>
-                        <td class="font-bold">${p.totalPoints.toFixed(2)}</td>
-                        <td class="flex items-center space-x-2">
-                            <button class="text-blue-500 hover:text-blue-700 edit-participant-icon" data-name="${p.name}" aria-label="Editar participante ${p.name}">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            </button>
-                            <button class="text-red-500 hover:text-red-700 delete-participant-icon" data-name="${p.name}" aria-label="Excluir participante ${p.name}">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                            </button>
-                        </td>
-                    `;
-                });
-            }
-
-            // 1. Determine which weeks are "active" (at least one participant completed it)
-            const activeWeeksStatus = Array(MAX_WEEKS).fill(false);
-            participants.forEach(p => {
-                p.semanasValidas.forEach((isValid, weekIndex) => {
-                    if (isValid) {
-                        activeWeeksStatus[weekIndex] = true;
-                    }
-                });
-            });
-
-            // Calcular a semana atual
-            const today = new Date();
-            const diffTime = today.getTime() - CHALLENGE_START_DATE.getTime();
-            // Adiciona 1 para que a primeira semana seja a semana 1, não a semana 0
-            const currentWeek = Math.floor(diffTime / MILLISECONDS_PER_WEEK) + 1;
-
-            // Preencher o cabeçalho da tabela de Participação Semanal com as semanas
-            let weekHeaders = `<th class="rounded-tl-xl">Nome
-                                    <span class="tooltip">
-                                        <span class="tooltiptext">Semanas de 1 a 12. Marque a caixa se a semana for válida (3+ treinos).</span>
-                                    </span>
-                                </th>`;
-            for (let i = 1; i <= MAX_WEEKS; i++) {
-                const isCurrentWeek = i === currentWeek;
-                weekHeaders += `<th class="${isCurrentWeek ? 'current-week' : ''}">${i}</th>`;
-            }
-            // Adiciona rounded-tr-xl ao último th gerado
-            weekHeaders = weekHeaders.replace(/<th class="([^"]*)">12<\/th>/, `<th class="$1 rounded-tr-xl">12</th>`);
-            weeklyParticipationTableHead.innerHTML = weekHeaders;
-
-
-            // Criar uma cópia dos participantes filtrados e ordenar alfabeticamente para a tabela semanal
-            const alphabeticalFilteredParticipants = [...filteredParticipants].sort((a, b) => a.name.localeCompare(b.name));
-
-            // Preencher a tabela de Participação Semanal
-            if (alphabeticalFilteredParticipants.length === 0) {
-                noWeeklyData.classList.remove(HIDDEN_CLASS);
-            } else {
-                noWeeklyData.classList.add(HIDDEN_CLASS);
-                alphabeticalFilteredParticipants.forEach(p => {
-                    const row = weeklyParticipationTableBody.insertRow();
-                    let weeklyCells = `<td class="font-medium">${p.name}</td>`;
-                    p.semanasValidas.forEach((isValid, weekIndex) => {
-                        let cellClasses = 'checkbox-cell';
-                        // Aplica fundo vermelho se não for válido E alguém mais completou esta semana
-                        if (!isValid && activeWeeksStatus[weekIndex]) {
-                            cellClasses += ' missed-week-cell';
-                        }
-                        // Adiciona classe para a semana atual
-                        if (weekIndex + 1 === currentWeek) {
-                            cellClasses += ' current-week-cell';
-                        }
-                        weeklyCells += `
-                            <td class="${cellClasses}">
-                                <input type="checkbox" ${isValid ? 'checked' : ''} data-name="${p.name}" data-week="${weekIndex}">
-                            </td>
-                        `;
-                    });
-                    row.innerHTML = weeklyCells;
-                });
-            }
-
-            // Ordenar participantes para o gráfico de atividades por percentual (do maior para o menor)
-            const chartSortedParticipants = [...calculatedParticipants].sort((a, b) => b.percentActivities - a.percentActivities);
-
-            // Preencher o gráfico de Participação nas Atividades
-            if (chartSortedParticipants.length === 0) {
-                noChartData.classList.remove(HIDDEN_CLASS);
-            } else {
-                noChartData.classList.add(HIDDEN_CLASS);
-                chartSortedParticipants.forEach(p => {
-                    const chartItem = document.createElement('div');
-                    // Adjusted classes for closer spacing and centered content
-                    chartItem.className = 'flex flex-col items-center justify-center text-center';
-                    chartItem.innerHTML = `
-                        <div class="relative w-16 h-16 mb-1"> <!-- Increased container size for larger SVG -->
-                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <defs>
-                                    <clipPath id="fillClip-${p.name.replace(/\s/g, '')}">
-                                        <!-- The person's total height in the viewBox is from y=2 (top of head) to y=22 (bottom of feet), so 20 units. -->
-                                        <!-- The fill should start from the bottom (y=22) and go upwards. -->
-                                        <rect x="0"
-                                            y="${22 - (20 * (p.percentActivities / 100))}"
-                                            width="24"
-                                            height="${20 * (p.percentActivities / 100)}"></rect>
-                                    </clipPath>
-                                </defs>
-
-                                <!-- Base (empty) person - light gray -->
-                                <circle cx="12" cy="5" r="3" fill="#d1d5db"/> <!-- Head -->
-                                <rect x="10" y="8" width="4" height="8" fill="#d1d5db"/> <!-- Torso -->
-                                <rect x="6" y="9" width="4" height="2" fill="#d1d5db"/> <!-- Left Arm -->
-                                <rect x="14" y="9" width="4" height="2" fill="#d1d5db"/> <!-- Right Arm -->
-                                <rect x="9" y="16" width="2" height="6" fill="#d1d5db"/> <!-- Left Leg -->
-                                <rect x="13" y="16" width="2" height="6" fill="#d1d3db"/> <!-- Right Leg -->
-
-                                <!-- Filled person - green, clipped by the dynamic rectangle -->
-                                <g clip-path="url(#fillClip-${p.name.replace(/\s/g, '')})">
-                                    <circle cx="12" cy="5" r="3" fill="#34d399" class="activity-fill"/> <!-- Head -->
-                                    <rect x="10" y="8" width="4" height="8" fill="#34d399" class="activity-fill"/> <!-- Torso -->
-                                    <rect x="6" y="9" width="4" height="2" fill="#34d399" class="activity-fill"/> <!-- Left Arm -->
-                                    <rect x="14" y="9" width="4" height="2" fill="#34d399" class="activity-fill"/> <!-- Right Arm -->
-                                    <rect x="9" y="16" width="2" height="6" fill="#34d399" class="activity-fill"/> <!-- Left Leg -->
-                                    <rect x="13" y="16" width="2" height="6" fill="#34d399" class="activity-fill"/> <!-- Right Leg -->
-                                </g>
-                            </svg>
-                        </div>
-                        <div class="text-center text-sm font-medium leading-tight">${p.name} - <span class="font-bold">${p.percentActivities.toFixed(1)}%</span></div>
-                    `;
-                    activityChartDiv.appendChild(chartItem);
-                });
-            }
-
-            // Atualizar os boxes de líder e dias restantes
-            updateSummaryBoxes(rankedParticipants);
-
-            // Aplicar permissões após a renderização dos elementos
-            applyPermissions();
-        }
-
-        /**
-         * Renderiza o dashboard mobile simplificado.
-         */
-        function renderMobileDashboard() {
-            console.log("Renderizando dashboard mobile..."); // Log de depuração
-            mobileRankingList.innerHTML = ''; // Limpa a lista existente
-            mobileLeaderName.textContent = 'Carregando...'; // Reset leader info
-            mobileLeaderPoints.textContent = 'Carregando...';
-
-            // Garante que o array de participantes não esteja vazio antes de prosseguir
-            if (participants.length === 0) {
-                mobileRankingList.innerHTML = '<p class="text-center text-gray-500">Nenhum participante para exibir.</p>';
-                mobileLeaderName.textContent = 'N/A';
-                mobileLeaderPoints.textContent = '0.00';
-                console.log("Nenhum participante para exibir no dashboard mobile."); // Log de depuração
-                return; // Sai se não houver participantes
-            }
-
-            const searchTerm = searchParticipantInput.value.toLowerCase().trim();
-            const filteredParticipants = participants.filter(p =>
-                p.name.toLowerCase().includes(searchTerm)
-            ).map(calculateParticipantMetrics); // Calcula as métricas
-
-            const rankedParticipants = [...filteredParticipants].sort((a, b) => b.totalPoints - a.totalPoints);
-            console.log("Participantes ranqueados para dashboard mobile:", rankedParticipants); // Log de depuração
-
-            // Atualiza o card de destaque do líder
-            if (rankedParticipants.length > 0) {
-                const leader = rankedParticipants[0];
-                mobileLeaderName.textContent = leader.name;
-                mobileLeaderPoints.textContent = leader.totalPoints.toFixed(2);
-            } else {
-                mobileLeaderName.textContent = 'N/A';
-                mobileLeaderPoints.textContent = '0.00';
-            }
-
-            // Preenche a lista de ranking mobile
-            if (rankedParticipants.length === 0) {
-                mobileRankingList.innerHTML = '<p class="text-center text-gray-500">Nenhum participante encontrado.</p>';
-            } else {
-                rankedParticipants.forEach((p, index) => {
-                    let crownEmoji = '';
-                    if (index === 0) crownEmoji = '👑';
-                    else if (index === 1) crownEmoji = '&#129352;'; // Prata - CORRIGIDO PARA ENTIDADE HTML
-                    else if (index === 2) crownEmoji = '🥉';
-
-                    const listItem = document.createElement('div');
-                    listItem.className = `bg-white p-3 rounded-md shadow-sm border border-gray-200 flex justify-between items-center ${index === 0 ? 'bg-yellow-50 border-orange-300' : ''}`;
-                    listItem.innerHTML = `
-                        <div>
-                            <span class="font-bold text-gray-800">${index + 1}. ${p.name} ${crownEmoji}</span>
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-lg font-bold text-blue-700">${p.totalPoints.toFixed(2)} pts</span>
-                            <button class="text-blue-500 hover:text-blue-700 view-details-btn" data-name="${p.name}" aria-label="Ver detalhes de ${p.name}">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 11V3H7v8"></path><path d="M12 21h9"></path><path d="M7 3h14v18H7z"></path></svg>
-                            </button>
-                        </div>
-                    `;
-                    mobileRankingList.appendChild(listItem);
+                const navContainer = document.getElementById('mainNavTabs');
+                const mobileNavContainer = document.getElementById('mobileMenuDropdown');
+                navContainer.innerHTML = '';
+                mobileNavContainer.innerHTML = '';
+                NAV_LINKS.forEach(link => {
+                    navContainer.innerHTML += `<a href="#" class="nav-tab-item" data-section="${link.id}">${link.text}</a>`;
+                    mobileNavContainer.innerHTML += `<a href="#" class="nav-tab-item" data-section="${link.id}">${link.text}</a>`;
                 });
 
-                // Adiciona listener para os botões "Ver Detalhes"
-                mobileRankingList.querySelectorAll('.view-details-btn').forEach(button => {
-                    button.addEventListener('click', (event) => {
-                        const participantName = event.currentTarget.dataset.name;
-                        searchParticipantInput.value = participantName; // Preenche o campo de busca
-                        toggleView(false); // Alterna para a visualização completa
-                        // Esconde o dropdown do menu mobile se estiver aberto
-                        mobileMenuDropdown.classList.remove('open');
+                document.querySelectorAll('.nav-tab-item').forEach(item => {
+                    item.addEventListener('click', e => {
+                        e.preventDefault();
+                        showSection(e.currentTarget.dataset.section);
+                        mobileNavContainer.classList.remove('open');
                     });
                 });
+                
+                document.getElementById('mobileMenuToggleButton').addEventListener('click', () => mobileNavContainer.classList.toggle('open'));
+                mainContent.addEventListener('click', handleMainContentClick);
+                mainContent.addEventListener('input', debounce(e => {
+                    if (e.target.matches('.activity-input')) {
+                        handleActivityInputChange(e.target);
+                    }
+                }, 400));
+                
+                window.addEventListener('resize', debounce(() => {
+                    const isNowMobile = window.innerWidth < 768;
+                    if(isNowMobile !== currentViewIsMobile) {
+                        currentViewIsMobile = isNowMobile;
+                        updateAllViews();
+                    }
+                }, 200));
             }
 
-            applyPermissions(); // Reaplica as permissões, caso existam botões aqui
-        }
+            function handleMainContentClick(e) {
+                const button = e.target.closest('button');
+                const link = e.target.closest('a.participant-name-link');
 
+                if (link) {
+                    e.preventDefault();
+                    const name = link.dataset.name;
+                    openDetailsModal(name);
+                    return;
+                }
 
-        /**
-         * Lida com a mudança nos checkboxes de semanas válidas.
-         * @param {Event} event O evento de mudança.
-         */
-        function handleCheckboxChange(event) {
-            const name = event.target.dataset.name;
-            const weekIndex = parseInt(event.target.dataset.week);
-            const isChecked = event.target.checked;
-
-            const participant = participants.find(p => p.name === name);
-            if (participant) {
-                participant.semanasValidas[weekIndex] = isChecked;
-                saveData(); // Salva os dados
-                updatePlanilha(); // Recalcula e atualiza a UI da planilha completa
-                renderMobileDashboard(); // Recalcula e atualiza a UI do dashboard mobile
-            }
-        }
-
-        /**
-         * Atualiza os boxes de líder atual e dias restantes.
-         * @param {Array} rankedParticipants O array de participantes já ordenado por pontuação.
-         * @returns {void}
-         */
-        function updateSummaryBoxes(rankedParticipants) {
-            const leaderBox = document.getElementById('leaderBox');
-            const daysRemainingBox = document.getElementById('daysRemainingBox');
-
-            // Líder Atual: Pega o primeiro participante do array já ordenado por pontuação
-            const currentLeader = rankedParticipants[0];
-            if (currentLeader) {
-                leaderBox.innerHTML = `
-                    <div class="text-xl font-bold text-gray-800 mb-2">👑 Líder: <span class="text-green-700">${currentLeader.name}</span></div>
-                    <div class="text-lg text-gray-700">Total: <span class="font-bold">${currentLeader.totalPoints.toFixed(2)} pts</span></div>
-                    <div class="text-sm text-gray-600">
-                        (Peso: ${currentLeader.weightPoints.toFixed(2)} pts | Atividade: ${currentLeader.activityPoints.toFixed(2)} pts)
-                    </div>
-                `;
-            } else {
-                leaderBox.innerHTML = `Líder Atual: N/A`;
+                if (!button) return;
+                
+                const name = button.dataset.name;
+                if (button.matches('.edit-participant-icon')) {
+                    const index = participants.findIndex(p => p.name === name);
+                    if (index !== -1) openModal(index);
+                } else if (button.matches('.delete-participant-icon')) {
+                    openDeleteModal(name);
+                } else if (button.matches('.update-weight-btn')) {
+                    handleUpdateWeight(button);
+                }
             }
 
-            // Datas do desafio
-            const today = new Date();
-            const startDate = CHALLENGE_START_DATE;
-            const endDate = CHALLENGE_END_DATE;
-
-            // Calcula dias restantes
-            let daysRemaining = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-            if (daysRemaining < 0) daysRemaining = 0; // Se o desafio já terminou
-
-            // Formata as datas de início e fim
-            const startDateFormatted = startDate.toLocaleDateString('pt-BR');
-            const endDateFormatted = endDate.toLocaleDateString('pt-BR');
-
-            let countdownMessage = '';
-            let countdownColorClass = '';
-
-            if (daysRemaining > 0) {
-                countdownMessage = `Faltam <span class="days-value">${daysRemaining}</span> dias para o final do desafio!`;
-                countdownColorClass = 'text-blue-600'; // Azul para dias restantes
-            } else if (daysRemaining === 0) {
-                countdownMessage = `O desafio termina <span class="font-bold">hoje!</span>`;
-                countdownColorClass = 'text-yellow-600'; // Amarelo para hoje
-            } else {
-                countdownMessage = `O desafio <span class="font-bold">já terminou!</span>`;
-                countdownColorClass = 'text-red-600'; // Vermelho para terminado
+            function handleActivityInputChange(input) {
+                if (input.disabled) return;
+                const name = input.dataset.name;
+                const weekIndex = parseInt(input.dataset.week);
+                let numActivities = parseInt(input.value);
+                if (isNaN(numActivities) || numActivities < 0) numActivities = 0;
+                
+                const participant = participants.find(p => p.name === name);
+                if (participant) {
+                    participant.semanasValidas[weekIndex] = numActivities;
+                    saveData();
+                    updateAllViews();
+                }
             }
 
-            daysRemainingBox.innerHTML = `
-                <div class="flex justify-around mb-2 text-gray-700">
-                    <div>
-                        <span class="date-label">🏁 Início:</span> <span class="date-value">${startDateFormatted}</span>
-                    </div>
-                    <div>
-                        <span class="date-label">� Fim:</span> <span class="date-value">${endDateFormatted}</span>
-                    </div>
-                </div>
-                <div class="countdown-message ${countdownColorClass}">
-                    ${countdownMessage}
-                </div>
-            `;
-        }
+            function handleUpdateWeight(button) {
+                if (button.disabled) return;
+                const name = button.dataset.name;
+                const row = button.closest('tr');
+                const weightInput = row.querySelector('input[type="number"]');
+                const dateInput = row.querySelector('input[type="date"]');
+                const newWeight = parseFloat(weightInput.value);
+                const dateValue = dateInput.value;
 
-        /**
-         * Exibe a seção de conteúdo especificada e oculta as outras.
-         * Atualiza o estado ativo dos itens do menu.
-         * @param {string} sectionId O ID da seção a ser exibida (ex: 'ranking', 'weekly', 'activity').
-         */
-        function showSection(sectionId) {
-            contentSections.forEach(section => {
-                if (section.id === `section${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}`) {
-                    section.classList.remove(HIDDEN_CLASS);
-                } else {
-                    section.classList.add(HIDDEN_CLASS);
+                if (isNaN(newWeight) || newWeight <= 0) return showFeedbackMessage("Peso inválido.", true);
+                if (!dateValue) return showFeedbackMessage("Selecione uma data.", true);
+                if (new Date(dateValue) > new Date()) return showFeedbackMessage("Não é possível registrar datas futuras.", true);
+
+                const participant = participants.find(p => p.name === name);
+                if (participant) {
+                    const newEntry = { date: new Date(dateValue + 'T00:00:00').toISOString(), weight: newWeight };
+                    participant.pesoAtual = newWeight;
+                    participant.weightHistory.push(newEntry);
+                    participant.weightHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    saveData();
+                    updateAllViews();
+                    showFeedbackMessage(`Peso de ${name} atualizado!`);
                 }
-            });
+            }
+            
+            // LÓGICA DE DADOS E CÁLCULOS
+            function saveData() {
+                localStorage.setItem('challengeParticipants', JSON.stringify(participants));
+            }
 
-            // Atualiza a classe 'active' nos itens do menu de abas
-            mainNavTabs.querySelectorAll('.nav-tab-item').forEach(item => {
-                if (item.dataset.section === sectionId) {
-                    item.classList.add('active');
-                } else {
-                    item.classList.remove('active');
+            function calculateMetrics(p) {
+                const pesoPerdido = p.pesoInicial - p.pesoAtual;
+                const percentLoss = p.pesoInicial > 0 ? (pesoPerdido / p.pesoInicial) * 100 : 0;
+                let weightPoints = 0;
+                if (percentLoss >= 10) weightPoints = 50;
+                else if (percentLoss >= 8) weightPoints = 45;
+                else if (percentLoss >= 6) weightPoints = 40;
+                else if (percentLoss >= 4) weightPoints = 35;
+                else if (percentLoss >= 2) weightPoints = 30;
+                else if (percentLoss > 0) weightPoints = 10;
+                
+                const validWeeksCount = p.semanasValidas.filter(num => num >= MIN_ACTIVITIES_FOR_VALID_WEEK).length;
+                const activityPoints = (validWeeksCount / MAX_WEEKS) * MAX_ACTIVITY_POINTS;
+                
+                let progressToTarget = null;
+                if (p.targetWeight && p.pesoInicial > p.targetWeight) {
+                    const totalNeeded = p.pesoInicial - p.targetWeight;
+                    const currentLoss = p.pesoInicial - p.pesoAtual;
+                    progressToTarget = Math.max(0, Math.min(100, (currentLoss / totalNeeded) * 100));
                 }
-            });
+                return { ...p, percentLoss: Math.max(0, percentLoss), weightPoints, validWeeksCount, activityPoints, totalPoints: weightPoints + activityPoints, progressToTarget };
+            }
 
-            // Atualiza a classe 'active' nos itens do menu dropdown mobile
-            mobileMenuDropdown.querySelectorAll('.nav-tab-item').forEach(item => {
-                if (item.dataset.section === sectionId) {
-                    item.classList.add('active');
-                } else {
-                    item.classList.remove('active');
-                }
-            });
-            console.log(`Exibindo seção: ${sectionId}`);
-        }
+            function getBadges(p) {
+                let badges = '';
+                if (p.semanasValidas[0] >= MIN_ACTIVITIES_FOR_VALID_WEEK) badges += `<span class="badge tooltip"><span class="tooltiptext">Primeira Semana Completa!</span>🥇</span>`;
+                if ((p.pesoInicial - p.pesoAtual) >= 5) badges += `<span class="badge tooltip"><span class="tooltiptext">Marco de 5kg Atingido!</span>⚖️</span>`;
+                const consecutive = p.semanasValidas.map(w => w >= MIN_ACTIVITIES_FOR_VALID_WEEK ? '1' : '0').join('').split('0').reduce((max, s) => Math.max(max, s.length), 0);
+                if (consecutive >= 4) badges += `<span class="badge tooltip"><span class="tooltiptext">${consecutive} Semanas em Chamas!</span>🔥</span>`;
+                return badges;
+            }
 
-        // Inicializa a planilha ao carregar a página
-        window.onload = () => {
-            // Esconde o conteúdo principal e o dashboard mobile por padrão
-            // As classes Tailwind no HTML já devem cuidar da visibilidade inicial,
-            // mas mantemos hidden aqui para garantir que o JS controle após o login.
-            mainContent.classList.add(HIDDEN_CLASS);
-            mobileDashboard.classList.add(HIDDEN_CLASS);
-
-            // Listener para o formulário de login
-            loginForm.addEventListener('submit', handleLogin);
-
-            // Adiciona listener para o botão de salvar
-            document.getElementById('saveDataBtn').addEventListener('click', saveData);
-
-            // Listeners para o modal de adicionar/editar
-            addParticipantBtn.addEventListener('click', () => openModal());
-            closeModalBtn.addEventListener('click', closeModal);
-            cancelModalBtn.addEventListener('click', closeModal);
-            participantModal.addEventListener('click', (e) => {
-                if (e.target === participantModal) {
-                    closeModal(); // Fecha o modal se clicar fora do conteúdo
-                }
-            });
-            participantForm.addEventListener('submit', handleParticipantFormSubmit);
-
-            // Listeners para o modal de exclusão
-            closeDeleteModalBtn.addEventListener('click', closeDeleteModal);
-            cancelDeleteBtn.addEventListener('click', closeDeleteModal);
-            confirmDeleteBtn.addEventListener('click', deleteParticipant);
-            deleteConfirmModal.addEventListener('click', (e) => {
-                if (e.target === deleteConfirmModal) {
-                    closeDeleteModal(); // Fecha o modal se clicar fora do conteúdo
-                }
-            });
-
-            // Listener para o campo de busca com debounce
-            searchParticipantInput.addEventListener('keyup', debounce(() => {
-                // Atualiza apenas a view que está ativa no momento da busca
+            // LÓGICA DE RENDERIZAÇÃO E UI
+            function updateAllViews() {
                 if (currentViewIsMobile) {
+                    mainContent.classList.add('hidden');
+                    mobileDashboard.classList.remove('hidden');
                     renderMobileDashboard();
                 } else {
+                    mainContent.classList.remove('hidden');
+                    mobileDashboard.classList.add('hidden');
                     updatePlanilha();
                 }
-            }, 300)); // Debounce de 300ms
+                applyPermissions();
+            }
 
-            // Event delegation para a tabela de ranking (edição e exclusão)
-            rankingTableBody.addEventListener('click', function(event) {
-                const target = event.target.closest('.edit-participant, .edit-participant-icon, .delete-participant-icon');
-                if (!target) return; // Se o clique não foi em um dos botões/links
+            function toggleView(showMobile) {
+                currentViewIsMobile = showMobile;
+                updateAllViews();
+            }
 
-                // Verifica se o elemento está desabilitado pela permissão
-                if (target.hasAttribute('disabled')) {
-                    showFeedbackMessage("Você não tem permissão para realizar esta ação.", true);
+            function updatePlanilha() {
+                const activeSectionId = document.querySelector('.nav-tab-item.active')?.dataset.section || 'ranking';
+                showSection(activeSectionId);
+                updateSummaryBoxes();
+            }
+
+            function showSection(sectionId) {
+                document.querySelectorAll('.content-section').forEach(s => s.classList.add('hidden'));
+                const activeSection = document.getElementById(`section${sectionId.charAt(0).toUpperCase() + sectionId.slice(1)}`);
+                if (activeSection) {
+                    activeSection.classList.remove('hidden');
+                    const title = NAV_LINKS.find(l => l.id === sectionId)?.text || 'Seção';
+                    
+                    const allMetrics = participants.map(calculateMetrics);
+                    const searchTerm = document.getElementById('searchParticipantInput').value.toLowerCase();
+                    const filteredMetrics = allMetrics.filter(p => p.name.toLowerCase().includes(searchTerm));
+                    const ranked = [...filteredMetrics].sort((a, b) => b.totalPoints - a.totalPoints);
+
+                    if (sectionId === 'ranking') renderRankingTable(ranked, activeSection, title);
+                    else if (sectionId === 'weekly') renderWeeklyTable(filteredMetrics, activeSection, title);
+                    else if (sectionId === 'activity') renderActivityChart(ranked, activeSection, title);
+                    else if (sectionId === 'currentWeight') renderCurrentWeightTable(filteredMetrics, activeSection, title);
+                    else if (sectionId === 'weightHistory') renderWeightHistoryChart(filteredMetrics, activeSection, title);
+                }
+                document.querySelectorAll('.nav-tab-item').forEach(item => item.classList.toggle('active', item.dataset.section === sectionId));
+            }
+
+            function renderRankingTable(data, container, title) {
+                const canEdit = USERS[currentUser]?.canEdit;
+                let tableHTML = `
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">${title}</h2>
+                    <div class="overflow-x-auto rounded-xl shadow-md">
+                        <table class="w-full">
+                            <thead><tr>
+                                <th class="rounded-tl-xl">Rank</th>
+                                <th>Nome</th>
+                                <th>Progresso Meta</th>
+                                <th>% Perda</th>
+                                <th>Pts Peso</th>
+                                <th>Sem. Válidas</th>
+                                <th>Pts Ativ.</th>
+                                <th>Total</th>
+                                <th class="rounded-tr-xl"></th>
+                            </tr></thead>
+                            <tbody>`;
+                
+                if (data.length === 0) {
+                    tableHTML += `<tr><td colspan="9" class="text-center p-4">Nenhum participante encontrado.</td></tr>`;
+                } else {
+                    data.forEach((p, index) => {
+                        const crown = ['👑', '🥈', '🥉'][index] || '';
+                        const badges = getBadges(p);
+                        const progress = p.progressToTarget !== null ? `
+                            <div class="progress-bar-container tooltip"><span class="tooltiptext">${p.progressToTarget.toFixed(1)}% da meta</span>
+                                <div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div>
+                            </div>` : 'N/A';
+                        
+                        tableHTML += `
+                            <tr class="${index === 0 ? 'leader-row' : ''}">
+                                <td class="font-semibold">${index + 1} ${crown}</td>
+                                <td><a href="#" class="participant-name-link text-blue-600 hover:underline" data-name="${p.name}">${p.name}</a> ${badges}</td>
+                                <td>${progress}</td>
+                                <td>${p.percentLoss.toFixed(2)}%</td>
+                                <td>${p.weightPoints.toFixed(2)}</td>
+                                <td>${p.validWeeksCount}</td>
+                                <td>${p.activityPoints.toFixed(2)}</td>
+                                <td class="font-bold">${p.totalPoints.toFixed(2)}</td>
+                                <td class="flex items-center space-x-2">
+                                    ${canEdit ? `
+                                    <button class="text-blue-500 hover:text-blue-700 edit-participant-icon" data-name="${p.name}">✏️</button>
+                                    <button class="text-red-500 hover:text-red-700 delete-participant-icon" data-name="${p.name}">🗑️</button>
+                                    ` : ''}
+                                </td>
+                            </tr>`;
+                    });
+                }
+                tableHTML += `</tbody></table></div>`;
+                container.innerHTML = tableHTML;
+            }
+
+            function renderWeeklyTable(data, container, title) {
+                const canEdit = USERS[currentUser]?.canEdit;
+                const today = new Date();
+                const currentWeek = Math.floor((today - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7)) + 1;
+                
+                let headers = `<th>Nome</th>`;
+                for (let i = 1; i <= MAX_WEEKS; i++) {
+                    headers += `<th class="${i === currentWeek ? 'current-week' : ''}">${i}</th>`;
+                }
+
+                let bodyHTML = '';
+                if (data.length > 0) {
+                    data.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
+                        bodyHTML += `<tr><td class="font-medium">${p.name}</td>`;
+                        p.semanasValidas.forEach((num, weekIndex) => {
+                            const isPastOrCurrent = (weekIndex + 1) <= currentWeek;
+                            let tdClasses = weekIndex + 1 === currentWeek ? 'current-week-cell' : '';
+                            if (isPastOrCurrent) tdClasses += num >= MIN_ACTIVITIES_FOR_VALID_WEEK ? ' valid-week' : ' missed-week';
+                            
+                            bodyHTML += `
+                                <td class="${tdClasses}">
+                                    <div class="activity-content">
+                                        <input type="number" class="activity-input" min="0" value="${num}" data-name="${p.name}" data-week="${weekIndex}" ${!canEdit ? 'disabled' : ''}>
+                                        <span class="checkmark-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                                    </div>
+                                </td>`;
+                        });
+                        bodyHTML += `</tr>`;
+                    });
+                } else {
+                    bodyHTML = `<tr><td colspan="${MAX_WEEKS + 1}" class="text-center p-4">Nenhum participante.</td></tr>`;
+                }
+
+                container.innerHTML = `
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">${title}</h2>
+                    <div class="overflow-x-auto rounded-xl shadow-md">
+                        <table id="weeklyParticipationTable" class="w-full">
+                            <thead><tr>${headers}</tr></thead>
+                            <tbody>${bodyHTML}</tbody>
+                        </table>
+                    </div>`;
+            }
+
+            function renderCurrentWeightTable(data, container, title) {
+                const canEdit = USERS[currentUser]?.canEdit;
+                const todayStr = new Date().toISOString().split('T')[0];
+                let bodyHTML = '';
+
+                if (data.length > 0) {
+                    data.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
+                        bodyHTML += `
+                            <tr>
+                                <td class="font-medium">${p.name}</td>
+                                <td><input type="number" step="any" class="shadow-sm border rounded w-full py-2 px-3" value="${p.pesoAtual.toFixed(2)}" ${!canEdit ? 'disabled' : ''}></td>
+                                <td><input type="date" class="shadow-sm border rounded w-full py-2 px-3" value="${todayStr}" max="${todayStr}" ${!canEdit ? 'disabled' : ''}></td>
+                                <td class="text-center"><button class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg update-weight-btn" data-name="${p.name}" ${!canEdit ? 'disabled' : ''}>Salvar</button></td>
+                            </tr>`;
+                    });
+                } else {
+                    bodyHTML = `<tr><td colspan="4" class="text-center p-4">Nenhum participante.</td></tr>`;
+                }
+
+                container.innerHTML = `
+                    <h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">${title}</h2>
+                    <div class="overflow-x-auto rounded-xl shadow-md">
+                        <table class="w-full">
+                            <thead><tr>
+                                <th class="rounded-tl-xl">Nome</th><th>Peso (kg)</th><th>Data</th><th class="rounded-tr-xl">Ação</th>
+                            </tr></thead>
+                            <tbody>${bodyHTML}</tbody>
+                        </table>
+                    </div>`;
+            }
+            
+            function renderActivityChart(data, container, title) {
+                let contentHTML = `<h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">${title}</h2><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">`;
+                if (data.length > 0) {
+                    const percentActivities = (p) => (p.activityPoints / MAX_ACTIVITY_POINTS) * 100;
+                    data.forEach(p => {
+                        const pA = percentActivities(p);
+                        let fillColor = '#34d399'; // Verde
+                        if (pA < 50) fillColor = '#f59e0b'; // Amarelo
+                        if (pA < 25) fillColor = '#ef4444'; // Vermelho
+                        
+                        const sanitizedName = p.name.replace(/[^a-zA-Z0-9]/g, '');
+
+                        contentHTML += `
+                            <div class="flex flex-col items-center text-center">
+                                <div class="relative w-16 h-16 mb-1">
+                                    <svg width="64" height="64" viewBox="0 0 24 24">
+                                        <defs>
+                                            <clipPath id="clip-${sanitizedName}">
+                                                <rect x="0" y="${24 - (24 * pA / 100)}" width="24" height="${24 * pA / 100}"></rect>
+                                            </clipPath>
+                                        </defs>
+                                        <g fill="#e5e7eb">
+                                            <circle cx="12" cy="5" r="3"/><rect x="10" y="8" width="4" height="8"/><rect x="6" y="9" width="4" height="2"/><rect x="14" y="9" width="4" height="2"/><rect x="9" y="16" width="2" height="6"/><rect x="13" y="16" width="2" height="6"/>
+                                        </g>
+                                        <g clip-path="url(#clip-${sanitizedName})" fill="${fillColor}">
+                                            <circle cx="12" cy="5" r="3"/><rect x="10" y="8" width="4" height="8"/><rect x="6" y="9" width="4" height="2"/><rect x="14" y="9" width="4" height="2"/><rect x="9" y="16" width="2" height="6"/><rect x="13" y="16" width="2" height="6"/>
+                                        </g>
+                                    </svg>
+                                </div>
+                                <div class="text-sm font-medium">${p.name} - ${pA.toFixed(1)}%</div>
+                            </div>`;
+                    });
+                } else {
+                    contentHTML += `<div class="col-span-full text-center p-4">Nenhum participante.</div>`;
+                }
+                contentHTML += `</div>`;
+                container.innerHTML = contentHTML;
+            }
+            
+            function renderWeightHistoryChart(data, container, title) {
+                container.innerHTML = `<h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">${title}</h2><div id="weightHistoryChartContainer" class="w-full"></div>`;
+                const chartContainer = document.getElementById('weightHistoryChartContainer');
+                
+                const participantsWithHistory = data.filter(p => p.weightHistory && p.weightHistory.length > 1);
+                if (participantsWithHistory.length === 0) {
+                    chartContainer.innerHTML = `<div class="empty-table-message">Não há histórico de peso suficiente para exibir.</div>`;
                     return;
                 }
+                
+                const margin = {top: 20, right: 120, bottom: 30, left: 40},
+                      containerWidth = chartContainer.clientWidth || 800,
+                      width = containerWidth - margin.left - margin.right,
+                      height = 350 - margin.top - margin.bottom;
 
-                event.preventDefault(); // Evita o comportamento padrão do link/botão
+                const svg = d3.select(chartContainer).append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "100%")
+                    .attr("viewBox", `0 0 ${containerWidth} ${height + margin.top + margin.bottom}`)
+                    .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-                const participantName = target.dataset.name;
+                let allDates = [], allWeights = [];
+                participantsWithHistory.forEach(p => p.weightHistory.forEach(d => {
+                    allDates.push(new Date(d.date));
+                    allWeights.push(d.weight);
+                }));
 
-                if (target.classList.contains('edit-participant') || target.classList.contains('edit-participant-icon')) {
-                    const indexToEdit = participants.findIndex(p => p.name === participantName);
-                    if (indexToEdit !== -1) {
-                        openModal(indexToEdit);
+                const xScale = d3.scaleTime().domain(d3.extent(allDates)).range([0, width]);
+                const yScale = d3.scaleLinear().domain([d3.min(allWeights) - 2, d3.max(allWeights) + 2]).range([height, 0]);
+                const line = d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
+                const colors = d3.scaleOrdinal(d3.schemeCategory10);
+
+                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
+                svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`));
+
+                participantsWithHistory.forEach(p => {
+                    svg.append("path").datum(p.weightHistory).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("d", line);
+                });
+                
+                const legend = svg.selectAll(".legend").data(participantsWithHistory).enter().append("g")
+                    .attr("class", "legend").attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
+                legend.append("rect").attr("width", 18).attr("height", 18).style("fill", d => colors(d.name));
+                legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name);
+            }
+
+            function renderMobileDashboard() {
+                const card = document.getElementById('leaderHighlightCard');
+                const list = document.getElementById('mobileRankingList');
+                const allMetrics = participants.map(calculateMetrics);
+                const ranked = [...allMetrics].sort((a, b) => b.totalPoints - a.totalPoints);
+                
+                if (ranked.length > 0) {
+                    const leader = ranked[0];
+                    card.innerHTML = `
+                        <p class="text-lg font-semibold text-orange-700">Líder Atual: <span class="text-xl font-bold text-orange-900">${leader.name}</span> 👑</p>
+                        <p class="text-md text-gray-700">Pontuação: <span class="font-bold text-orange-800">${leader.totalPoints.toFixed(2)}</span> pts</p>`;
+                } else {
+                    card.innerHTML = `<p>Nenhum líder ainda.</p>`;
+                }
+
+                list.innerHTML = '';
+                ranked.forEach((p, index) => {
+                    const crown = ['👑', '🥈', '🥉'][index] || '';
+                    list.innerHTML += `
+                        <div class="bg-white p-3 rounded-md shadow-sm border flex justify-between items-center ${index === 0 ? 'bg-yellow-50 border-orange-300' : 'border-gray-200'}">
+                            <div><span class="font-bold text-gray-800">${index + 1}. ${p.name} ${crown}</span></div>
+                            <span class="text-lg font-bold text-blue-700">${p.totalPoints.toFixed(2)} pts</span>
+                        </div>`;
+                });
+            }
+
+            function updateSummaryBoxes() {
+                const allMetrics = participants.map(calculateMetrics);
+                const ranked = [...allMetrics].sort((a, b) => b.totalPoints - a.totalPoints);
+                
+                const leaderBox = document.getElementById('leaderBox');
+                const weeklyBox = document.getElementById('weeklyHighlightBox');
+                const daysBox = document.getElementById('daysRemainingBox');
+
+                if (ranked.length > 0) {
+                    const leader = ranked[0];
+                    leaderBox.innerHTML = `<div>👑 Líder Atual</div><div class="text-xl font-bold text-green-700">${leader.name}</div><div>${leader.totalPoints.toFixed(2)} pts</div>`;
+                } else {
+                    leaderBox.innerHTML = `<div>👑 Líder Atual</div><div class="text-xl">N/A</div>`;
+                }
+
+                let weeklyWinner = { name: 'N/A', loss: 0 };
+                const oneWeekAgo = new Date();
+                oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                participants.forEach(p => {
+                    const recentHistory = p.weightHistory.filter(h => new Date(h.date) >= oneWeekAgo && new Date(h.date) <= new Date());
+                    if (recentHistory.length > 0) {
+                        const firstWeight = p.weightHistory.filter(h => new Date(h.date) < oneWeekAgo).pop()?.weight || p.pesoInicial;
+                        const lastWeight = recentHistory[recentHistory.length - 1].weight;
+                        const loss = firstWeight - lastWeight;
+                        if (loss > weeklyWinner.loss) {
+                            weeklyWinner = { name: p.name, loss };
+                        }
                     }
-                } else if (target.classList.contains('delete-participant-icon')) {
-                    openDeleteModal(participantName);
-                }
-            });
+                });
+                weeklyBox.innerHTML = `<div>🔥 Destaque da Semana</div><div class="text-xl font-bold text-purple-700">${weeklyWinner.name}</div><div>Perdeu ${weeklyWinner.loss.toFixed(2)} kg</div>`;
 
-            // Event delegation para checkboxes na tabela de participação semanal
-            weeklyParticipationTableBody.addEventListener('change', function(event) {
-                if (event.target.type === 'checkbox') {
-                    // Verifica se o checkbox está desabilitado pela permissão
-                    if (event.target.disabled) {
-                        showFeedbackMessage("Você não tem permissão para alterar os dados.", true);
-                        // Reverte o estado do checkbox se tentar alterar sem permissão
-                        event.target.checked = !event.target.checked;
-                        return;
+                const daysRemaining = Math.max(0, Math.ceil((CHALLENGE_END_DATE - new Date()) / (1000 * 60 * 60 * 24)));
+                daysBox.innerHTML = `<div>⏳ Dias Restantes</div><div class="text-3xl font-bold text-blue-700">${daysRemaining}</div><div>Término em ${CHALLENGE_END_DATE.toLocaleDateString('pt-BR')}</div>`;
+            }
+
+            function applyPermissions() {
+                const canEdit = USERS[currentUser]?.canEdit;
+                document.querySelectorAll('button, input').forEach(el => {
+                    const noDisable = ['logoutBtn', 'logoutBtnMobile', 'viewFullDashboardBtn', 'backToMobileRankingBtn', 'username', 'password'].includes(el.id) || el.closest('.nav-tab-item');
+                    if (!noDisable) {
+                         el.disabled = !canEdit;
                     }
-                    handleCheckboxChange(event);
-                }
-            });
+                });
+                document.querySelectorAll('.edit-participant-icon, .delete-participant-icon, #addParticipantBtn').forEach(el => el.classList.toggle('hidden', !canEdit));
+            }
+            
+            function openModal(index = null) {
+                const modal = document.getElementById('participantModal');
+                const isEdit = index !== null;
+                const p = isEdit ? participants[index] : {};
 
-            // Listeners para exportar, importar e resetar dados
-            exportDataBtn.addEventListener('click', () => {
-                if (exportDataBtn.disabled) {
-                    showFeedbackMessage("Você não tem permissão para exportar dados.", true);
-                    return;
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <span class="close-button">&times;</span>
+                        <h3 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Adicionar'} Participante</h3>
+                        <form id="participantForm">
+                            <input type="hidden" id="participantIndex" value="${isEdit ? index : ''}">
+                            <div class="mb-4">
+                                <label for="pName" class="block font-bold">Nome:</label>
+                                <input type="text" id="pName" class="border rounded w-full py-2 px-3" value="${p.name || ''}" required>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div><label for="pInitial" class="block font-bold">Peso Inicial:</label><input type="number" step="any" id="pInitial" class="border rounded w-full py-2 px-3" value="${p.pesoInicial || ''}" required></div>
+                                <div><label for="pCurrent" class="block font-bold">Peso Atual:</label><input type="number" step="any" id="pCurrent" class="border rounded w-full py-2 px-3" value="${p.pesoAtual || ''}" required></div>
+                            </div>
+                            <div class="mb-6"><label for="pTarget" class="block font-bold">Meta de Peso:</label><input type="number" step="any" id="pTarget" class="border rounded w-full py-2 px-3" value="${p.targetWeight || ''}"></div>
+                            <div class="flex justify-end gap-4">
+                                <button type="button" class="bg-gray-500 text-white font-bold py-2 px-4 rounded close-button-action">Cancelar</button>
+                                <button type="submit" class="bg-blue-500 text-white font-bold py-2 px-4 rounded">Salvar</button>
+                            </div>
+                        </form>
+                    </div>`;
+                
+                modal.querySelector('.close-button').onclick = () => modal.classList.remove('show');
+                modal.querySelector('.close-button-action').onclick = () => modal.classList.remove('show');
+                modal.querySelector('#participantForm').onsubmit = handleParticipantFormSubmit;
+                modal.classList.add('show');
+            }
+
+            function handleParticipantFormSubmit(e) {
+                e.preventDefault();
+                const index = e.target.querySelector('#participantIndex').value;
+                const name = document.getElementById('pName').value.trim();
+                const initialWeight = parseFloat(document.getElementById('pInitial').value);
+                const currentWeight = parseFloat(document.getElementById('pCurrent').value);
+                const targetWeight = parseFloat(document.getElementById('pTarget').value) || null;
+
+                if (!name || !initialWeight || !currentWeight) return showFeedbackMessage("Preencha todos os campos obrigatórios.", true);
+
+                if (index) { // Edit
+                    const p = participants[index];
+                    if (p.pesoAtual !== currentWeight) p.weightHistory.push({ date: new Date().toISOString(), weight: currentWeight });
+                    p.name = name;
+                    p.pesoInicial = initialWeight;
+                    p.pesoAtual = currentWeight;
+                    p.targetWeight = targetWeight;
+                } else { // Add
+                    participants.push({ name, pesoInicial: initialWeight, pesoAtual: currentWeight, targetWeight, semanasValidas: Array(12).fill(0), weightHistory: [{ date: new Date().toISOString(), weight: currentWeight }] });
                 }
+                saveData();
+                updateAllViews();
+                document.getElementById('participantModal').classList.remove('show');
+                showFeedbackMessage(`Participante ${index ? 'atualizado' : 'adicionado'}!`);
+            }
+
+            function openDeleteModal(name, isReset = false) {
+                const modal = document.getElementById('deleteConfirmModal');
+                modal.innerHTML = `
+                    <div class="modal-content text-center">
+                        <h3 class="text-2xl font-bold mb-4">Confirmar Ação</h3>
+                        <p class="mb-6">Tem certeza que deseja ${isReset ? 'resetar todos os dados para o padrão?' : `excluir <strong>${name}</strong>?`}</p>
+                        <div class="flex justify-center gap-4">
+                            <button class="bg-gray-500 text-white font-bold py-2 px-4 rounded" id="cancelDelete">Cancelar</button>
+                            <button class="bg-red-500 text-white font-bold py-2 px-4 rounded" id="confirmDelete">Confirmar</button>
+                        </div>
+                    </div>`;
+                
+                modal.querySelector('#cancelDelete').onclick = () => modal.classList.remove('show');
+                modal.querySelector('#confirmDelete').onclick = () => {
+                    if (isReset) {
+                        participants = JSON.parse(JSON.stringify(defaultParticipants));
+                        showFeedbackMessage("Dados resetados!");
+                    } else {
+                        participants = participants.filter(p => p.name !== name);
+                        showFeedbackMessage("Participante excluído!");
+                    }
+                    saveData();
+                    updateAllViews();
+                    modal.classList.remove('show');
+                };
+                modal.classList.add('show');
+            }
+
+            function openDetailsModal(name) {
+                const p = calculateMetrics(participants.find(p => p.name === name));
+                const modal = document.getElementById('participantDetailsModal');
+                
+                const progress = p.progressToTarget !== null ? `
+                    <div class="progress-bar-container tooltip"><span class="tooltiptext">${p.progressToTarget.toFixed(1)}% da meta</span>
+                        <div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div>
+                    </div>` : 'N/A';
+                
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 600px;">
+                        <span class="close-button">&times;</span>
+                        <div class="flex items-center gap-4 mb-4">
+                            <img src="https://placehold.co/100x100/E2E8F0/4A5568?text=${p.name.charAt(0)}" class="rounded-full">
+                            <div>
+                                <h3 class="text-3xl font-bold">${p.name}</h3>
+                                <div class="text-2xl">${getBadges(p)}</div>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center mb-4">
+                            <div class="bg-gray-100 p-2 rounded-lg">
+                                <div class="text-sm font-bold text-gray-500">PESO INICIAL</div>
+                                <div class="text-2xl font-bold">${p.pesoInicial.toFixed(2)}kg</div>
+                            </div>
+                            <div class="bg-gray-100 p-2 rounded-lg">
+                                <div class="text-sm font-bold text-gray-500">PESO ATUAL</div>
+                                <div class="text-2xl font-bold text-blue-600">${p.pesoAtual.toFixed(2)}kg</div>
+                            </div>
+                            <div class="bg-gray-100 p-2 rounded-lg">
+                                <div class="text-sm font-bold text-gray-500">META</div>
+                                <div class="text-2xl font-bold text-green-600">${p.targetWeight ? p.targetWeight.toFixed(2) + 'kg' : 'N/A'}</div>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <div class="text-sm font-bold text-gray-500 mb-1">PROGRESSO PARA META</div>
+                            ${progress}
+                        </div>
+                        <div>
+                            <div class="text-sm font-bold text-gray-500 mb-1">HISTÓRICO DE PESO</div>
+                            <div id="details-chart"></div>
+                        </div>
+                    </div>`;
+                
+                modal.querySelector('.close-button').onclick = () => modal.classList.remove('show');
+                modal.classList.add('show');
+                
+                if (p.weightHistory.length > 1) {
+                    renderMiniChart(p.weightHistory, '#details-chart');
+                } else {
+                    document.getElementById('details-chart').innerHTML = `<div class="text-center p-4 text-gray-500">Não há dados suficientes para o gráfico.</div>`;
+                }
+            }
+            
+            function renderMiniChart(data, containerSelector) {
+                const container = d3.select(containerSelector);
+                container.select("svg").remove();
+                
+                const margin = {top: 10, right: 10, bottom: 20, left: 30},
+                      width = 500 - margin.left - margin.right,
+                      height = 200 - margin.top - margin.bottom;
+
+                const svg = container.append("svg")
+                    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+                    .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+                
+                const xScale = d3.scaleTime().domain(d3.extent(data, d => new Date(d.date))).range([0, width]);
+                const yScale = d3.scaleLinear().domain([d3.min(data, d => d.weight) - 1, d3.max(data, d => d.weight) + 1]).range([height, 0]);
+                
+                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(5).tickFormat(d3.timeFormat("%d/%m")));
+                svg.append("g").call(d3.axisLeft(yScale).ticks(5));
+                
+                svg.append("path").datum(data).attr("fill", "none").attr("stroke", "steelblue").attr("stroke-width", 2)
+                   .attr("d", d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight)));
+            }
+
+            // Funções de import/export (completas)
+            function exportData() {
                 const dataStr = JSON.stringify(participants, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = 'desafio_fit_data.json';
-                document.body.appendChild(a);
                 a.click();
-                document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                showFeedbackMessage("Dados exportados como desafio_fit_data.json!");
-            });
+                showFeedbackMessage("Dados exportados!");
+            }
 
-            importDataBtn.addEventListener('click', () => {
-                if (importDataBtn.disabled) {
-                    showFeedbackMessage("Você não tem permissão para importar dados.", true);
-                    return;
-                }
-                importDataInput.click(); // Simula o clique no input de arquivo
-            });
-
-            importDataInput.addEventListener('change', (event) => {
+            function importData(event) {
                 const file = event.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        try {
-                            const importedData = JSON.parse(e.target.result);
-                            // Validação básica para garantir que os dados importados são válidos
-                            if (Array.isArray(importedData) && importedData.every(p =>
-                                typeof p.name === 'string' && p.name.trim() !== '' &&
-                                typeof p.pesoInicial === 'number' && p.pesoInicial > 0 &&
-                                typeof p.pesoFinal === 'number' && p.pesoFinal > 0 &&
-                                (p.targetWeight === null || (typeof p.targetWeight === 'number' && p.targetWeight > 0)) && // Valida meta de peso
-                                Array.isArray(p.semanasValidas) && p.semanasValidas.length === MAX_WEEKS &&
-                                p.semanasValidas.every(s => typeof s === 'boolean')
-                            )) {
-                                participants = importedData;
-                                saveData();
-                                updatePlanilha(); // Atualiza a planilha completa
-                                renderMobileDashboard(); // Atualiza o dashboard mobile
-                                showFeedbackMessage("Dados importados com sucesso!");
-                            } else {
-                                showFeedbackMessage("Formato de arquivo JSON inválido. Verifique a estrutura dos dados.", true);
-                            }
-                        } catch (error) {
-                            console.error("Erro ao ler ou parsear arquivo JSON:", error);
-                            showFeedbackMessage("Erro ao importar dados. Verifique o arquivo.", true);
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const imported = JSON.parse(e.target.result);
+                        if (Array.isArray(imported)) {
+                            participants = imported;
+                            saveData();
+                            updateAllViews();
+                            showFeedbackMessage("Dados importados com sucesso!");
+                        } else {
+                            throw new Error("Formato inválido.");
                         }
-                    };
-                    reader.readAsText(file);
-                }
-                // Limpa o valor do input de arquivo para permitir a importação do mesmo arquivo novamente
+                    } catch (err) {
+                        showFeedbackMessage("Erro ao importar arquivo.", true);
+                    }
+                };
+                reader.readAsText(file);
                 event.target.value = '';
-            });
-
-            resetDataBtn.addEventListener('click', () => {
-                if (resetDataBtn.disabled) {
-                    showFeedbackMessage("Você não tem permissão para resetar dados.", true);
-                    return;
-                }
-                // Usar um modal de confirmação customizado em vez de `confirm()`
-                openConfirmResetModal();
-            });
-
-            // Funções para o modal de confirmação de reset
-            function openConfirmResetModal() {
-                // Reutilizar o modal de exclusão, mas com texto diferente
-                participantNameToDeleteSpan.textContent = "todos os dados"; // Altera o texto para o reset
-                deleteConfirmModal.querySelector('h3').textContent = "Confirmar Resetar Dados";
-                deleteConfirmModal.querySelector('p').innerHTML = "Tem certeza que deseja <span class='font-semibold text-red-600'>resetar todos os dados</span>? Isso irá APAGAR tudo e carregar os participantes padrão.";
-                confirmDeleteBtn.textContent = "Resetar";
-                confirmDeleteBtn.classList.remove('bg-red-500', 'hover:bg-red-600');
-                confirmDeleteBtn.classList.add('bg-orange-500', 'hover:bg-orange-600'); // Cor diferente para reset
-
-                // Adiciona um listener temporário para a ação de reset
-                confirmDeleteBtn.onclick = () => {
-                    participants = JSON.parse(JSON.stringify(defaultParticipants)); // Deep copy para não referenciar o default
-                    saveData();
-                    updatePlanilha();
-                    renderMobileDashboard();
-                    showFeedbackMessage("Dados resetados para o padrão com sucesso!");
-                    closeDeleteModal();
-                    // Restaura os textos e classes originais do modal de exclusão
-                    restoreDeleteModalDefaults();
-                };
-                cancelDeleteBtn.onclick = () => {
-                    closeDeleteModal();
-                    restoreDeleteModalDefaults();
-                };
-
-                deleteConfirmModal.classList.add(SHOW_CLASS);
             }
 
-            function restoreDeleteModalDefaults() {
-                deleteConfirmModal.querySelector('h3').textContent = "Confirmar Exclusão";
-                deleteConfirmModal.querySelector('p').innerHTML = "Tem certeza que deseja excluir <span id='participantNameToDelete' class='font-semibold text-red-600'></span> do desafio?";
-                confirmDeleteBtn.textContent = "Excluir";
-                confirmDeleteBtn.classList.remove('bg-orange-500', 'hover:bg-orange-600');
-                confirmDeleteBtn.classList.add('bg-red-500', 'hover:bg-red-600');
-                // Restaura os listeners originais
-                confirmDeleteBtn.onclick = deleteParticipant;
-                cancelDeleteBtn.onclick = closeDeleteModal;
+            function showFeedbackMessage(message, isError = false) {
+                feedbackMessageDiv.textContent = message;
+                feedbackMessageDiv.className = `feedback-message show ${isError ? 'error' : ''}`;
+                setTimeout(() => feedbackMessageDiv.classList.remove('show'), 3000);
+            }
+            
+            function debounce(func, delay) {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), delay);
+                };
             }
 
-            // Listeners para alternar as visualizações
-            viewFullDashboardBtn.addEventListener('click', () => {
-                toggleView(false); // Mostra a planilha completa
-                showSection('ranking'); // Garante que a seção de ranking seja a primeira a ser exibida
-            });
-
-            backToMobileRankingBtn.addEventListener('click', () => {
-                toggleView(true); // Volta ao ranking mobile
-            });
-
-            // Listeners para o novo menu de navegação (abas/botões)
-            mainNavTabs.querySelectorAll('.nav-tab-item').forEach(item => {
-                item.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    const sectionId = event.target.dataset.section;
-                    showSection(sectionId);
-                });
-            });
-
-            // Listener para o botão de alternar o menu mobile
-            mobileMenuToggleButton.addEventListener('click', () => {
-                mobileMenuDropdown.classList.toggle('open');
-            });
-
-            // Listeners para os itens do menu dropdown mobile
-            mobileMenuDropdown.querySelectorAll('.nav-tab-item').forEach(item => {
-                item.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    const sectionId = event.target.dataset.section;
-                    showSection(sectionId);
-                    mobileMenuDropdown.classList.remove('open'); // Fecha o dropdown após a seleção
-                });
-            });
-
-            // Chama a função de verificação de largura da tela ao carregar a página
-            // para exibir a tela correta (mobile ou desktop) após o login.
-            // Isso será feito após o login, dentro de handleLogin.
-        };
+            // Chamar a inicialização
+            initApp();
+        });
     </script>
 </body>
 </html>
