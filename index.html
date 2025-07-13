@@ -7,6 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Bibliotecas para exportar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --font-inter: 'Inter', sans-serif;
@@ -69,7 +72,7 @@
         .nav-tab-item { padding: 0.75rem 1.25rem; cursor: pointer; font-weight: 600; color: #6b7280; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
         .nav-tab-item:hover { color: var(--header-text-dark-blue); }
         .nav-tab-item.active { color: var(--header-text-dark-blue); border-color: var(--blue-600); }
-        #weightHistoryChart svg, #details-chart svg { display: block; margin: auto; background-color: #fefefe; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); overflow: visible; }
+        #weightHistoryChart svg, #details-chart svg, #groupEvolutionChartContainer svg, #comparisonChartContainer svg { display: block; margin: auto; background-color: #fefefe; border-radius: 0.75rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); overflow: visible; }
         .axis path, .axis line { fill: none; stroke: #d1d5db; shape-rendering: crispEdges; }
         .axis text { font-size: 0.8rem; fill: #6b7280; }
         .line { fill: none; stroke-width: 2px; }
@@ -84,11 +87,16 @@
         .mobile-menu-dropdown.open { display: flex; }
         .mobile-menu-dropdown .nav-tab-item { padding: 1rem; border-bottom: 1px solid var(--border-light); }
         @media (min-width: 768px) { .nav-tabs { display: flex; } .mobile-menu-button, .mobile-menu-dropdown { display: none !important; } }
-        @media (max-width: 767px) { .nav-tabs { display: none; } .mobile-menu-button { display: block; } }
+        @media (max-width: 767px) {
+            .nav-tabs { display: none; }
+            .mobile-menu-button { display: block; }
+            .hide-on-mobile { display: none !important; }
+        }
     </style>
 </head>
 <body class="p-4">
 
+    <!-- Tela de Login -->
     <div id="loginScreen" class="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-100 via-green-100 to-blue-200 p-4">
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
             <h2 class="text-4xl font-extrabold text-center mb-10 text-gray-800">Acesso ao Desafio FIT</h2>
@@ -101,6 +109,7 @@
         </div>
     </div>
 
+    <!-- Dashboard Mobile -->
     <div id="mobileDashboard" class="container-mobile-view hidden">
         <div class="flex justify-between items-center mb-4">
             <h1 class="text-2xl font-bold text-gray-800">Ranking Geral</h1>
@@ -111,6 +120,7 @@
         <button id="viewFullDashboardBtn" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md w-full">Ver Planilha Completa</button>
     </div>
 
+    <!-- Conteúdo Principal (Desktop) -->
     <div class="container hidden">
         <div class="mb-4 pb-4 border-b">
             <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center mb-4">💪🍎 Desafio Família FIT 90 DIAS! 🏆</h1>
@@ -130,9 +140,10 @@
         <nav id="mainNavTabs" class="nav-tabs"></nav>
         <div id="mobileMenuDropdown" class="mobile-menu-dropdown"></div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div id="leaderBox" class="summary-box"></div>
             <div id="weeklyHighlightBox" class="summary-box"></div>
+            <div id="monthlyHighlightBox" class="summary-box"></div>
             <div id="daysRemainingBox" class="summary-box"></div>
         </div>
 
@@ -142,15 +153,19 @@
             </div>
         </div>
 
+        <!-- Seções de Conteúdo -->
         <div id="sectionRanking" class="content-section"></div>
         <div id="sectionWeekly" class="content-section hidden"></div>
         <div id="sectionActivity" class="content-section hidden"></div>
         <div id="sectionCurrentWeight" class="content-section hidden"></div>
         <div id="sectionWeightHistory" class="content-section hidden"></div>
+        <div id="sectionGroupEvolution" class="content-section hidden"></div>
+        <div id="sectionComparison" class="content-section hidden"></div>
 
         <button id="backToMobileRankingBtn" class="mt-6 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hidden md:hidden">Voltar ao Ranking</button>
     </div>
 
+    <!-- Modais e Feedback -->
     <div id="feedbackMessage" class="feedback-message"></div>
     <div id="participantModal" class="modal"></div>
     <div id="deleteConfirmModal" class="modal"></div>
@@ -166,19 +181,23 @@
             const MIN_ACTIVITIES_FOR_VALID_WEEK = 3;
             const MAX_ACTIVITY_POINTS = 50;
             const NAV_LINKS = [
-                { id: 'ranking', text: '🏆 Ranking' }, { id: 'weekly', text: '🗓️ Semanas' },
-                { id: 'activity', text: '📈 Atividades' }, { id: 'currentWeight', text: '⚖️ Registrar Peso' },
-                { id: 'weightHistory', text: '📊 Evolução' },
+                { id: 'ranking', text: '🏆 Ranking' },
+                { id: 'weekly', text: '🗓️ Semanas' },
+                { id: 'activity', text: '📈 Atividades' },
+                { id: 'currentWeight', text: '⚖️ Registrar Peso' },
+                { id: 'weightHistory', text: '📊 Evolução Ind.' },
+                { id: 'groupEvolution', text: '👨‍👩‍👧‍👦 Evolução Grupo' },
+                { id: 'comparison', text: '🆚 Comparativo' }
             ];
             const defaultParticipants = [
-                { name: "Amanda", pesoInicial: 69.1, pesoAtual: 69.1, targetWeight: 65, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 69.1 }] },
-                { name: "Hevinho", pesoInicial: 85.3, pesoAtual: 85.3, targetWeight: 75.0, semanasValidas: [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 85.3 }] },
-                { name: "Junior", pesoInicial: 113.9, pesoAtual: 113.9, targetWeight: 100.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 113.9 }] },
-                { name: "Midian Diniz", pesoInicial: 89.85, pesoAtual: 89.85, targetWeight: 80, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 89.85 }] },
-                { name: "Midian Fernandes", pesoInicial: 65.15, pesoAtual: 65.15, targetWeight: 60.0, semanasValidas: [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 65.15 }] },
-                { name: "Paulinha", pesoInicial: 75.9, pesoAtual: 75.9, targetWeight: 70.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 75.9 }] },
-                { name: "Rayanne", pesoInicial: 86.4, pesoAtual: 86.4, targetWeight: 80, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 86.4 }] },
-                { name: "Wellington", pesoInicial: 117.7, pesoAtual: 117.7, targetWeight: 110.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 117.7 }] },
+                { name: "Amanda", pesoInicial: 69.1, pesoAtual: 69.1, altura: 1.65, targetWeight: 65, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 69.1 }] },
+                { name: "Hevinho", pesoInicial: 85.3, pesoAtual: 85.3, altura: 1.75, targetWeight: 75.0, semanasValidas: [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 85.3 }] },
+                { name: "Junior", pesoInicial: 113.9, pesoAtual: 113.9, altura: 1.80, targetWeight: 100.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 113.9 }] },
+                { name: "Midian Diniz", pesoInicial: 89.85, pesoAtual: 89.85, altura: 1.70, targetWeight: 80, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 89.85 }] },
+                { name: "Midian Fernandes", pesoInicial: 65.15, pesoAtual: 65.15, altura: 1.60, targetWeight: 60.0, semanasValidas: [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 65.15 }] },
+                { name: "Paulinha", pesoInicial: 75.9, pesoAtual: 75.9, altura: 1.68, targetWeight: 70.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 75.9 }] },
+                { name: "Rayanne", pesoInicial: 86.4, pesoAtual: 86.4, altura: 1.72, targetWeight: 80, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 86.4 }] },
+                { name: "Wellington", pesoInicial: 117.7, pesoAtual: 117.7, altura: 1.85, targetWeight: 110.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 117.7 }] },
             ];
 
             // ESTADO DA APLICAÇÃO
@@ -205,6 +224,7 @@
                     const parsed = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(defaultParticipants));
                     participants = parsed.map(p => ({
                         ...p,
+                        altura: p.altura || null,
                         pesoAtual: p.pesoAtual !== undefined ? p.pesoAtual : (p.pesoFinal || p.pesoInicial),
                         targetWeight: p.targetWeight !== undefined ? p.targetWeight : null,
                         semanasValidas: p.semanasValidas || Array(12).fill(0),
@@ -286,6 +306,11 @@
                         handleActivityInputChange(e.target);
                     }
                 }, 400));
+                mainContent.addEventListener('change', e => {
+                    if (e.target.matches('.comparison-checkbox')) {
+                        updateComparisonChart();
+                    }
+                });
                 
                 window.addEventListener('resize', debounce(() => {
                     const isNowMobile = window.innerWidth < 768;
@@ -294,6 +319,32 @@
                         updateAllViews();
                     }
                 }, 200));
+            }
+
+            function handleDeleteWeightEntry(button) {
+                const name = button.dataset.participantName;
+                const entryDateISO = button.dataset.entryDate;
+                const participant = participants.find(p => p.name === name);
+
+                if (!participant) return;
+                
+                if (participant.weightHistory.length <= 1) {
+                    showFeedbackMessage("Não é possível excluir o único registro de peso. Edite o participante se necessário.", true);
+                    return;
+                }
+
+                participant.weightHistory = participant.weightHistory.filter(entry => entry.date !== entryDateISO);
+                participant.weightHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                if (participant.weightHistory.length > 0) {
+                    participant.pesoAtual = participant.weightHistory[participant.weightHistory.length - 1].weight;
+                } else {
+                    participant.pesoAtual = participant.pesoInicial;
+                }
+
+                saveData();
+                updateAllViews();
+                showFeedbackMessage("Registro de peso excluído com sucesso!");
             }
 
             function handleMainContentClick(e) {
@@ -317,6 +368,13 @@
                     openDeleteModal(name);
                 } else if (button.matches('.update-weight-btn')) {
                     handleUpdateWeight(button);
+                } else if (button.matches('.delete-weight-entry-btn')) {
+                    handleDeleteWeightEntry(button);
+                } else if (button.matches('.export-pdf-btn')) {
+                    const chartId = button.dataset.chartId;
+                    const filename = button.dataset.filename;
+                    const title = button.dataset.title;
+                    exportChartToPDF(chartId, filename, title);
                 }
             }
 
@@ -390,11 +448,71 @@
 
             function getBadges(p) {
                 let badges = '';
-                if (p.semanasValidas[0] >= MIN_ACTIVITIES_FOR_VALID_WEEK) badges += `<span class="badge tooltip"><span class="tooltiptext">Primeira Semana Completa!</span>🥇</span>`;
-                if ((p.pesoInicial - p.pesoAtual) >= 5) badges += `<span class="badge tooltip"><span class="tooltiptext">Marco de 5kg Atingido!</span>⚖️</span>`;
+                
+                if (p.targetWeight && p.pesoAtual <= p.targetWeight) {
+                    badges += `<span class="badge tooltip"><span class="tooltiptext">Meta Atingida! Parabéns!</span>🎯</span>`;
+                }
+
+                const pesoPerdido = p.pesoInicial - p.pesoAtual;
+                if (pesoPerdido >= 10) {
+                    badges += `<span class="badge tooltip"><span class="tooltiptext">Marco de 10kg Atingido!</span>⚖️</span>`;
+                } else if (pesoPerdido >= 5) {
+                    badges += `<span class="badge tooltip"><span class="tooltiptext">Marco de 5kg Atingido!</span>⚖️</span>`;
+                }
+
                 const consecutive = p.semanasValidas.map(w => w >= MIN_ACTIVITIES_FOR_VALID_WEEK ? '1' : '0').join('').split('0').reduce((max, s) => Math.max(max, s.length), 0);
-                if (consecutive >= 4) badges += `<span class="badge tooltip"><span class="tooltiptext">${consecutive} Semanas em Chamas!</span>🔥</span>`;
+                if (consecutive >= 8) {
+                    badges += `<span class="badge tooltip"><span class="tooltiptext">${consecutive} Semanas em Chamas!</span>🔥🔥</span>`;
+                } else if (consecutive >= 4) {
+                    badges += `<span class="badge tooltip"><span class="tooltiptext">${consecutive} Semanas em Chamas!</span>🔥</span>`;
+                }
+
+                if (p.semanasValidas[0] >= MIN_ACTIVITIES_FOR_VALID_WEEK) {
+                    badges += `<span class="badge tooltip"><span class="tooltiptext">Primeira Semana Completa!</span>🥇</span>`;
+                }
+
                 return badges;
+            }
+
+            function getWeightAtDate(participant, targetDate) {
+                const relevantHistory = participant.weightHistory
+                    .filter(entry => new Date(entry.date) <= targetDate)
+                    .sort((a, b) => new Date(b.date) - new Date(a.date)); 
+
+                if (relevantHistory.length > 0) {
+                    return relevantHistory[0].weight;
+                }
+                return participant.pesoInicial;
+            }
+
+            function calculateIMC(weight, height) {
+                if (!weight || !height || height <= 0) {
+                    return { value: null, classification: 'N/A', color: 'text-gray-500' };
+                }
+                const imc = weight / (height * height);
+                let classification = '';
+                let color = '';
+
+                if (imc < 18.5) {
+                    classification = 'Abaixo do Peso';
+                    color = 'text-blue-500';
+                } else if (imc < 24.9) {
+                    classification = 'Peso Normal';
+                    color = 'text-green-600';
+                } else if (imc < 29.9) {
+                    classification = 'Sobrepeso';
+                    color = 'text-yellow-600';
+                } else if (imc < 34.9) {
+                    classification = 'Obesidade Grau I';
+                    color = 'text-orange-600';
+                } else if (imc < 39.9) {
+                    classification = 'Obesidade Grau II';
+                    color = 'text-red-600';
+                } else {
+                    classification = 'Obesidade Grau III';
+                    color = 'text-red-800';
+                }
+                return { value: imc.toFixed(2), classification, color };
             }
 
             // LÓGICA DE RENDERIZAÇÃO E UI
@@ -439,6 +557,8 @@
                     else if (sectionId === 'activity') renderActivityChart(ranked, activeSection, title);
                     else if (sectionId === 'currentWeight') renderCurrentWeightTable(filteredMetrics, activeSection, title);
                     else if (sectionId === 'weightHistory') renderWeightHistoryChart(filteredMetrics, activeSection, title);
+                    else if (sectionId === 'groupEvolution') renderGroupEvolutionChart(allMetrics, activeSection, title);
+                    else if (sectionId === 'comparison') renderComparisonChart(allMetrics, activeSection, title);
                 }
                 document.querySelectorAll('.nav-tab-item').forEach(item => item.classList.toggle('active', item.dataset.section === sectionId));
             }
@@ -545,7 +665,7 @@
                 let bodyHTML = '';
 
                 if (data.length > 0) {
-                    data.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
+                    data.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
                         bodyHTML += `
                             <tr>
                                 <td class="font-medium">${p.name}</td>
@@ -553,6 +673,33 @@
                                 <td><input type="date" class="shadow-sm border rounded w-full py-2 px-3" value="${todayStr}" max="${todayStr}" ${!canEdit ? 'disabled' : ''}></td>
                                 <td class="text-center"><button class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg update-weight-btn" data-name="${p.name}" ${!canEdit ? 'disabled' : ''}>Salvar</button></td>
                             </tr>`;
+
+                        if (p.weightHistory && p.weightHistory.length > 0) {
+                            bodyHTML += `
+                                <tr>
+                                    <td colspan="4" class="p-3 bg-gray-50 border-t">
+                                        <h4 class="text-xs font-bold text-gray-500 mb-2">HISTÓRICO DE PESAGEM:</h4>
+                                        <ul class="space-y-1 max-h-32 overflow-y-auto pr-2">`;
+                            
+                            [...p.weightHistory].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(entry => {
+                                const formattedDate = new Date(entry.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                                bodyHTML += `
+                                    <li class="flex justify-between items-center text-sm p-1.5 bg-white rounded shadow-sm">
+                                        <span>
+                                            🗓️ <span class="font-mono">${formattedDate}</span> &nbsp;
+                                            ⚖️ <strong>${parseFloat(entry.weight).toFixed(2)} kg</strong>
+                                        </span>
+                                        ${canEdit ? `<button class="text-red-400 hover:text-red-600 delete-weight-entry-btn p-1 rounded-full" title="Excluir este registro" data-participant-name="${p.name}" data-entry-date="${entry.date}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                            </svg>
+                                        </button>` : ''}
+                                    </li>`;
+                            });
+
+                            bodyHTML += `</ul></td></tr>`;
+                        }
                     });
                 } else {
                     bodyHTML = `<tr><td colspan="4" class="text-center p-4">Nenhum participante.</td></tr>`;
@@ -563,7 +710,7 @@
                     <div class="overflow-x-auto rounded-xl shadow-md">
                         <table class="w-full">
                             <thead><tr>
-                                <th class="rounded-tl-xl">Nome</th><th>Peso (kg)</th><th>Data</th><th class="rounded-tr-xl">Ação</th>
+                                <th class="rounded-tl-xl w-1/4">Nome</th><th class="w-1/4">Peso (kg)</th><th class="w-1/4">Data</th><th class="rounded-tr-xl w-1/4">Ação</th>
                             </tr></thead>
                             <tbody>${bodyHTML}</tbody>
                         </table>
@@ -610,16 +757,52 @@
             }
             
             function renderWeightHistoryChart(data, container, title) {
-                container.innerHTML = `<h2 class="text-xl sm:text-2xl font-semibold mb-4 text-gray-700">${title}</h2><div id="weightHistoryChartContainer" class="w-full"></div>`;
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-700">${title}</h2>
+                        <button class="export-pdf-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm" data-chart-id="weightHistoryChartContainer" data-filename="evolucao_individual.pdf" data-title="${title}">Exportar PDF</button>
+                    </div>
+                    <div id="weightHistoryChartContainer" class="w-full"></div>`;
                 const chartContainer = document.getElementById('weightHistoryChartContainer');
                 
-                const participantsWithHistory = data.filter(p => p.weightHistory && p.weightHistory.length > 1);
+                const participantsWithHistory = data.filter(p => p.weightHistory && p.weightHistory.length > 0);
                 if (participantsWithHistory.length === 0) {
-                    chartContainer.innerHTML = `<div class="empty-table-message">Não há histórico de peso suficiente para exibir.</div>`;
+                    chartContainer.innerHTML = `<div class="empty-table-message">Não há histórico de peso para exibir.</div>`;
                     return;
                 }
+
+                let allDates = [];
+                participantsWithHistory.forEach(p => {
+                    p.weightHistory.forEach(entry => allDates.push(new Date(entry.date)));
+                });
+                const latestDate = d3.max(allDates);
+
+                if (!latestDate) {
+                    chartContainer.innerHTML = `<div class="empty-table-message">Não há histórico de peso para exibir.</div>`;
+                    return;
+                }
+
+                const chartData = participantsWithHistory.map(p => {
+                    const historyCopy = JSON.parse(JSON.stringify(p.weightHistory));
+                    historyCopy.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+                    const lastEntry = historyCopy[historyCopy.length - 1];
+                    const lastEntryDate = new Date(lastEntry.date);
+
+                    if (lastEntryDate < latestDate) {
+                        historyCopy.push({
+                            date: latestDate.toISOString(),
+                            weight: lastEntry.weight
+                        });
+                    }
+                    
+                    return {
+                        ...p, // Pass all participant data through
+                        weightHistory: historyCopy
+                    };
+                });
                 
-                const margin = {top: 20, right: 120, bottom: 30, left: 40},
+                const margin = {top: 20, right: 160, bottom: 30, left: 40},
                       containerWidth = chartContainer.clientWidth || 800,
                       width = containerWidth - margin.left - margin.right,
                       height = 350 - margin.top - margin.bottom;
@@ -630,25 +813,231 @@
                     .attr("viewBox", `0 0 ${containerWidth} ${height + margin.top + margin.bottom}`)
                     .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
 
-                let allDates = [], allWeights = [];
-                participantsWithHistory.forEach(p => p.weightHistory.forEach(d => {
-                    allDates.push(new Date(d.date));
-                    allWeights.push(d.weight);
-                }));
+                let allChartDates = [], allChartWeights = [];
+                chartData.forEach(p => {
+                    p.weightHistory.forEach(d => {
+                        allChartDates.push(new Date(d.date));
+                        allChartWeights.push(d.weight);
+                    });
+                    if (p.targetWeight) {
+                        allChartWeights.push(p.targetWeight);
+                    }
+                });
 
-                const xScale = d3.scaleTime().domain(d3.extent(allDates)).range([0, width]);
-                const yScale = d3.scaleLinear().domain([d3.min(allWeights) - 2, d3.max(allWeights) + 2]).range([height, 0]);
+                const xScale = d3.scaleTime().domain([CHALLENGE_START_DATE, CHALLENGE_END_DATE]).range([0, width]);
+                const yScale = d3.scaleLinear().domain([d3.min(allChartWeights) - 2, d3.max(allChartWeights) + 2]).range([height, 0]);
                 const line = d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
                 const colors = d3.scaleOrdinal(d3.schemeCategory10);
 
                 svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
                 svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`));
 
+                chartData.forEach(p => {
+                    // Draw main weight line
+                    svg.append("path").datum(p.weightHistory).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("d", line);
+                    
+                    // Draw goal projection line
+                    if (p.targetWeight) {
+                        const projectionData = [
+                            { date: CHALLENGE_START_DATE, weight: p.pesoInicial },
+                            { date: CHALLENGE_END_DATE, weight: p.targetWeight }
+                        ];
+                        svg.append("path")
+                            .datum(projectionData)
+                            .attr("fill", "none")
+                            .attr("stroke", colors(p.name))
+                            .attr("stroke-width", 1.5)
+                            .attr("stroke-dasharray", "5,5")
+                            .attr("d", line);
+                    }
+                });
+                
+                const legend = svg.selectAll(".legend").data(chartData).enter().append("g")
+                    .attr("class", "legend").attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
+                legend.append("rect").attr("width", 18).attr("height", 18).style("fill", d => colors(d.name));
+                legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name);
+            }
+
+            function renderGroupEvolutionChart(data, container, title) {
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-700">${title}</h2>
+                        <button class="export-pdf-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm" data-chart-id="groupEvolutionChartContainer" data-filename="evolucao_grupo.pdf" data-title="${title}">Exportar PDF</button>
+                    </div>
+                    <div id="groupEvolutionChartContainer" class="w-full"></div>`;
+                const chartContainer = document.getElementById('groupEvolutionChartContainer');
+
+                const weeklyLossData = [];
+                for (let i = 0; i < MAX_WEEKS; i++) {
+                    const weekStartDate = new Date(CHALLENGE_START_DATE);
+                    weekStartDate.setDate(weekStartDate.getDate() + i * 7);
+
+                    const weekEndDate = new Date(CHALLENGE_START_DATE);
+                    weekEndDate.setDate(weekEndDate.getDate() + (i + 1) * 7);
+
+                    let totalWeeklyLoss = 0;
+                    participants.forEach(p => {
+                        const weightAtStartOfWeek = getWeightAtDate(p, weekStartDate);
+                        const weightAtEndOfWeek = getWeightAtDate(p, weekEndDate);
+                        const loss = weightAtStartOfWeek - weightAtEndOfWeek;
+                        totalWeeklyLoss += loss;
+                    });
+
+                    weeklyLossData.push({ week: i + 1, totalLoss: totalWeeklyLoss });
+                }
+
+                if (weeklyLossData.every(d => d.totalLoss === 0)) {
+                    chartContainer.innerHTML = `<div class="empty-table-message">Nenhuma perda de peso registrada ainda para o grupo.</div>`;
+                    return;
+                }
+
+                const margin = {top: 20, right: 30, bottom: 40, left: 70},
+                      containerWidth = chartContainer.clientWidth || 800,
+                      width = containerWidth - margin.left - margin.right,
+                      height = 350 - margin.top - margin.bottom;
+
+                const svg = d3.select(chartContainer).append("svg")
+                    .attr("width", "100%")
+                    .attr("height", "100%")
+                    .attr("viewBox", `0 0 ${containerWidth} ${height + margin.top + margin.bottom}`)
+                    .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+                const xScale = d3.scaleBand()
+                    .domain(weeklyLossData.map(d => d.week))
+                    .range([0, width])
+                    .padding(0.2);
+
+                const yScale = d3.scaleLinear()
+                    .domain([0, d3.max(weeklyLossData, d => d.totalLoss) * 1.1 || 1])
+                    .range([height, 0]);
+
+                svg.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(xScale))
+                    .append("text")
+                    .attr("y", 35)
+                    .attr("x", width / 2)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#333")
+                    .text("Semana do Desafio");
+
+                svg.append("g")
+                    .call(d3.axisLeft(yScale).tickFormat(d => `${d.toFixed(1)}kg`))
+                    .append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("y", -margin.left + 20)
+                    .attr("x", -height / 2)
+                    .attr("text-anchor", "middle")
+                    .attr("fill", "#333")
+                    .text("Perda de Peso Total do Grupo (kg)");
+
+                const tooltip = d3.select("body").append("div")
+                    .attr("class", "tooltip-chart")
+                    .style("opacity", 0);
+
+                svg.selectAll(".bar")
+                    .data(weeklyLossData)
+                    .enter().append("rect")
+                    .attr("class", "bar")
+                    .attr("x", d => xScale(d.week))
+                    .attr("y", d => yScale(Math.max(0, d.totalLoss)))
+                    .attr("width", xScale.bandwidth())
+                    .attr("height", d => Math.abs(yScale(0) - yScale(d.totalLoss)))
+                    .attr("fill", "var(--blue-600)")
+                    .on("mouseover", (event, d) => {
+                        tooltip.transition().duration(200).style("opacity", .9);
+                        tooltip.html(`Semana ${d.week}<br/>Perda Total: <strong>${d.totalLoss.toFixed(2)} kg</strong>`)
+                            .style("left", (event.pageX + 5) + "px")
+                            .style("top", (event.pageY - 28) + "px");
+                    })
+                    .on("mouseout", () => {
+                        tooltip.transition().duration(500).style("opacity", 0);
+                    });
+            }
+
+            function renderComparisonChart(data, container, title) {
+                let checkboxesHTML = data.map(p => `
+                    <label class="inline-flex items-center mr-4 mb-2">
+                        <input type="checkbox" class="comparison-checkbox form-checkbox h-5 w-5 text-blue-600" value="${p.name}">
+                        <span class="ml-2 text-gray-700">${p.name}</span>
+                    </label>
+                `).join('');
+
+                container.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl sm:text-2xl font-semibold text-gray-700">${title}</h2>
+                        <button class="export-pdf-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm" data-chart-id="comparisonChartContainer" data-filename="comparativo.pdf" data-title="${title}">Exportar PDF</button>
+                    </div>
+                    <div id="comparison-checkboxes" class="p-4 bg-gray-100 rounded-lg mb-4">${checkboxesHTML}</div>
+                    <div id="comparisonChartContainer" class="w-full"></div>`;
+                
+                updateComparisonChart();
+            }
+
+            function updateComparisonChart() {
+                const chartContainer = document.getElementById('comparisonChartContainer');
+                const selectedNames = Array.from(document.querySelectorAll('.comparison-checkbox:checked')).map(cb => cb.value);
+                const selectedParticipants = participants.filter(p => selectedNames.includes(p.name));
+
+                chartContainer.innerHTML = '';
+
+                if (selectedParticipants.length === 0) {
+                    chartContainer.innerHTML = `<div class="empty-table-message">Selecione um ou mais participantes para comparar.</div>`;
+                    return;
+                }
+
+                const participantsWithHistory = selectedParticipants.filter(p => p.weightHistory && p.weightHistory.length > 0);
+                if (participantsWithHistory.length === 0) {
+                    chartContainer.innerHTML = `<div class="empty-table-message">Nenhum histórico de peso para os participantes selecionados.</div>`;
+                    return;
+                }
+
+                let allDates = [];
                 participantsWithHistory.forEach(p => {
+                    p.weightHistory.forEach(entry => allDates.push(new Date(entry.date)));
+                });
+                const latestDate = d3.max(allDates);
+                if (!latestDate) return;
+
+                const chartData = participantsWithHistory.map(p => {
+                    const historyCopy = JSON.parse(JSON.stringify(p.weightHistory));
+                    historyCopy.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    const lastEntry = historyCopy[historyCopy.length - 1];
+                    if (new Date(lastEntry.date) < latestDate) {
+                        historyCopy.push({ date: latestDate.toISOString(), weight: lastEntry.weight });
+                    }
+                    return { name: p.name, weightHistory: historyCopy };
+                });
+
+                const margin = {top: 20, right: 160, bottom: 30, left: 40},
+                      containerWidth = chartContainer.clientWidth || 800,
+                      width = containerWidth - margin.left - margin.right,
+                      height = 350 - margin.top - margin.bottom;
+
+                const svg = d3.select(chartContainer).append("svg")
+                    .attr("width", "100%").attr("height", "100%")
+                    .attr("viewBox", `0 0 ${containerWidth} ${height + margin.top + margin.bottom}`)
+                    .append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+                let allChartDates = [], allChartWeights = [];
+                chartData.forEach(p => p.weightHistory.forEach(d => {
+                    allChartDates.push(new Date(d.date));
+                    allChartWeights.push(d.weight);
+                }));
+
+                const xScale = d3.scaleTime().domain(d3.extent(allChartDates)).range([0, width]);
+                const yScale = d3.scaleLinear().domain([d3.min(allChartWeights) - 2, d3.max(allChartWeights) + 2]).range([height, 0]);
+                const line = d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
+                const colors = d3.scaleOrdinal(d3.schemeCategory10);
+
+                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
+                svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`));
+
+                chartData.forEach(p => {
                     svg.append("path").datum(p.weightHistory).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("d", line);
                 });
                 
-                const legend = svg.selectAll(".legend").data(participantsWithHistory).enter().append("g")
+                const legend = svg.selectAll(".legend").data(chartData).enter().append("g")
                     .attr("class", "legend").attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
                 legend.append("rect").attr("width", 18).attr("height", 18).style("fill", d => colors(d.name));
                 legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name);
@@ -681,13 +1070,13 @@
             }
 
             function updateSummaryBoxes() {
-                const allMetrics = participants.map(calculateMetrics);
-                const ranked = [...allMetrics].sort((a, b) => b.totalPoints - a.totalPoints);
-                
                 const leaderBox = document.getElementById('leaderBox');
                 const weeklyBox = document.getElementById('weeklyHighlightBox');
+                const monthlyBox = document.getElementById('monthlyHighlightBox');
                 const daysBox = document.getElementById('daysRemainingBox');
 
+                // Box 1: Leader
+                const ranked = participants.map(calculateMetrics).sort((a, b) => b.totalPoints - a.totalPoints);
                 if (ranked.length > 0) {
                     const leader = ranked[0];
                     leaderBox.innerHTML = `<div>👑 Líder Atual</div><div class="text-xl font-bold text-green-700">${leader.name}</div><div>${leader.totalPoints.toFixed(2)} pts</div>`;
@@ -695,22 +1084,54 @@
                     leaderBox.innerHTML = `<div>👑 Líder Atual</div><div class="text-xl">N/A</div>`;
                 }
 
-                let weeklyWinner = { name: 'N/A', loss: 0 };
+                // Box 2: Weekly Highlight
+                let weeklyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
                 const oneWeekAgo = new Date();
                 oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                
                 participants.forEach(p => {
-                    const recentHistory = p.weightHistory.filter(h => new Date(h.date) >= oneWeekAgo && new Date(h.date) <= new Date());
-                    if (recentHistory.length > 0) {
-                        const firstWeight = p.weightHistory.filter(h => new Date(h.date) < oneWeekAgo).pop()?.weight || p.pesoInicial;
-                        const lastWeight = recentHistory[recentHistory.length - 1].weight;
-                        const loss = firstWeight - lastWeight;
-                        if (loss > weeklyWinner.loss) {
-                            weeklyWinner = { name: p.name, loss };
-                        }
+                    const weightAtStartOfWeek = getWeightAtDate(p, oneWeekAgo);
+                    const loss = weightAtStartOfWeek - p.pesoAtual;
+                    if (loss > weeklyWinner.loss) {
+                        weeklyWinner = { name: p.name, loss };
                     }
                 });
-                weeklyBox.innerHTML = `<div>🔥 Destaque da Semana</div><div class="text-xl font-bold text-purple-700">${weeklyWinner.name}</div><div>Perdeu ${weeklyWinner.loss.toFixed(2)} kg</div>`;
+                weeklyBox.innerHTML = `<div>🔥 Destaque da Semana</div><div class="text-xl font-bold text-purple-700">${weeklyWinner.name}</div><div>Perdeu ${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
 
+                // Box 3: Monthly Highlight
+                let monthlyWeightLossWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
+                const now = new Date();
+                const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                participants.forEach(p => {
+                    const weightAtStartOfMonth = getWeightAtDate(p, firstDayOfMonth);
+                    const lossThisMonth = weightAtStartOfMonth - p.pesoAtual;
+                    if (lossThisMonth > monthlyWeightLossWinner.loss) {
+                        monthlyWeightLossWinner = { name: p.name, loss: lossThisMonth };
+                    }
+                });
+
+                const calculateStreak = (p) => p.semanasValidas.map(w => w >= MIN_ACTIVITIES_FOR_VALID_WEEK ? '1' : '0').join('').split('0').reduce((max, s) => Math.max(max, s.length), 0);
+                let streakWinner = { name: 'N/A', streak: 0 };
+                participants.forEach(p => {
+                    const streak = calculateStreak(p);
+                    if (streak > streakWinner.streak) {
+                        streakWinner = { name: p.name, streak };
+                    }
+                });
+
+                monthlyBox.innerHTML = `
+                    <div class="text-base font-bold">🏆 Destaque do Mês</div>
+                    <div class="text-sm mt-2">
+                        <p>🔥 Maior Sequência:</p>
+                        <p class="font-bold text-indigo-700">${streakWinner.name} (${streakWinner.streak} sem.)</p>
+                    </div>
+                    <div class="text-sm mt-1">
+                        <p>⚖️ Maior Perda no Mês:</p>
+                        <p class="font-bold text-cyan-700">${monthlyWeightLossWinner.name} (${monthlyWeightLossWinner.loss > 0 ? monthlyWeightLossWinner.loss.toFixed(2) : '0.00'} kg)</p>
+                    </div>
+                `;
+
+                // Box 4: Days Remaining
                 const daysRemaining = Math.max(0, Math.ceil((CHALLENGE_END_DATE - new Date()) / (1000 * 60 * 60 * 24)));
                 daysBox.innerHTML = `<div>⏳ Dias Restantes</div><div class="text-3xl font-bold text-blue-700">${daysRemaining}</div><div>Término em ${CHALLENGE_END_DATE.toLocaleDateString('pt-BR')}</div>`;
             }
@@ -742,10 +1163,13 @@
                                 <input type="text" id="pName" class="border rounded w-full py-2 px-3" value="${p.name || ''}" required>
                             </div>
                             <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div><label for="pInitial" class="block font-bold">Peso Inicial:</label><input type="number" step="any" id="pInitial" class="border rounded w-full py-2 px-3" value="${p.pesoInicial || ''}" required></div>
-                                <div><label for="pCurrent" class="block font-bold">Peso Atual:</label><input type="number" step="any" id="pCurrent" class="border rounded w-full py-2 px-3" value="${p.pesoAtual || ''}" required></div>
+                                <div><label for="pInitial" class="block font-bold">Peso Inicial (kg):</label><input type="number" step="any" id="pInitial" class="border rounded w-full py-2 px-3" value="${p.pesoInicial || ''}" required></div>
+                                <div><label for="pCurrent" class="block font-bold">Peso Atual (kg):</label><input type="number" step="any" id="pCurrent" class="border rounded w-full py-2 px-3" value="${p.pesoAtual || ''}" required></div>
                             </div>
-                            <div class="mb-6"><label for="pTarget" class="block font-bold">Meta de Peso:</label><input type="number" step="any" id="pTarget" class="border rounded w-full py-2 px-3" value="${p.targetWeight || ''}"></div>
+                            <div class="grid grid-cols-2 gap-4 mb-6">
+                                <div><label for="pHeight" class="block font-bold">Altura (m):</label><input type="number" step="any" id="pHeight" class="border rounded w-full py-2 px-3" value="${p.altura || ''}" placeholder="Ex: 1.75" required></div>
+                                <div><label for="pTarget" class="block font-bold">Meta de Peso (kg):</label><input type="number" step="any" id="pTarget" class="border rounded w-full py-2 px-3" value="${p.targetWeight || ''}"></div>
+                            </div>
                             <div class="flex justify-end gap-4">
                                 <button type="button" class="bg-gray-500 text-white font-bold py-2 px-4 rounded close-button-action">Cancelar</button>
                                 <button type="submit" class="bg-blue-500 text-white font-bold py-2 px-4 rounded">Salvar</button>
@@ -765,9 +1189,16 @@
                 const name = document.getElementById('pName').value.trim();
                 const initialWeight = parseFloat(document.getElementById('pInitial').value);
                 const currentWeight = parseFloat(document.getElementById('pCurrent').value);
+                const height = parseFloat(document.getElementById('pHeight').value);
                 const targetWeight = parseFloat(document.getElementById('pTarget').value) || null;
 
-                if (!name || !initialWeight || !currentWeight) return showFeedbackMessage("Preencha todos os campos obrigatórios.", true);
+                if (!name || !initialWeight || !currentWeight || !height) {
+                    return showFeedbackMessage("Preencha todos os campos obrigatórios, incluindo a altura.", true);
+                }
+
+                if (height > 3 || height < 1) {
+                    return showFeedbackMessage("Altura inválida. Por favor, insira a altura em metros (ex: 1.75).", true);
+                }
 
                 if (index) { // Edit
                     const p = participants[index];
@@ -775,9 +1206,10 @@
                     p.name = name;
                     p.pesoInicial = initialWeight;
                     p.pesoAtual = currentWeight;
+                    p.altura = height;
                     p.targetWeight = targetWeight;
                 } else { // Add
-                    participants.push({ name, pesoInicial: initialWeight, pesoAtual: currentWeight, targetWeight, semanasValidas: Array(12).fill(0), weightHistory: [{ date: new Date().toISOString(), weight: currentWeight }] });
+                    participants.push({ name, pesoInicial: initialWeight, pesoAtual: currentWeight, altura: height, targetWeight, semanasValidas: Array(12).fill(0), weightHistory: [{ date: new Date().toISOString(), weight: currentWeight }] });
                 }
                 saveData();
                 updateAllViews();
@@ -817,6 +1249,9 @@
                 const p = calculateMetrics(participants.find(p => p.name === name));
                 const modal = document.getElementById('participantDetailsModal');
                 
+                const initialIMC = calculateIMC(p.pesoInicial, p.altura);
+                const currentIMC = calculateIMC(p.pesoAtual, p.altura);
+
                 const progress = p.progressToTarget !== null ? `
                     <div class="progress-bar-container tooltip"><span class="tooltiptext">${p.progressToTarget.toFixed(1)}% da meta</span>
                         <div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div>
@@ -830,6 +1265,7 @@
                             <div>
                                 <h3 class="text-3xl font-bold">${p.name}</h3>
                                 <div class="text-2xl">${getBadges(p)}</div>
+                                <div class="text-sm text-gray-600">Altura: ${p.altura ? p.altura.toFixed(2) + 'm' : 'N/A'}</div>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center mb-4">
@@ -846,11 +1282,28 @@
                                 <div class="text-2xl font-bold text-green-600">${p.targetWeight ? p.targetWeight.toFixed(2) + 'kg' : 'N/A'}</div>
                             </div>
                         </div>
-                        <div class="mb-4">
+
+                        <div class="border-t pt-4 mt-4">
+                            <h4 class="text-md font-bold text-gray-700 text-center mb-2">Índice de Massa Corporal (IMC)</h4>
+                            <div class="grid grid-cols-2 gap-4 text-center">
+                                <div class="bg-gray-50 p-2 rounded-lg">
+                                    <div class="text-sm font-bold text-gray-500">IMC Inicial</div>
+                                    <div class="text-xl font-bold">${initialIMC.value || 'N/A'}</div>
+                                    <div class="text-sm font-semibold ${initialIMC.color}">${initialIMC.classification}</div>
+                                </div>
+                                <div class="bg-gray-50 p-2 rounded-lg">
+                                    <div class="text-sm font-bold text-gray-500">IMC Atual</div>
+                                    <div class="text-xl font-bold ${currentIMC.color}">${currentIMC.value || 'N/A'}</div>
+                                    <div class="text-sm font-semibold ${currentIMC.color}">${currentIMC.classification}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 mt-4">
                             <div class="text-sm font-bold text-gray-500 mb-1">PROGRESSO PARA META</div>
                             ${progress}
                         </div>
-                        <div>
+                        <div class="hide-on-mobile">
                             <div class="text-sm font-bold text-gray-500 mb-1">HISTÓRICO DE PESO</div>
                             <div id="details-chart"></div>
                         </div>
@@ -862,12 +1315,14 @@
                 if (p.weightHistory.length > 1) {
                     renderMiniChart(p.weightHistory, '#details-chart');
                 } else {
-                    document.getElementById('details-chart').innerHTML = `<div class="text-center p-4 text-gray-500">Não há dados suficientes para o gráfico.</div>`;
+                    const chartDiv = document.getElementById('details-chart');
+                    if(chartDiv) chartDiv.innerHTML = `<div class="text-center p-4 text-gray-500">Não há dados suficientes para o gráfico.</div>`;
                 }
             }
             
             function renderMiniChart(data, containerSelector) {
                 const container = d3.select(containerSelector);
+                if(!container.node()) return;
                 container.select("svg").remove();
                 
                 const margin = {top: 10, right: 10, bottom: 20, left: 30},
@@ -888,7 +1343,6 @@
                    .attr("d", d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight)));
             }
 
-            // Funções de import/export (completas)
             function exportData() {
                 const dataStr = JSON.stringify(participants, null, 2);
                 const blob = new Blob([dataStr], { type: 'application/json' });
@@ -936,6 +1390,61 @@
                     clearTimeout(timeout);
                     timeout = setTimeout(() => func.apply(this, args), delay);
                 };
+            }
+
+            function exportChartToPDF(chartId, filename, title) {
+                const { jsPDF } = window.jspdf;
+                const chartElement = document.getElementById(chartId);
+
+                if (!chartElement || (!chartElement.querySelector('svg') && !chartElement.querySelector('canvas'))) {
+                    showFeedbackMessage('Gráfico não encontrado ou vazio.', true);
+                    return;
+                }
+                
+                showFeedbackMessage('Gerando PDF, por favor aguarde...', false);
+
+                // Criar elemento de título temporário
+                const titleElement = document.createElement('h2');
+                titleElement.innerText = title.replace(/^[^\w\s]+/, ''); // Remove emoji do início
+                titleElement.style.textAlign = 'center';
+                titleElement.style.fontSize = '24px';
+                titleElement.style.fontWeight = 'bold';
+                titleElement.style.marginBottom = '20px';
+                titleElement.style.color = '#333';
+                titleElement.style.fontFamily = 'Inter, sans-serif';
+                
+                // Adicionar título ao container do gráfico antes de capturar
+                chartElement.prepend(titleElement);
+
+                html2canvas(chartElement, {
+                    scale: 3,
+                    useCORS: true,
+                    backgroundColor: '#ffffff'
+                }).then(canvas => {
+                    // Remover título temporário após a captura
+                    chartElement.removeChild(titleElement);
+
+                    try {
+                        const imgData = canvas.toDataURL('image/png');
+                        const pdf = new jsPDF({
+                            orientation: 'landscape',
+                            unit: 'px',
+                            format: [canvas.width, canvas.height]
+                        });
+                        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                        pdf.save(filename);
+                    } catch(e) {
+                        console.error("Erro ao gerar PDF:", e);
+                        showFeedbackMessage('Erro ao gerar o PDF.', true);
+                    }
+                }).catch(err => {
+                    // Garantir que o título seja removido mesmo em caso de erro
+                    if (chartElement.contains(titleElement)) {
+                        chartElement.removeChild(titleElement);
+                    }
+                    console.error("Erro no html2canvas:", err);
+                    showFeedbackMessage('Erro ao capturar o gráfico.', true);
+                });
             }
 
             // Chamar a inicialização
