@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Desafio Família FIT 90 DIAS</title>
+    <title>DESAFIO FIT 90 DIAS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -177,7 +177,12 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // CONFIGURAÇÕES E CONSTANTES
+            // --- CONFIGURAÇÃO DO SUPABASE ---
+            const SUPABASE_URL = 'https://wkvwrtwovcfnvfgleslq.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndrdndydHdvdmNmbnZmZ2xlc2xxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNTE2MTQsImV4cCI6MjA2NzkyNzYxNH0.osy_C1SsPJ7t8BJlri7DpVDJU64S_IfRzy9KEBP9VMY';
+            const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+            // --- CONFIGURAÇÕES E CONSTANTES DO DESAFIO ---
             const defaultUsers = { admin: { password: 'admin', canEdit: true }, root: { password: '1', canEdit: false } };
             const CHALLENGE_START_DATE = new Date('2025-07-07T00:00:00');
             const CHALLENGE_END_DATE = new Date('2025-10-07T23:59:59');
@@ -194,17 +199,7 @@
                 { id: 'comparison', text: '🆚 Comparativo' },
                 { id: 'configuracoes', text: '⚙️ Configurações', adminOnly: true }
             ];
-            const defaultParticipants = [
-                { name: "Amanda", pesoInicial: 69.1, pesoAtual: 69.1, altura: 1.65, targetWeight: 65, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 69.1 }] },
-                { name: "Hevinho", pesoInicial: 85.3, pesoAtual: 85.3, altura: 1.75, targetWeight: 75.0, semanasValidas: [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 85.3 }] },
-                { name: "Junior", pesoInicial: 113.9, pesoAtual: 113.9, altura: 1.80, targetWeight: 100.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 113.9 }] },
-                { name: "Midian Diniz", pesoInicial: 89.85, pesoAtual: 89.85, altura: 1.70, targetWeight: 80, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 89.85 }] },
-                { name: "Midian Fernandes", pesoInicial: 65.15, pesoAtual: 65.15, altura: 1.60, targetWeight: 60.0, semanasValidas: [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 65.15 }] },
-                { name: "Paulinha", pesoInicial: 75.9, pesoAtual: 75.9, altura: 1.68, targetWeight: 70.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 75.9 }] },
-                { name: "Rayanne", pesoInicial: 86.4, pesoAtual: 86.4, altura: 1.72, targetWeight: 80, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 86.4 }] },
-                { name: "Wellington", pesoInicial: 117.7, pesoAtual: 117.7, altura: 1.85, targetWeight: 110.0, semanasValidas: Array(12).fill(0), weightHistory: [{ date: '2025-07-07T03:00:00.000Z', weight: 117.7 }] },
-            ];
-
+            
             // ESTADO DA APLICAÇÃO
             let currentUser = null;
             let participants = [];
@@ -220,7 +215,6 @@
             // FUNÇÕES DE INICIALIZAÇÃO E AUTENTICAÇÃO
             function initApp() {
                 loadUsers();
-                loadData();
                 setupEventListeners();
                 checkLoginState();
             }
@@ -234,21 +228,21 @@
                 localStorage.setItem('challengeAppUsers', JSON.stringify(appUsers));
             }
 
-            function loadData() {
-                try {
-                    const stored = localStorage.getItem('challengeParticipants');
-                    const parsed = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(defaultParticipants));
-                    participants = parsed.map(p => ({
+            async function loadData() {
+                const { data, error } = await supabase.from('participants').select('*').order('name');
+                if (error) {
+                    console.error('Error loading data:', error);
+                    showFeedbackMessage('Erro ao carregar dados do banco.', true);
+                } else {
+                    participants = data.map(p => ({
                         ...p,
-                        altura: p.altura || null,
-                        pesoAtual: p.pesoAtual !== undefined ? p.pesoAtual : (p.pesoFinal || p.pesoInicial),
-                        targetWeight: p.targetWeight !== undefined ? p.targetWeight : null,
-                        semanasValidas: p.semanasValidas || Array(12).fill(0),
-                        weightHistory: p.weightHistory || [{ date: new Date().toISOString(), weight: p.pesoAtual }]
+                        semanasValidas: p.semanas_validas || Array(12).fill(0),
+                        weightHistory: p.weight_history || [],
+                        pesoInicial: p.peso_inicial,
+                        pesoAtual: p.peso_atual,
+                        targetWeight: p.target_weight
                     }));
-                } catch (e) {
-                    console.error("Error loading data:", e);
-                    participants = JSON.parse(JSON.stringify(defaultParticipants));
+                    updateAllViews();
                 }
             }
 
@@ -257,8 +251,8 @@
                 if (currentUser && appUsers[currentUser]) {
                     loginScreen.classList.add('hidden');
                     mainContent.classList.remove('hidden');
-                    renderNavTabs(); // Reconstrói o menu após o login
-                    updateAllViews();
+                    renderNavTabs();
+                    loadData();
                 } else {
                     loginScreen.classList.remove('hidden');
                     mainContent.classList.add('hidden');
@@ -283,7 +277,7 @@
             function handleLogout() {
                 currentUser = null;
                 sessionStorage.removeItem('currentUser');
-                renderNavTabs(); // Reconstrói o menu após o logout
+                renderNavTabs();
                 checkLoginState();
             }
 
@@ -301,7 +295,7 @@
                 document.getElementById('resetDataBtn').addEventListener('click', () => openDeleteModal(null, true));
                 document.getElementById('searchParticipantInput').addEventListener('keyup', debounce(updateAllViews, 300));
                 
-                renderNavTabs(); // Chamada inicial para construir o menu
+                renderNavTabs();
                 
                 document.getElementById('mobileMenuToggleButton').addEventListener('click', () => document.getElementById('mobileMenuDropdown').classList.toggle('open'));
                 mainContent.addEventListener('click', handleMainContentClick);
@@ -340,7 +334,6 @@
                     }
                 });
 
-                // Re-atribui os event listeners para os novos itens do menu
                 document.querySelectorAll('.nav-tab-item').forEach(item => {
                     item.addEventListener('click', e => {
                         e.preventDefault();
@@ -350,30 +343,35 @@
                 });
             }
 
-            function handleDeleteWeightEntry(button) {
-                const name = button.dataset.participantName;
+            async function handleDeleteWeightEntry(button) {
+                const participantName = button.dataset.participantName;
                 const entryDateISO = button.dataset.entryDate;
-                const participant = participants.find(p => p.name === name);
+                const participant = participants.find(p => p.name === participantName);
 
                 if (!participant) return;
                 
-                if (participant.weightHistory.length <= 1) {
+                if (participant.weight_history.length <= 1) {
                     showFeedbackMessage("Não é possível excluir o único registro de peso.", true);
                     return;
                 }
 
-                participant.weightHistory = participant.weightHistory.filter(entry => entry.date !== entryDateISO);
-                participant.weightHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                const newHistory = participant.weight_history.filter(entry => entry.date !== entryDateISO);
+                newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
                 
-                if (participant.weightHistory.length > 0) {
-                    participant.pesoAtual = participant.weightHistory[participant.weightHistory.length - 1].weight;
-                } else {
-                    participant.pesoAtual = participant.pesoInicial;
-                }
+                const newCurrentWeight = newHistory.length > 0 ? newHistory[newHistory.length - 1].weight : participant.peso_inicial;
 
-                saveData();
-                updateAllViews();
-                showFeedbackMessage("Registro de peso excluído com sucesso!");
+                const { error } = await supabase
+                    .from('participants')
+                    .update({ weight_history: newHistory, peso_atual: newCurrentWeight })
+                    .eq('id', participant.id);
+
+                if (error) {
+                    showFeedbackMessage('Erro ao excluir registro de peso.', true);
+                    console.error(error);
+                } else {
+                    showFeedbackMessage("Registro de peso excluído com sucesso!");
+                    loadData();
+                }
             }
 
             function handleMainContentClick(e) {
@@ -389,12 +387,14 @@
 
                 if (!button) return;
                 
-                const name = button.dataset.name;
+                const participantId = button.dataset.id;
+                const participantName = button.dataset.name;
+
                 if (button.matches('.edit-participant-icon')) {
-                    const index = participants.findIndex(p => p.name === name);
+                    const index = participants.findIndex(p => p.id == participantId);
                     if (index !== -1) openModal(index);
                 } else if (button.matches('.delete-participant-icon')) {
-                    openDeleteModal(name);
+                    openDeleteModal(participantId, false, participantName);
                 } else if (button.matches('.delete-user-btn')) {
                     const username = button.dataset.username;
                     if (username === 'admin') {
@@ -417,24 +417,34 @@
                 }
             }
 
-            function handleActivityInputChange(input) {
+            async function handleActivityInputChange(input) {
                 if (input.disabled) return;
-                const name = input.dataset.name;
+                const participantId = input.dataset.id;
                 const weekIndex = parseInt(input.dataset.week);
                 let numActivities = parseInt(input.value);
                 if (isNaN(numActivities) || numActivities < 0) numActivities = 0;
                 
-                const participant = participants.find(p => p.name === name);
+                const participant = participants.find(p => p.id == participantId);
                 if (participant) {
-                    participant.semanasValidas[weekIndex] = numActivities;
-                    saveData();
-                    updateAllViews();
+                    const newSemanasValidas = [...participant.semanas_validas];
+                    newSemanasValidas[weekIndex] = numActivities;
+
+                    const { error } = await supabase
+                        .from('participants')
+                        .update({ semanas_validas: newSemanasValidas })
+                        .eq('id', participantId);
+
+                    if (error) {
+                        console.error('Error updating activities:', error);
+                    } else {
+                        loadData();
+                    }
                 }
             }
 
-            function handleUpdateWeight(button) {
+            async function handleUpdateWeight(button) {
                 if (button.disabled) return;
-                const name = button.dataset.name;
+                const participantId = button.dataset.id;
                 const row = button.closest('tr');
                 const weightInput = row.querySelector('input[type="number"]');
                 const dateInput = row.querySelector('input[type="date"]');
@@ -445,26 +455,31 @@
                 if (!dateValue) return showFeedbackMessage("Selecione uma data.", true);
                 if (new Date(dateValue) > new Date()) return showFeedbackMessage("Não é possível registrar datas futuras.", true);
 
-                const participant = participants.find(p => p.name === name);
+                const participant = participants.find(p => p.id == participantId);
                 if (participant) {
                     const newEntry = { date: new Date(dateValue + 'T00:00:00').toISOString(), weight: newWeight };
-                    participant.pesoAtual = newWeight;
-                    participant.weightHistory.push(newEntry);
-                    participant.weightHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
-                    saveData();
-                    updateAllViews();
-                    showFeedbackMessage(`Peso de ${name} atualizado!`);
+                    const newHistory = [...participant.weight_history, newEntry];
+                    newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    
+                    const { error } = await supabase
+                        .from('participants')
+                        .update({ peso_atual: newWeight, weight_history: newHistory })
+                        .eq('id', participantId);
+                    
+                    if (error) {
+                        showFeedbackMessage('Erro ao atualizar peso.', true);
+                        console.error(error);
+                    } else {
+                        showFeedbackMessage(`Peso de ${participant.name} atualizado!`);
+                        loadData();
+                    }
                 }
             }
             
             // LÓGICA DE DADOS E CÁLCULOS
-            function saveData() {
-                localStorage.setItem('challengeParticipants', JSON.stringify(participants));
-            }
-
             function calculateMetrics(p) {
-                const pesoPerdido = p.pesoInicial - p.pesoAtual;
-                const percentLoss = p.pesoInicial > 0 ? (pesoPerdido / p.pesoInicial) * 100 : 0;
+                const pesoPerdido = p.peso_inicial - p.peso_atual;
+                const percentLoss = p.peso_inicial > 0 ? (pesoPerdido / p.peso_inicial) * 100 : 0;
                 let weightPoints = 0;
                 if (percentLoss >= 10) weightPoints = 50;
                 else if (percentLoss >= 8) weightPoints = 45;
@@ -473,13 +488,13 @@
                 else if (percentLoss >= 2) weightPoints = 30;
                 else if (percentLoss > 0) weightPoints = 10;
                 
-                const validWeeksCount = p.semanasValidas.filter(num => num >= MIN_ACTIVITIES_FOR_VALID_WEEK).length;
+                const validWeeksCount = p.semanas_validas.filter(num => num >= MIN_ACTIVITIES_FOR_VALID_WEEK).length;
                 const activityPoints = (validWeeksCount / MAX_WEEKS) * MAX_ACTIVITY_POINTS;
                 
                 let progressToTarget = null;
-                if (p.targetWeight && p.pesoInicial > p.targetWeight) {
-                    const totalNeeded = p.pesoInicial - p.targetWeight;
-                    const currentLoss = p.pesoInicial - p.pesoAtual;
+                if (p.target_weight && p.peso_inicial > p.target_weight) {
+                    const totalNeeded = p.peso_inicial - p.target_weight;
+                    const currentLoss = p.peso_inicial - p.peso_atual;
                     progressToTarget = Math.max(0, Math.min(100, (currentLoss / totalNeeded) * 100));
                 }
                 return { ...p, percentLoss: Math.max(0, percentLoss), weightPoints, validWeeksCount, activityPoints, totalPoints: weightPoints + activityPoints, progressToTarget };
@@ -488,25 +503,25 @@
             function getBadges(p) {
                 let badges = '';
                 
-                if (p.targetWeight && p.pesoAtual <= p.targetWeight) {
+                if (p.target_weight && p.peso_atual <= p.target_weight) {
                     badges += `<span class="badge tooltip"><span class="tooltiptext">Meta Atingida! Parabéns!</span>🎯</span>`;
                 }
 
-                const pesoPerdido = p.pesoInicial - p.pesoAtual;
+                const pesoPerdido = p.peso_inicial - p.peso_atual;
                 if (pesoPerdido >= 10) {
                     badges += `<span class="badge tooltip"><span class="tooltiptext">Marco de 10kg Atingido!</span>⚖️</span>`;
                 } else if (pesoPerdido >= 5) {
                     badges += `<span class="badge tooltip"><span class="tooltiptext">Marco de 5kg Atingido!</span>⚖️</span>`;
                 }
 
-                const consecutive = p.semanasValidas.map(w => w >= MIN_ACTIVITIES_FOR_VALID_WEEK ? '1' : '0').join('').split('0').reduce((max, s) => Math.max(max, s.length), 0);
+                const consecutive = p.semanas_validas.map(w => w >= MIN_ACTIVITIES_FOR_VALID_WEEK ? '1' : '0').join('').split('0').reduce((max, s) => Math.max(max, s.length), 0);
                 if (consecutive >= 8) {
-                    badges += `<span class="badge tooltip"><span class="tooltiptext">${consecutive} Semanas em Chamas!</span>�🔥</span>`;
+                    badges += `<span class="badge tooltip"><span class="tooltiptext">${consecutive} Semanas em Chamas!</span>🔥🔥</span>`;
                 } else if (consecutive >= 4) {
                     badges += `<span class="badge tooltip"><span class="tooltiptext">${consecutive} Semanas em Chamas!</span>🔥</span>`;
                 }
 
-                if (p.semanasValidas[0] >= MIN_ACTIVITIES_FOR_VALID_WEEK) {
+                if (p.semanas_validas[0] >= MIN_ACTIVITIES_FOR_VALID_WEEK) {
                     badges += `<span class="badge tooltip"><span class="tooltiptext">Primeira Semana Completa!</span>🥇</span>`;
                 }
 
@@ -514,14 +529,14 @@
             }
 
             function getWeightAtDate(participant, targetDate) {
-                const relevantHistory = participant.weightHistory
+                const relevantHistory = participant.weight_history
                     .filter(entry => new Date(entry.date) <= targetDate)
                     .sort((a, b) => new Date(b.date) - new Date(a.date)); 
 
                 if (relevantHistory.length > 0) {
                     return relevantHistory[0].weight;
                 }
-                return participant.pesoInicial;
+                return participant.peso_inicial;
             }
 
             function calculateIMC(weight, height) {
@@ -645,8 +660,8 @@
                                 <td class="font-bold">${p.totalPoints.toFixed(2)}</td>
                                 <td class="flex items-center space-x-2">
                                     ${canEdit ? `
-                                    <button class="text-blue-500 hover:text-blue-700 edit-participant-icon" data-name="${p.name}">✏️</button>
-                                    <button class="text-red-500 hover:text-red-700 delete-participant-icon" data-name="${p.name}">🗑️</button>
+                                    <button class="text-blue-500 hover:text-blue-700 edit-participant-icon" data-id="${p.id}">✏️</button>
+                                    <button class="text-red-500 hover:text-red-700 delete-participant-icon" data-id="${p.id}" data-name="${p.name}">🗑️</button>
                                     ` : ''}
                                 </td>
                             </tr>`;
@@ -670,7 +685,7 @@
                 if (data.length > 0) {
                     data.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
                         bodyHTML += `<tr><td class="font-medium">${p.name}</td>`;
-                        p.semanasValidas.forEach((num, weekIndex) => {
+                        p.semanas_validas.forEach((num, weekIndex) => {
                             const isPastOrCurrent = (weekIndex + 1) <= currentWeek;
                             let tdClasses = weekIndex + 1 === currentWeek ? 'current-week-cell' : '';
                             if (isPastOrCurrent) tdClasses += num >= MIN_ACTIVITIES_FOR_VALID_WEEK ? ' valid-week' : ' missed-week';
@@ -678,7 +693,7 @@
                             bodyHTML += `
                                 <td class="${tdClasses}">
                                     <div class="activity-content">
-                                        <input type="number" class="activity-input" min="0" value="${num}" data-name="${p.name}" data-week="${weekIndex}" ${!canEdit ? 'disabled' : ''}>
+                                        <input type="number" class="activity-input" min="0" value="${num}" data-id="${p.id}" data-week="${weekIndex}" ${!canEdit ? 'disabled' : ''}>
                                         <span class="checkmark-icon"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
                                     </div>
                                 </td>`;
@@ -709,19 +724,19 @@
                         bodyHTML += `
                             <tr>
                                 <td class="font-medium">${p.name}</td>
-                                <td><input type="number" step="any" class="shadow-sm border rounded w-full py-2 px-3" value="${p.pesoAtual.toFixed(2)}" ${!canEdit ? 'disabled' : ''}></td>
+                                <td><input type="number" step="any" class="shadow-sm border rounded w-full py-2 px-3" value="${p.peso_atual.toFixed(2)}" ${!canEdit ? 'disabled' : ''}></td>
                                 <td><input type="date" class="shadow-sm border rounded w-full py-2 px-3" value="${todayStr}" max="${todayStr}" ${!canEdit ? 'disabled' : ''}></td>
-                                <td class="text-center"><button class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg update-weight-btn" data-name="${p.name}" ${!canEdit ? 'disabled' : ''}>Salvar</button></td>
+                                <td class="text-center"><button class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg update-weight-btn" data-id="${p.id}" ${!canEdit ? 'disabled' : ''}>Salvar</button></td>
                             </tr>`;
 
-                        if (p.weightHistory && p.weightHistory.length > 0) {
+                        if (p.weight_history && p.weight_history.length > 0) {
                             bodyHTML += `
                                 <tr>
                                     <td colspan="4" class="p-3 bg-gray-50 border-t">
                                         <h4 class="text-xs font-bold text-gray-500 mb-2">HISTÓRICO DE PESAGEM:</h4>
                                         <ul class="space-y-1 max-h-32 overflow-y-auto pr-2">`;
                             
-                            [...p.weightHistory].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(entry => {
+                            [...p.weight_history].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(entry => {
                                 const formattedDate = new Date(entry.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
                                 bodyHTML += `
                                     <li class="flex justify-between items-center text-sm p-1.5 bg-white rounded shadow-sm">
@@ -805,7 +820,7 @@
                     <div id="weightHistoryChartContainer" class="w-full"></div>`;
                 const chartContainer = document.getElementById('weightHistoryChartContainer');
                 
-                const participantsWithHistory = data.filter(p => p.weightHistory && p.weightHistory.length > 0);
+                const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 0);
                 if (participantsWithHistory.length === 0) {
                     chartContainer.innerHTML = `<div class="empty-table-message">Não há histórico de peso para exibir.</div>`;
                     return;
@@ -813,7 +828,7 @@
 
                 let allDates = [];
                 participantsWithHistory.forEach(p => {
-                    p.weightHistory.forEach(entry => allDates.push(new Date(entry.date)));
+                    p.weight_history.forEach(entry => allDates.push(new Date(entry.date)));
                 });
                 const latestDate = d3.max(allDates);
 
@@ -823,7 +838,7 @@
                 }
 
                 const chartData = participantsWithHistory.map(p => {
-                    const historyCopy = JSON.parse(JSON.stringify(p.weightHistory));
+                    const historyCopy = JSON.parse(JSON.stringify(p.weight_history));
                     historyCopy.sort((a, b) => new Date(a.date) - new Date(b.date));
 
                     const lastEntry = historyCopy[historyCopy.length - 1];
@@ -859,8 +874,8 @@
                         allChartDates.push(new Date(d.date));
                         allChartWeights.push(d.weight);
                     });
-                    if (p.targetWeight) {
-                        allChartWeights.push(p.targetWeight);
+                    if (p.target_weight) {
+                        allChartWeights.push(p.target_weight);
                     }
                 });
 
@@ -877,10 +892,10 @@
                     svg.append("path").datum(p.weightHistory).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("d", line);
                     
                     // Draw goal projection line
-                    if (p.targetWeight) {
+                    if (p.target_weight) {
                         const projectionData = [
-                            { date: CHALLENGE_START_DATE, weight: p.pesoInicial },
-                            { date: CHALLENGE_END_DATE, weight: p.targetWeight }
+                            { date: CHALLENGE_START_DATE, weight: p.peso_inicial },
+                            { date: CHALLENGE_END_DATE, weight: p.target_weight }
                         ];
                         svg.append("path")
                             .datum(projectionData)
@@ -1197,18 +1212,18 @@
                         <span class="close-button">&times;</span>
                         <h3 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Adicionar'} Participante</h3>
                         <form id="participantForm">
-                            <input type="hidden" id="participantIndex" value="${isEdit ? index : ''}">
+                            <input type="hidden" id="participantId" value="${isEdit ? p.id : ''}">
                             <div class="mb-4">
                                 <label for="pName" class="block font-bold">Nome:</label>
                                 <input type="text" id="pName" class="border rounded w-full py-2 px-3" value="${p.name || ''}" required>
                             </div>
                             <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div><label for="pInitial" class="block font-bold">Peso Inicial (kg):</label><input type="number" step="any" id="pInitial" class="border rounded w-full py-2 px-3" value="${p.pesoInicial || ''}" required></div>
-                                <div><label for="pCurrent" class="block font-bold">Peso Atual (kg):</label><input type="number" step="any" id="pCurrent" class="border rounded w-full py-2 px-3" value="${p.pesoAtual || ''}" required></div>
+                                <div><label for="pInitial" class="block font-bold">Peso Inicial (kg):</label><input type="number" step="any" id="pInitial" class="border rounded w-full py-2 px-3" value="${p.peso_inicial || ''}" required></div>
+                                <div><label for="pCurrent" class="block font-bold">Peso Atual (kg):</label><input type="number" step="any" id="pCurrent" class="border rounded w-full py-2 px-3" value="${p.peso_atual || ''}" required></div>
                             </div>
                             <div class="grid grid-cols-2 gap-4 mb-6">
                                 <div><label for="pHeight" class="block font-bold">Altura (m):</label><input type="number" step="any" id="pHeight" class="border rounded w-full py-2 px-3" value="${p.altura || ''}" placeholder="Ex: 1.75" required></div>
-                                <div><label for="pTarget" class="block font-bold">Meta de Peso (kg):</label><input type="number" step="any" id="pTarget" class="border rounded w-full py-2 px-3" value="${p.targetWeight || ''}"></div>
+                                <div><label for="pTarget" class="block font-bold">Meta de Peso (kg):</label><input type="number" step="any" id="pTarget" class="border rounded w-full py-2 px-3" value="${p.target_weight || ''}"></div>
                             </div>
                             <div class="flex justify-end gap-4">
                                 <button type="button" class="bg-gray-500 text-white font-bold py-2 px-4 rounded close-button-action">Cancelar</button>
@@ -1223,41 +1238,47 @@
                 modal.classList.add('show');
             }
 
-            function handleParticipantFormSubmit(e) {
+            async function handleParticipantFormSubmit(e) {
                 e.preventDefault();
-                const index = e.target.querySelector('#participantIndex').value;
-                const name = document.getElementById('pName').value.trim();
-                const initialWeight = parseFloat(document.getElementById('pInitial').value);
-                const currentWeight = parseFloat(document.getElementById('pCurrent').value);
-                const height = parseFloat(document.getElementById('pHeight').value);
-                const targetWeight = parseFloat(document.getElementById('pTarget').value) || null;
+                const id = e.target.querySelector('#participantId').value;
+                const participantData = {
+                    name: document.getElementById('pName').value.trim(),
+                    peso_inicial: parseFloat(document.getElementById('pInitial').value),
+                    peso_atual: parseFloat(document.getElementById('pCurrent').value),
+                    altura: parseFloat(document.getElementById('pHeight').value),
+                    target_weight: parseFloat(document.getElementById('pTarget').value) || null,
+                };
 
-                if (!name || !initialWeight || !currentWeight || !height) {
+                if (!participantData.name || !participantData.peso_inicial || !participantData.peso_atual || !participantData.altura) {
                     return showFeedbackMessage("Preencha todos os campos obrigatórios, incluindo a altura.", true);
                 }
 
-                if (height > 3 || height < 1) {
+                if (participantData.altura > 3 || participantData.altura < 1) {
                     return showFeedbackMessage("Altura inválida. Por favor, insira a altura em metros (ex: 1.75).", true);
                 }
 
-                if (index) { // Edit
-                    const p = participants[index];
-                    if (p.pesoAtual !== currentWeight) p.weightHistory.push({ date: new Date().toISOString(), weight: currentWeight });
-                    p.name = name;
-                    p.pesoInicial = initialWeight;
-                    p.pesoAtual = currentWeight;
-                    p.altura = height;
-                    p.targetWeight = targetWeight;
+                let error;
+                if (id) { // Edit
+                    const { error: updateError } = await supabase.from('participants').update(participantData).eq('id', id);
+                    error = updateError;
                 } else { // Add
-                    participants.push({ name, pesoInicial: initialWeight, pesoAtual: currentWeight, altura: height, targetWeight, semanasValidas: Array(12).fill(0), weightHistory: [{ date: new Date().toISOString(), weight: currentWeight }] });
+                    participantData.semanas_validas = Array(12).fill(0);
+                    participantData.weight_history = [{ date: new Date().toISOString(), weight: participantData.peso_atual }];
+                    const { error: insertError } = await supabase.from('participants').insert([participantData]);
+                    error = insertError;
                 }
-                saveData();
-                updateAllViews();
-                document.getElementById('participantModal').classList.remove('show');
-                showFeedbackMessage(`Participante ${index ? 'atualizado' : 'adicionado'}!`);
+                
+                if (error) {
+                    showFeedbackMessage('Erro ao salvar participante.', true);
+                    console.error(error);
+                } else {
+                    document.getElementById('participantModal').classList.remove('show');
+                    showFeedbackMessage(`Participante ${id ? 'atualizado' : 'adicionado'}!`);
+                    loadData();
+                }
             }
 
-            function openDeleteModal(name, isReset = false) {
+            async function openDeleteModal(id, isReset = false, name = '') {
                 const modal = document.getElementById('deleteConfirmModal');
                 modal.innerHTML = `
                     <div class="modal-content text-center">
@@ -1270,16 +1291,23 @@
                     </div>`;
                 
                 modal.querySelector('#cancelDelete').onclick = () => modal.classList.remove('show');
-                modal.querySelector('#confirmDelete').onclick = () => {
+                modal.querySelector('#confirmDelete').onclick = async () => {
+                    let error;
                     if (isReset) {
-                        participants = JSON.parse(JSON.stringify(defaultParticipants));
-                        showFeedbackMessage("Dados resetados!");
+                        // Implementar RPC no Supabase para resetar seria o ideal
+                        showFeedbackMessage("Funcionalidade de Reset não implementada com Supabase.", true);
                     } else {
-                        participants = participants.filter(p => p.name !== name);
-                        showFeedbackMessage("Participante excluído!");
+                        const { error: deleteError } = await supabase.from('participants').delete().eq('id', id);
+                        error = deleteError;
                     }
-                    saveData();
-                    updateAllViews();
+
+                    if (error) {
+                        showFeedbackMessage('Erro ao excluir.', true);
+                        console.error(error);
+                    } else {
+                        showFeedbackMessage("Ação concluída com sucesso!");
+                        loadData();
+                    }
                     modal.classList.remove('show');
                 };
                 modal.classList.add('show');
@@ -1289,8 +1317,8 @@
                 const p = calculateMetrics(participants.find(p => p.name === name));
                 const modal = document.getElementById('participantDetailsModal');
                 
-                const initialIMC = calculateIMC(p.pesoInicial, p.altura);
-                const currentIMC = calculateIMC(p.pesoAtual, p.altura);
+                const initialIMC = calculateIMC(p.peso_inicial, p.altura);
+                const currentIMC = calculateIMC(p.peso_atual, p.altura);
 
                 const progress = p.progressToTarget !== null ? `
                     <div class="progress-bar-container tooltip"><span class="tooltiptext">${p.progressToTarget.toFixed(1)}% da meta</span>
@@ -1311,15 +1339,15 @@
                         <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-center mb-4">
                             <div class="bg-gray-100 p-2 rounded-lg">
                                 <div class="text-sm font-bold text-gray-500">PESO INICIAL</div>
-                                <div class="text-2xl font-bold">${p.pesoInicial.toFixed(2)}kg</div>
+                                <div class="text-2xl font-bold">${p.peso_inicial.toFixed(2)}kg</div>
                             </div>
                             <div class="bg-gray-100 p-2 rounded-lg">
                                 <div class="text-sm font-bold text-gray-500">PESO ATUAL</div>
-                                <div class="text-2xl font-bold text-blue-600">${p.pesoAtual.toFixed(2)}kg</div>
+                                <div class="text-2xl font-bold text-blue-600">${p.peso_atual.toFixed(2)}kg</div>
                             </div>
                             <div class="bg-gray-100 p-2 rounded-lg">
                                 <div class="text-sm font-bold text-gray-500">META</div>
-                                <div class="text-2xl font-bold text-green-600">${p.targetWeight ? p.targetWeight.toFixed(2) + 'kg' : 'N/A'}</div>
+                                <div class="text-2xl font-bold text-green-600">${p.target_weight ? p.target_weight.toFixed(2) + 'kg' : 'N/A'}</div>
                             </div>
                         </div>
 
@@ -1352,8 +1380,8 @@
                 modal.querySelector('.close-button').onclick = () => modal.classList.remove('show');
                 modal.classList.add('show');
                 
-                if (p.weightHistory.length > 1) {
-                    renderMiniChart(p.weightHistory, '#details-chart');
+                if (p.weight_history.length > 1) {
+                    renderMiniChart(p.weight_history, '#details-chart');
                 } else {
                     const chartDiv = document.getElementById('details-chart');
                     if(chartDiv) chartDiv.innerHTML = `<div class="text-center p-4 text-gray-500">Não há dados suficientes para o gráfico.</div>`;
