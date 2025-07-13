@@ -1262,6 +1262,7 @@
                     const { error: updateError } = await supabase.from('participants').update(participantData).eq('id', id);
                     error = updateError;
                 } else { // Add
+                    participantData.created_at = new Date().toISOString();
                     participantData.semanas_validas = Array(12).fill(0);
                     participantData.weight_history = [{ date: new Date().toISOString(), weight: participantData.peso_atual }];
                     const { error: insertError } = await supabase.from('participants').insert([participantData]);
@@ -1294,7 +1295,6 @@
                 modal.querySelector('#confirmDelete').onclick = async () => {
                     let error;
                     if (isReset) {
-                        // Implementar RPC no Supabase para resetar seria o ideal
                         showFeedbackMessage("Funcionalidade de Reset não implementada com Supabase.", true);
                     } else {
                         const { error: deleteError } = await supabase.from('participants').delete().eq('id', id);
@@ -1424,26 +1424,7 @@
             }
 
             function importData(event) {
-                const file = event.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = e => {
-                    try {
-                        const imported = JSON.parse(e.target.result);
-                        if (Array.isArray(imported)) {
-                            participants = imported;
-                            saveData();
-                            updateAllViews();
-                            showFeedbackMessage("Dados importados com sucesso!");
-                        } else {
-                            throw new Error("Formato inválido.");
-                        }
-                    } catch (err) {
-                        showFeedbackMessage("Erro ao importar arquivo.", true);
-                    }
-                };
-                reader.readAsText(file);
-                event.target.value = '';
+                showFeedbackMessage("Importação desativada com o uso do banco de dados.", true);
             }
 
             function showFeedbackMessage(message, isError = false) {
