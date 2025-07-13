@@ -103,9 +103,9 @@
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md">
             <h2 class="text-4xl font-extrabold text-center mb-10 text-gray-800">Acesso ao Desafio FIT</h2>
             <form id="loginForm">
-                <div class="mb-4"><input type="email" id="email" placeholder="Email" class="shadow-sm appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" required></div>
+                <div class="mb-4"><input type="text" id="username" placeholder="Usuário" class="shadow-sm appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" required></div>
                 <div class="mb-6"><input type="password" id="password" placeholder="Senha" class="shadow-sm appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" required></div>
-                <p id="loginError" class="text-red-500 text-sm italic mb-4 hidden text-center">Email ou senha inválidos.</p>
+                <p id="loginError" class="text-red-500 text-sm italic mb-4 hidden text-center">Usuário ou senha inválidos.</p>
                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition w-full">Entrar</button>
             </form>
         </div>
@@ -172,6 +172,7 @@
     <div id="participantModal" class="modal"></div>
     <div id="deleteConfirmModal" class="modal"></div>
     <div id="participantDetailsModal" class="modal"></div>
+    <div id="resetPasswordModal" class="modal"></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -210,7 +211,14 @@
             // FUNÇÕES DE INICIALIZAÇÃO E AUTENTICAÇÃO
             async function initApp() {
                 setupEventListeners();
+                const { data: { session } } = await supabase.auth.getSession();
+                currentUser = session ? session.user : null;
                 checkLoginState();
+
+                supabase.auth.onAuthStateChange((_event, session) => {
+                    currentUser = session ? session.user : null;
+                    checkLoginState();
+                });
             }
 
             async function loadData() {
@@ -225,12 +233,10 @@
             }
 
             function checkLoginState() {
-                const session = supabase.auth.session();
-                currentUser = session ? session.user : null;
-
                 if (currentUser) {
                     loginScreen.classList.add('hidden');
-                    loadData(); // Carrega os dados após o login
+                    mainContent.classList.remove('hidden');
+                    loadData(); 
                 } else {
                     loginScreen.classList.remove('hidden');
                     mainContent.classList.add('hidden');
@@ -241,24 +247,25 @@
 
             async function handleLogin(e) {
                 e.preventDefault();
-                const email = document.getElementById('email').value;
+                const username = document.getElementById('username').value.trim().toLowerCase();
                 const password = document.getElementById('password').value;
-                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                
+                // Converte o nome de usuário para o formato de e-mail esperado pelo Supabase
+                const email = `${username}@desafio.fit`;
+
+                const { error } = await supabase.auth.signInWithPassword({ email, password });
 
                 if (error) {
+                    document.getElementById('loginError').textContent = 'Usuário ou senha inválidos.';
                     document.getElementById('loginError').classList.remove('hidden');
                     console.error('Login error:', error.message);
                 } else {
                     document.getElementById('loginError').classList.add('hidden');
-                    checkLoginState();
                 }
             }
 
             async function handleLogout() {
                 await supabase.auth.signOut();
-                currentUser = null;
-                participants = [];
-                checkLoginState();
             }
 
             // SETUP DE EVENTOS
@@ -1155,7 +1162,7 @@
             function applyPermissions() {
                 const canEdit = !!currentUser;
                 document.querySelectorAll('button, input').forEach(el => {
-                    const noDisable = ['logoutBtn', 'logoutBtnMobile', 'viewFullDashboardBtn', 'backToMobileRankingBtn', 'email', 'password'].includes(el.id) || el.closest('.nav-tab-item');
+                    const noDisable = ['logoutBtn', 'logoutBtnMobile', 'viewFullDashboardBtn', 'backToMobileRankingBtn', 'username', 'password'].includes(el.id) || el.closest('.nav-tab-item');
                     if (!noDisable) {
                          el.disabled = !canEdit;
                     }
