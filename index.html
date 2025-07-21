@@ -772,22 +772,51 @@
             function renderCurrentWeightTable(data, container) {
                 const canEdit = appUsers[currentUser]?.canEdit;
                 const todayStr = new Date().toISOString().split('T')[0];
-                let bodyHTML = '';
+                let tableHTML = `<div class="overflow-x-auto"><table class="w-full"><thead><tr><th>Nome</th><th>Peso (kg)</th><th>Data</th><th>Ação</th></tr></thead><tbody>`;
 
                 if (data.length > 0) {
                     data.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
-                        bodyHTML += `<tr>
+                        tableHTML += `
+                            <tr>
                                 <td class="font-medium">${p.name}</td>
                                 <td><input type="number" step="any" class="shadow-sm border rounded w-full py-2 px-3" value="${p.peso_atual.toFixed(2)}" ${!canEdit ? 'disabled' : ''}></td>
                                 <td><input type="date" class="shadow-sm border rounded w-full py-2 px-3" value="${todayStr}" max="${todayStr}" ${!canEdit ? 'disabled' : ''}></td>
                                 <td class="text-center"><button class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg update-weight-btn" data-id="${p.id}" ${!canEdit ? 'disabled' : ''}>Salvar</button></td>
                             </tr>`;
+
+                        if (p.weight_history && p.weight_history.length > 0) {
+                            tableHTML += `
+                                <tr>
+                                    <td colspan="4" class="p-3 bg-gray-50 border-t">
+                                        <h4 class="text-xs font-bold text-gray-500 mb-2">HISTÓRICO DE PESAGEM:</h4>
+                                        <ul class="space-y-1 max-h-32 overflow-y-auto pr-2">`;
+                            
+                            [...p.weight_history].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(entry => {
+                                const formattedDate = new Date(entry.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                                tableHTML += `
+                                    <li class="flex justify-between items-center text-sm p-1.5 bg-white rounded shadow-sm">
+                                        <span>
+                                            🗓️ <span class="font-mono">${formattedDate}</span> &nbsp;
+                                            ⚖️ <strong>${parseFloat(entry.weight).toFixed(2)} kg</strong>
+                                        </span>
+                                        ${canEdit ? `<button class="text-red-400 hover:text-red-600 delete-weight-entry-btn p-1 rounded-full" title="Excluir este registro" data-participant-name="${p.name}" data-entry-date="${entry.date}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                            </svg>
+                                        </button>` : ''}
+                                    </li>`;
+                            });
+
+                            tableHTML += `</ul></td></tr>`;
+                        }
                     });
                 } else {
-                    bodyHTML = `<tr><td colspan="4" class="empty-table-message">Nenhum participante.</td></tr>`;
+                    tableHTML += `<tr><td colspan="4" class="empty-table-message">Nenhum participante.</td></tr>`;
                 }
 
-                container.innerHTML = `<div class="overflow-x-auto"><table class="w-full"><thead><tr><th>Nome</th><th>Peso (kg)</th><th>Data</th><th>Ação</th></tr></thead><tbody>${bodyHTML}</tbody></table></div>`;
+                tableHTML += `</tbody></table></div>`;
+                container.innerHTML = tableHTML;
             }
             
             function renderMeasurementsTable(data, container) {
