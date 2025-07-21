@@ -712,10 +712,19 @@
                         const medal = ['🏆', '🥈', '🥉'][pointRankIndex] || '';
                         const alertIcon = !isWeightUpdatedThisWeek(p) ? `<span class="tooltip"><span class="tooltiptext">Peso não atualizado!</span>⚠️</span>` : '';
                         const progress = p.progressToTarget !== null ? `<div class="progress-bar-container tooltip"><span class="tooltiptext">${p.progressToTarget.toFixed(1)}%</span><div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div></div>` : 'N/A';
+                        const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
                         
                         tableHTML += `<tr class="${pointRankIndex === 0 ? 'leader-row' : ''}">
-                            <td class="font-semibold">${pointRankIndex + 1} ${medal}</td>
-                            <td><a href="#" class="participant-name-link text-blue-600 hover:underline" data-name="${p.name}">${p.name}</a> ${alertIcon} ${getBadges(p)}</td>
+                            <td class="font-semibold">${pointRankIndex + 1}</td>
+                            <td class="py-2">
+                                <div class="flex items-center">
+                                    <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-8 h-8 rounded-full mr-3 object-cover flex-shrink-0" onerror="this.onerror=null;this.src='https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
+                                    <div>
+                                        <a href="#" class="participant-name-link text-blue-600 hover:underline font-semibold" data-name="${p.name}">${p.name}</a>
+                                        <span class="ml-1">${medal} ${alertIcon} ${getBadges(p)}</span>
+                                    </div>
+                                </div>
+                            </td>
                             <td>${progress}</td>
                             <td>${p.percentLoss.toFixed(2)}%</td>
                             <td>${p.totalActivities}</td>
