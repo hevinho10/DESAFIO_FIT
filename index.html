@@ -5,52 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FIT Challenge PRO</title>
     
-    <!-- PWA Manifest and Meta Tags -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#111827"/>
+    <meta name="theme-color" content="#1f2937"/>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FIT Challenge PRO">
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/111827/ffffff?text=FIT">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/1f2937/ffffff?text=FIT">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <!-- Supabase Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-    <!-- Bibliotecas para exportar PDF -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         :root {
             --font-inter: 'Inter', sans-serif;
-            --bg-main: #f3f4f6;
-            --bg-sidebar: #111827;
+            
+            /* Minimalist Color Palette */
+            --bg-main: #f4f5f7; /* Light Gray */
+            --bg-sidebar: #1f2937; /* Dark Slate */
             --bg-header: #ffffff;
             --bg-content: #ffffff;
-            --text-light: #f9fafb;
-            --text-dark: #1f2937;
+            --text-dark: #111827;
             --text-muted: #6b7280;
             --border-color: #e5e7eb;
-            --accent-color: #f97316;
-            --accent-hover: #ea580c;
-            --primary-color: #3b82f6;
-            --primary-hover: #2563eb;
-            --green-valid: #10b981;
-            --red-missed: #ef4444;
-            --leader-row-bg: #fff7ed;
-            --leader-row-border: #f97316;
+
+            --primary-color: #4f46e5; /* Indigo */
+            --primary-hover: #4338ca;
+            --danger-color: #dc2626; /* Red */
+            --danger-hover: #b91c1c;
+            --success-color: #16a34a; /* Green */
+            --success-hover: #15803d;
+            --warning-color: #f59e0b; /* Amber */
+            --warning-hover: #d97706;
+
+            --leader-row-bg: #eef2ff; /* Indigo Light */
+            --leader-row-border: var(--primary-color);
         }
         body { font-family: var(--font-inter); background-color: var(--bg-main); color: var(--text-dark); }
         
-        /* New Layout Styles */
         #sidebar { transition: transform 0.3s ease-in-out; }
         .sidebar-link { display: flex; align-items: center; padding: 0.75rem 1.5rem; border-radius: 0.5rem; transition: background-color 0.2s, color 0.2s; }
-        .sidebar-link:hover { background-color: #1f2937; }
+        .sidebar-link:hover { background-color: #374151; }
         .sidebar-link.active { background-color: var(--primary-color); color: white; font-weight: 600; }
         .sidebar-link svg { width: 1.25rem; height: 1.25rem; margin-right: 0.75rem; flex-shrink: 0; }
 
-        /* Table Styles */
         table { width: 100%; border-collapse: separate; border-spacing: 0; }
         th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
         th { background-color: #f9fafb; font-weight: 600; color: var(--text-muted); position: sticky; top: 0; z-index: 10; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -59,24 +59,10 @@
         tr:last-child td { border-bottom: none; }
         .leader-row { background-color: var(--leader-row-bg) !important; border-left: 4px solid var(--leader-row-border); }
         
-        /* Weekly Activity Table Specifics */
-        #weeklyParticipationTable th, #weeklyParticipationTable td { padding: 0.3rem 0.4rem; white-space: nowrap; }
-        #weeklyParticipationTable td:first-child { min-width: 80px; }
-        #weeklyParticipationTable th:not(:first-child), #weeklyParticipationTable td:not(:first-child) { text-align: center; }
-        #weeklyParticipationTable input[type="number"] { width: 45px; height: 32px; padding: 0.2rem; text-align: center; border-radius: 0.375rem; font-size: 0.9em; -moz-appearance: textfield; background-color: white; border: 1px solid var(--border-color); }
-        #weeklyParticipationTable input[type="number"]::-webkit-outer-spin-button, #weeklyParticipationTable input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        #weeklyParticipationTable td.valid-week input[type="number"] { background-color: var(--green-valid); border-color: var(--green-valid); color: white; }
-        #weeklyParticipationTable td.missed-week input[type="number"] { background-color: #fee2e2; border-color: var(--red-missed); color: var(--red-missed); }
-        .current-week-header { background-color: #dbeafe !important; color: #1e40af !important; }
-        
-        /* General UI Elements */
         .summary-box { background-color: var(--bg-content); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 0.75rem; font-weight: 600; color: var(--text-dark); text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .tooltip { position: relative; display: inline-block; cursor: help; }
-        .tooltip .tooltiptext { visibility: hidden; width: 180px; background-color: #333; color: #fff; text-align: center; border-radius: 6px; padding: 5px 0; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -90px; opacity: 0; transition: opacity 0.3s; }
-        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
-        .feedback-message { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--green-valid); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); opacity: 0; transition: opacity 0.3s; z-index: 1001; }
+        .feedback-message { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--success-color); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); opacity: 0; transition: opacity 0.3s; z-index: 1001; }
         .feedback-message.show { opacity: 1; }
-        .feedback-message.error { background-color: var(--red-missed); }
+        .feedback-message.error { background-color: var(--danger-color); }
         .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: opacity 0.3s; }
         .modal.show { opacity: 1; visibility: visible; }
         .modal-content { background-color: #fefefe; margin: auto; padding: 2rem; border-radius: 1rem; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 600px; position: relative; transform: scale(0.95); transition: transform 0.3s; }
@@ -84,56 +70,76 @@
         .close-button { position: absolute; top: 10px; right: 20px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
         .badge { font-size: 1.1rem; margin-left: 0.25rem; }
         .progress-bar-container { width: 100%; background-color: #e5e7eb; border-radius: 9999px; height: 1.25rem; overflow: hidden; position: relative; }
-        .progress-bar-fill { height: 100%; background-color: #22c55e; border-radius: 9999px; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: center; }
+        .progress-bar-fill { height: 100%; background-color: var(--success-color); border-radius: 9999px; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: center; }
         .progress-bar-text { color: white; font-size: 0.75rem; font-weight: 600; }
         
-        /* Charts */
-        .axis path, .axis line { fill: none; stroke: #d1d5db; shape-rendering: crispEdges; }
+        .axis path, .axis line { fill: none; stroke: transparent; }
         .axis text { font-size: 0.8rem; fill: #6b7280; }
-        .tooltip-chart { position: absolute; text-align: center; padding: 8px; font: 12px sans-serif; background: rgba(0, 0, 0, 0.7); color: white; border-radius: 8px; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
-        .empty-table-message { text-align: center; padding: 2rem; color: #6b7280; font-style: italic; }
+        .grid line { stroke: #e5e7eb; stroke-opacity: 0.7; shape-rendering: crispEdges; }
+        .grid path { stroke-width: 0; }
+        .tooltip-chart { position: absolute; text-align: center; padding: 8px; font: 12px sans-serif; background: rgba(0, 0, 0, 0.8); color: white; border-radius: 8px; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+        .empty-state-message { text-align: center; padding: 2rem; color: #6b7280; font-style: italic; }
 
-        /* Loader */
         .loader { border: 8px solid #f3f3f3; border-radius: 50%; border-top: 8px solid var(--primary-color); width: 60px; height: 60px; animation: spin 2s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .ai-tip-loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
+        
+        /* New Button Styles */
+        .action-btn {
+            font-weight: 600;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+            background-color: #ffffff;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .btn-primary { color: var(--primary-color); border-color: var(--primary-color); }
+        .btn-primary:hover { background-color: var(--primary-color); color: white; }
+        .btn-warning { color: var(--warning-color); border-color: var(--warning-color); }
+        .btn-warning:hover { background-color: var(--warning-color); color: white; }
+        .btn-danger { color: var(--danger-color); border-color: var(--danger-color); }
+        .btn-danger:hover { background-color: var(--danger-color); color: white; }
     </style>
 </head>
 <body class="bg-gray-100">
 
-    <!-- Tela de Login -->
     <div id="loginScreen" class="flex items-center justify-center min-h-screen bg-gray-900 p-4">
         <div class="bg-white p-8 sm:p-10 rounded-2xl shadow-2xl w-full max-w-md">
             <div class="text-center mb-10">
-                <h1 class="text-4xl font-extrabold text-gray-800">FIT Challenge <span class="text-blue-600">PRO</span></h1>
+                <h1 class="text-4xl font-extrabold text-gray-800">FIT Challenge <span style="color: var(--primary-color);">PRO</span></h1>
                 <p class="text-gray-500 mt-2">Acesse para acompanhar o desafio</p>
             </div>
             <form id="loginForm">
                 <div class="mb-4">
                     <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
-                    <input type="text" id="username" placeholder="Seu usuário" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <input type="text" id="username" placeholder="Seu usuário" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
                 </div>
                 <div class="mb-6">
                     <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                    <input type="password" id="password" placeholder="Sua senha" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <input type="password" id="password" placeholder="Sua senha" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
                 </div>
                 <p id="loginError" class="text-red-500 text-sm italic mb-4 hidden text-center">Usuário ou senha inválidos.</p>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition w-full">Entrar</button>
+                <button type="submit" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-3 px-6 rounded-lg shadow-md transition w-full">Entrar</button>
             </form>
         </div>
     </div>
     
-    <!-- Indicador de Carregamento -->
     <div id="loadingIndicator" class="hidden fixed inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-center z-50">
         <div class="loader"></div>
         <p class="mt-4 text-lg font-semibold text-gray-700">Carregando dados...</p>
     </div>
 
-    <!-- Layout Principal da Aplicação -->
     <div id="app" class="hidden flex h-screen bg-gray-100 font-sans">
-        <!-- Sidebar -->
         <aside id="sidebar" class="w-64 bg-gray-900 text-white flex-shrink-0 flex flex-col fixed lg:relative h-full z-30 transform -translate-x-full lg:translate-x-0">
             <div class="px-6 py-4 border-b border-gray-700">
-                <h1 class="text-2xl font-bold text-white">FIT <span class="text-blue-400">PRO</span></h1>
+                <h1 class="text-2xl font-bold text-white">FIT <span style="color: var(--primary-color);">PRO</span></h1>
             </div>
             <nav id="sidebarNav" class="flex-1 px-4 py-4 space-y-2 overflow-y-auto"></nav>
             <div class="px-4 py-4 border-t border-gray-700">
@@ -141,35 +147,25 @@
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3">
                         <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>
                     </span>
-                    <input type="text" id="searchParticipantInput" placeholder="Buscar participante..." class="bg-gray-700 text-white placeholder-gray-400 rounded-lg w-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="searchParticipantInput" placeholder="Buscar participante..." class="bg-gray-700 text-white placeholder-gray-400 rounded-lg w-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
             </div>
         </aside>
 
-        <!-- Overlay for mobile sidebar -->
         <div id="sidebar-overlay" class="hidden lg:hidden fixed inset-0 bg-black opacity-50 z-20"></div>
 
-        <!-- Main Content -->
         <div class="flex-1 flex flex-col overflow-hidden">
-            <!-- Header -->
             <header id="header" class="bg-white shadow-sm p-4 flex justify-between items-center z-10">
                 <button id="mobileMenuBtn" class="lg:hidden text-gray-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-16 6h16"></path></svg>
                 </button>
                 <h2 id="pageTitle" class="text-xl font-semibold text-gray-800"></h2>
                 <div class="flex items-center gap-4">
-                   <div id="main-action-buttons" class="hidden sm:flex items-center gap-2 flex-wrap">
-                       <button id="addParticipantBtn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Adicionar</button>
-                       <button id="exportDataBtn" class="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Exportar</button>
-                       <input type="file" id="importDataInput" accept=".json" class="hidden">
-                       <button id="importDataBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Importar</button>
-                       <button id="resetDataBtn" class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Resetar</button>
-                   </div>
-                   <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Sair</button>
+                   <div id="header-action-buttons" class="hidden sm:flex items-center gap-2 flex-wrap"></div>
+                   <button id="logoutBtn" style="background-color: var(--danger-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Sair</button>
                 </div>
             </header>
 
-            <!-- Page Content -->
             <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
                 <div id="summary-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                     <div id="leaderBox" class="summary-box"></div>
@@ -178,47 +174,30 @@
                     <div id="daysRemainingBox" class="summary-box"></div>
                 </div>
                 
-                <div id="dynamic-content" class="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                    <!-- Dynamic content sections will be rendered here -->
+                <div id="dynamic-content">
                 </div>
             </main>
         </div>
     </div>
 
-    <!-- Modais e Feedback -->
     <div id="feedbackMessage" class="feedback-message"></div>
     <div id="participantModal" class="modal"></div>
     <div id="deleteConfirmModal" class="modal"></div>
-    <div id="participantDetailsModal" class="modal"></div>
-    <div id="resetPasswordModal" class="modal"></div>
 
     <script>
-        // --- PWA Service Worker and Manifest Registration ---
-        const manifest = {
-            "name": "FIT Challenge PRO",
-            "short_name": "FIT CHALLENGE PRO",
-            "start_url": ".",
-            "display": "standalone",
-            "background_color": "#111827",
-            "theme_color": "#3b82f6",
-            "description": "Acompanhamento do FIT Challenge 90 DIAS.",
-            "icons": [
-                { "src": "https://placehold.co/192x192/3b82f6/ffffff?text=FIT", "sizes": "192x192", "type": "image/png" },
-                { "src": "https://placehold.co/512x512/3b82f6/ffffff?text=FIT", "sizes": "512x512", "type": "image/png" }
-            ]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(manifestBlob);
-        document.querySelector('link[rel="manifest"]').setAttribute('href', manifestURL);
-        
+        // --- PWA Service Worker (Placeholder) ---
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').catch(error => console.log('ServiceWorker registration failed: ', error));
-            });
+            const manifest = {
+                "name": "FIT Challenge PRO", "short_name": "FIT PRO", "start_url": ".", "display": "standalone",
+                "background_color": "#1f2937", "theme_color": "#4f46e5", "description": "Acompanhamento do FIT Challenge.",
+                "icons": [{ "src": "https://placehold.co/192x192/4f46e5/ffffff?text=FIT", "sizes": "192x192", "type": "image/png" }]
+            };
+            const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(manifestBlob);
+            document.querySelector('link[rel="manifest"]').setAttribute('href', manifestURL);
         }
     </script>
-    <script type="text/javascript" src="sw.js"></script>
-
+    
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // --- CONFIGURAÇÃO DO SUPABASE ---
@@ -227,55 +206,50 @@
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
             // --- CONFIGURAÇÕES E CONSTANTES DO DESAFIO ---
-            const defaultUsers = { admin: { password: 'admin', canEdit: true }, root: { password: '1', canEdit: false } };
+            const ADMIN_USER = { username: 'admin', password: 'admin' }; // Admin credentials
             let CHALLENGE_START_DATE = new Date('2025-07-07T00:00:00');
             let CHALLENGE_END_DATE = new Date('2025-10-07T23:59:59');
             const MAX_WEEKS = 12;
             const MIN_ACTIVITIES_FOR_VALID_WEEK = 3;
             const MAX_ACTIVITY_POINTS = 50;
+            const ACTIVITY_TYPES = ['Musculação', 'Corrida', 'Caminhada', 'Natação', 'Yoga', 'Dança', 'Ciclismo', 'Outro'];
             
+            // --- NAVIGATION LINKS WITH ROLE-BASED ACCESS ---
             const NAV_LINKS = [
-                { id: 'ranking', text: 'Ranking', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>' },
-                { id: 'weekly', text: 'Semanas', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>' },
-                { id: 'activity', text: 'Atividades', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>' },
-                { id: 'currentWeight', text: 'Registrar Peso', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l-6-2m6 2l-3 1m-3-1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path></svg>' },
-                { id: 'measurements', text: 'Medidas', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>' },
-                { id: 'weightHistory', text: 'Evolução Ind.', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path></svg>' },
-                { id: 'groupEvolution', text: 'Evolução Grupo', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>' },
-                { id: 'comparison', text: 'Comparativo', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>' },
-                { id: 'configuracoes', text: 'Configurações', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>', adminOnly: true }
+                { id: 'myProfile', text: 'Meu Perfil', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>', roles: ['participant'] },
+                { id: 'ranking', text: 'Ranking Geral', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>', roles: ['admin', 'participant'] },
+                { id: 'participants', text: 'Participantes', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>', roles: ['admin'] },
+                { id: 'weeklySummary', text: 'Resumo Semanal', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', roles: ['admin', 'participant'] },
+                { id: 'activityLog', text: 'Histórico de Atividades', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>', roles: ['admin', 'participant'] },
+                { id: 'coachVirtual', text: 'Coach Virtual', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>', roles: ['admin', 'participant'] },
+                { id: 'individualEvolution', text: 'Evolução Individual', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"></path></svg>', roles: ['admin', 'participant'] },
+                { id: 'groupEvolution', text: 'Evolução do Grupo', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>', roles: ['admin', 'participant']},
+                { id: 'comparison', text: 'Comparativo', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>', roles: ['admin', 'participant'] },
+                { id: 'configuracoes', text: 'Configurações', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>', roles: ['admin'] },
+                { id: 'participantProfile', text: 'Perfil do Participante', icon: '', hidden: true, roles: ['admin'] } // Hidden route for admin access
             ];
             
-            // ESTADO DA APLICAÇÃO
-            let currentUser = null;
+            // --- APPLICATION STATE ---
+            let currentUser = null; // Will be an object: { username, role, participantId }
             let participants = [];
-            let appUsers = {};
             let weeklyPointsWinnerName = null;
             let rankingSortConfig = { key: 'totalPoints', direction: 'desc' };
+            let currentProfileParticipantId = null;
 
-            // ELEMENTOS DO DOM
+            // --- DOM ELEMENTS ---
             const loginScreen = document.getElementById('loginScreen');
             const appContainer = document.getElementById('app');
             const feedbackMessageDiv = document.getElementById('feedbackMessage');
             const loadingIndicator = document.getElementById('loadingIndicator');
             const dynamicContentContainer = document.getElementById('dynamic-content');
             const pageTitle = document.getElementById('pageTitle');
+            const headerActionButtons = document.getElementById('header-action-buttons');
             
-            // FUNÇÕES DE INICIALIZAÇÃO E AUTENTICAÇÃO
+            // --- INITIALIZATION AND AUTH ---
             function initApp() {
-                loadUsers();
                 loadChallengeConfig();
                 setupEventListeners();
                 checkLoginState();
-            }
-
-            function loadUsers() {
-                const stored = localStorage.getItem('challengeAppUsers');
-                appUsers = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(defaultUsers));
-            }
-
-            function saveUsers() {
-                localStorage.setItem('challengeAppUsers', JSON.stringify(appUsers));
             }
 
             function loadChallengeConfig() {
@@ -288,14 +262,13 @@
             }
 
             function saveChallengeConfig() {
-                const config = {
+                localStorage.setItem('challengeConfig', JSON.stringify({
                     start: CHALLENGE_START_DATE.toISOString(),
                     end: CHALLENGE_END_DATE.toISOString()
-                };
-                localStorage.setItem('challengeConfig', JSON.stringify(config));
+                }));
             }
 
-            async function loadData() {
+            async function loadDataAndLogin(user) {
                 loadingIndicator.classList.remove('hidden');
                 appContainer.classList.add('opacity-50', 'pointer-events-none');
 
@@ -307,34 +280,39 @@
                 if (error) {
                     console.error('Error loading data:', error);
                     showFeedbackMessage('Erro ao carregar dados do banco.', true);
+                    handleLogout();
                 } else {
                     participants = data.map(p => ({
                         ...p,
-                        semanas_validas: p.semanas_validas || Array(12).fill(0),
+                        semanas_validas: (p.semanas_validas && Array.isArray(p.semanas_validas)) ? p.semanas_validas : Array(12).fill([]),
                         weight_history: p.weight_history || [],
                         measurements_history: p.measurements_history || [],
-                        peso_inicial: p.peso_inicial,
-                        peso_atual: p.peso_atual,
-                        target_weight: p.target_weight,
-                        avatar_url: p.avatar_url,
-                        notes: p.notes
                     }));
-                    updatePlanilha();
-                }
-            }
-
-            function checkLoginState() {
-                currentUser = sessionStorage.getItem('currentUser');
-                if (currentUser && appUsers[currentUser]) {
+                    
+                    currentUser = user;
+                    sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
                     loginScreen.classList.add('hidden');
                     appContainer.classList.remove('hidden');
                     appContainer.classList.add('flex');
                     renderSidebarNav();
-                    if (participants.length === 0) {
-                        loadData();
-                    } else {
+                    
+                    calculateWeeklyWinners();
+                    updateSummaryBoxes();
+                    
+                    if (currentUser.role === 'admin') {
                         showSection('ranking');
+                    } else {
+                        currentProfileParticipantId = currentUser.participantId;
+                        showSection('myProfile');
                     }
+                }
+            }
+
+            function checkLoginState() {
+                const storedUser = sessionStorage.getItem('currentUser');
+                if (storedUser) {
+                    const user = JSON.parse(storedUser);
+                    loadDataAndLogin(user);
                 } else {
                     loginScreen.classList.remove('hidden');
                     appContainer.classList.add('hidden');
@@ -343,36 +321,49 @@
                 }
             }
 
-            function handleLogin(e) {
+            async function handleLogin(e) {
                 e.preventDefault();
-                const username = document.getElementById('username').value;
+                const username = document.getElementById('username').value.trim();
                 const password = document.getElementById('password').value;
-                if (appUsers[username] && appUsers[username].password === password) {
-                    currentUser = username;
-                    sessionStorage.setItem('currentUser', username);
-                    document.getElementById('loginError').classList.add('hidden');
-                    checkLoginState();
+                const loginError = document.getElementById('loginError');
+                loginError.classList.add('hidden');
+
+                if (username === ADMIN_USER.username && password === ADMIN_USER.password) {
+                    const user = { username: ADMIN_USER.username, role: 'admin', participantId: null };
+                    await loadDataAndLogin(user);
+                    return;
+                }
+
+                const { data, error } = await supabase.from('participants').select('*').eq('username', username);
+
+                if (error || !data || data.length === 0) {
+                    loginError.classList.remove('hidden');
+                    return;
+                }
+                
+                const participant = data[0];
+                if (participant.password === password) {
+                    const user = { username: participant.username, role: 'participant', participantId: participant.id };
+                    await loadDataAndLogin(user);
                 } else {
-                    document.getElementById('loginError').classList.remove('hidden');
+                    loginError.classList.remove('hidden');
                 }
             }
 
             function handleLogout() {
                 currentUser = null;
                 sessionStorage.removeItem('currentUser');
-                checkLoginState();
+                participants = [];
+                loginScreen.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+                appContainer.classList.remove('flex');
             }
 
-            // SETUP DE EVENTOS
+            // --- EVENT LISTENERS SETUP ---
             function setupEventListeners() {
                 document.getElementById('loginForm').addEventListener('submit', handleLogin);
                 document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-                document.getElementById('addParticipantBtn').addEventListener('click', () => openModal());
-                document.getElementById('exportDataBtn').addEventListener('click', exportData);
-                document.getElementById('importDataBtn').addEventListener('click', () => document.getElementById('importDataInput').click());
-                document.getElementById('importDataInput').addEventListener('change', importData);
-                document.getElementById('resetDataBtn').addEventListener('click', () => openDeleteModal(null, true));
-                document.getElementById('searchParticipantInput').addEventListener('keyup', debounce(updatePlanilha, 300));
+                document.getElementById('searchParticipantInput').addEventListener('keyup', debounce(updateCurrentView, 300));
                 
                 const sidebar = document.getElementById('sidebar');
                 const overlay = document.getElementById('sidebar-overlay');
@@ -386,11 +377,10 @@
                 });
 
                 dynamicContentContainer.addEventListener('click', handleMainContentClick);
-                dynamicContentContainer.addEventListener('input', debounce(e => {
-                    if (e.target.matches('.activity-input')) handleActivityInputChange(e.target);
-                }, 400));
                 dynamicContentContainer.addEventListener('change', e => {
-                    if (e.target.matches('.comparison-checkbox')) updateComparisonChart();
+                    if (e.target.matches('.comparison-checkbox') || e.target.matches('input[name="comparisonMetric"]')) {
+                        updateComparisonChart();
+                    }
                 });
             }
             
@@ -399,52 +389,32 @@
                 navContainer.innerHTML = '';
 
                 NAV_LINKS.forEach(link => {
-                    const isAdminOnly = link.adminOnly && currentUser !== 'admin';
-                    if (!isAdminOnly) {
-                        const navItem = document.createElement('a');
-                        navItem.href = '#';
-                        navItem.className = 'sidebar-link text-gray-300';
-                        navItem.dataset.section = link.id;
-                        navItem.innerHTML = `${link.icon}<span>${link.text}</span>`;
-                        
-                        navItem.addEventListener('click', e => {
-                            e.preventDefault();
-                            showSection(link.id);
-                            if (window.innerWidth < 1024) {
-                                document.getElementById('sidebar').classList.add('-translate-x-full');
-                                document.getElementById('sidebar-overlay').classList.add('hidden');
-                            }
-                        });
-                        navContainer.appendChild(navItem);
-                    }
+                    if (link.hidden || !currentUser || !link.roles.includes(currentUser.role)) return;
+
+                    const navItem = document.createElement('a');
+                    navItem.href = '#';
+                    navItem.className = 'sidebar-link text-gray-300';
+                    navItem.dataset.section = link.id;
+                    navItem.innerHTML = `${link.icon}<span>${link.text}</span>`;
+                    
+                    navItem.addEventListener('click', e => {
+                        e.preventDefault();
+                        if (link.id === 'myProfile') {
+                            currentProfileParticipantId = currentUser.participantId;
+                        }
+                        showSection(link.id);
+                        if (window.innerWidth < 1024) {
+                            document.getElementById('sidebar').classList.add('-translate-x-full');
+                            document.getElementById('sidebar-overlay').classList.add('hidden');
+                        }
+                    });
+                    navContainer.appendChild(navItem);
                 });
-            }
-
-            async function handleDeleteWeightEntry(button) {
-                const participantName = button.dataset.participantName;
-                const entryDateISO = button.dataset.entryDate;
-                const participant = participants.find(p => p.name === participantName);
-
-                if (!participant || (participant.weight_history && participant.weight_history.length <= 1)) {
-                    return showFeedbackMessage("Não é possível excluir o único registro de peso.", true);
-                }
-
-                const newHistory = participant.weight_history.filter(entry => entry.date !== entryDateISO);
-                newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
-                const newCurrentWeight = newHistory.length > 0 ? newHistory[newHistory.length - 1].weight : participant.peso_inicial;
-
-                const { error } = await supabase.from('participants').update({ weight_history: newHistory, peso_atual: newCurrentWeight }).eq('id', participant.id);
-                if (error) {
-                    showFeedbackMessage('Erro ao excluir registro de peso.', true);
-                } else {
-                    showFeedbackMessage("Registro de peso excluído com sucesso!");
-                    loadData();
-                }
             }
 
             function handleMainContentClick(e) {
                 const button = e.target.closest('button');
-                const link = e.target.closest('a.participant-name-link');
+                const link = e.target.closest('a');
                 const th = e.target.closest('th.sortable');
 
                 if (th) {
@@ -459,126 +429,43 @@
                     return;
                 }
 
-                if (link) {
-                    e.preventDefault();
-                    openDetailsModal(link.dataset.name);
-                    return;
-                }
+                if (!button && !link) return;
 
-                if (!button) return;
-                
-                const participantId = button.dataset.id;
-                const participantName = button.dataset.name;
+                const target = button || link;
+                const action = target.dataset.action;
+                const id = target.dataset.id;
+                const name = target.dataset.name;
 
-                if (button.matches('.edit-participant-icon')) openModal(participants.findIndex(p => p.id == participantId));
-                else if (button.matches('.delete-participant-icon')) openDeleteModal(participantId, false, participantName);
-                else if (button.matches('.delete-user-btn')) {
-                    const username = button.dataset.username;
-                    if (username === 'admin' || username === 'root') return showFeedbackMessage('Não é possível excluir usuários padrão.', true);
-                    delete appUsers[username];
-                    saveUsers();
-                    showSection('configuracoes');
-                    showFeedbackMessage('Usuário excluído com sucesso!');
-                } 
-                else if (button.matches('.update-weight-btn')) handleUpdateWeight(button);
-                else if (button.matches('.update-measurements-btn')) handleUpdateMeasurements(button);
-                else if (button.matches('.delete-weight-entry-btn')) handleDeleteWeightEntry(button);
-                else if (button.matches('.export-pdf-btn')) exportChartToPDF(button.dataset.chartId, button.dataset.filename, button.dataset.title);
-                else if (button.id === 'generate-report-btn') exportDetailsToPDF(participantName);
-            }
-
-            async function handleActivityInputChange(input) {
-                if (input.disabled) return;
-                const participantId = input.dataset.id;
-                const weekIndex = parseInt(input.dataset.week);
-                let numActivities = parseInt(input.value);
-                if (isNaN(numActivities) || numActivities < 0) numActivities = 0;
-                
-                const participant = participants.find(p => p.id == participantId);
-                if (participant) {
-                    const newSemanasValidas = [...participant.semanas_validas];
-                    newSemanasValidas[weekIndex] = numActivities;
-                    const { error } = await supabase.from('participants').update({ semanas_validas: newSemanasValidas }).eq('id', participantId);
-                    if (error) console.error('Error updating activities:', error);
-                    else loadData();
-                }
-            }
-
-            async function handleUpdateWeight(button) {
-                if (button.disabled) return;
-                const participantId = button.dataset.id;
-                const row = button.closest('tr');
-                const weightInput = row.querySelector('input[type="number"]');
-                const dateInput = row.querySelector('input[type="date"]');
-                const newWeight = parseFloat(weightInput.value);
-                const dateValue = dateInput.value;
-
-                if (isNaN(newWeight) || newWeight <= 0) return showFeedbackMessage("Peso inválido.", true);
-                if (!dateValue) return showFeedbackMessage("Selecione uma data.", true);
-                if (new Date(dateValue) > new Date()) return showFeedbackMessage("Não é possível registrar datas futuras.", true);
-
-                const participant = participants.find(p => p.id == participantId);
-                if (participant) {
-                    const newEntry = { date: new Date(dateValue + 'T00:00:00').toISOString(), weight: newWeight };
-                    const newHistory = [...(participant.weight_history || []), newEntry];
-                    newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
-                    
-                    const { error } = await supabase.from('participants').update({ peso_atual: newWeight, weight_history: newHistory }).eq('id', participantId);
-                    if (error) showFeedbackMessage('Erro ao atualizar peso.', true);
-                    else {
-                        showFeedbackMessage(`Peso de ${participant.name} atualizado!`);
-                        loadData();
-                    }
+                switch(action) {
+                    case 'open-add-modal': openParticipantModal(); break;
+                    case 'open-edit-modal': openParticipantModal(id); break;
+                    case 'open-delete-modal': openDeleteModal(id, name); break;
+                    case 'view-profile': e.preventDefault(); currentProfileParticipantId = id; showSection('participantProfile'); break;
+                    case 'go-to-participants': e.preventDefault(); showSection('participants'); break;
+                    case 'generate-report': exportDetailsToPDF(id); break;
+                    case 'ai-coach': getAICoachingTip(id); break;
+                    case 'update-weight': handleUpdateWeight(id); break;
+                    case 'delete-weight-entry': handleDeleteWeightEntry(id, target.dataset.entryDate); break;
+                    case 'add-activity': handleAddActivity(id); break;
+                    case 'delete-activity': handleDeleteActivity(id, target.dataset.week, target.dataset.activityId); break;
+                    case 'update-measurements': handleUpdateMeasurements(id); break;
                 }
             }
             
-            async function handleUpdateMeasurements(button) {
-                if (button.disabled) return;
-                const participantId = button.dataset.id;
-                const row = button.closest('tr');
-                const cintura = parseFloat(row.querySelector('.cintura-input').value);
-                const quadril = parseFloat(row.querySelector('.quadril-input').value);
-                const abdomen = parseFloat(row.querySelector('.abdomen-input').value);
-
-                const participant = participants.find(p => p.id == participantId);
-                if (participant) {
-                    const newEntry = {
-                        date: new Date().toISOString(),
-                        cintura: !isNaN(cintura) ? cintura : null,
-                        quadril: !isNaN(quadril) ? quadril : null,
-                        abdomen: !isNaN(abdomen) ? abdomen : null,
-                    };
-
-                    const newHistory = [...(participant.measurements_history || []), newEntry];
-                    const { error } = await supabase.from('participants').update({ measurements_history: newHistory }).eq('id', participantId);
-
-                    if (error) showFeedbackMessage('Erro ao atualizar medidas.', true);
-                    else {
-                        showFeedbackMessage(`Medidas de ${participant.name} atualizadas!`);
-                        loadData();
-                    }
-                }
-            }
-
+            // --- DATA & VIEW MANAGEMENT ---
             function calculateMetrics(p, referenceDate = new Date()) {
                 const pesoNaData = getWeightAtDate(p, referenceDate);
                 const pesoPerdido = p.peso_inicial - pesoNaData;
                 const percentLoss = p.peso_inicial > 0 ? (pesoPerdido / p.peso_inicial) * 100 : 0;
                 let weightPoints = 0;
-                if (percentLoss >= 15) weightPoints = 50;
-                else if (percentLoss >= 12) weightPoints = 40;
-                else if (percentLoss >= 10) weightPoints = 35;
-                else if (percentLoss >= 8) weightPoints = 30;
-                else if (percentLoss >= 6) weightPoints = 20;
-                else if (percentLoss >= 4) weightPoints = 15;
-                else if (percentLoss >= 2) weightPoints = 10;
-                else if (percentLoss > 0) weightPoints = 5;
+                if (percentLoss >= 15) weightPoints = 50; else if (percentLoss >= 12) weightPoints = 40;
+                else if (percentLoss >= 10) weightPoints = 35; else if (percentLoss >= 8) weightPoints = 30;
+                else if (percentLoss >= 6) weightPoints = 20; else if (percentLoss >= 4) weightPoints = 15;
+                else if (percentLoss >= 2) weightPoints = 10; else if (percentLoss > 0) weightPoints = 5;
                 
-                const weeksPassed = Math.floor((referenceDate - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
-                const semanasConsideradas = (p.semanas_validas || []).slice(0, weeksPassed + 1);
-
-                const validWeeksCount = semanasConsideradas.filter(num => num >= MIN_ACTIVITIES_FOR_VALID_WEEK).length;
-                const totalActivities = semanasConsideradas.reduce((sum, current) => sum + current, 0);
+                const semanasConsideradas = p.semanas_validas || [];
+                const validWeeksCount = semanasConsideradas.filter(week => Array.isArray(week) && week.length >= MIN_ACTIVITIES_FOR_VALID_WEEK).length;
+                const totalActivities = semanasConsideradas.reduce((sum, week) => sum + (Array.isArray(week) ? week.length : 0), 0);
                 const activityPoints = (validWeeksCount / MAX_WEEKS) * MAX_ACTIVITY_POINTS;
                 
                 let progressToTarget = null;
@@ -592,45 +479,21 @@
 
             function getBadges(p) {
                 let badges = '';
-                if (p.target_weight && p.peso_atual <= p.target_weight) badges += `<span class="badge tooltip"><span class="tooltiptext">Meta Atingida!</span>🎯</span>`;
+                if (p.target_weight && p.peso_atual <= p.target_weight) badges += `<span class="badge" title="Meta Atingida!">🎯</span>`;
                 const pesoPerdido = p.peso_inicial - p.peso_atual;
-                if (pesoPerdido >= 10) badges += `<span class="badge tooltip"><span class="tooltiptext">Clube dos 10kg!</span>🔟</span>`;
-                else if (pesoPerdido >= 5) badges += `<span class="badge tooltip"><span class="tooltiptext">Clube dos 5kg!</span>5️⃣</span>`;
-                const consecutive = (p.semanas_validas || []).map(w => w >= MIN_ACTIVITIES_FOR_VALID_WEEK ? '1' : '0').join('').split('0').reduce((max, s) => Math.max(max, s.length), 0);
-                if (consecutive >= 4) badges += `<span class="badge tooltip"><span class="tooltiptext">${consecutive} Semanas em Chamas!</span>🔥</span>`;
-                if (p.name === weeklyPointsWinnerName) badges += `<span class="badge tooltip"><span class="tooltiptext">Rei/Rainha da Semana!</span>👑</span>`;
+                if (pesoPerdido >= 10) badges += `<span class="badge" title="Clube dos 10kg!">🔟</span>`;
+                else if (pesoPerdido >= 5) badges += `<span class="badge" title="Clube dos 5kg!">5️⃣</span>`;
+                const consecutive = (p.semanas_validas || []).map(w => (Array.isArray(w) && w.length >= MIN_ACTIVITIES_FOR_VALID_WEEK) ? '1' : '0').join('').split('0').reduce((max, s) => Math.max(max, s.length), 0);
+                if (consecutive >= 4) badges += `<span class="badge" title="${consecutive} Semanas em Chamas!">🔥</span>`;
+                if (p.name === weeklyPointsWinnerName) badges += `<span class="badge" title="Rei/Rainha da Semana!">👑</span>`;
                 return badges;
             }
 
             function getWeightAtDate(participant, targetDate) {
                 const history = participant.weight_history || [];
+                if (history.length === 0) return participant.peso_inicial;
                 const relevantHistory = history.filter(entry => new Date(entry.date) <= targetDate).sort((a, b) => new Date(b.date) - new Date(a.date)); 
                 return relevantHistory.length > 0 ? relevantHistory[0].weight : participant.peso_inicial;
-            }
-
-            function calculateIMC(weight, height) {
-                if (!weight || !height || height <= 0) return { value: null, classification: 'N/A', color: 'text-gray-500' };
-                const imc = weight / (height * height);
-                let classification = '', color = '';
-                if (imc < 18.5) { classification = 'Abaixo do Peso'; color = 'text-blue-500'; } 
-                else if (imc < 24.9) { classification = 'Peso Normal'; color = 'text-green-600'; } 
-                else if (imc < 29.9) { classification = 'Sobrepeso'; color = 'text-yellow-600'; } 
-                else if (imc < 34.9) { classification = 'Obesidade Grau I'; color = 'text-orange-600'; } 
-                else if (imc < 39.9) { classification = 'Obesidade Grau II'; color = 'text-red-600'; } 
-                else { classification = 'Obesidade Grau III'; color = 'text-red-800'; }
-                return { value: imc.toFixed(2), classification, color };
-            }
-
-            function isWeightUpdatedThisWeek(participant) {
-                const history = participant.weight_history || [];
-                if (history.length === 0) return false;
-                const today = new Date();
-                const dayOfWeek = today.getDay();
-                const startOfWeek = new Date(today);
-                startOfWeek.setDate(today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
-                startOfWeek.setHours(0, 0, 0, 0);
-                const latestEntryDate = new Date(Math.max(...history.map(e => new Date(e.date))));
-                return latestEntryDate >= startOfWeek;
             }
 
             function calculateWeeklyWinners() {
@@ -646,39 +509,55 @@
                 weeklyPointsWinnerName = weeklyWinner.pointsGained > 0 ? weeklyWinner.name : null;
             }
 
-            function updatePlanilha() {
+            function updateCurrentView() {
                 if (!currentUser) return;
                 calculateWeeklyWinners();
                 const activeSectionLink = document.querySelector('.sidebar-link.active');
-                const activeSectionId = activeSectionLink ? activeSectionLink.dataset.section : 'ranking';
+                const activeSectionId = activeSectionLink ? activeSectionLink.dataset.section : (currentUser.role === 'admin' ? 'ranking' : 'myProfile');
                 showSection(activeSectionId);
                 updateSummaryBoxes();
-                applyPermissions();
             }
 
             function showSection(sectionId) {
                 const link = NAV_LINKS.find(l => l.id === sectionId);
-                pageTitle.textContent = link ? link.text : 'Dashboard';
+                if (!link || !currentUser || !link.roles.includes(currentUser.role)) {
+                    return showSection(currentUser.role === 'admin' ? 'ranking' : 'myProfile');
+                }
+                
+                pageTitle.textContent = link.text;
+                if (sectionId === 'myProfile') {
+                    pageTitle.textContent = 'Meu Perfil';
+                }
                 
                 const allMetrics = participants.map(p => calculateMetrics(p));
                 const searchTerm = document.getElementById('searchParticipantInput').value.toLowerCase();
                 const filteredMetrics = allMetrics.filter(p => p.name.toLowerCase().includes(searchTerm));
 
-                dynamicContentContainer.innerHTML = '';
+                dynamicContentContainer.innerHTML = '<div class="bg-white p-4 sm:p-6 rounded-lg shadow-md"></div>';
+                const contentWrapper = dynamicContentContainer.firstChild;
+                headerActionButtons.innerHTML = '';
+                document.getElementById('summary-grid').style.display = 'grid';
 
-                if (sectionId === 'ranking') renderRankingTable(sortData(filteredMetrics, rankingSortConfig), dynamicContentContainer);
-                else if (sectionId === 'weekly') renderWeeklyTable(filteredMetrics, dynamicContentContainer);
-                else if (sectionId === 'activity') renderActivityChart(filteredMetrics.sort((a,b) => b.totalPoints - a.totalPoints), dynamicContentContainer);
-                else if (sectionId === 'currentWeight') renderCurrentWeightTable(filteredMetrics, dynamicContentContainer);
-                else if (sectionId === 'measurements') renderMeasurementsTable(filteredMetrics, dynamicContentContainer);
-                else if (sectionId === 'weightHistory') renderWeightHistoryChart(filteredMetrics, dynamicContentContainer);
-                else if (sectionId === 'groupEvolution') renderGroupEvolutionChart(allMetrics, dynamicContentContainer);
-                else if (sectionId === 'comparison') renderComparisonChart(allMetrics, dynamicContentContainer);
-                else if (sectionId === 'configuracoes') renderSettingsPage(dynamicContentContainer);
+                switch(sectionId) {
+                    case 'ranking': renderRankingTable(sortData(filteredMetrics, rankingSortConfig), contentWrapper); break;
+                    case 'participants': renderParticipantsPage(filteredMetrics, contentWrapper); break;
+                    case 'participantProfile':
+                    case 'myProfile':
+                        renderParticipantProfilePage(dynamicContentContainer);
+                        document.getElementById('summary-grid').style.display = 'none';
+                        break;
+                    case 'weeklySummary': renderWeeklySummaryPage(allMetrics, contentWrapper); break;
+                    case 'activityLog': renderActivityLogPage(filteredMetrics, contentWrapper); break;
+                    case 'coachVirtual': renderCoachVirtualPage(contentWrapper); break;
+                    case 'individualEvolution': renderIndividualEvolutionPage(allMetrics, contentWrapper); break;
+                    case 'groupEvolution': renderGroupEvolutionChart(allMetrics, contentWrapper); break;
+                    case 'comparison': renderComparisonChart(allMetrics, contentWrapper); break;
+                    case 'configuracoes': renderSettingsPage(contentWrapper); break;
+                }
                 
                 document.querySelectorAll('.sidebar-link').forEach(item => item.classList.toggle('active', item.dataset.section === sectionId));
             }
-
+            
             function sortData(data, config) {
                 return [...data].sort((a, b) => {
                     if (a[config.key] < b[config.key]) return config.direction === 'asc' ? -1 : 1;
@@ -687,8 +566,9 @@
                 });
             }
 
+            // --- PAGE RENDERERS ---
+
             function renderRankingTable(data, container) {
-                const canEdit = appUsers[currentUser]?.canEdit;
                 const pointRanked = [...participants.map(p => calculateMetrics(p))].sort((a, b) => b.totalPoints - a.totalPoints);
                 const sortArrow = (key) => rankingSortConfig.key === key ? (rankingSortConfig.direction === 'asc' ? ' ▲' : ' ▼') : '';
                 
@@ -697,188 +577,413 @@
                     <th class="sortable" data-sort-key="name">Nome${sortArrow('name')}</th>
                     <th>Progresso Meta</th>
                     <th class="sortable" data-sort-key="percentLoss">% Perda${sortArrow('percentLoss')}</th>
-                    <th class="sortable" data-sort-key="totalActivities">Ativ. Totais${sortArrow('totalActivities')}</th>
-                    <th class="sortable" data-sort-key="weightPoints">Pts Peso${sortArrow('weightPoints')}</th>
-                    <th class="sortable" data-sort-key="activityPoints">Pts Ativ.${sortArrow('activityPoints')}</th>
+                    <th class="sortable" data-sort-key="weightPoints">Pts. Peso${sortArrow('weightPoints')}</th>
+                    <th class="sortable" data-sort-key="activityPoints">Pts. Ativ.${sortArrow('activityPoints')}</th>
                     <th class="sortable" data-sort-key="totalPoints">Total${sortArrow('totalPoints')}</th>
-                    <th>Ações</th>
                 </tr></thead><tbody>`;
                 
                 if (data.length === 0) {
-                    tableHTML += `<tr><td colspan="9" class="empty-table-message">Nenhum participante encontrado.</td></tr>`;
+                    tableHTML += `<tr><td colspan="7" class="empty-state-message">Nenhum participante encontrado.</td></tr>`;
                 } else {
                     data.forEach(p => {
                         const pointRankIndex = pointRanked.findIndex(rankedP => rankedP.name === p.name);
-                        const medal = ['🏆', '🥈', '🥉'][pointRankIndex] || '';
-                        const alertIcon = !isWeightUpdatedThisWeek(p) ? `<span class="tooltip"><span class="tooltiptext">Peso não atualizado!</span>⚠️</span>` : '';
-                        const progress = p.progressToTarget !== null ? `<div class="progress-bar-container tooltip"><span class="tooltiptext">${p.progressToTarget.toFixed(1)}%</span><div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div></div>` : 'N/A';
+                        const medal = ['🏆', '🥈', '�'][pointRankIndex] || '';
+                        const progress = p.progressToTarget !== null ? `<div class="progress-bar-container" title="${p.progressToTarget.toFixed(1)}%"><div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div></div>` : 'N/A';
                         const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
                         
+                        let nameHTML = p.name;
+                        if (currentUser.role === 'admin') {
+                             nameHTML = `<a href="#" style="color: var(--primary-color);" class="hover:underline font-semibold" data-action="view-profile" data-id="${p.id}">${p.name}</a>`;
+                        }
+
                         tableHTML += `<tr class="${pointRankIndex === 0 ? 'leader-row' : ''}">
                             <td class="font-semibold">${pointRankIndex + 1}</td>
                             <td class="py-2">
                                 <div class="flex items-center">
                                     <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-8 h-8 rounded-full mr-3 object-cover flex-shrink-0" onerror="this.onerror=null;this.src='https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
                                     <div>
-                                        <a href="#" class="participant-name-link text-blue-600 hover:underline font-semibold" data-name="${p.name}">${p.name}</a>
-                                        <span class="ml-1">${medal} ${alertIcon} ${getBadges(p)}</span>
+                                        ${nameHTML}
+                                        <span class="ml-1">${medal} ${getBadges(p)}</span>
                                     </div>
                                 </div>
                             </td>
                             <td>${progress}</td>
                             <td>${p.percentLoss.toFixed(2)}%</td>
-                            <td>${p.totalActivities}</td>
                             <td>${p.weightPoints.toFixed(2)}</td>
                             <td>${p.activityPoints.toFixed(2)}</td>
                             <td class="font-bold">${p.totalPoints.toFixed(2)}</td>
-                            <td class="flex items-center space-x-2">
-                                ${canEdit ? `<button class="text-blue-500 hover:text-blue-700 edit-participant-icon" data-id="${p.id}">✏️</button><button class="text-red-500 hover:text-red-700 delete-participant-icon" data-id="${p.id}" data-name="${p.name}">🗑️</button>` : ''}
-                            </td>
                         </tr>`;
                     });
                 }
                 tableHTML += `</tbody></table></div>`;
                 container.innerHTML = tableHTML;
             }
+
+            function renderParticipantsPage(data, container) {
+                if (currentUser.role !== 'admin') return;
+                
+                headerActionButtons.innerHTML = `<button data-action="open-add-modal" style="background-color: var(--success-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Adicionar Participante</button>`;
+
+                if (data.length === 0) {
+                    container.innerHTML = `<div class="empty-state-message">Nenhum participante encontrado. Clique em "Adicionar Participante" para começar.</div>`;
+                    return;
+                }
+
+                let cardsHTML = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">';
+                data.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
+                    const avatarSrc = p.avatar_url || `https://placehold.co/80x80/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
+                    const pesoPerdido = p.peso_inicial - p.peso_atual;
+                    cardsHTML += `
+                        <div class="bg-white rounded-xl shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 flex flex-col">
+                            <div class="p-5 flex-grow">
+                                <div class="flex items-center gap-4 mb-4">
+                                    <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-16 h-16 rounded-full object-cover border-2 border-gray-200" onerror="this.onerror=null;this.src='https://placehold.co/80x80/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
+                                    <div>
+                                        <h3 class="text-lg font-bold text-gray-800">${p.name}</h3>
+                                        <p class="text-sm text-gray-500">Total: ${p.totalPoints.toFixed(1)} pts</p>
+                                    </div>
+                                </div>
+                                <div class="text-sm space-y-1">
+                                    <p><strong>Peso Atual:</strong> ${p.peso_atual.toFixed(1)} kg</p>
+                                    <p><strong>Perda Total:</strong> <span class="${pesoPerdido >= 0 ? 'text-green-600' : 'text-red-500'} font-semibold">${pesoPerdido.toFixed(1)} kg</span></p>
+                                </div>
+                            </div>
+                            <div class="bg-gray-50 p-3 grid grid-cols-3 gap-2">
+                                <button data-action="view-profile" data-id="${p.id}" class="action-btn btn-primary">Ver Perfil</button>
+                                <button data-action="open-edit-modal" data-id="${p.id}" class="action-btn btn-warning">Editar</button>
+                                <button data-action="open-delete-modal" data-id="${p.id}" data-name="${p.name}" class="action-btn btn-danger">Excluir</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                cardsHTML += '</div>';
+                container.innerHTML = cardsHTML;
+            }
+
+            function renderParticipantProfilePage(container) {
+                const pMetric = calculateMetrics(participants.find(p => p.id == currentProfileParticipantId));
+                if (!pMetric) {
+                    container.innerHTML = `<div class="bg-white p-4 sm:p-6 rounded-lg shadow-md"><div class="empty-state-message">Participante não encontrado.</div></div>`;
+                    return;
+                }
+                
+                const isOwnProfile = currentUser.participantId == pMetric.id;
+                const canEditProfile = currentUser.role === 'admin' || isOwnProfile;
+
+                const avatarSrc = pMetric.avatar_url || `https://placehold.co/100x100/E2E8F0/4A5568?text=${pMetric.name.charAt(0)}`;
+                const todayStr = new Date().toISOString().split('T')[0];
+                const lastM = pMetric.measurements_history && pMetric.measurements_history.length > 0 ? pMetric.measurements_history[pMetric.measurements_history.length - 1] : {};
+
+                let backButtonHTML = '';
+                if (currentUser.role === 'admin' && !isOwnProfile) {
+                    backButtonHTML = `<a href="#" data-action="go-to-participants" style="color: var(--primary-color);" class="hover:underline mb-4 inline-block">&larr; Voltar para todos os participantes</a>`;
+                }
+
+                container.innerHTML = `
+                    <div id="profile-content">
+                        <div class="flex justify-between items-start mb-6">
+                            ${backButtonHTML}
+                            ${currentUser.role === 'admin' ? `<div><button data-action="generate-report" data-id="${pMetric.id}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded-lg text-sm">Gerar PDF</button></div>` : '<div></div>'}
+                        </div>
+                        
+                        <div class="flex flex-col md:flex-row items-center gap-6 p-6 bg-white rounded-xl shadow-lg mb-6">
+                            <img src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=${pMetric.name.charAt(0)}';" class="rounded-full w-24 h-24 object-cover border-4 border-indigo-200">
+                            <div class="flex-grow text-center md:text-left">
+                                <h3 class="text-3xl font-bold">${pMetric.name} <span class="text-2xl">${getBadges(pMetric)}</span></h3>
+                                <p class="text-gray-500">Altura: ${pMetric.altura ? pMetric.altura.toFixed(2) + 'm' : 'N/A'}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-1 space-y-6">
+                                ${canEditProfile ? `
+                                <div class="bg-white p-4 rounded-lg shadow">
+                                    <h4 class="font-bold mb-3">Registrar Peso</h4>
+                                    <div class="space-y-3">
+                                        <div><label class="text-xs font-medium text-gray-600">Novo Peso (kg)</label><input id="profile-weight-input" type="number" step="any" class="shadow-sm border rounded-md w-full p-2" placeholder="${pMetric.peso_atual.toFixed(2)}"></div>
+                                        <div><label class="text-xs font-medium text-gray-600">Data do Registro</label><input id="profile-weight-date" type="date" class="shadow-sm border rounded-md w-full p-2" value="${todayStr}" max="${todayStr}"></div>
+                                        <button data-action="update-weight" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="w-full hover:opacity-90 text-white font-bold py-2 px-4 rounded-md">Salvar Peso</button>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg shadow">
+                                    <h4 class="font-bold mb-3">Registrar Atividade</h4>
+                                    <div class="space-y-3">
+                                        <div><label class="text-xs font-medium">Semana</label><select id="profile-activity-week" class="w-full border rounded-md p-2">${Array.from({length:MAX_WEEKS}, (_,i) => `<option value="${i}">Semana ${i+1}</option>`).join('')}</select></div>
+                                        <div><label class="text-xs font-medium">Tipo</label><select id="profile-activity-type" class="w-full border rounded-md p-2">${ACTIVITY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select></div>
+                                        <div><label class="text-xs font-medium">Duração (min)</label><input type="number" id="profile-activity-duration" class="w-full border rounded-md p-2"></div>
+                                        <button data-action="add-activity" data-id="${pMetric.id}" style="background-color: var(--success-color);" class="w-full hover:opacity-90 text-white font-bold py-2 px-4 rounded-md">Adicionar Atividade</button>
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div class="lg:col-span-2 space-y-6">
+                                <div class="bg-white p-4 rounded-lg shadow"><h4 class="font-bold mb-3">Histórico de Pesagem</h4><div id="profile-weight-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
+                                <div class="bg-white p-4 rounded-lg shadow"><h4 class="font-bold mb-3">Histórico de Atividades</h4><div id="profile-activity-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
+                                <div class="bg-white p-4 rounded-lg shadow">
+                                    <h4 class="font-bold mb-3">Medidas Corporais (cm)</h4>
+                                    ${canEditProfile ? `
+                                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                                        <div><label class="text-xs font-medium">Cintura</label><input type="number" step="any" id="profile-cintura" class="shadow-sm border rounded-md w-full p-2" value="${lastM.cintura || ''}"></div>
+                                        <div><label class="text-xs font-medium">Quadril</label><input type="number" step="any" id="profile-quadril" class="shadow-sm border rounded-md w-full p-2" value="${lastM.quadril || ''}"></div>
+                                        <div><label class="text-xs font-medium">Abdômen</label><input type="number" step="any" id="profile-abdomen" class="shadow-sm border rounded-md w-full p-2" value="${lastM.abdomen || ''}"></div>
+                                        <button data-action="update-measurements" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="w-full hover:opacity-90 text-white font-bold py-2 px-4 rounded-md h-10">Salvar</button>
+                                    </div>
+                                    ` : `
+                                    <div class="grid grid-cols-3 gap-4 text-center">
+                                        <div><p class="text-sm text-gray-500">Cintura</p><p class="font-bold text-lg">${lastM.cintura || 'N/A'}</p></div>
+                                        <div><p class="text-sm text-gray-500">Quadril</p><p class="font-bold text-lg">${lastM.quadril || 'N/A'}</p></div>
+                                        <div><p class="text-sm text-gray-500">Abdômen</p><p class="font-bold text-lg">${lastM.abdomen || 'N/A'}</p></div>
+                                    </div>
+                                    `}
+                                </div>
+                                <div class="bg-white p-4 rounded-lg shadow">
+                                    <div class="flex justify-between items-center mb-3">
+                                        <h4 class="text-lg font-semibold text-gray-700">🤖 Dica do Coach</h4>
+                                        <button data-action="ai-coach" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-3 rounded-lg text-sm">Gerar Dica</button>
+                                    </div>
+                                    <div id="ai-tip-container" class="p-4 bg-gray-50 rounded-lg text-gray-600 min-h-[80px]">Clique no botão para receber uma dica personalizada.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                updateProfileWeightList(pMetric);
+                updateProfileActivityList(pMetric);
+            }
             
-            function renderWeeklyTable(data, container) {
-                const canEdit = appUsers[currentUser]?.canEdit;
+            function updateProfileWeightList(participant) {
+                const listContainer = document.getElementById('profile-weight-history-list');
+                if (!listContainer) return;
+                listContainer.innerHTML = '';
+                const isOwnProfile = currentUser.participantId == participant.id;
+                const canEditProfile = currentUser.role === 'admin' || isOwnProfile;
+                
+                const history = [...(participant.weight_history || [])].sort((a,b) => new Date(b.date) - new Date(a.date));
+
+                if (history.length === 0) {
+                    listContainer.innerHTML = `<p class="text-center text-gray-500 py-4">Nenhum registro de peso.</p>`;
+                    return;
+                }
+
+                history.forEach((entry, index) => {
+                    const formattedDate = new Date(entry.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    let changeHTML = '';
+                    const previousEntry = history[index + 1];
+                    if (previousEntry) {
+                        const change = entry.weight - previousEntry.weight;
+                        const changeColor = change < 0 ? 'text-green-600' : (change > 0 ? 'text-red-500' : 'text-gray-500');
+                        const sign = change > 0 ? '+' : '';
+                        changeHTML = `<span class="font-semibold w-20 text-right ${changeColor}">${sign}${change.toFixed(2)}</span>`;
+                    } else {
+                        changeHTML = `<span class="w-20 text-right text-gray-400 text-xs">INÍCIO</span>`;
+                    }
+
+                    listContainer.innerHTML += `
+                        <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-gray-800 w-20">${parseFloat(entry.weight).toFixed(2)} kg</span>
+                                <span class="text-gray-500">${formattedDate}</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                ${changeHTML}
+                                ${canEditProfile && history.length > 1 ? `<button data-action="delete-weight-entry" data-id="${participant.id}" data-entry-date="${entry.date}" class="text-gray-400 hover:text-red-600 p-1" title="Excluir">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+                                </button>` : `<div class="w-6"></div>`}
+                            </div>
+                        </div>`;
+                });
+            }
+
+            function updateProfileActivityList(participant) {
+                const listContainer = document.getElementById('profile-activity-history-list');
+                if (!listContainer) return;
+                listContainer.innerHTML = '';
+                const isOwnProfile = currentUser.participantId == participant.id;
+                const canEditProfile = currentUser.role === 'admin' || isOwnProfile;
+
+                const allActivities = participant.semanas_validas.flatMap((week, weekIndex) => 
+                    (Array.isArray(week) ? week : []).map(activity => ({...activity, weekIndex}))
+                ).sort((a,b) => b.id - a.id);
+
+                if (allActivities.length === 0) {
+                    listContainer.innerHTML = `<p class="text-center text-gray-500 py-4">Nenhuma atividade registrada.</p>`;
+                    return;
+                }
+
+                allActivities.forEach(act => {
+                    listContainer.innerHTML += `
+                        <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+                            <div>
+                                <span class="font-bold text-gray-800">${act.type}</span> - 
+                                <span class="text-gray-600">${act.duration} min</span>
+                                <span class="text-gray-500 text-xs italic">(Sem. ${act.weekIndex + 1})</span>
+                            </div>
+                            ${canEditProfile ? `
+                            <button data-action="delete-activity" data-id="${participant.id}" data-week="${act.weekIndex}" data-activity-id="${act.id}" class="text-gray-400 hover:text-red-600 p-1" title="Apagar Atividade">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+                            </button>` : ''}
+                        </div>
+                    `;
+                });
+            }
+
+            function renderActivityLogPage(data, container) {
                 const today = new Date();
                 const currentWeek = Math.floor((today - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7)) + 1;
                 
                 let headers = `<th>Nome</th>`;
-                for (let i = 1; i <= MAX_WEEKS; i++) headers += `<th class="${i === currentWeek ? 'current-week-header' : ''}">${i}</th>`;
+                for (let i = 1; i <= MAX_WEEKS; i++) headers += `<th class="${i === currentWeek ? 'bg-indigo-100' : ''}">${i}</th>`;
 
                 let bodyHTML = '';
                 if (data.length > 0) {
                     data.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
                         bodyHTML += `<tr><td class="font-medium">${p.name}</td>`;
-                        (p.semanas_validas || []).forEach((num, weekIndex) => {
-                            const isPastOrCurrent = (weekIndex + 1) <= currentWeek;
-                            let tdClasses = weekIndex + 1 === currentWeek ? 'bg-blue-50' : '';
-                            if (isPastOrCurrent) tdClasses += num >= MIN_ACTIVITIES_FOR_VALID_WEEK ? ' valid-week' : ' missed-week';
-                            
-                            bodyHTML += `<td class="${tdClasses}"><div class="flex justify-center"><input type="number" class="activity-input" min="0" value="${num}" data-id="${p.id}" data-week="${weekIndex}" ${!canEdit ? 'disabled' : ''}></div></td>`;
-                        });
+                        for (let i = 0; i < MAX_WEEKS; i++) {
+                            const weekActivities = p.semanas_validas[i];
+                            const activityCount = Array.isArray(weekActivities) ? weekActivities.length : 0;
+                            const isPastOrCurrent = (i + 1) <= currentWeek;
+                            let tdClasses = '';
+                            if (isPastOrCurrent) {
+                                tdClasses = activityCount >= MIN_ACTIVITIES_FOR_VALID_WEEK ? 'bg-green-100' : 'bg-red-100';
+                            }
+                            bodyHTML += `<td class="text-center ${tdClasses}">${activityCount}</td>`;
+                        }
                         bodyHTML += `</tr>`;
                     });
                 } else {
-                    bodyHTML = `<tr><td colspan="${MAX_WEEKS + 1}" class="empty-table-message">Nenhum participante.</td></tr>`;
+                    bodyHTML = `<tr><td colspan="${MAX_WEEKS + 1}" class="empty-state-message">Nenhum participante.</td></tr>`;
                 }
 
-                container.innerHTML = `<div class="overflow-x-auto"><table id="weeklyParticipationTable" class="w-full"><thead><tr>${headers}</tr></thead><tbody>${bodyHTML}</tbody></table></div>`;
+                container.innerHTML = `<div class="overflow-x-auto"><table class="w-full"><thead><tr>${headers}</tr></thead><tbody>${bodyHTML}</tbody></table></div>`;
             }
 
-            function renderCurrentWeightTable(data, container) {
-                const canEdit = appUsers[currentUser]?.canEdit;
-                const todayStr = new Date().toISOString().split('T')[0];
-                let tableHTML = `<div class="overflow-x-auto"><table class="w-full"><thead><tr><th>Nome</th><th>Peso (kg)</th><th>Data</th><th>Ação</th></tr></thead><tbody>`;
+            function renderWeeklySummaryPage(data, container) {
+                const today = new Date();
+                const dayOfWeek = today.getDay(); // Sunday = 0, Monday = 1...
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+                startOfWeek.setHours(0, 0, 0, 0);
+                
+                const beforeStartOfWeek = new Date(startOfWeek);
+                beforeStartOfWeek.setDate(beforeStartOfWeek.getDate() - 1);
 
-                if (data.length > 0) {
-                    data.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
-                        tableHTML += `
-                            <tr>
-                                <td class="font-medium">${p.name}</td>
-                                <td><input type="number" step="any" class="shadow-sm border rounded w-full py-2 px-3" value="${p.peso_atual.toFixed(2)}" ${!canEdit ? 'disabled' : ''}></td>
-                                <td><input type="date" class="shadow-sm border rounded w-full py-2 px-3" value="${todayStr}" max="${todayStr}" ${!canEdit ? 'disabled' : ''}></td>
-                                <td class="text-center"><button class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg update-weight-btn" data-id="${p.id}" ${!canEdit ? 'disabled' : ''}>Salvar</button></td>
-                            </tr>`;
+                const currentWeekIndex = Math.floor((startOfWeek - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
 
-                        if (p.weight_history && p.weight_history.length > 0) {
-                            tableHTML += `
-                                <tr>
-                                    <td colspan="4" class="p-3 bg-gray-50 border-t">
-                                        <h4 class="text-xs font-bold text-gray-500 mb-2">HISTÓRICO DE PESAGEM:</h4>
-                                        <ul class="space-y-1 max-h-32 overflow-y-auto pr-2">`;
-                            
-                            [...p.weight_history].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(entry => {
-                                const formattedDate = new Date(entry.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                                tableHTML += `
-                                    <li class="flex justify-between items-center text-sm p-1.5 bg-white rounded shadow-sm">
-                                        <span>
-                                            🗓️ <span class="font-mono">${formattedDate}</span> &nbsp;
-                                            ⚖️ <strong>${parseFloat(entry.weight).toFixed(2)} kg</strong>
-                                        </span>
-                                        ${canEdit ? `<button class="text-red-400 hover:text-red-600 delete-weight-entry-btn p-1 rounded-full" title="Excluir este registro" data-participant-name="${p.name}" data-entry-date="${entry.date}">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                            </svg>
-                                        </button>` : ''}
-                                    </li>`;
-                            });
+                let weeklyData = data.map(p => {
+                    const weightThen = getWeightAtDate(p, beforeStartOfWeek);
+                    const weightNow = p.peso_atual;
+                    const weightChange = weightNow - weightThen;
+                    
+                    const activitiesThisWeek = (p.semanas_validas[currentWeekIndex] || []).length;
+                    
+                    const lastWeightEntry = p.weight_history && p.weight_history.length > 0 ? new Date(Math.max(...p.weight_history.map(e => new Date(e.date)))) : new Date(0);
+                    const isWeightUpdated = lastWeightEntry >= startOfWeek;
 
-                            tableHTML += `</ul></td></tr>`;
-                        }
-                    });
-                } else {
-                    tableHTML += `<tr><td colspan="4" class="empty-table-message">Nenhum participante.</td></tr>`;
-                }
+                    return { ...p, weightChange, activitiesThisWeek, isWeightUpdated };
+                });
 
-                tableHTML += `</tbody></table></div>`;
-                container.innerHTML = tableHTML;
-            }
-            
-            function renderMeasurementsTable(data, container) {
-                const canEdit = appUsers[currentUser]?.canEdit;
-                let bodyHTML = '';
+                let weightLossLeader = { name: 'N/A', change: Infinity };
+                let activityLeader = { name: 'N/A', count: -1 };
+                let totalLoss = 0;
 
-                if (data.length > 0) {
-                    data.sort((a, b) => a.name.localeCompare(b.name)).forEach(p => {
-                        const lastM = p.measurements_history && p.measurements_history.length > 0 ? p.measurements_history[p.measurements_history.length - 1] : {};
-                        bodyHTML += `<tr>
-                                <td class="font-medium">${p.name}</td>
-                                <td><input type="number" step="any" class="cintura-input shadow-sm border rounded w-full py-2 px-3" value="${lastM.cintura || ''}" ${!canEdit ? 'disabled' : ''}></td>
-                                <td><input type="number" step="any" class="quadril-input shadow-sm border rounded w-full py-2 px-3" value="${lastM.quadril || ''}" ${!canEdit ? 'disabled' : ''}></td>
-                                <td><input type="number" step="any" class="abdomen-input shadow-sm border rounded w-full py-2 px-3" value="${lastM.abdomen || ''}" ${!canEdit ? 'disabled' : ''}></td>
-                                <td class="text-center"><button class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg update-measurements-btn" data-id="${p.id}" ${!canEdit ? 'disabled' : ''}>Salvar</button></td>
-                            </tr>`;
-                    });
-                } else {
-                    bodyHTML = `<tr><td colspan="5" class="empty-table-message">Nenhum participante.</td></tr>`;
-                }
-                container.innerHTML = `<div class="overflow-x-auto"><table class="w-full"><thead><tr><th>Nome</th><th>Cintura (cm)</th><th>Quadril (cm)</th><th>Abdômen (cm)</th><th>Ação</th></tr></thead><tbody>${bodyHTML}</tbody></table></div>`;
-            }
+                weeklyData.forEach(p => {
+                    if (p.weightChange < weightLossLeader.change) {
+                        weightLossLeader = { name: p.name, change: p.weightChange };
+                    }
+                    if (p.activitiesThisWeek > activityLeader.count) {
+                        activityLeader = { name: p.name, count: p.activitiesThisWeek };
+                    }
+                    if (p.weightChange < 0) {
+                        totalLoss += -p.weightChange;
+                    }
+                });
+                
+                const notUpdated = weeklyData.filter(p => !p.isWeightUpdated);
 
-            function renderActivityChart(data, container) {
-                let contentHTML = `<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">`;
-                if (data.length > 0) {
-                    const percentActivities = (p) => (p.activityPoints / MAX_ACTIVITY_POINTS) * 100;
-                    data.forEach(p => {
-                        const pA = percentActivities(p);
-                        let fillColor = '#34d399';
-                        if (pA < 50) fillColor = '#f59e0b';
-                        if (pA < 25) fillColor = '#ef4444';
-                        const sanitizedName = p.name.replace(/[^a-zA-Z0-9]/g, '');
-                        contentHTML += `<div class="flex flex-col items-center text-center">
-                                <div class="relative w-16 h-16 mb-1">
-                                    <svg width="64" height="64" viewBox="0 0 24 24">
-                                        <defs><clipPath id="clip-${sanitizedName}"><rect x="0" y="${24 - (24 * pA / 100)}" width="24" height="${24 * pA / 100}"></rect></clipPath></defs>
-                                        <g fill="#e5e7eb"><circle cx="12" cy="5" r="3"/><rect x="10" y="8" width="4" height="8"/><rect x="6" y="9" width="4" height="2"/><rect x="14" y="9" width="4" height="2"/><rect x="9" y="16" width="2" height="6"/><rect x="13" y="16" width="2" height="6"/></g>
-                                        <g clip-path="url(#clip-${sanitizedName})" fill="${fillColor}"><circle cx="12" cy="5" r="3"/><rect x="10" y="8" width="4" height="8"/><rect x="6" y="9" width="4" height="2"/><rect x="14" y="9" width="4" height="2"/><rect x="9" y="16" width="2" height="6"/><rect x="13" y="16" width="2" height="6"/></g>
-                                    </svg>
-                                </div>
-                                <div class="text-sm font-medium">${p.name} - ${pA.toFixed(1)}%</div>
-                            </div>`;
-                    });
-                } else {
-                    contentHTML += `<div class="col-span-full empty-table-message">Nenhum participante.</div>`;
-                }
-                contentHTML += `</div>`;
-                container.innerHTML = contentHTML;
-            }
-            
-            function renderWeightHistoryChart(data, container) {
                 container.innerHTML = `
-                    <div class="flex justify-end mb-4">
-                        <button class="export-pdf-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm" data-chart-id="all-charts-wrapper" data-filename="evolucao_individual.pdf" data-title="Evolução Individual">Exportar PDF</button>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div class="summary-box"><div class="text-sm font-medium text-gray-500">Maior Perda de Peso (Semana)</div><div class="text-2xl font-bold" style="color: var(--success-color);">${weightLossLeader.change < 0 ? weightLossLeader.name : 'N/A'}</div><div class="text-sm text-gray-600">${weightLossLeader.change < 0 ? (-weightLossLeader.change).toFixed(2) + ' kg' : 'Nenhuma'}</div></div>
+                        <div class="summary-box"><div class="text-sm font-medium text-gray-500">Mais Atividades (Semana)</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${activityLeader.count > 0 ? activityLeader.name : 'N/A'}</div><div class="text-sm text-gray-600">${activityLeader.count > 0 ? activityLeader.count + ' atividades' : 'Nenhuma'}</div></div>
+                        <div class="summary-box"><div class="text-sm font-medium text-gray-500">Total Perdido (Semana)</div><div class="text-3xl font-bold" style="color: var(--primary-color);">${totalLoss.toFixed(2)}</div><div class="text-sm text-gray-600">kg pelo grupo</div></div>
                     </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2">
+                             <h3 class="text-lg font-semibold mb-2">Progresso da Semana</h3>
+                             <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead><tr><th>Nome</th><th>Variação de Peso</th><th>Atividades</th></tr></thead>
+                                    <tbody>
+                                        ${weeklyData.map(p => {
+                                            const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
+                                            return `
+                                            <tr>
+                                                <td>
+                                                    <div class="flex items-center">
+                                                        <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-8 h-8 rounded-full mr-3 object-cover flex-shrink-0" onerror="this.onerror=null;this.src='https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
+                                                        <span>${p.name}</span>
+                                                    </div>
+                                                </td>
+                                                <td><span class="font-semibold ${p.weightChange < 0 ? 'text-green-600' : (p.weightChange > 0 ? 'text-red-500' : '')}">${p.weightChange > 0 ? '+' : ''}${p.weightChange.toFixed(2)} kg</span></td>
+                                                <td class="text-center">${p.activitiesThisWeek}</td>
+                                            </tr>
+                                        `}).join('')}
+                                    </tbody>
+                                </table>
+                             </div>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2">Peso Desatualizado</h3>
+                            ${notUpdated.length > 0 ? `
+                            <ul class="space-y-2">
+                                ${notUpdated.map(p => `<li class="p-3 bg-red-50 border-l-4 border-red-400 rounded-r-lg">${p.name}</li>`).join('')}
+                            </ul>
+                            ` : `<div class="p-4 text-center bg-green-50 border-l-4 border-green-400 rounded-r-lg">Todos os pesos estão atualizados! 🎉</div>`}
+                        </div>
+                    </div>
+                `;
+            }
+
+            function renderCoachVirtualPage(container) {
+                if (participants.length === 0) {
+                    container.innerHTML = `<div class="empty-state-message">Adicione participantes primeiro para usar o Coach Virtual.</div>`;
+                    return;
+                }
+                
+                const options = participants.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+                container.innerHTML = `
+                    <div class="max-w-2xl mx-auto text-center">
+                        <h3 class="text-2xl font-bold mb-2">Seu Coach Virtual</h3>
+                        <p class="text-gray-600 mb-6">Selecione um participante para receber uma dica personalizada baseada em seu progresso.</p>
+                        
+                        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+                            <select id="coach-participant-selector" class="border rounded-lg w-full sm:w-auto py-2 px-3">
+                                ${options}
+                            </select>
+                            <button id="generate-coach-tip" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg w-full sm:w-auto">Gerar Dica do Coach</button>
+                        </div>
+
+                        <div id="ai-tip-container" class="p-6 bg-gray-50 rounded-lg text-gray-600 min-h-[120px] text-left">
+                            Selecione um participante e clique no botão para começar.
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('generate-coach-tip').addEventListener('click', () => {
+                    const selectedId = document.getElementById('coach-participant-selector').value;
+                    getAICoachingTip(selectedId);
+                });
+            }
+
+            function renderIndividualEvolutionPage(data, container) {
+                container.innerHTML = `
                     <div id="all-charts-wrapper">
-                        <div id="mainWeightChartWrapper" class="mb-8"></div>
-                        <div id="trendChartWrapper" class="mb-8"></div>
+                        <div id="mainWeightChartWrapper" class="mb-8 bg-white p-4 rounded-lg shadow"></div>
+                        <div id="trendChartWrapper" class="mb-8 bg-white p-4 rounded-lg shadow"></div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                            <div id="percentageLossChartContainer"></div>
-                            <div id="totalActivityChartContainer"></div>
+                            <div id="percentageLossChartContainer" class="bg-white p-4 rounded-lg shadow"></div>
+                            <div id="totalActivityChartContainer" class="bg-white p-4 rounded-lg shadow"></div>
                         </div>
                     </div>`;
                 
@@ -892,7 +997,7 @@
                 const chartContainer = document.getElementById('mainWeightChartWrapper');
                 chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Evolução do Peso</h3>`;
                 const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 0);
-                if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="empty-table-message">Não há histórico de peso para exibir.</div>`;
+                if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="empty-state-message">Não há histórico de peso para exibir.</div>`;
 
                 const margin = {top: 20, right: 120, bottom: 30, left: 40}, width = (chartContainer.clientWidth || 800) - margin.left - margin.right, height = 350 - margin.top - margin.bottom;
                 const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
@@ -902,28 +1007,28 @@
 
                 const xScale = d3.scaleTime().domain([CHALLENGE_START_DATE, CHALLENGE_END_DATE]).range([0, width]);
                 const yScale = d3.scaleLinear().domain([d3.min(allChartWeights) - 2, d3.max(allChartWeights) + 2]).range([height, 0]);
-                const line = d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
-                const colors = d3.scaleOrdinal(d3.schemeCategory10);
-
+                const colors = d3.scaleOrdinal(d3.schemeTableau10);
+                
+                svg.append("g").attr("class", "grid").call(d3.axisLeft(yScale).tickSize(-width).tickFormat("")).selectAll("line").attr("stroke", "#e5e7eb");
                 svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
                 svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`));
 
                 participantsWithHistory.forEach(p => {
-                    svg.append("path").datum(p.weight_history).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("d", line);
-                    svg.append("text").attr("transform", `translate(${width+3},${yScale(p.weight_history[p.weight_history.length-1].weight)})`).attr("dy", ".35em").attr("text-anchor", "start").style("fill", colors(p.name)).text(p.name);
+                    const line = d3.line().curve(d3.curveMonotoneX).x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
+                    svg.append("path").datum(p.weight_history).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2.5).attr("d", line);
+                    svg.append("text").attr("transform", `translate(${width+5},${yScale(p.weight_history[p.weight_history.length-1].weight)})`).attr("dy", ".35em").attr("text-anchor", "start").style("fill", colors(p.name)).text(p.name);
                 });
             }
 
             function renderTrendChart(data) {
                 const chartContainer = document.getElementById('trendChartWrapper');
                 chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Projeção de Tendência</h3>`;
-
                 const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 1);
-                if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="empty-table-message">Dados insuficientes para projeção.</div>`;
+                if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="empty-state-message">Dados insuficientes para projeção.</div>`;
                 
                 const margin = {top: 20, right: 120, bottom: 30, left: 40}, width = (chartContainer.clientWidth || 800) - margin.left - margin.right, height = 350 - margin.top - margin.bottom;
                 const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-
+                
                 let allChartWeights = [];
                 participantsWithHistory.forEach(p => {
                     p.weight_history.forEach(d => allChartWeights.push(d.weight));
@@ -933,29 +1038,25 @@
                 
                 const xScale = d3.scaleTime().domain([CHALLENGE_START_DATE, CHALLENGE_END_DATE]).range([0, width]);
                 const yScale = d3.scaleLinear().domain([d3.min(allChartWeights) - 2, d3.max(allChartWeights) + 2]).range([height, 0]);
-                const line = d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
-                const colors = d3.scaleOrdinal(d3.schemeCategory10);
+                const colors = d3.scaleOrdinal(d3.schemeTableau10);
 
+                svg.append("g").attr("class", "grid").call(d3.axisLeft(yScale).tickSize(-width).tickFormat("")).selectAll("line").attr("stroke", "#e5e7eb");
                 svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
                 svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`));
 
                 participantsWithHistory.forEach(p => {
-                    svg.append("path").datum(p.weight_history).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 1.5).style("opacity", 0.5).attr("d", line);
                     const trend = calculateTrendLine(p.weight_history);
                     if (trend) {
-                        svg.append("line").attr("x1", xScale(trend.start.date)).attr("y1", yScale(trend.start.weight)).attr("x2", xScale(trend.end.date)).attr("y2", yScale(trend.end.weight)).attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("stroke-dasharray", "5,5");
-                        svg.append("text").attr("transform", "translate(" + (width + 3) + "," + yScale(trend.end.weight) + ")").attr("dy", ".35em").attr("text-anchor", "start").style("fill", colors(p.name)).text(p.name);
+                        svg.append("line").attr("x1", xScale(trend.start.date)).attr("y1", yScale(trend.start.weight)).attr("x2", xScale(trend.end.date)).attr("y2", yScale(trend.end.weight)).attr("stroke", colors(p.name)).attr("stroke-width", 2.5).attr("stroke-dasharray", "6,6");
+                        svg.append("text").attr("transform", "translate(" + (width + 5) + "," + yScale(trend.end.weight) + ")").attr("dy", ".35em").attr("text-anchor", "start").style("fill", colors(p.name)).text(p.name);
                     }
                 });
             }
 
             function renderPercentageLossChart(data) {
                 const chartContainer = document.getElementById('percentageLossChartContainer');
-                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Ranking de Percentual de Perda</h3>`;
-                const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 0);
-                if (participantsWithHistory.length === 0) return;
-
-                const chartData = participantsWithHistory.map(p => ({ name: p.name, percentLoss: Math.max(0, ((p.peso_inicial - p.peso_atual) / p.peso_inicial) * 100) })).sort((a, b) => b.percentLoss - a.percentLoss);
+                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Ranking de % de Perda</h3>`;
+                const chartData = data.map(p => ({ name: p.name, percentLoss: p.percentLoss })).sort((a, b) => b.percentLoss - a.percentLoss);
                 const margin = {top: 20, right: 50, bottom: 30, left: 120}, height = chartData.length * 40, width = (chartContainer.clientWidth || 400) - margin.left - margin.right;
                 const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", height + margin.top + margin.bottom).attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
                 const xScale = d3.scaleLinear().domain([0, d3.max(chartData, d => d.percentLoss) * 1.1 || 10]).range([0, width]);
@@ -963,7 +1064,7 @@
 
                 svg.append("g").call(d3.axisLeft(yScale).tickSize(0)).select(".domain").remove();
                 svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(5).tickFormat(d => `${d.toFixed(1)}%`));
-                const colors = d3.scaleOrdinal(d3.schemeCategory10).domain(chartData.map(d => d.name));
+                const colors = d3.scaleOrdinal(d3.schemeTableau10).domain(chartData.map(d => d.name));
 
                 svg.selectAll(".bar").data(chartData).enter().append("rect").attr("class", "bar").attr("y", d => yScale(d.name)).attr("x", 0).attr("height", yScale.bandwidth()).attr("width", 0).attr("fill", d => colors(d.name)).transition().duration(800).attr("width", d => xScale(d.percentLoss));
                 svg.selectAll(".bar-label").data(chartData).enter().append("text").attr("class", "bar-label").attr("y", d => yScale(d.name) + yScale.bandwidth() / 2).attr("x", d => xScale(d.percentLoss) + 5).attr("dy", ".35em").style("fill", "#333").style("font-weight", "bold").text(d => `${d.percentLoss.toFixed(2)}%`);
@@ -972,7 +1073,7 @@
             function renderTotalActivityChart(data) {
                 const chartContainer = document.getElementById('totalActivityChartContainer');
                 chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Ranking de Atividades Totais</h3>`;
-                const chartData = data.map(p => ({ name: p.name, totalActivities: p.semanas_validas.reduce((a, b) => a + b, 0) })).sort((a, b) => b.totalActivities - a.totalActivities);
+                const chartData = data.map(p => ({ name: p.name, totalActivities: p.totalActivities })).sort((a, b) => b.totalActivities - a.totalActivities);
                 const margin = {top: 20, right: 50, bottom: 30, left: 120}, height = chartData.length * 40, width = (chartContainer.clientWidth || 400) - margin.left - margin.right;
                 const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", height + margin.top + margin.bottom).attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
                 const xScale = d3.scaleLinear().domain([0, d3.max(chartData, d => d.totalActivities) * 1.1 || 10]).range([0, width]);
@@ -980,312 +1081,301 @@
 
                 svg.append("g").call(d3.axisLeft(yScale).tickSize(0)).select(".domain").remove();
                 svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(5));
-                const colors = d3.scaleOrdinal(d3.schemeCategory10).domain(chartData.map(d => d.name));
+                const colors = d3.scaleOrdinal(d3.schemeTableau10).domain(chartData.map(d => d.name));
 
                 svg.selectAll(".bar").data(chartData).enter().append("rect").attr("class", "bar").attr("y", d => yScale(d.name)).attr("x", 0).attr("height", yScale.bandwidth()).attr("width", 0).attr("fill", d => colors(d.name)).transition().duration(800).attr("width", d => xScale(d.totalActivities));
                 svg.selectAll(".bar-label").data(chartData).enter().append("text").attr("class", "bar-label").attr("y", d => yScale(d.name) + yScale.bandwidth() / 2).attr("x", d => xScale(d.totalActivities) + 5).attr("dy", ".35em").style("fill", "#333").style("font-weight", "bold").text(d => d.totalActivities);
             }
-            
+
             function renderGroupEvolutionChart(data, container) {
                 container.innerHTML = `
                     <div id="group-evolution-wrapper">
-                        <div class="flex justify-end mb-4">
-                            <button class="export-pdf-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm" data-chart-id="group-evolution-wrapper" data-filename="evolucao_grupo.pdf" data-title="Evolução do Grupo">Exportar PDF</button>
-                        </div>
-                        <div id="groupEvolutionChartContainer" class="w-full"></div>
+                        <h3 class="text-xl font-semibold text-center mb-2">Evolução da Perda de Peso do Grupo</h3>
+                        <div id="groupEvolutionChartContainer" class="w-full h-96 mb-8"></div>
                         <div id="groupPieChartContainer" class="w-full mt-8"></div>
                     </div>`;
                 const chartContainer = document.getElementById('groupEvolutionChartContainer');
                 const pieContainer = document.getElementById('groupPieChartContainer');
 
-                const weeklyLossData = [];
-                for (let i = 0; i < MAX_WEEKS; i++) {
-                    const weekStartDate = new Date(CHALLENGE_START_DATE); weekStartDate.setDate(weekStartDate.getDate() + i * 7);
-                    const weekEndDate = new Date(CHALLENGE_START_DATE); weekEndDate.setDate(weekEndDate.getDate() + (i + 1) * 7);
-                    let totalWeeklyLoss = 0;
-                    participants.forEach(p => { totalWeeklyLoss += getWeightAtDate(p, weekStartDate) - getWeightAtDate(p, weekEndDate); });
-                    weeklyLossData.push({ week: i + 1, totalLoss: totalWeeklyLoss });
-                }
+                setTimeout(() => {
+                    const weeklyLossData = [];
+                    for (let i = 0; i < MAX_WEEKS; i++) {
+                        const weekStartDate = new Date(CHALLENGE_START_DATE); weekStartDate.setDate(weekStartDate.getDate() + i * 7);
+                        const weekEndDate = new Date(CHALLENGE_START_DATE); weekEndDate.setDate(weekEndDate.getDate() + (i + 1) * 7);
+                        let totalWeeklyLoss = 0;
+                        participants.forEach(p => { 
+                            const lossThisWeek = getWeightAtDate(p, weekStartDate) - getWeightAtDate(p, weekEndDate);
+                            if (lossThisWeek > 0) {
+                                totalWeeklyLoss += lossThisWeek;
+                            }
+                        });
+                        weeklyLossData.push({ week: i + 1, totalLoss: totalWeeklyLoss });
+                    }
 
-                if (weeklyLossData.every(d => d.totalLoss === 0)) {
-                    chartContainer.innerHTML = `<div class="empty-table-message">Nenhuma perda de peso registrada para o grupo.</div>`;
-                } else {
-                    const margin = {top: 20, right: 30, bottom: 40, left: 70}, width = (chartContainer.clientWidth || 800) - margin.left - margin.right, height = 350 - margin.top - margin.bottom;
-                    const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-                    const xScale = d3.scaleBand().domain(weeklyLossData.map(d => d.week)).range([0, width]).padding(0.2);
-                    const yScale = d3.scaleLinear().domain([0, d3.max(weeklyLossData, d => d.totalLoss) * 1.1 || 1]).range([height, 0]);
-                    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale)).append("text").attr("y", 35).attr("x", width / 2).attr("text-anchor", "middle").attr("fill", "var(--text-dark)").text("Semana");
-                    svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d.toFixed(1)}kg`)).append("text").attr("transform", "rotate(-90)").attr("y", -margin.left + 20).attr("x", -height / 2).attr("text-anchor", "middle").attr("fill", "var(--text-dark)").text("Perda Total (kg)");
-                    svg.selectAll(".bar").data(weeklyLossData).enter().append("rect").attr("class", "bar").attr("x", d => xScale(d.week)).attr("y", d => yScale(Math.max(0, d.totalLoss))).attr("width", xScale.bandwidth()).attr("height", d => Math.abs(yScale(0) - yScale(d.totalLoss))).attr("fill", "#2563eb");
-                }
-                
-                const pieData = participants.map(p => ({ name: p.name, value: Math.max(0, p.peso_inicial - p.peso_atual) })).filter(p => p.value > 0);
-                const totalLoss = d3.sum(pieData, d => d.value);
+                    if (weeklyLossData.every(d => d.totalLoss === 0)) {
+                        chartContainer.innerHTML = `<div class="empty-state-message">Nenhuma perda de peso registrada para o grupo.</div>`;
+                    } else {
+                        const margin = {top: 20, right: 30, bottom: 40, left: 70}, width = chartContainer.clientWidth - margin.left - margin.right, height = chartContainer.clientHeight - margin.top - margin.bottom;
+                        const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${chartContainer.clientWidth} ${chartContainer.clientHeight}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+                        const xScale = d3.scaleBand().domain(weeklyLossData.map(d => d.week)).range([0, width]).padding(0.2);
+                        const yScale = d3.scaleLinear().domain([0, d3.max(weeklyLossData, d => d.totalLoss) * 1.1 || 1]).range([height, 0]);
+                        svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale)).append("text").attr("y", 35).attr("x", width / 2).attr("text-anchor", "middle").attr("fill", "var(--text-dark)").text("Semana");
+                        svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d.toFixed(1)}kg`)).append("text").attr("transform", "rotate(-90)").attr("y", -margin.left + 20).attr("x", -height / 2).attr("text-anchor", "middle").attr("fill", "var(--text-dark)").text("Perda Total (kg)");
+                        svg.selectAll(".bar").data(weeklyLossData).enter().append("rect").attr("class", "bar").attr("x", d => xScale(d.week)).attr("y", d => yScale(Math.max(0, d.totalLoss))).attr("width", xScale.bandwidth()).attr("height", d => Math.abs(yScale(0) - yScale(d.totalLoss))).attr("fill", "var(--primary-color)");
+                    }
+                    
+                    const pieData = participants.map(p => ({ name: p.name, value: Math.max(0, p.peso_inicial - p.peso_atual) })).filter(p => p.value > 0);
+                    const totalLoss = d3.sum(pieData, d => d.value);
 
-                if (pieData.length > 0) {
-                    pieContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-4">Contribuição Individual para Perda Total</h3><div id="pie-chart-wrapper" class="grid grid-cols-1 md:grid-cols-3 items-center justify-center gap-8"></div>`;
-                    const wrapper = d3.select("#pie-chart-wrapper");
-                    wrapper.append("div").attr("class", "flex flex-col items-center justify-center text-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6 rounded-2xl shadow-lg h-full").html(`<h4 class="text-lg font-bold text-indigo-800 mb-2">PERDA TOTAL DO GRUPO</h4><p class="text-6xl font-extrabold text-indigo-600">${totalLoss.toFixed(2)}</p><p class="text-2xl font-semibold text-indigo-800">kg</p>`);
-                    const svgContainer = wrapper.append("div").attr("class", "flex items-center justify-center");
-                    const legendContainer = wrapper.append("div").attr("class", "flex flex-col justify-center");
-                    const pieWidth = 300, pieHeight = 300, radius = Math.min(pieWidth, pieHeight) / 2 - 10;
-                    const pieSvg = svgContainer.append("svg").attr("width", pieWidth).attr("height", pieHeight).append("g").attr("transform", `translate(${pieWidth / 2},${pieHeight / 2})`);
-                    const colors = d3.scaleOrdinal(d3.schemePaired);
-                    const pie = d3.pie().value(d => d.value);
-                    const arc = d3.arc().innerRadius(radius * 0.5).outerRadius(radius);
-                    pieSvg.selectAll('slices').data(pie(pieData)).enter().append('path').attr('d', arc).attr('fill', d => colors(d.data.name)).attr("stroke", "white").style("stroke-width", "2px");
-                    const legend = legendContainer.selectAll(".legend-item").data(pieData).enter().append("div").attr("class", "legend-item flex items-center mb-2 text-sm");
-                    legend.append("div").style("width", "18px").style("height", "18px").style("background-color", d => colors(d.name)).attr("class", "mr-2 rounded-sm flex-shrink-0");
-                    legend.append("span").text(d => `${d.name}: ${d.value.toFixed(2)}kg (${(d.value / totalLoss * 100).toFixed(1)}%)`);
-                }
+                    if (pieData.length > 0) {
+                        pieContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-4">Contribuição Individual para Perda Total</h3><div id="pie-chart-wrapper" class="grid grid-cols-1 md:grid-cols-3 items-center justify-center gap-8"></div>`;
+                        const wrapper = d3.select("#pie-chart-wrapper");
+                        wrapper.append("div").attr("class", "flex flex-col items-center justify-center text-center bg-gradient-to-br from-indigo-50 to-indigo-100 p-6 rounded-2xl shadow-lg h-full").html(`<h4 class="text-lg font-bold text-indigo-800 mb-2">PERDA TOTAL DO GRUPO</h4><p class="text-6xl font-extrabold text-indigo-600">${totalLoss.toFixed(2)}</p><p class="text-2xl font-semibold text-indigo-800">kg</p>`);
+                        const svgContainer = wrapper.append("div").attr("class", "flex items-center justify-center");
+                        const legendContainer = wrapper.append("div").attr("class", "flex flex-col justify-center");
+                        const pieWidth = 300, pieHeight = 300, radius = Math.min(pieWidth, pieHeight) / 2 - 10;
+                        const pieSvg = svgContainer.append("svg").attr("width", pieWidth).attr("height", pieHeight).append("g").attr("transform", `translate(${pieWidth / 2},${pieHeight / 2})`);
+                        const colors = d3.scaleOrdinal(d3.schemeTableau10);
+                        const pie = d3.pie().value(d => d.value);
+                        const arc = d3.arc().innerRadius(radius * 0.5).outerRadius(radius);
+                        pieSvg.selectAll('slices').data(pie(pieData)).enter().append('path').attr('d', arc).attr('fill', d => colors(d.data.name)).attr("stroke", "white").style("stroke-width", "2px");
+                        const legend = legendContainer.selectAll(".legend-item").data(pieData).enter().append("div").attr("class", "legend-item flex items-center mb-2 text-sm");
+                        legend.append("div").style("width", "18px").style("height", "18px").style("background-color", d => colors(d.name)).attr("class", "mr-2 rounded-sm flex-shrink-0");
+                        legend.append("span").text(d => `${d.name}: ${d.value.toFixed(2)}kg (${(d.value / totalLoss * 100).toFixed(1)}%)`);
+                    }
+                }, 0);
             }
-
+            
             function renderComparisonChart(data, container) {
-                let checkboxesHTML = data.map(p => `<label class="inline-flex items-center mr-4 mb-2"><input type="checkbox" class="comparison-checkbox form-checkbox h-5 w-5 text-blue-600" value="${p.name}"><span class="ml-2">${p.name}</span></label>`).join('');
-                container.innerHTML = `<div class="flex justify-end mb-4"><button class="export-pdf-btn bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-lg shadow-md text-sm" data-chart-id="comparisonChartContainer" data-filename="comparativo.pdf" data-title="Comparativo">Exportar PDF</button></div><div id="comparison-checkboxes" class="p-4 rounded-lg mb-4">${checkboxesHTML}</div><div id="comparisonChartContainer" class="w-full"></div>`;
+                let checkboxesHTML = data.map(p => `<label class="inline-flex items-center mr-4 mb-2"><input type="checkbox" class="comparison-checkbox form-checkbox h-5 w-5 text-indigo-600" value="${p.name}"><span class="ml-2">${p.name}</span></label>`).join('');
+                let metricsHTML = `<div id="comparison-metrics" class="flex flex-wrap gap-4 mb-4 pb-4 border-b">
+                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="weight" class="form-radio text-indigo-600" checked><span class="ml-2">Peso (kg)</span></label>
+                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="percentLoss" class="form-radio text-indigo-600"><span class="ml-2">% Perda de Peso</span></label>
+                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="activities" class="form-radio text-indigo-600"><span class="ml-2">Total de Atividades</span></label>
+                    </div>`;
+                container.innerHTML = `<div id="comparison-content">${metricsHTML}<div id="comparison-checkboxes" class="p-4 rounded-lg mb-4">${checkboxesHTML}</div><div id="comparisonChartContainer" class="w-full h-96"></div></div>`;
                 updateComparisonChart();
             }
 
             function updateComparisonChart() {
                 const chartContainer = document.getElementById('comparisonChartContainer');
+                const selectedMetric = document.querySelector('input[name="comparisonMetric"]:checked')?.value || 'weight';
                 const selectedNames = Array.from(document.querySelectorAll('.comparison-checkbox:checked')).map(cb => cb.value);
                 const selectedParticipants = participants.filter(p => selectedNames.includes(p.name));
                 chartContainer.innerHTML = '';
 
-                if (selectedParticipants.length === 0) return chartContainer.innerHTML = `<div class="empty-table-message">Selecione um ou mais participantes para comparar.</div>`;
-                const participantsWithHistory = selectedParticipants.filter(p => p.weight_history && p.weight_history.length > 0);
-                if (participantsWithHistory.length === 0) return chartContainer.innerHTML = `<div class="empty-table-message">Nenhum histórico de peso para os selecionados.</div>`;
-
-                const margin = {top: 20, right: 160, bottom: 30, left: 40}, width = (chartContainer.clientWidth || 800) - margin.left - margin.right, height = 350 - margin.top - margin.bottom;
-                const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-                
-                let allChartDates = [], allChartWeights = [];
-                participantsWithHistory.forEach(p => p.weight_history.forEach(d => { allChartDates.push(new Date(d.date)); allChartWeights.push(d.weight); }));
-
-                const xScale = d3.scaleTime().domain(d3.extent(allChartDates)).range([0, width]);
-                const yScale = d3.scaleLinear().domain([d3.min(allChartWeights) - 2, d3.max(allChartWeights) + 2]).range([height, 0]);
-                const line = d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
-                const colors = d3.scaleOrdinal(d3.schemeCategory10);
-
-                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
-                svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`));
-
-                participantsWithHistory.forEach(p => {
-                    svg.append("path").datum(p.weight_history).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("d", line);
-                });
-                const legend = svg.selectAll(".legend").data(participantsWithHistory).enter().append("g").attr("class", "legend").attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
-                legend.append("rect").attr("width", 18).attr("height", 18).style("fill", d => colors(d.name));
-                legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name);
-            }
-
-            function openDetailsModal(name) {
-                const p = calculateMetrics(participants.find(p => p.name === name));
-                const modal = document.getElementById('participantDetailsModal');
-                const initialIMC = calculateIMC(p.peso_inicial, p.altura);
-                const currentIMC = calculateIMC(p.peso_atual, p.altura);
-                const avatarSrc = p.avatar_url || `https://placehold.co/100x100/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
-                
-                let measurementDeltasHTML = '<p class="text-sm text-gray-500">Sem dados suficientes.</p>';
-                if (p.measurements_history && p.measurements_history.length > 1) {
-                    const first = p.measurements_history[0], last = p.measurements_history[p.measurements_history.length - 1];
-                    const deltas = { cintura: last.cintura && first.cintura ? last.cintura - first.cintura : null, quadril: last.quadril && first.quadril ? last.quadril - first.quadril : null, abdomen: last.abdomen && first.abdomen ? last.abdomen - first.abdomen : null };
-                    const formatDelta = (d) => d === null ? 'N/A' : `<span class="font-bold ${d < 0 ? 'text-green-600' : (d > 0 ? 'text-red-600' : 'text-gray-600')}">${d > 0 ? '+' : ''}${d.toFixed(1)}cm</span>`;
-                    measurementDeltasHTML = `<div class="grid grid-cols-3 gap-2 text-center">
-                            <div><div class="text-xs font-bold text-gray-500">Cintura</div><div>${formatDelta(deltas.cintura)}</div></div>
-                            <div><div class="text-xs font-bold text-gray-500">Quadril</div><div>${formatDelta(deltas.quadril)}</div></div>
-                            <div><div class="text-xs font-bold text-gray-500">Abdômen</div><div>${formatDelta(deltas.abdomen)}</div></div>
-                        </div>`;
+                if (selectedParticipants.length === 0) {
+                    return chartContainer.innerHTML = `<div class="empty-state-message">Selecione um ou mais participantes para comparar.</div>`;
                 }
 
-                const progress = p.progressToTarget !== null ? `<div class="progress-bar-container tooltip"><span class="tooltiptext">${p.progressToTarget.toFixed(1)}%</span><div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div></div>` : 'N/A';
-                
-                modal.innerHTML = `<div class="modal-content" id="participant-details-content" style="max-width: 700px;">
-                         <div class="flex justify-between items-start mb-4">
-                             <div class="flex items-center gap-4">
-                                 <img src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=${p.name.charAt(0)}';" class="rounded-full w-24 h-24 object-cover">
-                                 <div><h3 class="text-3xl font-bold">${p.name}</h3><div class="text-2xl">${getBadges(p)}</div></div>
-                             </div>
-                             <div><button id="generate-report-btn" data-name="${p.name}" class="bg-green-500 text-white font-bold py-1 px-3 rounded-lg text-sm mb-2">Gerar PDF</button><span class="close-button -mt-2">×</span></div>
-                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-b py-4 my-4">
-                            <div><h4 class="text-md font-bold text-center mb-2">Evolução do IMC</h4><div class="flex justify-around text-center"><div><div class="text-sm font-bold text-gray-500">INICIAL</div><div class="text-xl font-bold ${initialIMC.color}">${initialIMC.value || 'N/A'}</div><div class="text-xs ${initialIMC.color}">${initialIMC.classification}</div></div><div class="text-2xl self-center">→</div><div><div class="text-sm font-bold text-gray-500">ATUAL</div><div class="text-xl font-bold ${currentIMC.color}">${currentIMC.value || 'N/A'}</div><div class="text-xs ${currentIMC.color}">${currentIMC.classification}</div></div></div></div>
-                            <div><h4 class="text-md font-bold text-center mb-2">Variação de Medidas</h4>${measurementDeltasHTML}</div>
-                        </div>
-                        <div class="mb-4 mt-4"><div class="text-sm font-bold text-gray-500 mb-1">PROGRESSO PARA META</div>${progress}</div>
-                        <div class="hide-on-mobile"><div class="text-sm font-bold text-gray-500 mb-1">HISTÓRICO DE PESO</div><div id="details-chart"></div></div>
-                    </div>`;
-                
-                modal.querySelector('.close-button').onclick = () => modal.classList.remove('show');
-                modal.classList.add('show');
-                
-                if (p.weight_history && p.weight_history.length > 1) renderMiniWeightChart(p, '#details-chart');
-                else document.getElementById('details-chart').innerHTML = `<div class="empty-table-message">Não há dados suficientes para o gráfico.</div>`;
+                const colors = d3.scaleOrdinal(d3.schemeTableau10);
+                const margin = {top: 20, right: 160, bottom: 40, left: 50}, width = chartContainer.clientWidth - margin.left - margin.right, height = chartContainer.clientHeight - margin.top - margin.bottom;
+                const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${chartContainer.clientWidth} ${chartContainer.clientHeight}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+                if (selectedMetric === 'weight' || selectedMetric === 'percentLoss') {
+                    const participantsWithHistory = selectedParticipants.filter(p => p.weight_history && p.weight_history.length > 0);
+                    if (participantsWithHistory.length === 0) return chartContainer.innerHTML = `<div class="empty-state-message">Nenhum histórico de peso para os selecionados.</div>`;
+
+                    let allChartDates = [], allChartValues = [];
+                    const chartData = participantsWithHistory.map(p => {
+                        const history = p.weight_history.map(entry => {
+                            const value = selectedMetric === 'weight' ? entry.weight : ((p.peso_inicial - entry.weight) / p.peso_inicial) * 100;
+                            allChartDates.push(new Date(entry.date)); allChartValues.push(value);
+                            return { date: entry.date, value: value };
+                        });
+                        return { name: p.name, history };
+                    });
+
+                    const xScale = d3.scaleTime().domain(d3.extent(allChartDates)).range([0, width]);
+                    const yScale = d3.scaleLinear().domain([d3.min(allChartValues) - 1, d3.max(allChartValues) + 1]).range([height, 0]);
+                    const line = d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.value));
+
+                    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
+                    svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => selectedMetric === 'weight' ? `${d}kg` : `${d.toFixed(1)}%`));
+
+                    chartData.forEach(p => { svg.append("path").datum(p.history).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("d", line); });
+                    const legend = svg.selectAll(".legend").data(chartData).enter().append("g").attr("class", "legend").attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
+                    legend.append("rect").attr("width", 18).attr("height", 18).style("fill", d => colors(d.name));
+                    legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name);
+
+                } else if (selectedMetric === 'activities') {
+                    const weeks = Array.from({length: MAX_WEEKS}, (_, i) => i + 1);
+                    const maxActivities = d3.max(selectedParticipants, p => d3.max(p.semanas_validas, w => w.length));
+
+                    const xScale = d3.scaleBand().domain(weeks).range([0, width]).padding(0.2);
+                    const xSubgroup = d3.scaleBand().domain(selectedNames).range([0, xScale.bandwidth()]).padding([0.05]);
+                    const yScale = d3.scaleLinear().domain([0, maxActivities > 0 ? maxActivities : 5]).range([height, 0]);
+
+                    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale)).append("text").attr("x", width / 2).attr("y", margin.bottom - 5).attr("fill", "currentColor").text("Semana");
+                    svg.append("g").call(d3.axisLeft(yScale));
+
+                    svg.append("g").selectAll("g").data(selectedParticipants).enter().append("g")
+                        .attr("transform", d => `translate(${xSubgroup(d.name)},0)`)
+                        .selectAll("rect").data(d => weeks.map(w => ({ key: d.name, week: w, value: (d.semanas_validas[w-1] || []).length })))
+                        .enter().append("rect")
+                            .attr("x", d => xScale(d.week)).attr("y", d => yScale(d.value))
+                            .attr("width", xSubgroup.bandwidth()).attr("height", d => height - yScale(d.value))
+                            .attr("fill", d => colors(d.key));
+                    
+                    const legend = svg.selectAll(".legend").data(selectedParticipants).enter().append("g").attr("class", "legend").attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
+                    legend.append("rect").attr("width", 18).attr("height", 18).style("fill", d => colors(d.name));
+                    legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name);
+                }
             }
             
-            function renderMiniWeightChart(participant, containerSelector) {
-                const container = d3.select(containerSelector);
-                if(!container.node()) return;
-                container.select("svg").remove();
-                
-                const data = participant.weight_history;
-                const margin = {top: 10, right: 10, bottom: 20, left: 30}, width = 600 - margin.left - margin.right, height = 200 - margin.top - margin.bottom;
-                const svg = container.append("svg").attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
-                const xScale = d3.scaleTime().domain(d3.extent(data, d => new Date(d.date))).range([0, width]);
-                const yScale = d3.scaleLinear().domain([d3.min(data, d => d.weight) - 1, d3.max(data, d => d.weight) + 1]).range([height, 0]);
-                
-                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(5).tickFormat(d3.timeFormat("%d/%m")));
-                svg.append("g").call(d3.axisLeft(yScale).ticks(5).tickFormat(d => `${d}kg`));
-                svg.append("path").datum(data).attr("fill", "none").attr("stroke", "steelblue").attr("stroke-width", 2).attr("d", d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.weight)));
-            }
-
-            function calculateTrendLine(data) {
-                if (data.length < 2) return null;
-                const n = data.length;
-                const firstDay = new Date(data[0].date).getTime();
-                const x = data.map(d => (new Date(d.date).getTime() - firstDay) / (1000 * 60 * 60 * 24));
-                const y = data.map(d => d.weight);
-                const sumX = d3.sum(x), sumY = d3.sum(y), sumXY = d3.sum(x.map((xi,i) => xi * y[i])), sumXX = d3.sum(x.map(xi => xi*xi));
-                const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-                const intercept = (sumY - slope * sumX) / n;
-                const predict = (day) => slope * day + intercept;
-                const startDay = (new Date(data[0].date).getTime() - firstDay) / (1000 * 60 * 60 * 24);
-                const endDay = (CHALLENGE_END_DATE.getTime() - firstDay) / (1000 * 60 * 60 * 24);
-                return { start: { date: new Date(data[0].date), weight: predict(startDay) }, end: { date: CHALLENGE_END_DATE, weight: predict(endDay) } };
-            }
-
-            function exportChartToPDF(chartId, filename, title) {
-                const { jsPDF } = window.jspdf;
-                const chartElement = document.getElementById(chartId);
-                if (!chartElement) return showFeedbackMessage('Elemento do gráfico não encontrado.', true);
-                
-                showFeedbackMessage('Gerando PDF...', false);
-                html2canvas(chartElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }).then(canvas => {
-                    try {
-                        const imgData = canvas.toDataURL('image/png');
-                        const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width, canvas.height] });
-                        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-                        pdf.save(filename);
-                    } catch(e) { showFeedbackMessage('Erro ao gerar o PDF.', true); }
-                });
-            }
-
-            function exportDetailsToPDF(participantName) {
-                const { jsPDF } = window.jspdf;
-                const detailsElement = document.getElementById('participant-details-content');
-                if (!detailsElement) return showFeedbackMessage('Conteúdo para exportar não encontrado.', true);
-                
-                showFeedbackMessage('Gerando relatório PDF...', false);
-                html2canvas(detailsElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' }).then(canvas => {
-                    try {
-                        const imgData = canvas.toDataURL('image/png');
-                        const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
-                        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-                        pdf.save(`relatorio_${participantName.replace(/\s/g, '_')}.pdf`);
-                    } catch(e) { showFeedbackMessage('Erro ao gerar o PDF do relatório.', true); }
-                });
-            }
-
             function renderSettingsPage(container) {
+                if (currentUser.role !== 'admin') return;
                 const startDate = CHALLENGE_START_DATE.toISOString().split('T')[0];
                 const endDate = CHALLENGE_END_DATE.toISOString().split('T')[0];
-                let usersHTML = Object.keys(appUsers).map(username => `<tr class="hover:bg-gray-50"><td class="font-medium">${username}</td><td>${appUsers[username].canEdit ? '<span class="text-green-600 font-semibold">Sim</span>' : 'Não'}</td><td>${username !== 'admin' ? `<button class="text-red-500 hover:text-red-700 delete-user-btn" data-username="${username}">🗑️ Excluir</button>` : ''}</td></tr>`).join('');
-
-                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                container.innerHTML = `<div class="space-y-8">
                         <div>
-                            <h3 class="text-lg font-semibold mb-2">Gerenciamento de Usuários</h3>
-                            <div class="overflow-x-auto rounded-lg shadow-md"><table class="w-full"><thead><tr><th>Usuário</th><th>Pode Editar?</th><th>Ação</th></tr></thead><tbody>${usersHTML}</tbody></table></div>
+                            <h3 class="text-lg font-semibold mb-2">Gerenciamento de Participantes</h3>
+                            <div class="bg-gray-50 p-6 rounded-xl border">
+                                <p class="mb-4">Adicione, edite ou remova participantes e suas credenciais de login.</p>
+                                <button data-action="go-to-participants" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Gerenciar Participantes</button>
+                            </div>
                         </div>
                         <div>
-                            <h3 class="text-lg font-semibold mb-2">Adicionar Novo Usuário</h3>
-                            <form id="addUserForm" class="bg-white p-6 rounded-xl shadow-md border">
-                                <div class="mb-4"><label for="newUsername" class="block font-bold">Nome de Usuário:</label><input type="text" id="newUsername" class="border rounded w-full py-2 px-3" required></div>
-                                <div class="mb-4"><label for="newPassword" class="block font-bold">Senha:</label><input type="password" id="newPassword" class="border rounded w-full py-2 px-3" required></div>
-                                <div class="mb-6"><label class="inline-flex items-center"><input type="checkbox" id="canEditCheckbox" class="form-checkbox h-5 w-5 text-blue-600"><span class="ml-2">Conceder permissão de edição</span></label></div>
-                                <button type="submit" class="bg-blue-500 text-white font-bold py-2 px-4 rounded w-full">Adicionar Usuário</button>
-                            </form>
-                        </div>
-                        <div class="md:col-span-2">
-                             <h3 class="text-lg font-semibold mb-2 mt-4">Configurações do Desafio</h3>
-                             <form id="challengeConfigForm" class="bg-white p-6 rounded-xl shadow-md border">
+                             <h3 class="text-lg font-semibold mb-2">Configurações do Desafio</h3>
+                             <form id="challengeConfigForm" class="bg-gray-50 p-6 rounded-xl border">
                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                      <div><label for="startDate" class="block font-bold">Data de Início:</label><input type="date" id="startDate" class="border rounded w-full py-2 px-3" value="${startDate}" required></div>
                                      <div><label for="endDate" class="block font-bold">Data de Fim:</label><input type="date" id="endDate" class="border rounded w-full py-2 px-3" value="${endDate}" required></div>
                                  </div>
-                                 <button type="submit" class="bg-green-500 text-white font-bold py-2 px-4 rounded w-full">Salvar Datas</button>
+                                 <button type="submit" style="background-color: var(--success-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded w-full">Salvar Datas</button>
                              </form>
                         </div>
                     </div>`;
 
-                document.getElementById('addUserForm').addEventListener('submit', e => {
-                    e.preventDefault();
-                    const newUsername = document.getElementById('newUsername').value.trim();
-                    const newPassword = document.getElementById('newPassword').value;
-                    const canEdit = document.getElementById('canEditCheckbox').checked;
-                    if (newUsername && newPassword) {
-                        if (appUsers[newUsername]) return showFeedbackMessage('Este nome de usuário já existe.', true);
-                        appUsers[newUsername] = { password: newPassword, canEdit: canEdit };
-                        saveUsers();
-                        showSection('configuracoes');
-                        showFeedbackMessage('Usuário adicionado com sucesso!');
-                    } else { showFeedbackMessage('Por favor, preencha todos os campos.', true); }
-                });
                 document.getElementById('challengeConfigForm').addEventListener('submit', e => {
                     e.preventDefault();
-                    const newStartDate = document.getElementById('startDate').value;
-                    const newEndDate = document.getElementById('endDate').value;
-                    if (newStartDate && newEndDate) {
-                        CHALLENGE_START_DATE = new Date(newStartDate + 'T00:00:00');
-                        CHALLENGE_END_DATE = new Date(newEndDate + 'T23:59:59');
-                        saveChallengeConfig();
-                        showFeedbackMessage('Datas do desafio atualizadas com sucesso!');
-                        updateAllViews();
-                    } else { showFeedbackMessage('Por favor, preencha ambas as datas.', true); }
+                    CHALLENGE_START_DATE = new Date(document.getElementById('startDate').value + 'T00:00:00');
+                    CHALLENGE_END_DATE = new Date(document.getElementById('endDate').value + 'T23:59:59');
+                    saveChallengeConfig(); showFeedbackMessage('Datas do desafio atualizadas!'); updateCurrentView();
                 });
             }
 
-            function updateSummaryBoxes() {
-                const leaderBox = document.getElementById('leaderBox');
-                const weeklyBox = document.getElementById('weeklyHighlightBox');
-                const monthlyBox = document.getElementById('monthlyHighlightBox');
-                const daysBox = document.getElementById('daysRemainingBox');
+            // --- ACTION HANDLERS ---
+            async function handleUpdateWeight(participantId) {
+                const weightInput = document.getElementById('profile-weight-input');
+                const dateInput = document.getElementById('profile-weight-date');
+                const newWeight = parseFloat(weightInput.value);
+                const dateValue = dateInput.value;
 
-                const ranked = participants.map(p => calculateMetrics(p)).sort((a, b) => b.totalPoints - a.totalPoints);
-                if (ranked.length > 0) {
-                    const leader = ranked[0];
-                    leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-500">👑 Líder Atual</div><div class="text-2xl font-bold text-green-600">${leader.name}</div><div class="text-sm text-gray-600">${leader.totalPoints.toFixed(2)} pts</div>`;
-                } else {
-                    leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-500">👑 Líder Atual</div><div class="text-2xl font-bold">N/A</div>`;
-                }
+                if (isNaN(newWeight) || newWeight <= 0) return showFeedbackMessage("Peso inválido.", true);
+                if (!dateValue) return showFeedbackMessage("Selecione uma data.", true);
                 
-                let weeklyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
-                const oneWeekAgo = new Date(); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-                participants.forEach(p => {
-                    const loss = getWeightAtDate(p, oneWeekAgo) - p.peso_atual;
-                    if (loss > weeklyWinner.loss) weeklyWinner = { name: p.name, loss };
-                });
-                weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">🔥 Destaque da Semana</div><div class="text-2xl font-bold text-purple-600">${weeklyWinner.name}</div><div class="text-sm text-gray-600">Perdeu ${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
-
-                let monthlyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
-                const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-                participants.forEach(p => {
-                    const loss = getWeightAtDate(p, firstDayOfMonth) - p.peso_atual;
-                    if (loss > monthlyWinner.loss) monthlyWinner = { name: p.name, loss };
-                });
-                monthlyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">🌟 Destaque do Mês</div><div class="text-2xl font-bold text-indigo-600">${monthlyWinner.name}</div><div class="text-sm text-gray-600">Perdeu ${monthlyWinner.loss > 0 ? monthlyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
-
-                const daysRemaining = Math.max(0, Math.ceil((CHALLENGE_END_DATE - new Date()) / (1000 * 60 * 60 * 24)));
-                daysBox.innerHTML = `<div class="text-sm font-medium text-gray-500">⏳ Dias Restantes</div><div class="text-3xl font-bold text-blue-600">${daysRemaining}</div><div class="text-sm text-gray-600">Término em ${CHALLENGE_END_DATE.toLocaleDateString('pt-BR')}</div>`;
+                const participant = participants.find(p => p.id == participantId);
+                if (participant) {
+                    const newEntry = { date: new Date(dateValue + 'T00:00:00').toISOString(), weight: newWeight };
+                    const filteredHistory = (participant.weight_history || []).filter(entry => new Date(entry.date).toDateString() !== new Date(newEntry.date).toDateString());
+                    const newHistory = [...filteredHistory, newEntry];
+                    newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                    
+                    const { error } = await supabase.from('participants').update({ peso_atual: newWeight, weight_history: newHistory }).eq('id', participantId);
+                    if (error) showFeedbackMessage('Erro ao atualizar peso.', true);
+                    else { 
+                        showFeedbackMessage(`Peso de ${participant.name} atualizado!`); 
+                        participant.peso_atual = newWeight;
+                        participant.weight_history = newHistory;
+                        updateCurrentView();
+                    }
+                }
             }
 
-            function applyPermissions() {
-                const canEdit = appUsers[currentUser]?.canEdit;
-                document.querySelectorAll('#addParticipantBtn, #importDataBtn, #resetDataBtn').forEach(el => el.classList.toggle('hidden', !canEdit));
+            async function handleDeleteWeightEntry(participantId, entryDateISO) {
+                const participant = participants.find(p => p.id == participantId);
+                if (!participant || (participant.weight_history && participant.weight_history.length <= 1)) {
+                    return showFeedbackMessage("Não é possível excluir o único registro de peso.", true);
+                }
+                const newHistory = participant.weight_history.filter(entry => entry.date !== entryDateISO);
+                newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                const newCurrentWeight = newHistory.length > 0 ? newHistory[newHistory.length - 1].weight : participant.peso_inicial;
+
+                const { error } = await supabase.from('participants').update({ weight_history: newHistory, peso_atual: newCurrentWeight }).eq('id', participant.id);
+                if (error) showFeedbackMessage('Erro ao excluir registro de peso.', true);
+                else { 
+                    showFeedbackMessage("Registro de peso excluído!"); 
+                    participant.weight_history = newHistory;
+                    participant.peso_atual = newCurrentWeight;
+                    updateCurrentView();
+                }
             }
             
-            function openModal(index = null) {
+            async function handleAddActivity(participantId) {
+                const weekIndex = parseInt(document.getElementById('profile-activity-week').value);
+                const type = document.getElementById('profile-activity-type').value;
+                const duration = parseInt(document.getElementById('profile-activity-duration').value);
+
+                if (!type || !duration || duration <= 0) return showFeedbackMessage('Preencha todos os campos da atividade.', true);
+                
+                const participant = participants.find(p => p.id == participantId);
+                if (participant) {
+                    const newActivity = { id: Date.now(), type, duration };
+                    const newSemanasValidas = JSON.parse(JSON.stringify(participant.semanas_validas));
+                    if (!Array.isArray(newSemanasValidas[weekIndex])) newSemanasValidas[weekIndex] = [];
+                    newSemanasValidas[weekIndex].push(newActivity);
+
+                    const { error } = await supabase.from('participants').update({ semanas_validas: newSemanasValidas }).eq('id', participantId);
+                    if (error) showFeedbackMessage('Erro ao adicionar atividade.', true);
+                    else { 
+                        showFeedbackMessage('Atividade adicionada!'); 
+                        participant.semanas_validas = newSemanasValidas;
+                        updateCurrentView();
+                    }
+                }
+            }
+
+            async function handleDeleteActivity(participantId, weekIndex, activityId) {
+                const participant = participants.find(p => p.id == participantId);
+                if (participant) {
+                    const newSemanasValidas = JSON.parse(JSON.stringify(participant.semanas_validas));
+                    if (newSemanasValidas[weekIndex]) {
+                        newSemanasValidas[weekIndex] = newSemanasValidas[weekIndex].filter(act => act.id != activityId);
+                        const { error } = await supabase.from('participants').update({ semanas_validas: newSemanasValidas }).eq('id', participantId);
+                        if (error) showFeedbackMessage('Erro ao apagar atividade.', true);
+                        else { 
+                            showFeedbackMessage('Atividade apagada.'); 
+                            participant.semanas_validas = newSemanasValidas;
+                            updateCurrentView();
+                        }
+                    }
+                }
+            }
+            
+            async function handleUpdateMeasurements(participantId) {
+                const cintura = parseFloat(document.getElementById('profile-cintura').value);
+                const quadril = parseFloat(document.getElementById('profile-quadril').value);
+                const abdomen = parseFloat(document.getElementById('profile-abdomen').value);
+
+                const participant = participants.find(p => p.id == participantId);
+                if (participant) {
+                    const newEntry = {
+                        date: new Date().toISOString(),
+                        cintura: !isNaN(cintura) ? cintura : null,
+                        quadril: !isNaN(quadril) ? quadril : null,
+                        abdomen: !isNaN(abdomen) ? abdomen : null,
+                    };
+
+                    const newHistory = [...(participant.measurements_history || []), newEntry];
+                    const { error } = await supabase.from('participants').update({ measurements_history: newHistory }).eq('id', participantId);
+
+                    if (error) showFeedbackMessage('Erro ao atualizar medidas.', true);
+                    else { 
+                        showFeedbackMessage(`Medidas de ${participant.name} atualizadas!`); 
+                        participant.measurements_history = newHistory;
+                        updateCurrentView();
+                    }
+                }
+            }
+
+            // --- MODALS ---
+            function openParticipantModal(id = null) {
+                if (currentUser.role !== 'admin') return;
                 const modal = document.getElementById('participantModal');
-                const isEdit = index !== null;
-                const p = isEdit ? participants[index] : {};
+                const isEdit = id !== null;
+                const p = isEdit ? participants.find(p => p.id == id) : {};
                 const avatarSrc = p.avatar_url || `https://placehold.co/100x100/E2E8F0/4A5568?text=?`;
 
                 modal.innerHTML = `<div class="modal-content">
@@ -1297,18 +1387,24 @@
                             <div class="flex flex-col items-center mb-4">
                                 <img id="avatarPreview" src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=?';" class="rounded-full w-24 h-24 object-cover mb-2 border-2 border-gray-300">
                                 <label for="pAvatarFile" class="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg text-sm">Selecionar Foto</label>
-                                <input type="file" id="pAvatarFile" class="hidden" accept="image/png, image/jpeg, image/gif">
+                                <input type="file" id="pAvatarFile" class="hidden" accept="image/*">
                             </div>
-                            <div class="mb-4"><label for="pName" class="block font-bold mb-1">Nome:</label><input type="text" id="pName" class="border rounded-lg w-full py-2 px-3" value="${p.name || ''}" required></div>
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div><label for="pInitial" class="block font-bold mb-1">Peso Inicial (kg):</label><input type="number" step="any" id="pInitial" class="border rounded-lg w-full py-2 px-3" value="${p.peso_inicial || ''}" required></div>
-                                <div><label for="pCurrent" class="block font-bold mb-1">Peso Atual (kg):</label><input type="number" step="any" id="pCurrent" class="border rounded-lg w-full py-2 px-3" value="${p.peso_atual || ''}" required></div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                <div><label class="block font-bold mb-1">Nome:</label><input type="text" id="pName" class="border rounded-lg w-full py-2 px-3" value="${p.name || ''}" required></div>
+                                <div><label class="block font-bold mb-1">Sexo:</label><select id="pSexo" class="border rounded-lg w-full py-2 px-3"><option value="M" ${p.sexo === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${p.sexo === 'F' ? 'selected' : ''}>Feminino</option></select></div>
+                                <div><label class="block font-bold mb-1">Peso Inicial (kg):</label><input type="number" step="any" id="pInitial" class="border rounded-lg w-full py-2 px-3" value="${p.peso_inicial || ''}" ${isEdit ? 'readonly' : ''} required></div>
+                                <div><label class="block font-bold mb-1">Peso Atual (kg):</label><input type="number" step="any" id="pCurrent" class="border rounded-lg w-full py-2 px-3" value="${p.peso_atual || ''}" required></div>
+                                <div><label class="block font-bold mb-1">Altura (m):</label><input type="number" step="any" id="pHeight" class="border rounded-lg w-full py-2 px-3" value="${p.altura || ''}" placeholder="Ex: 1.75" required></div>
+                                <div><label class="block font-bold mb-1">Meta de Peso (kg):</label><input type="number" step="any" id="pTarget" class="border rounded-lg w-full py-2 px-3" value="${p.target_weight || ''}"></div>
                             </div>
-                            <div class="grid grid-cols-2 gap-4 mb-4">
-                                <div><label for="pHeight" class="block font-bold mb-1">Altura (m):</label><input type="number" step="any" id="pHeight" class="border rounded-lg w-full py-2 px-3" value="${p.altura || ''}" placeholder="Ex: 1.75" required></div>
-                                <div><label for="pTarget" class="block font-bold mb-1">Meta de Peso (kg):</label><input type="number" step="any" id="pTarget" class="border rounded-lg w-full py-2 px-3" value="${p.target_weight || ''}"></div>
+                            <hr class="my-4">
+                            <h4 class="font-bold mb-2">Credenciais de Acesso</h4>
+                            <p class="text-sm text-gray-500 mb-4">Crie um login para o participante acessar o próprio perfil.</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                <div><label class="block font-bold mb-1">Usuário:</label><input type="text" id="pUsername" class="border rounded-lg w-full py-2 px-3" value="${p.username || ''}" required></div>
+                                <div><label class="block font-bold mb-1">Senha:</label><input type="password" id="pPassword" class="border rounded-lg w-full py-2 px-3" placeholder="${isEdit ? 'Deixe em branco para não alterar' : ''}" ${isEdit ? '' : 'required'}></div>
                             </div>
-                            <div class="flex justify-end gap-4 mt-8"><button type="button" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg close-button-action">Cancelar</button><button type="submit" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg">Salvar</button></div>
+                            <div class="flex justify-end gap-4 mt-8"><button type="button" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg close-button-action">Cancelar</button><button type="submit" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Salvar</button></div>
                         </form>
                     </div>`;
                 
@@ -1328,74 +1424,195 @@
             
             async function handleParticipantFormSubmit(e) {
                 e.preventDefault();
+                if (currentUser.role !== 'admin') return;
                 const form = e.target;
                 const id = form.querySelector('#participantId').value;
-                let avatarUrl = form.querySelector('#existingAvatarUrl').value;
+                const newUsername = document.getElementById('pUsername').value.trim();
 
+                console.log("Iniciando salvamento. ID:", id || "Nenhum (novo participante)");
+
+                let query = supabase.from('participants').select('id').eq('username', newUsername);
+                if (id) {
+                    query = query.not('id', 'eq', id);
+                }
+                const { data: existingUser, error: validationError } = await query;
+
+                if (validationError) {
+                    showFeedbackMessage('Erro ao validar usuário.', true);
+                    console.error("Supabase validation error:", validationError);
+                    return;
+                }
+
+                if (existingUser && existingUser.length > 0) {
+                    showFeedbackMessage('Erro ao salvar: este nome de usuário já está em uso por outro participante.', true);
+                    return;
+                }
+
+                let avatarUrl = form.querySelector('#existingAvatarUrl').value;
                 const avatarFile = form.querySelector('#pAvatarFile').files[0];
                 if (avatarFile) {
                     showFeedbackMessage('Enviando imagem...', false);
                     const fileName = `${Date.now()}-${avatarFile.name}`;
-                    const filePath = `public/${fileName}`;
-                    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarFile);
+                    const { error: uploadError } = await supabase.storage.from('avatars').upload(`public/${fileName}`, avatarFile);
                     if (uploadError) { return showFeedbackMessage('Erro ao enviar o avatar.', true); }
-                    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+                    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`public/${fileName}`);
                     avatarUrl = urlData.publicUrl;
                 }
 
+                const pesoAtual = parseFloat(document.getElementById('pCurrent').value);
+                const passwordValue = document.getElementById('pPassword').value;
+
                 const participantData = {
                     name: document.getElementById('pName').value.trim(),
+                    username: newUsername,
+                    sexo: document.getElementById('pSexo').value,
                     peso_inicial: parseFloat(document.getElementById('pInitial').value),
-                    peso_atual: parseFloat(document.getElementById('pCurrent').value),
+                    peso_atual: pesoAtual,
                     altura: parseFloat(document.getElementById('pHeight').value),
                     target_weight: parseFloat(document.getElementById('pTarget').value) || null,
                     avatar_url: avatarUrl,
                 };
 
-                let error;
+                if (passwordValue) {
+                    participantData.password = passwordValue;
+                }
+
+                console.log("Dados a serem salvos:", participantData);
+
+                let dbError;
                 if (id) {
+                    delete participantData.peso_inicial;
+                    console.log("Atualizando participante existente...");
                     const { error: updateError } = await supabase.from('participants').update(participantData).eq('id', id);
-                    error = updateError;
+                    dbError = updateError;
                 } else {
-                    participantData.created_at = new Date().toISOString();
-                    participantData.semanas_validas = Array(12).fill(0);
-                    participantData.weight_history = [{ date: new Date().toISOString(), weight: participantData.peso_atual }];
+                    participantData.semanas_validas = Array(12).fill([]);
+                    participantData.weight_history = [{ date: new Date().toISOString(), weight: pesoAtual }];
+                    console.log("Inserindo novo participante...");
                     const { error: insertError } = await supabase.from('participants').insert([participantData]);
-                    error = insertError;
+                    dbError = insertError;
                 }
                 
-                if (error) {
-                    showFeedbackMessage('Erro ao salvar participante.', true);
+                if (dbError) {
+                    showFeedbackMessage('Erro ao salvar participante. Verifique os dados e tente novamente.', true);
+                    console.error("Supabase Error:", dbError);
                 } else {
                     document.getElementById('participantModal').classList.remove('show');
                     showFeedbackMessage(`Participante ${id ? 'atualizado' : 'adicionado'}!`);
-                    loadData();
+                    loadDataAndLogin(currentUser);
                 }
             }
             
-            async function openDeleteModal(id, isReset = false, name = '') {
-                 const modal = document.getElementById('deleteConfirmModal');
+            async function openDeleteModal(id, name) {
+                if (currentUser.role !== 'admin') return;
+                const modal = document.getElementById('deleteConfirmModal');
                 modal.innerHTML = `<div class="modal-content text-center">
-                        <h3 class="text-2xl font-bold mb-4">Confirmar Ação</h3>
-                        <p class="mb-6">Tem certeza que deseja ${isReset ? 'resetar todos os dados?' : `excluir <strong>${name}</strong>?`}</p>
+                        <h3 class="text-2xl font-bold mb-4">Confirmar Exclusão</h3>
+                        <p class="mb-6">Tem certeza que deseja excluir <strong>${name}</strong>? Esta ação não pode ser desfeita.</p>
                         <div class="flex justify-center gap-4">
                             <button class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg" id="cancelDelete">Cancelar</button>
-                            <button class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg" id="confirmDelete">Confirmar</button>
+                            <button style="background-color: var(--danger-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg" id="confirmDelete">Confirmar</button>
                         </div>
                     </div>`;
                 
                 modal.querySelector('#cancelDelete').onclick = () => modal.classList.remove('show');
                 modal.querySelector('#confirmDelete').onclick = async () => {
-                    if (isReset) {
-                        showFeedbackMessage("Funcionalidade de Reset não implementada.", true);
-                    } else {
-                        const { error } = await supabase.from('participants').delete().eq('id', id);
-                        if (error) showFeedbackMessage('Erro ao excluir.', true);
-                        else { showFeedbackMessage("Excluído com sucesso!"); loadData(); }
-                    }
+                    const { error } = await supabase.from('participants').delete().eq('id', id);
+                    if (error) showFeedbackMessage('Erro ao excluir.', true);
+                    else { showFeedbackMessage("Excluído com sucesso!"); loadDataAndLogin(currentUser); }
                     modal.classList.remove('show');
                 };
                 modal.classList.add('show');
+            }
+
+            // --- UTILITY FUNCTIONS ---
+            function updateSummaryBoxes() {
+                const leaderBox = document.getElementById('leaderBox');
+                const weeklyBox = document.getElementById('weeklyHighlightBox');
+                const monthlyBox = document.getElementById('monthlyHighlightBox');
+                const daysBox = document.getElementById('daysRemainingBox');
+
+                const ranked = participants.map(p => calculateMetrics(p)).sort((a, b) => b.totalPoints - a.totalPoints);
+                if (ranked.length > 0) {
+                    const leader = ranked[0];
+                    leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-500">👑 Líder Atual</div><div class="text-2xl font-bold" style="color: var(--success-color);">${leader.name}</div><div class="text-sm text-gray-600">${leader.totalPoints.toFixed(2)} pts</div>`;
+                } else {
+                    leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-500">👑 Líder Atual</div><div class="text-2xl font-bold">N/A</div>`;
+                }
+                
+                let weeklyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
+                const oneWeekAgo = new Date(); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                participants.forEach(p => {
+                    const loss = getWeightAtDate(p, oneWeekAgo) - p.peso_atual;
+                    if (loss > weeklyWinner.loss) weeklyWinner = { name: p.name, loss };
+                });
+                weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">🔥 Destaque da Semana</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${weeklyWinner.loss > 0 ? weeklyWinner.name : 'N/A'}</div><div class="text-sm text-gray-600">${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
+
+                let monthlyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
+                const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+                participants.forEach(p => {
+                    const loss = getWeightAtDate(p, firstDayOfMonth) - p.peso_atual;
+                    if (loss > monthlyWinner.loss) monthlyWinner = { name: p.name, loss };
+                });
+                monthlyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">🌟 Destaque do Mês</div><div class="text-2xl font-bold" style="color: var(--primary-color);">${monthlyWinner.loss > 0 ? monthlyWinner.name : 'N/A'}</div><div class="text-sm text-gray-600">Perdeu ${monthlyWinner.loss > 0 ? monthlyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
+
+                const daysRemaining = Math.max(0, Math.ceil((CHALLENGE_END_DATE - new Date()) / (1000 * 60 * 60 * 24)));
+                daysBox.innerHTML = `<div class="text-sm font-medium text-gray-500">⏳ Dias Restantes</div><div class="text-3xl font-bold text-gray-700">${daysRemaining}</div>`;
+            }
+            
+            function calculateTrendLine(data) {
+                if (data.length < 2) return null;
+                const n = data.length;
+                const firstDay = new Date(data[0].date).getTime();
+                const x = data.map(d => (new Date(d.date).getTime() - firstDay) / (1000 * 60 * 60 * 24));
+                const y = data.map(d => d.weight);
+                const sumX = d3.sum(x), sumY = d3.sum(y), sumXY = d3.sum(x.map((xi,i) => xi * y[i])), sumXX = d3.sum(x.map(xi => xi*xi));
+                const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                const intercept = (sumY - slope * sumX) / n;
+                const predict = (day) => slope * day + intercept;
+                const startDay = (new Date(data[0].date).getTime() - firstDay) / (1000 * 60 * 60 * 24);
+                const endDay = (CHALLENGE_END_DATE.getTime() - firstDay) / (1000 * 60 * 60 * 24);
+                return { start: { date: new Date(data[0].date), weight: predict(startDay) }, end: { date: CHALLENGE_END_DATE, weight: predict(endDay) } };
+            }
+
+            async function getAICoachingTip(participantId) {
+                const participant = participants.find(p => p.id == participantId);
+                if (!participant) return;
+
+                const tipContainer = document.getElementById('ai-tip-container');
+                tipContainer.innerHTML = '<div class="ai-tip-loader"></div>';
+
+                const activityHistory = participant.semanas_validas.slice(-4).map(week => (Array.isArray(week) ? week.length : 0)).join(', ');
+                const prompt = `Seja um coach de fitness motivador e amigável, em português do Brasil. Dê uma dica curta e prática para o participante: Nome: ${participant.name}, Peso Inicial: ${participant.peso_inicial} kg, Peso Atual: ${participant.peso_atual} kg, Meta: ${participant.target_weight || 'N/A'} kg. Atividades nas últimas 4 semanas: ${activityHistory}. Fale diretamente com o participante (use "você").`;
+
+                try {
+                    const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=`; // API Key is injected by the environment
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+                    const result = await response.json();
+                    if (result.candidates && result.candidates.length > 0) {
+                        tipContainer.innerHTML = result.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
+                    } else { throw new Error("Resposta da IA inválida."); }
+                } catch (error) {
+                    console.error("Erro ao obter dica da IA:", error);
+                    tipContainer.innerHTML = 'Ocorreu um erro ao falar com o nosso coach. Tente novamente mais tarde.';
+                }
+            }
+
+             async function exportDetailsToPDF(participantId) {
+                const detailsElement = document.getElementById('profile-content');
+                const participant = participants.find(p => p.id == participantId);
+                if (!detailsElement || !participant) return;
+                
+                showFeedbackMessage('Gerando relatório PDF...', false);
+                html2canvas(detailsElement, { scale: 2, useCORS: true, backgroundColor: '#f4f5f7' }).then(canvas => {
+                    const { jsPDF } = window.jspdf;
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
+                    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                    pdf.save(`relatorio_${participant.name.replace(/\s/g, '_')}.pdf`);
+                });
             }
 
             function showFeedbackMessage(message, isError = false) {
@@ -1412,23 +1629,7 @@
                 };
             }
 
-            function exportData() {
-                const dataStr = JSON.stringify(participants, null, 2);
-                const blob = new Blob([dataStr], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'fit_challenge_data.json';
-                a.click();
-                URL.revokeObjectURL(url);
-                showFeedbackMessage("Dados exportados!");
-            }
-
-            function importData(event) {
-                showFeedbackMessage("Importação desativada com o uso do banco de dados.", true);
-            }
-
-            // --- Chamar a inicialização ---
+            // --- INITIALIZE THE APP ---
             initApp();
         });
     </script>
