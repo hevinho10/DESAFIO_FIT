@@ -945,35 +945,43 @@
             }
 
             function renderCoachVirtualPage(container) {
-                if (participants.length === 0) {
-                    container.innerHTML = `<div class="empty-state-message">Adicione participantes primeiro para usar o Coach Virtual.</div>`;
-                    return;
+                if (currentUser.role === 'admin') {
+                    if (participants.length === 0) {
+                        container.innerHTML = `<div class="empty-state-message">Adicione participantes primeiro para usar o Coach Virtual.</div>`;
+                        return;
+                    }
+                    const options = participants.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                    container.innerHTML = `
+                        <div class="max-w-2xl mx-auto text-center">
+                            <h3 class="text-2xl font-bold mb-2">Coach Virtual</h3>
+                            <p class="text-gray-600 mb-6">Selecione um participante para receber uma dica personalizada baseada em seu progresso.</p>
+                            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+                                <select id="coach-participant-selector" class="border rounded-lg w-full sm:w-auto py-2 px-3">${options}</select>
+                                <button id="generate-coach-tip-admin" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg w-full sm:w-auto">Gerar Dica</button>
+                            </div>
+                            <div id="ai-tip-container" class="p-6 bg-gray-50 rounded-lg text-gray-600 min-h-[120px] text-left">
+                                Selecione um participante e clique no botão para começar.
+                            </div>
+                        </div>`;
+
+                    document.getElementById('generate-coach-tip-admin').addEventListener('click', () => {
+                        const selectedId = document.getElementById('coach-participant-selector').value;
+                        getAICoachingTip(selectedId);
+                    });
+
+                } else {
+                    container.innerHTML = `
+                        <div class="max-w-2xl mx-auto text-center">
+                            <h3 class="text-2xl font-bold mb-2">Seu Coach Virtual</h3>
+                            <p class="text-gray-600 mb-6">Clique no botão abaixo para receber uma dica personalizada baseada no seu progresso.</p>
+                            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+                                <button data-action="ai-coach" data-id="${currentUser.participantId}" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg w-full sm:w-auto">Gerar Minha Dica do Coach</button>
+                            </div>
+                            <div id="ai-tip-container" class="p-6 bg-gray-50 rounded-lg text-gray-600 min-h-[120px] text-left">
+                                Pronto para uma dica?
+                            </div>
+                        </div>`;
                 }
-                
-                const options = participants.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-
-                container.innerHTML = `
-                    <div class="max-w-2xl mx-auto text-center">
-                        <h3 class="text-2xl font-bold mb-2">Seu Coach Virtual</h3>
-                        <p class="text-gray-600 mb-6">Selecione um participante para receber uma dica personalizada baseada em seu progresso.</p>
-                        
-                        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-                            <select id="coach-participant-selector" class="border rounded-lg w-full sm:w-auto py-2 px-3">
-                                ${options}
-                            </select>
-                            <button id="generate-coach-tip" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg w-full sm:w-auto">Gerar Dica do Coach</button>
-                        </div>
-
-                        <div id="ai-tip-container" class="p-6 bg-gray-50 rounded-lg text-gray-600 min-h-[120px] text-left">
-                            Selecione um participante e clique no botão para começar.
-                        </div>
-                    </div>
-                `;
-
-                document.getElementById('generate-coach-tip').addEventListener('click', () => {
-                    const selectedId = document.getElementById('coach-participant-selector').value;
-                    getAICoachingTip(selectedId);
-                });
             }
 
             function renderIndividualEvolutionPage(data, container) {
@@ -1429,8 +1437,6 @@
                 const id = form.querySelector('#participantId').value;
                 const newUsername = document.getElementById('pUsername').value.trim();
 
-                console.log("Iniciando salvamento. ID:", id || "Nenhum (novo participante)");
-
                 let query = supabase.from('participants').select('id').eq('username', newUsername);
                 if (id) {
                     query = query.not('id', 'eq', id);
@@ -1439,7 +1445,7 @@
 
                 if (validationError) {
                     showFeedbackMessage('Erro ao validar usuário.', true);
-                    console.error("Supabase validation error:", validationError);
+                    console.error("Supabase validation error:", JSON.stringify(validationError, null, 2));
                     return;
                 }
 
@@ -1477,25 +1483,21 @@
                     participantData.password = passwordValue;
                 }
 
-                console.log("Dados a serem salvos:", participantData);
-
                 let dbError;
                 if (id) {
                     delete participantData.peso_inicial;
-                    console.log("Atualizando participante existente...");
                     const { error: updateError } = await supabase.from('participants').update(participantData).eq('id', id);
                     dbError = updateError;
                 } else {
                     participantData.semanas_validas = Array(12).fill([]);
                     participantData.weight_history = [{ date: new Date().toISOString(), weight: pesoAtual }];
-                    console.log("Inserindo novo participante...");
                     const { error: insertError } = await supabase.from('participants').insert([participantData]);
                     dbError = insertError;
                 }
                 
                 if (dbError) {
-                    showFeedbackMessage('Erro ao salvar participante. Verifique os dados e tente novamente.', true);
-                    console.error("Supabase Error:", dbError);
+                    showFeedbackMessage('Erro ao salvar participante. Verifique o console para mais detalhes.', true);
+                    console.error("Erro detalhado do Supabase:", JSON.stringify(dbError, null, 2));
                 } else {
                     document.getElementById('participantModal').classList.remove('show');
                     showFeedbackMessage(`Participante ${id ? 'atualizado' : 'adicionado'}!`);
