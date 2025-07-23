@@ -1661,7 +1661,7 @@
                     const loss = getWeightAtDate(p, oneWeekAgo) - p.peso_atual;
                     if (loss > weeklyWinner.loss) weeklyWinner = { name: p.name, loss };
                 });
-                weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">🔥 Destaque da Semana</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${weeklyWinner.loss > 0 ? weeklyWinner.name : 'N/A'}</div><div class="text-sm text-gray-600">${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
+                weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">� Destaque da Semana</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${weeklyWinner.loss > 0 ? weeklyWinner.name : 'N/A'}</div><div class="text-sm text-gray-600">${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
 
                 let monthlyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
                 const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
