@@ -106,6 +106,14 @@
         .btn-warning:hover { background-color: var(--warning-color); color: white; }
         .btn-danger { color: var(--danger-color); border-color: var(--danger-color); }
         .btn-danger:hover { background-color: var(--danger-color); color: white; }
+
+        /* Profile Page Specific Styles */
+        .profile-card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -587,7 +595,7 @@
                 } else {
                     data.forEach(p => {
                         const pointRankIndex = pointRanked.findIndex(rankedP => rankedP.name === p.name);
-                        const medal = ['🏆', '🥈', '�'][pointRankIndex] || '';
+                        const medal = ['🏆', '🥈', '🥉'][pointRankIndex] || '';
                         const progress = p.progressToTarget !== null ? `<div class="progress-bar-container" title="${p.progressToTarget.toFixed(1)}%"><div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div></div>` : 'N/A';
                         const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
                         
@@ -678,49 +686,76 @@
                 if (currentUser.role === 'admin' && !isOwnProfile) {
                     backButtonHTML = `<a href="#" data-action="go-to-participants" style="color: var(--primary-color);" class="hover:underline mb-4 inline-block">&larr; Voltar para todos os participantes</a>`;
                 }
+                
+                const pesoPerdido = pMetric.peso_inicial - pMetric.peso_atual;
 
                 container.innerHTML = `
-                    <div id="profile-content">
-                        <div class="flex justify-between items-start mb-6">
+                    <div id="profile-content" class="max-w-4xl mx-auto space-y-6">
+                        <!-- Botão de Voltar e PDF -->
+                        <div class="flex justify-between items-start mb-2">
                             ${backButtonHTML}
                             ${currentUser.role === 'admin' ? `<div><button data-action="generate-report" data-id="${pMetric.id}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-1 px-3 rounded-lg text-sm">Gerar PDF</button></div>` : '<div></div>'}
                         </div>
-                        
-                        <div class="flex flex-col md:flex-row items-center gap-6 p-6 bg-white rounded-xl shadow-lg mb-6">
+
+                        <!-- Cabeçalho do Perfil -->
+                        <div class="profile-card flex flex-col sm:flex-row items-center gap-6">
                             <img src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=${pMetric.name.charAt(0)}';" class="rounded-full w-24 h-24 object-cover border-4 border-indigo-200">
-                            <div class="flex-grow text-center md:text-left">
+                            <div class="flex-grow text-center sm:text-left">
                                 <h3 class="text-3xl font-bold">${pMetric.name} <span class="text-2xl">${getBadges(pMetric)}</span></h3>
                                 <p class="text-gray-500">Altura: ${pMetric.altura ? pMetric.altura.toFixed(2) + 'm' : 'N/A'}</p>
                             </div>
+                            <div class="grid grid-cols-3 gap-4 text-center w-full sm:w-auto mt-4 sm:mt-0">
+                                <div>
+                                    <p class="text-2xl font-bold text-indigo-600">${pMetric.totalPoints.toFixed(1)}</p>
+                                    <p class="text-xs text-gray-500 uppercase">Pontos</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold ${pesoPerdido >= 0 ? 'text-green-600' : 'text-red-500'}">${pesoPerdido.toFixed(1)}</p>
+                                    <p class="text-xs text-gray-500 uppercase">Kg Perdidos</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold text-indigo-600">${pMetric.progressToTarget ? pMetric.progressToTarget.toFixed(0) : '0'}%</p>
+                                    <p class="text-xs text-gray-500 uppercase">Meta</p>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div class="lg:col-span-1 space-y-6">
+                        <!-- Formulários e Históricos -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Coluna da Esquerda: Ações -->
+                            <div class="space-y-6">
                                 ${canEditProfile ? `
-                                <div class="bg-white p-4 rounded-lg shadow">
-                                    <h4 class="font-bold mb-3">Registrar Peso</h4>
-                                    <div class="space-y-3">
-                                        <div><label class="text-xs font-medium text-gray-600">Novo Peso (kg)</label><input id="profile-weight-input" type="number" step="any" class="shadow-sm border rounded-md w-full p-2" placeholder="${pMetric.peso_atual.toFixed(2)}"></div>
-                                        <div><label class="text-xs font-medium text-gray-600">Data do Registro</label><input id="profile-weight-date" type="date" class="shadow-sm border rounded-md w-full p-2" value="${todayStr}" max="${todayStr}"></div>
-                                        <button data-action="update-weight" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="w-full hover:opacity-90 text-white font-bold py-2 px-4 rounded-md">Salvar Peso</button>
+                                <div class="profile-card">
+                                    <h4 class="font-bold text-lg mb-4">Registrar Peso</h4>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="text-sm font-medium text-gray-700">Novo Peso (kg)</label>
+                                            <input id="profile-weight-input" type="number" step="any" class="mt-1 shadow-sm border rounded-md w-full p-2" placeholder="${pMetric.peso_atual.toFixed(2)}">
+                                        </div>
+                                        <div>
+                                            <label class="text-sm font-medium text-gray-700">Data do Registro</label>
+                                            <input id="profile-weight-date" type="date" class="mt-1 shadow-sm border rounded-md w-full p-2" value="${todayStr}" max="${todayStr}">
+                                        </div>
+                                        <button data-action="update-weight" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="w-full hover:opacity-90 text-white font-bold py-2.5 px-4 rounded-md">Salvar Peso</button>
                                     </div>
                                 </div>
-                                <div class="bg-white p-4 rounded-lg shadow">
-                                    <h4 class="font-bold mb-3">Registrar Atividade</h4>
-                                    <div class="space-y-3">
-                                        <div><label class="text-xs font-medium">Semana</label><select id="profile-activity-week" class="w-full border rounded-md p-2">${Array.from({length:MAX_WEEKS}, (_,i) => `<option value="${i}">Semana ${i+1}</option>`).join('')}</select></div>
-                                        <div><label class="text-xs font-medium">Tipo</label><select id="profile-activity-type" class="w-full border rounded-md p-2">${ACTIVITY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select></div>
-                                        <div><label class="text-xs font-medium">Duração (min)</label><input type="number" id="profile-activity-duration" class="w-full border rounded-md p-2"></div>
-                                        <button data-action="add-activity" data-id="${pMetric.id}" style="background-color: var(--success-color);" class="w-full hover:opacity-90 text-white font-bold py-2 px-4 rounded-md">Adicionar Atividade</button>
+                                <div class="profile-card">
+                                    <h4 class="font-bold text-lg mb-4">Registrar Atividade</h4>
+                                    <div class="space-y-4">
+                                        <div><label class="text-sm font-medium">Semana</label><select id="profile-activity-week" class="mt-1 w-full border rounded-md p-2">${Array.from({length:MAX_WEEKS}, (_,i) => `<option value="${i}">Semana ${i+1}</option>`).join('')}</select></div>
+                                        <div><label class="text-sm font-medium">Tipo</label><select id="profile-activity-type" class="mt-1 w-full border rounded-md p-2">${ACTIVITY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select></div>
+                                        <div><label class="text-sm font-medium">Duração (min)</label><input type="number" id="profile-activity-duration" class="mt-1 w-full border rounded-md p-2"></div>
+                                        <button data-action="add-activity" data-id="${pMetric.id}" style="background-color: var(--success-color);" class="w-full hover:opacity-90 text-white font-bold py-2.5 px-4 rounded-md">Adicionar Atividade</button>
                                     </div>
                                 </div>
                                 ` : ''}
                             </div>
-                            <div class="lg:col-span-2 space-y-6">
-                                <div class="bg-white p-4 rounded-lg shadow"><h4 class="font-bold mb-3">Histórico de Pesagem</h4><div id="profile-weight-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
-                                <div class="bg-white p-4 rounded-lg shadow"><h4 class="font-bold mb-3">Histórico de Atividades</h4><div id="profile-activity-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
-                                <div class="bg-white p-4 rounded-lg shadow">
-                                    <h4 class="font-bold mb-3">Medidas Corporais (cm)</h4>
+                            <!-- Coluna da Direita: Históricos e Dicas -->
+                            <div class="space-y-6">
+                                <div class="profile-card"><h4 class="font-bold text-lg mb-3">Histórico de Pesagem</h4><div id="profile-weight-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
+                                <div class="profile-card"><h4 class="font-bold text-lg mb-3">Histórico de Atividades</h4><div id="profile-activity-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
+                                <div class="profile-card">
+                                    <h4 class="font-bold text-lg mb-3">Medidas Corporais (cm)</h4>
                                     ${canEditProfile ? `
                                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                                         <div><label class="text-xs font-medium">Cintura</label><input type="number" step="any" id="profile-cintura" class="shadow-sm border rounded-md w-full p-2" value="${lastM.cintura || ''}"></div>
@@ -736,7 +771,7 @@
                                     </div>
                                     `}
                                 </div>
-                                <div class="bg-white p-4 rounded-lg shadow">
+                                <div class="profile-card">
                                     <div class="flex justify-between items-center mb-3">
                                         <h4 class="text-lg font-semibold text-gray-700">🤖 Dica do Coach</h4>
                                         <button data-action="ai-coach" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-3 rounded-lg text-sm">Gerar Dica</button>
@@ -1588,16 +1623,19 @@
                 const prompt = `Seja um coach de fitness motivador e amigável, em português do Brasil. Dê uma dica curta e prática para o participante: Nome: ${participant.name}, Peso Inicial: ${participant.peso_inicial} kg, Peso Atual: ${participant.peso_atual} kg, Meta: ${participant.target_weight || 'N/A'} kg. Atividades nas últimas 4 semanas: ${activityHistory}. Fale diretamente com o participante (use "você").`;
 
                 try {
-                    const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=`; // API Key is injected by the environment
-                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
-                    const result = await response.json();
-                    if (result.candidates && result.candidates.length > 0) {
-                        tipContainer.innerHTML = result.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
-                    } else { throw new Error("Resposta da IA inválida."); }
+                    const { data, error } = await supabase.functions.invoke('get-ai-tip', {
+                        body: { prompt: prompt },
+                    });
+
+                    if (error) throw error;
+
+                    if (data && data.tip) {
+                        tipContainer.innerHTML = data.tip.replace(/\n/g, '<br>');
+                    } else {
+                        throw new Error("Resposta da IA inválida.");
+                    }
                 } catch (error) {
-                    console.error("Erro ao obter dica da IA:", error);
+                    console.error("Erro ao invocar a Supabase Function:", error);
                     tipContainer.innerHTML = 'Ocorreu um erro ao falar com o nosso coach. Tente novamente mais tarde.';
                 }
             }
