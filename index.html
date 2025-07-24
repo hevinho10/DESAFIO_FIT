@@ -6,11 +6,11 @@
     <title>FIT Challenge PRO</title>
     
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1f2937"/>
+    <meta name="theme-color" content="#111827"/>
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="FIT Challenge PRO">
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/1f2937/ffffff?text=FIT">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/111827/ffffff?text=FIT">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,99 +22,146 @@
         :root {
             --font-inter: 'Inter', sans-serif;
             
-            /* Minimalist Color Palette */
-            --bg-main: #f4f5f7; /* Light Gray */
+            /* Dark Theme Color Palette */
+            --bg-main: #111827; /* Very Dark Blue/Gray */
             --bg-sidebar: #1f2937; /* Dark Slate */
-            --bg-header: #ffffff;
-            --bg-content: #ffffff;
-            --text-dark: #111827;
-            --text-muted: #6b7280;
-            --border-color: #e5e7eb;
+            --bg-card: #1f2937; /* Dark Slate for cards */
+            --bg-header: #1f2937;
+            --text-light: #f9fafb; /* Almost white */
+            --text-dark: #e5e7eb; /* Light Gray */
+            --text-muted: #9ca3af; /* Muted Gray */
+            --border-color: #374151; /* Darker border */
 
-            --primary-color: #4f46e5; /* Indigo */
-            --primary-hover: #4338ca;
-            --danger-color: #dc2626; /* Red */
-            --danger-hover: #b91c1c;
-            --success-color: #16a34a; /* Green */
-            --success-hover: #15803d;
+            --primary-color: #6366f1; /* Indigo */
+            --primary-hover: #4f46e5;
+            --danger-color: #ef4444; /* Red */
+            --danger-hover: #dc2626;
+            --success-color: #22c55e; /* Green */
+            --success-hover: #16a34a;
             --warning-color: #f59e0b; /* Amber */
             --warning-hover: #d97706;
-
-            --leader-row-bg: #eef2ff; /* Indigo Light */
-            --leader-row-border: var(--primary-color);
         }
-        body { font-family: var(--font-inter); background-color: var(--bg-main); color: var(--text-dark); }
+        html, body { 
+            font-family: var(--font-inter); 
+            background-color: var(--bg-main); 
+            color: var(--text-dark); 
+        }
         
-        #sidebar { transition: transform 0.3s ease-in-out; }
-        .sidebar-link { display: flex; align-items: center; padding: 0.75rem 1.5rem; border-radius: 0.5rem; transition: background-color 0.2s, color 0.2s; }
-        .sidebar-link:hover { background-color: #374151; }
-        .sidebar-link.active { background-color: var(--primary-color); color: white; font-weight: 600; }
-        .sidebar-link svg { width: 1.25rem; height: 1.25rem; margin-right: 0.75rem; flex-shrink: 0; }
+        #sidebar { 
+            background-color: var(--bg-sidebar);
+            transition: transform 0.3s ease-in-out; 
+        }
+        .sidebar-link { 
+            display: flex;
+            align-items: center;
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+        .sidebar-link:hover { 
+            background-color: #374151;
+            color: var(--text-light);
+        }
+        .sidebar-link.active { 
+            background-color: var(--primary-color); 
+            color: white; 
+            font-weight: 600; 
+        }
+        .sidebar-link svg { 
+            width: 1.25rem; height: 1.25rem; margin-right: 0.75rem; flex-shrink: 0; 
+        }
 
+        /* Modern Table Style */
         table { width: 100%; border-collapse: separate; border-spacing: 0; }
-        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
-        th { background-color: #f9fafb; font-weight: 600; color: var(--text-muted); position: sticky; top: 0; z-index: 10; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
-        th.sortable { cursor: pointer; }
-        th.sortable:hover { background-color: #f3f4f6; }
+        th, td { 
+            padding: 1rem; 
+            text-align: left; 
+            border-bottom: 1px solid var(--border-color); 
+            vertical-align: middle; 
+        }
+        th { 
+            background-color: #374151; /* Slightly lighter than card bg */
+            font-weight: 600; 
+            color: var(--text-muted); 
+            position: sticky; top: 0; z-index: 10; 
+            font-size: 0.75rem; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+        }
+        th:first-child { border-top-left-radius: 0.5rem; }
+        th:last-child { border-top-right-radius: 0.5rem; }
+        tr:last-child td:first-child { border-bottom-left-radius: 0.5rem; }
+        tr:last-child td:last-child { border-bottom-right-radius: 0.5rem; }
         tr:last-child td { border-bottom: none; }
-        .leader-row { background-color: var(--leader-row-bg) !important; border-left: 4px solid var(--leader-row-border); }
+        .leader-row { 
+            background-color: rgba(99, 102, 241, 0.1) !important; 
+            border-left: 4px solid var(--primary-color); 
+        }
         
-        .summary-box { background-color: var(--bg-content); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: 0.75rem; font-weight: 600; color: var(--text-dark); text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .card {
+            background-color: var(--bg-card);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
         .feedback-message { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: var(--success-color); color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); opacity: 0; transition: opacity 0.3s; z-index: 1001; }
         .feedback-message.show { opacity: 1; }
         .feedback-message.error { background-color: var(--danger-color); }
-        .modal { position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: opacity 0.3s; }
-        .modal.show { opacity: 1; visibility: visible; }
-        .modal-content { background-color: #fefefe; margin: auto; padding: 2rem; border-radius: 1rem; box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%; max-width: 600px; position: relative; transform: scale(0.95); transition: transform 0.3s; }
-        .modal.show .modal-content { transform: scale(1); }
-        .close-button { position: absolute; top: 10px; right: 20px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .badge { font-size: 1.1rem; margin-left: 0.25rem; }
-        .progress-bar-container { width: 100%; background-color: #e5e7eb; border-radius: 9999px; height: 1.25rem; overflow: hidden; position: relative; }
-        .progress-bar-fill { height: 100%; background-color: var(--success-color); border-radius: 9999px; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: center; }
-        .progress-bar-text { color: white; font-size: 0.75rem; font-weight: 600; }
         
-        .axis path, .axis line { fill: none; stroke: transparent; }
-        .axis text { font-size: 0.8rem; fill: #6b7280; }
-        .grid line { stroke: #e5e7eb; stroke-opacity: 0.7; shape-rendering: crispEdges; }
-        .grid path { stroke-width: 0; }
-        .tooltip-chart { position: absolute; text-align: center; padding: 8px; font: 12px sans-serif; background: rgba(0, 0, 0, 0.8); color: white; border-radius: 8px; pointer-events: none; opacity: 0; transition: opacity 0.2s; }
-        .empty-state-message { text-align: center; padding: 2rem; color: #6b7280; font-style: italic; }
+        /* --- INÍCIO DA CORREÇÃO DO MODAL --- */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content { 
+            background-color: #1f2937;
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border-radius: 0.75rem;
+            padding: 2rem;
+        }
+        .close-button { color: #9ca3af; }
+        /* --- FIM DA CORREÇÃO DO MODAL --- */
 
-        .loader { border: 8px solid #f3f3f3; border-radius: 50%; border-top: 8px solid var(--primary-color); width: 60px; height: 60px; animation: spin 2s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .ai-tip-loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto; }
-        
-        /* New Button Styles */
-        .action-btn {
-            font-weight: 600;
-            padding: 0.5rem 0.75rem;
+        /* Modern Form Elements */
+        input, select {
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            color: var(--text-light);
             border-radius: 0.5rem;
-            text-align: center;
-            font-size: 0.75rem;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-            background-color: #ffffff;
-            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            padding: 0.75rem;
         }
-        .action-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5);
         }
-        .btn-primary { color: var(--primary-color); border-color: var(--primary-color); }
-        .btn-primary:hover { background-color: var(--primary-color); color: white; }
-        .btn-warning { color: var(--warning-color); border-color: var(--warning-color); }
-        .btn-warning:hover { background-color: var(--warning-color); color: white; }
-        .btn-danger { color: var(--danger-color); border-color: var(--danger-color); }
-        .btn-danger:hover { background-color: var(--danger-color); color: white; }
+        
+        .loader { border: 8px solid #374151; border-top: 8px solid var(--primary-color); border-radius: 50%; width: 60px; height: 60px; animation: spin 1s linear infinite; }
+        .ai-tip-loader { border: 4px solid #374151; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* Profile Page Specific Styles */
         .profile-card {
-            background-color: white;
+            background-color: var(--bg-card);
             border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
             padding: 1.5rem;
         }
-
+        
         /* Activity Log Styles */
         .activity-grid {
             display: grid;
@@ -142,27 +189,48 @@
         .activity-cell.current-week {
             border: 2px solid var(--primary-color);
         }
-        .activity-none { background-color: #e5e7eb; } /* Gray */
-        .activity-partial { background-color: #fef3c7; } /* Amber Light */
-        .activity-complete { background-color: #dcfce7; } /* Green Light */
+        .activity-none { background-color: #374151; } /* Dark Gray */
+        .activity-partial { background-color: var(--warning-color); } /* Amber */
+        .activity-complete { background-color: var(--success-color); } /* Green */
+
+        /* --- INÍCIO DA CORREÇÃO DOS BOTÕES --- */
+        /* ESTILOS PARA OS BOTÕES DOS CARDS DE PARTICIPANTE */
+        .action-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            color: var(--text-dark);
+            font-weight: 600;
+            background-color: #374151; /* Cor de fundo padrão */
+            transition: background-color 0.2s ease-in-out;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+        }
+        
+        /* Efeito minimalista ao passar o mouse */
+        .action-btn:hover {
+            background-color: #4b5563; /* Cor de fundo um pouco mais clara */
+        }
+        /* --- FIM DA CORREÇÃO DOS BOTÕES --- */
+
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-900">
 
     <div id="loginScreen" class="flex items-center justify-center min-h-screen bg-gray-900 p-4">
-        <div class="bg-white p-8 sm:p-10 rounded-2xl shadow-2xl w-full max-w-md">
+        <div class="bg-gray-800 p-8 sm:p-10 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700">
             <div class="text-center mb-10">
-                <h1 class="text-4xl font-extrabold text-gray-800">FIT Challenge <span style="color: var(--primary-color);">PRO</span></h1>
-                <p class="text-gray-500 mt-2">Acesse para acompanhar o desafio</p>
+                <h1 class="text-4xl font-extrabold text-white">FIT Challenge <span style="color: var(--primary-color);">PRO</span></h1>
+                <p class="text-gray-400 mt-2">Acesse para acompanhar o desafio</p>
             </div>
             <form id="loginForm">
                 <div class="mb-4">
-                    <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
-                    <input type="text" id="username" placeholder="Seu usuário" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                    <label for="username" class="block text-sm font-medium text-gray-300 mb-1">Usuário</label>
+                    <input type="text" id="username" placeholder="Seu usuário" class="w-full" required>
                 </div>
                 <div class="mb-6">
-                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
-                    <input type="password" id="password" placeholder="Sua senha" class="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500" required>
+                    <label for="password" class="block text-sm font-medium text-gray-300 mb-1">Senha</label>
+                    <input type="password" id="password" placeholder="Sua senha" class="w-full" required>
                 </div>
                 <p id="loginError" class="text-red-500 text-sm italic mb-4 hidden text-center">Usuário ou senha inválidos.</p>
                 <button type="submit" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-3 px-6 rounded-lg shadow-md transition w-full">Entrar</button>
@@ -170,47 +238,42 @@
         </div>
     </div>
     
-    <div id="loadingIndicator" class="hidden fixed inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-center z-50">
+    <div id="loadingIndicator" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex flex-col items-center justify-center z-50">
         <div class="loader"></div>
-        <p class="mt-4 text-lg font-semibold text-gray-700">Carregando dados...</p>
+        <p class="mt-4 text-lg font-semibold text-gray-300">Carregando dados...</p>
     </div>
 
-    <div id="app" class="hidden flex h-screen bg-gray-100 font-sans">
-        <aside id="sidebar" class="w-64 bg-gray-900 text-white flex-shrink-0 flex flex-col fixed lg:relative h-full z-30 transform -translate-x-full lg:translate-x-0">
+    <div id="app" class="hidden flex h-screen font-sans">
+        <aside id="sidebar" class="w-64 flex-shrink-0 flex flex-col fixed lg:relative h-full z-30 transform -translate-x-full lg:translate-x-0">
             <div class="px-6 py-4 border-b border-gray-700">
                 <h1 class="text-2xl font-bold text-white">FIT <span style="color: var(--primary-color);">PRO</span></h1>
             </div>
             <nav id="sidebarNav" class="flex-1 px-4 py-4 space-y-2 overflow-y-auto"></nav>
             <div class="px-4 py-4 border-t border-gray-700">
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3">
-                        <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path></svg>
-                    </span>
-                    <input type="text" id="searchParticipantInput" placeholder="Buscar participante..." class="bg-gray-700 text-white placeholder-gray-400 rounded-lg w-full py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
+                <input type="text" id="searchParticipantInput" placeholder="Buscar participante..." class="w-full">
             </div>
         </aside>
 
         <div id="sidebar-overlay" class="hidden lg:hidden fixed inset-0 bg-black opacity-50 z-20"></div>
 
         <div class="flex-1 flex flex-col overflow-hidden">
-            <header id="header" class="bg-white shadow-sm p-4 flex justify-between items-center z-10">
-                <button id="mobileMenuBtn" class="lg:hidden text-gray-600">
+            <header id="header" class="bg-gray-800 border-b border-gray-700 p-4 flex justify-between items-center z-10">
+                <button id="mobileMenuBtn" class="lg:hidden text-gray-400">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-16 6h16"></path></svg>
                 </button>
-                <h2 id="pageTitle" class="text-xl font-semibold text-gray-800"></h2>
+                <h2 id="pageTitle" class="text-xl font-semibold text-white"></h2>
                 <div class="flex items-center gap-4">
                    <div id="header-action-buttons" class="hidden sm:flex items-center gap-2 flex-wrap"></div>
                    <button id="logoutBtn" style="background-color: var(--danger-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Sair</button>
                 </div>
             </header>
 
-            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-6">
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-gray-900 p-6">
                 <div id="summary-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <div id="leaderBox" class="summary-box"></div>
-                    <div id="weeklyHighlightBox" class="summary-box"></div>
-                    <div id="monthlyHighlightBox" class="summary-box"></div>
-                    <div id="daysRemainingBox" class="summary-box"></div>
+                    <div id="leaderBox" class="card"></div>
+                    <div id="weeklyHighlightBox" class="card"></div>
+                    <div id="monthlyHighlightBox" class="card"></div>
+                    <div id="daysRemainingBox" class="card"></div>
                 </div>
                 
                 <div id="dynamic-content">
@@ -228,7 +291,7 @@
         if ('serviceWorker' in navigator) {
             const manifest = {
                 "name": "FIT Challenge PRO", "short_name": "FIT PRO", "start_url": ".", "display": "standalone",
-                "background_color": "#1f2937", "theme_color": "#4f46e5", "description": "Acompanhamento do FIT Challenge.",
+                "background_color": "#111827", "theme_color": "#4f46e5", "description": "Acompanhamento do FIT Challenge.",
                 "icons": [{ "src": "https://placehold.co/192x192/4f46e5/ffffff?text=FIT", "sizes": "192x192", "type": "image/png" }]
             };
             const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
@@ -480,7 +543,10 @@
 
                 switch(action) {
                     case 'open-add-modal': openParticipantModal(); break;
+                    // --- INÍCIO DA CORREÇÃO ---
+                    // Adicionando a ação que faltava para o botão de editar
                     case 'open-edit-modal': openParticipantModal(id); break;
+                    // --- FIM DA CORREÇÃO ---
                     case 'open-delete-modal': openDeleteModal(id, name); break;
                     case 'view-profile': e.preventDefault(); currentProfileParticipantId = id; showSection('participantProfile'); break;
                     case 'go-to-participants': e.preventDefault(); showSection('participants'); break;
@@ -580,21 +646,21 @@
                 const searchTerm = document.getElementById('searchParticipantInput').value.toLowerCase();
                 const filteredMetrics = allMetrics.filter(p => p.name.toLowerCase().includes(searchTerm));
 
-                dynamicContentContainer.innerHTML = '<div class="bg-white p-4 sm:p-6 rounded-lg shadow-md"></div>';
+                dynamicContentContainer.innerHTML = '<div class="card"></div>';
                 const contentWrapper = dynamicContentContainer.firstChild;
                 headerActionButtons.innerHTML = '';
                 document.getElementById('summary-grid').style.display = 'grid';
 
                 switch(sectionId) {
                     case 'ranking': renderRankingTable(sortData(filteredMetrics, rankingSortConfig), contentWrapper); break;
-                    case 'participants': renderParticipantsPage(filteredMetrics, contentWrapper); break;
+                    case 'participants': renderParticipantsPage(filteredMetrics, dynamicContentContainer); break; // Renders directly
                     case 'participantProfile':
                     case 'myProfile':
                         renderParticipantProfilePage(dynamicContentContainer);
                         document.getElementById('summary-grid').style.display = 'none';
                         break;
                     case 'weeklySummary': renderWeeklySummaryPage(allMetrics, contentWrapper); break;
-                    case 'activityLog': renderActivityLogPage(filteredMetrics, contentWrapper); break;
+                    case 'activityLog': renderActivityLogPage(filteredMetrics, dynamicContentContainer); break; // Renders directly
                     case 'coachVirtual': renderCoachVirtualPage(contentWrapper); break;
                     case 'individualEvolution': renderIndividualEvolutionPage(allMetrics, contentWrapper); break;
                     case 'groupEvolution': renderGroupEvolutionChart(allMetrics, contentWrapper); break;
@@ -631,12 +697,12 @@
                 </tr></thead><tbody>`;
                 
                 if (data.length === 0) {
-                    tableHTML += `<tr><td colspan="7" class="empty-state-message">Nenhum participante encontrado.</td></tr>`;
+                    tableHTML += `<tr><td colspan="7" class="text-center py-4 text-gray-500">Nenhum participante encontrado.</td></tr>`;
                 } else {
                     data.forEach(p => {
                         const pointRankIndex = pointRanked.findIndex(rankedP => rankedP.name === p.name);
                         const medal = ['🏆', '🥈', '🥉'][pointRankIndex] || '';
-                        const progress = p.progressToTarget !== null ? `<div class="progress-bar-container" title="${p.progressToTarget.toFixed(1)}%"><div class="progress-bar-fill" style="width: ${p.progressToTarget}%;"><span class="progress-bar-text">${p.progressToTarget.toFixed(0)}%</span></div></div>` : 'N/A';
+                        const progress = p.progressToTarget !== null ? `<div class="w-full bg-gray-600 rounded-full h-2.5"><div class="bg-indigo-500 h-2.5 rounded-full" style="width: ${p.progressToTarget}%" title="${p.progressToTarget.toFixed(1)}%"></div></div>` : 'N/A';
                         const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
                         
                         let nameHTML = p.name;
@@ -673,7 +739,7 @@
                 headerActionButtons.innerHTML = `<button data-action="open-add-modal" style="background-color: var(--success-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg shadow-md text-sm">Adicionar Participante</button>`;
 
                 if (data.length === 0) {
-                    container.innerHTML = `<div class="empty-state-message">Nenhum participante encontrado. Clique em "Adicionar Participante" para começar.</div>`;
+                    container.innerHTML = `<div class="card"><div class="text-center py-10 text-gray-500">Nenhum participante encontrado. Clique em "Adicionar Participante" para começar.</div></div>`;
                     return;
                 }
 
@@ -682,24 +748,26 @@
                     const avatarSrc = p.avatar_url || `https://placehold.co/80x80/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
                     const pesoPerdido = p.peso_inicial - p.peso_atual;
                     cardsHTML += `
-                        <div class="bg-white rounded-xl shadow-md overflow-hidden transform hover:scale-105 transition-transform duration-300 flex flex-col">
+                        <div class="card transform hover:bg-gray-700 transition-colors duration-300 flex flex-col">
                             <div class="p-5 flex-grow">
                                 <div class="flex items-center gap-4 mb-4">
-                                    <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-16 h-16 rounded-full object-cover border-2 border-gray-200" onerror="this.onerror=null;this.src='https://placehold.co/80x80/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
+                                    <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-16 h-16 rounded-full object-cover border-2 border-gray-700" onerror="this.onerror=null;this.src='https://placehold.co/80x80/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
                                     <div>
-                                        <h3 class="text-lg font-bold text-gray-800">${p.name}</h3>
-                                        <p class="text-sm text-gray-500">Total: ${p.totalPoints.toFixed(1)} pts</p>
+                                        <h3 class="text-lg font-bold text-white">${p.name}</h3>
+                                        <p class="text-sm text-gray-400">Total: ${p.totalPoints.toFixed(1)} pts</p>
                                     </div>
                                 </div>
                                 <div class="text-sm space-y-1">
                                     <p><strong>Peso Atual:</strong> ${p.peso_atual.toFixed(1)} kg</p>
-                                    <p><strong>Perda Total:</strong> <span class="${pesoPerdido >= 0 ? 'text-green-600' : 'text-red-500'} font-semibold">${pesoPerdido.toFixed(1)} kg</span></p>
+                                    <p><strong>Perda Total:</strong> <span class="${pesoPerdido >= 0 ? 'text-green-400' : 'text-red-400'} font-semibold">${pesoPerdido.toFixed(1)} kg</span></p>
                                 </div>
                             </div>
-                            <div class="bg-gray-50 p-3 grid grid-cols-3 gap-2">
-                                <button data-action="view-profile" data-id="${p.id}" class="action-btn btn-primary">Ver Perfil</button>
-                                <button data-action="open-edit-modal" data-id="${p.id}" class="action-btn btn-warning">Editar</button>
-                                <button data-action="open-delete-modal" data-id="${p.id}" data-name="${p.name}" class="action-btn btn-danger">Excluir</button>
+                            <div class="bg-gray-800 p-3 grid grid-cols-3 gap-2 rounded-b-lg">
+                                <!-- --- INÍCIO DA CORREÇÃO --- -->
+                                <button data-action="view-profile" data-id="${p.id}" class="action-btn">Ver Perfil</button>
+                                <button data-action="open-edit-modal" data-id="${p.id}" class="action-btn">Editar</button>
+                                <button data-action="open-delete-modal" data-id="${p.id}" data-name="${p.name}" class="action-btn">Excluir</button>
+                                <!-- --- FIM DA CORREÇÃO --- -->
                             </div>
                         </div>
                     `;
@@ -711,7 +779,7 @@
             function renderParticipantProfilePage(container) {
                 const pMetric = calculateMetrics(participants.find(p => p.id == currentProfileParticipantId));
                 if (!pMetric) {
-                    container.innerHTML = `<div class="bg-white p-4 sm:p-6 rounded-lg shadow-md"><div class="empty-state-message">Participante não encontrado.</div></div>`;
+                    container.innerHTML = `<div class="card"><div class="text-center py-10 text-gray-500">Participante não encontrado.</div></div>`;
                     return;
                 }
                 
@@ -739,23 +807,23 @@
 
                         <!-- Cabeçalho do Perfil -->
                         <div class="profile-card flex flex-col sm:flex-row items-center gap-6">
-                            <img src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=${pMetric.name.charAt(0)}';" class="rounded-full w-24 h-24 object-cover border-4 border-indigo-200">
+                            <img src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=${pMetric.name.charAt(0)}';" class="rounded-full w-24 h-24 object-cover border-4 border-indigo-500">
                             <div class="flex-grow text-center sm:text-left">
-                                <h3 class="text-3xl font-bold">${pMetric.name} <span class="text-2xl">${getBadges(pMetric)}</span></h3>
-                                <p class="text-gray-500">Altura: ${pMetric.altura ? pMetric.altura.toFixed(2) + 'm' : 'N/A'}</p>
+                                <h3 class="text-3xl font-bold text-white">${pMetric.name} <span class="text-2xl">${getBadges(pMetric)}</span></h3>
+                                <p class="text-gray-400">Altura: ${pMetric.altura ? pMetric.altura.toFixed(2) + 'm' : 'N/A'}</p>
                             </div>
                             <div class="grid grid-cols-3 gap-4 text-center w-full sm:w-auto mt-4 sm:mt-0">
                                 <div>
-                                    <p class="text-2xl font-bold text-indigo-600">${pMetric.totalPoints.toFixed(1)}</p>
-                                    <p class="text-xs text-gray-500 uppercase">Pontos</p>
+                                    <p class="text-2xl font-bold text-indigo-400">${pMetric.totalPoints.toFixed(1)}</p>
+                                    <p class="text-xs text-gray-400 uppercase">Pontos</p>
                                 </div>
                                 <div>
-                                    <p class="text-2xl font-bold ${pesoPerdido >= 0 ? 'text-green-600' : 'text-red-500'}">${pesoPerdido.toFixed(1)}</p>
-                                    <p class="text-xs text-gray-500 uppercase">Kg Perdidos</p>
+                                    <p class="text-2xl font-bold ${pesoPerdido >= 0 ? 'text-green-400' : 'text-red-400'}">${pesoPerdido.toFixed(1)}</p>
+                                    <p class="text-xs text-gray-400 uppercase">Kg Perdidos</p>
                                 </div>
                                 <div>
-                                    <p class="text-2xl font-bold text-indigo-600">${pMetric.progressToTarget ? pMetric.progressToTarget.toFixed(0) : '0'}%</p>
-                                    <p class="text-xs text-gray-500 uppercase">Meta</p>
+                                    <p class="text-2xl font-bold text-indigo-400">${pMetric.progressToTarget ? pMetric.progressToTarget.toFixed(0) : '0'}%</p>
+                                    <p class="text-xs text-gray-400 uppercase">Meta</p>
                                 </div>
                             </div>
                         </div>
@@ -766,25 +834,24 @@
                             <div class="space-y-6">
                                 ${canEditProfile ? `
                                 <div class="profile-card">
-                                    <h4 class="font-bold text-lg mb-4">Registrar Peso</h4>
+                                    <h4 class="font-bold text-lg mb-4 text-white">Registrar Peso</h4>
                                     <div class="space-y-4">
                                         <div>
-                                            <label class="text-sm font-medium text-gray-700">Novo Peso (kg)</label>
-                                            <input id="profile-weight-input" type="number" step="any" class="mt-1 shadow-sm border rounded-md w-full p-2" placeholder="${pMetric.peso_atual.toFixed(2)}">
+                                            <label class="text-sm font-medium text-gray-300">Novo Peso (kg)</label>
+                                            <input id="profile-weight-input" type="number" step="any" class="mt-1 w-full p-2" placeholder="${pMetric.peso_atual.toFixed(2)}">
                                         </div>
                                         <div>
-                                            <label class="text-sm font-medium text-gray-700">Data do Registro</label>
-                                            <input id="profile-weight-date" type="date" class="mt-1 shadow-sm border rounded-md w-full p-2" value="${todayStr}" max="${todayStr}">
+                                            <label class="text-sm font-medium text-gray-300">Data do Registro</label>
+                                            <input id="profile-weight-date" type="date" class="mt-1 w-full p-2" value="${todayStr}" max="${todayStr}" ${currentUser.role !== 'admin' ? 'readonly' : ''}>
                                         </div>
                                         <button data-action="update-weight" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="w-full hover:opacity-90 text-white font-bold py-2.5 px-4 rounded-md">Salvar Peso</button>
                                     </div>
                                 </div>
                                 <div class="profile-card">
-                                    <h4 class="font-bold text-lg mb-4">Registrar Atividade</h4>
+                                    <h4 class="font-bold text-lg mb-4 text-white">Registrar Atividade</h4>
                                     <div class="space-y-4">
-                                        <div><label class="text-sm font-medium">Semana</label><select id="profile-activity-week" class="mt-1 w-full border rounded-md p-2">${Array.from({length:MAX_WEEKS}, (_,i) => `<option value="${i}">Semana ${i+1}</option>`).join('')}</select></div>
-                                        <div><label class="text-sm font-medium">Tipo</label><select id="profile-activity-type" class="mt-1 w-full border rounded-md p-2">${ACTIVITY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select></div>
-                                        <div><label class="text-sm font-medium">Duração (min)</label><input type="number" id="profile-activity-duration" class="mt-1 w-full border rounded-md p-2"></div>
+                                        <div><label class="text-sm font-medium text-gray-300">Tipo</label><select id="profile-activity-type" class="mt-1 w-full p-2">${ACTIVITY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select></div>
+                                        <div><label class="text-sm font-medium text-gray-300">Duração (min)</label><input type="number" id="profile-activity-duration" class="mt-1 w-full p-2"></div>
                                         <button data-action="add-activity" data-id="${pMetric.id}" style="background-color: var(--success-color);" class="w-full hover:opacity-90 text-white font-bold py-2.5 px-4 rounded-md">Adicionar Atividade</button>
                                     </div>
                                 </div>
@@ -792,31 +859,31 @@
                             </div>
                             <!-- Coluna da Direita: Históricos e Dicas -->
                             <div class="space-y-6">
-                                <div class="profile-card"><h4 class="font-bold text-lg mb-3">Histórico de Pesagem</h4><div id="profile-weight-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
-                                <div class="profile-card"><h4 class="font-bold text-lg mb-3">Histórico de Atividades</h4><div id="profile-activity-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
+                                <div class="profile-card"><h4 class="font-bold text-lg mb-3 text-white">Histórico de Pesagem</h4><div id="profile-weight-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
+                                <div class="profile-card"><h4 class="font-bold text-lg mb-3 text-white">Histórico de Atividades</h4><div id="profile-activity-history-list" class="max-h-60 overflow-y-auto pr-2 space-y-2"></div></div>
                                 <div class="profile-card">
-                                    <h4 class="font-bold text-lg mb-3">Medidas Corporais (cm)</h4>
+                                    <h4 class="font-bold text-lg mb-3 text-white">Medidas Corporais (cm)</h4>
                                     ${canEditProfile ? `
                                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
-                                        <div><label class="text-xs font-medium">Cintura</label><input type="number" step="any" id="profile-cintura" class="shadow-sm border rounded-md w-full p-2" value="${lastM.cintura || ''}"></div>
-                                        <div><label class="text-xs font-medium">Quadril</label><input type="number" step="any" id="profile-quadril" class="shadow-sm border rounded-md w-full p-2" value="${lastM.quadril || ''}"></div>
-                                        <div><label class="text-xs font-medium">Abdômen</label><input type="number" step="any" id="profile-abdomen" class="shadow-sm border rounded-md w-full p-2" value="${lastM.abdomen || ''}"></div>
+                                        <div><label class="text-xs font-medium text-gray-300">Cintura</label><input type="number" step="any" id="profile-cintura" class="w-full p-2" value="${lastM.cintura || ''}"></div>
+                                        <div><label class="text-xs font-medium text-gray-300">Quadril</label><input type="number" step="any" id="profile-quadril" class="w-full p-2" value="${lastM.quadril || ''}"></div>
+                                        <div><label class="text-xs font-medium text-gray-300">Abdômen</label><input type="number" step="any" id="profile-abdomen" class="w-full p-2" value="${lastM.abdomen || ''}"></div>
                                         <button data-action="update-measurements" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="w-full hover:opacity-90 text-white font-bold py-2 px-4 rounded-md h-10">Salvar</button>
                                     </div>
                                     ` : `
                                     <div class="grid grid-cols-3 gap-4 text-center">
-                                        <div><p class="text-sm text-gray-500">Cintura</p><p class="font-bold text-lg">${lastM.cintura || 'N/A'}</p></div>
-                                        <div><p class="text-sm text-gray-500">Quadril</p><p class="font-bold text-lg">${lastM.quadril || 'N/A'}</p></div>
-                                        <div><p class="text-sm text-gray-500">Abdômen</p><p class="font-bold text-lg">${lastM.abdomen || 'N/A'}</p></div>
+                                        <div><p class="text-sm text-gray-400">Cintura</p><p class="font-bold text-lg text-white">${lastM.cintura || 'N/A'}</p></div>
+                                        <div><p class="text-sm text-gray-400">Quadril</p><p class="font-bold text-lg text-white">${lastM.quadril || 'N/A'}</p></div>
+                                        <div><p class="text-sm text-gray-400">Abdômen</p><p class="font-bold text-lg text-white">${lastM.abdomen || 'N/A'}</p></div>
                                     </div>
                                     `}
                                 </div>
                                 <div class="profile-card">
                                     <div class="flex justify-between items-center mb-3">
-                                        <h4 class="text-lg font-semibold text-gray-700">🤖 Dica do Coach</h4>
+                                        <h4 class="text-lg font-semibold text-white">🤖 Dica do Coach</h4>
                                         <button data-action="ai-coach" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-3 rounded-lg text-sm">Gerar Dica</button>
                                     </div>
-                                    <div id="ai-tip-container" class="p-4 bg-gray-50 rounded-lg text-gray-600 min-h-[80px]">Clique no botão para receber uma dica personalizada.</div>
+                                    <div id="ai-tip-container" class="p-4 bg-gray-800 rounded-lg text-gray-300 min-h-[80px]">Clique no botão para receber uma dica personalizada.</div>
                                 </div>
                             </div>
                         </div>
@@ -846,22 +913,22 @@
                     const previousEntry = history[index + 1];
                     if (previousEntry) {
                         const change = entry.weight - previousEntry.weight;
-                        const changeColor = change < 0 ? 'text-green-600' : (change > 0 ? 'text-red-500' : 'text-gray-500');
+                        const changeColor = change < 0 ? 'text-green-400' : (change > 0 ? 'text-red-400' : 'text-gray-400');
                         const sign = change > 0 ? '+' : '';
                         changeHTML = `<span class="font-semibold w-20 text-right ${changeColor}">${sign}${change.toFixed(2)}</span>`;
                     } else {
-                        changeHTML = `<span class="w-20 text-right text-gray-400 text-xs">INÍCIO</span>`;
+                        changeHTML = `<span class="w-20 text-right text-gray-500 text-xs">INÍCIO</span>`;
                     }
 
                     listContainer.innerHTML += `
-                        <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+                        <div class="flex justify-between items-center text-sm p-2 bg-gray-800 rounded-lg hover:bg-gray-700">
                             <div class="flex items-center gap-3">
-                                <span class="font-bold text-gray-800 w-20">${parseFloat(entry.weight).toFixed(2)} kg</span>
-                                <span class="text-gray-500">${formattedDate}</span>
+                                <span class="font-bold text-white w-20">${parseFloat(entry.weight).toFixed(2)} kg</span>
+                                <span class="text-gray-400">${formattedDate}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 ${changeHTML}
-                                ${canEditProfile && history.length > 1 ? `<button data-action="delete-weight-entry" data-id="${participant.id}" data-entry-date="${entry.date}" class="text-gray-400 hover:text-red-600 p-1" title="Excluir">
+                                ${canEditProfile && history.length > 1 ? `<button data-action="delete-weight-entry" data-id="${participant.id}" data-entry-date="${entry.date}" class="text-gray-500 hover:text-red-500 p-1" title="Excluir">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
                                 </button>` : `<div class="w-6"></div>`}
                             </div>
@@ -886,15 +953,16 @@
                 }
 
                 allActivities.forEach(act => {
+                    const formattedDate = new Date(act.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
                     listContainer.innerHTML += `
-                        <div class="flex justify-between items-center text-sm p-2 bg-gray-50 rounded-lg hover:bg-gray-100">
+                        <div class="flex justify-between items-center text-sm p-2 bg-gray-800 rounded-lg hover:bg-gray-700">
                             <div>
-                                <span class="font-bold text-gray-800">${act.type}</span> - 
-                                <span class="text-gray-600">${act.duration} min</span>
-                                <span class="text-gray-500 text-xs italic">(Sem. ${act.weekIndex + 1})</span>
+                                <span class="font-bold text-white">${act.type}</span> - 
+                                <span class="text-gray-300">${act.duration} min</span>
+                                <span class="text-gray-400 text-xs italic">(Sem. ${act.weekIndex + 1} - ${formattedDate})</span>
                             </div>
                             ${canEditProfile ? `
-                            <button data-action="delete-activity" data-id="${participant.id}" data-week="${act.weekIndex}" data-activity-id="${act.id}" class="text-gray-400 hover:text-red-600 p-1" title="Apagar Atividade">
+                            <button data-action="delete-activity" data-id="${participant.id}" data-week="${act.weekIndex}" data-activity-id="${act.id}" class="text-gray-500 hover:text-red-500 p-1" title="Apagar Atividade">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
                             </button>` : ''}
                         </div>
@@ -907,10 +975,10 @@
                 const currentWeekIndex = Math.floor((today - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
                 
                 let legendHTML = `
-                    <div class="flex justify-center items-center gap-4 mb-6 text-xs text-gray-600">
-                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded activity-none"></div><span>Nenhuma atividade</span></div>
-                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded activity-partial"></div><span>1-2 atividades</span></div>
-                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded activity-complete"></div><span>Semana validada (3+)</span></div>
+                    <div class="flex justify-center items-center gap-4 mb-6 text-xs text-gray-400">
+                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background-color: #374151;"></div><span>Nenhuma atividade</span></div>
+                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background-color: var(--warning-color);"></div><span>1-2 atividades</span></div>
+                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background-color: var(--success-color);"></div><span>Semana validada (3+)</span></div>
                     </div>
                 `;
 
@@ -942,14 +1010,14 @@
                             <div class="profile-card">
                                 <div class="flex items-center gap-4">
                                     <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-12 h-12 rounded-full object-cover" onerror="this.onerror=null;this.src='https://placehold.co/48x48/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
-                                    <h3 class="text-lg font-bold text-gray-800">${p.name}</h3>
+                                    <h3 class="text-lg font-bold text-white">${p.name}</h3>
                                 </div>
                                 ${gridHTML}
                             </div>
                         `;
                     });
                 } else {
-                    cardsHTML += `<div class="empty-state-message">Nenhum participante para exibir.</div>`;
+                    cardsHTML += `<div class="text-center py-10 text-gray-500">Nenhum participante para exibir.</div>`;
                 }
                 cardsHTML += '</div>';
 
@@ -1001,14 +1069,14 @@
 
                 container.innerHTML = `
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div class="summary-box"><div class="text-sm font-medium text-gray-500">Maior Perda de Peso (Semana)</div><div class="text-2xl font-bold" style="color: var(--success-color);">${weightLossLeader.change < 0 ? weightLossLeader.name : 'N/A'}</div><div class="text-sm text-gray-600">${weightLossLeader.change < 0 ? (-weightLossLeader.change).toFixed(2) + ' kg' : 'Nenhuma'}</div></div>
-                        <div class="summary-box"><div class="text-sm font-medium text-gray-500">Mais Atividades (Semana)</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${activityLeader.count > 0 ? activityLeader.name : 'N/A'}</div><div class="text-sm text-gray-600">${activityLeader.count > 0 ? activityLeader.count + ' atividades' : 'Nenhuma'}</div></div>
-                        <div class="summary-box"><div class="text-sm font-medium text-gray-500">Total Perdido (Semana)</div><div class="text-3xl font-bold" style="color: var(--primary-color);">${totalLoss.toFixed(2)}</div><div class="text-sm text-gray-600">kg pelo grupo</div></div>
+                        <div class="card"><div class="text-sm font-medium text-gray-400">Maior Perda de Peso (Semana)</div><div class="text-2xl font-bold" style="color: var(--success-color);">${weightLossLeader.change < 0 ? weightLossLeader.name : 'N/A'}</div><div class="text-sm text-gray-300">${weightLossLeader.change < 0 ? (-weightLossLeader.change).toFixed(2) + ' kg' : 'Nenhuma'}</div></div>
+                        <div class="card"><div class="text-sm font-medium text-gray-400">Mais Atividades (Semana)</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${activityLeader.count > 0 ? activityLeader.name : 'N/A'}</div><div class="text-sm text-gray-300">${activityLeader.count > 0 ? activityLeader.count + ' atividades' : 'Nenhuma'}</div></div>
+                        <div class="card"><div class="text-sm font-medium text-gray-400">Total Perdido (Semana)</div><div class="text-3xl font-bold" style="color: var(--primary-color);">${totalLoss.toFixed(2)}</div><div class="text-sm text-gray-300">kg pelo grupo</div></div>
                     </div>
                     
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2">
-                             <h3 class="text-lg font-semibold mb-2">Progresso da Semana</h3>
+                        <div class="lg:col-span-2 card">
+                             <h3 class="text-lg font-semibold mb-2 text-white">Progresso da Semana</h3>
                              <div class="overflow-x-auto">
                                 <table class="w-full">
                                     <thead><tr><th>Nome</th><th>Variação de Peso</th><th>Atividades</th></tr></thead>
@@ -1023,7 +1091,7 @@
                                                         <span>${p.name}</span>
                                                     </div>
                                                 </td>
-                                                <td><span class="font-semibold ${p.weightChange < 0 ? 'text-green-600' : (p.weightChange > 0 ? 'text-red-500' : '')}">${p.weightChange > 0 ? '+' : ''}${p.weightChange.toFixed(2)} kg</span></td>
+                                                <td><span class="font-semibold ${p.weightChange < 0 ? 'text-green-400' : (p.weightChange > 0 ? 'text-red-400' : '')}">${p.weightChange > 0 ? '+' : ''}${p.weightChange.toFixed(2)} kg</span></td>
                                                 <td class="text-center">${p.activitiesThisWeek}</td>
                                             </tr>
                                         `}).join('')}
@@ -1031,13 +1099,13 @@
                                 </table>
                              </div>
                         </div>
-                        <div>
-                            <h3 class="text-lg font-semibold mb-2">Peso Desatualizado</h3>
+                        <div class="card">
+                            <h3 class="text-lg font-semibold mb-2 text-white">Peso Desatualizado</h3>
                             ${notUpdated.length > 0 ? `
                             <ul class="space-y-2">
-                                ${notUpdated.map(p => `<li class="p-3 bg-red-50 border-l-4 border-red-400 rounded-r-lg">${p.name}</li>`).join('')}
+                                ${notUpdated.map(p => `<li class="p-3 bg-red-900/50 border-l-4 border-red-500 rounded-r-lg">${p.name}</li>`).join('')}
                             </ul>
-                            ` : `<div class="p-4 text-center bg-green-50 border-l-4 border-green-400 rounded-r-lg">Todos os pesos estão atualizados! 🎉</div>`}
+                            ` : `<div class="p-4 text-center bg-green-900/50 border-l-4 border-green-500 rounded-r-lg">Todos os pesos estão atualizados! 🎉</div>`}
                         </div>
                     </div>
                 `;
@@ -1046,19 +1114,19 @@
             function renderCoachVirtualPage(container) {
                 if (currentUser.role === 'admin') {
                     if (participants.length === 0) {
-                        container.innerHTML = `<div class="empty-state-message">Adicione participantes primeiro para usar o Coach Virtual.</div>`;
+                        container.innerHTML = `<div class="text-center py-10 text-gray-500">Adicione participantes primeiro para usar o Coach Virtual.</div>`;
                         return;
                     }
                     const options = participants.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
                     container.innerHTML = `
                         <div class="max-w-2xl mx-auto text-center">
-                            <h3 class="text-2xl font-bold mb-2">Coach Virtual</h3>
-                            <p class="text-gray-600 mb-6">Selecione um participante para receber uma dica personalizada baseada em seu progresso.</p>
+                            <h3 class="text-2xl font-bold mb-2 text-white">Coach Virtual</h3>
+                            <p class="text-gray-400 mb-6">Selecione um participante para receber uma dica personalizada baseada em seu progresso.</p>
                             <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-                                <select id="coach-participant-selector" class="border rounded-lg w-full sm:w-auto py-2 px-3">${options}</select>
+                                <select id="coach-participant-selector" class="w-full sm:w-auto py-2 px-3">${options}</select>
                                 <button id="generate-coach-tip-admin" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg w-full sm:w-auto">Gerar Dica</button>
                             </div>
-                            <div id="ai-tip-container" class="p-6 bg-gray-50 rounded-lg text-gray-600 min-h-[120px] text-left">
+                            <div id="ai-tip-container" class="p-6 bg-gray-800 rounded-lg text-gray-300 min-h-[120px] text-left">
                                 Selecione um participante e clique no botão para começar.
                             </div>
                         </div>`;
@@ -1071,12 +1139,12 @@
                 } else {
                     container.innerHTML = `
                         <div class="max-w-2xl mx-auto text-center">
-                            <h3 class="text-2xl font-bold mb-2">Seu Coach Virtual</h3>
-                            <p class="text-gray-600 mb-6">Clique no botão abaixo para receber uma dica personalizada baseada no seu progresso.</p>
+                            <h3 class="text-2xl font-bold mb-2 text-white">Seu Coach Virtual</h3>
+                            <p class="text-gray-400 mb-6">Clique no botão abaixo para receber uma dica personalizada baseada no seu progresso.</p>
                             <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
                                 <button data-action="ai-coach" data-id="${currentUser.participantId}" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg w-full sm:w-auto">Gerar Minha Dica do Coach</button>
                             </div>
-                            <div id="ai-tip-container" class="p-6 bg-gray-50 rounded-lg text-gray-600 min-h-[120px] text-left">
+                            <div id="ai-tip-container" class="p-6 bg-gray-800 rounded-lg text-gray-300 min-h-[120px] text-left">
                                 Pronto para uma dica?
                             </div>
                         </div>`;
@@ -1086,11 +1154,11 @@
             function renderIndividualEvolutionPage(data, container) {
                 container.innerHTML = `
                     <div id="all-charts-wrapper">
-                        <div id="mainWeightChartWrapper" class="mb-8 bg-white p-4 rounded-lg shadow"></div>
-                        <div id="trendChartWrapper" class="mb-8 bg-white p-4 rounded-lg shadow"></div>
+                        <div id="mainWeightChartWrapper" class="mb-8 card"></div>
+                        <div id="trendChartWrapper" class="mb-8 card"></div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-                            <div id="percentageLossChartContainer" class="bg-white p-4 rounded-lg shadow"></div>
-                            <div id="totalActivityChartContainer" class="bg-white p-4 rounded-lg shadow"></div>
+                            <div id="percentageLossChartContainer" class="card"></div>
+                            <div id="totalActivityChartContainer" class="card"></div>
                         </div>
                     </div>`;
                 
@@ -1102,9 +1170,9 @@
 
             function renderMainWeightChart(data) {
                 const chartContainer = document.getElementById('mainWeightChartWrapper');
-                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Evolução do Peso</h3>`;
+                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Evolução do Peso</h3>`;
                 const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 0);
-                if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="empty-state-message">Não há histórico de peso para exibir.</div>`;
+                if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="text-center py-10 text-gray-500">Não há histórico de peso para exibir.</div>`;
 
                 const margin = {top: 20, right: 120, bottom: 30, left: 40}, width = (chartContainer.clientWidth || 800) - margin.left - margin.right, height = 350 - margin.top - margin.bottom;
                 const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
@@ -1116,9 +1184,9 @@
                 const yScale = d3.scaleLinear().domain([d3.min(allChartWeights) - 2, d3.max(allChartWeights) + 2]).range([height, 0]);
                 const colors = d3.scaleOrdinal(d3.schemeTableau10);
                 
-                svg.append("g").attr("class", "grid").call(d3.axisLeft(yScale).tickSize(-width).tickFormat("")).selectAll("line").attr("stroke", "#e5e7eb");
-                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
-                svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`));
+                svg.append("g").attr("class", "grid").call(d3.axisLeft(yScale).tickSize(-width).tickFormat("")).selectAll("line").attr("stroke", "#374151");
+                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m"))).selectAll("text").style("fill", "var(--text-muted)");
+                svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`)).selectAll("text").style("fill", "var(--text-muted)");
 
                 participantsWithHistory.forEach(p => {
                     const line = d3.line().curve(d3.curveMonotoneX).x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
@@ -1129,9 +1197,9 @@
 
             function renderTrendChart(data) {
                 const chartContainer = document.getElementById('trendChartWrapper');
-                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Projeção de Tendência</h3>`;
+                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Projeção de Tendência</h3>`;
                 const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 1);
-                if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="empty-state-message">Dados insuficientes para projeção.</div>`;
+                if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="text-center py-10 text-gray-500">Dados insuficientes para projeção.</div>`;
                 
                 const margin = {top: 20, right: 120, bottom: 30, left: 40}, width = (chartContainer.clientWidth || 800) - margin.left - margin.right, height = 350 - margin.top - margin.bottom;
                 const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
@@ -1147,9 +1215,9 @@
                 const yScale = d3.scaleLinear().domain([d3.min(allChartWeights) - 2, d3.max(allChartWeights) + 2]).range([height, 0]);
                 const colors = d3.scaleOrdinal(d3.schemeTableau10);
 
-                svg.append("g").attr("class", "grid").call(d3.axisLeft(yScale).tickSize(-width).tickFormat("")).selectAll("line").attr("stroke", "#e5e7eb");
-                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
-                svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`));
+                svg.append("g").attr("class", "grid").call(d3.axisLeft(yScale).tickSize(-width).tickFormat("")).selectAll("line").attr("stroke", "#374151");
+                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m"))).selectAll("text").style("fill", "var(--text-muted)");
+                svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`)).selectAll("text").style("fill", "var(--text-muted)");
 
                 participantsWithHistory.forEach(p => {
                     const trend = calculateTrendLine(p.weight_history);
@@ -1160,44 +1228,44 @@
                 });
             }
 
-            function renderPercentageLossChart(data) {
-                const chartContainer = document.getElementById('percentageLossChartContainer');
-                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Ranking de % de Perda</h3>`;
+            function renderPercentageLossChart(data, container) {
+                container.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Ranking de % de Perda</h3>`;
                 const chartData = data.map(p => ({ name: p.name, percentLoss: p.percentLoss })).sort((a, b) => b.percentLoss - a.percentLoss);
-                const margin = {top: 20, right: 50, bottom: 30, left: 120}, height = chartData.length * 40, width = (chartContainer.clientWidth || 400) - margin.left - margin.right;
-                const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", height + margin.top + margin.bottom).attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+                const margin = {top: 20, right: 50, bottom: 30, left: 120}, height = chartData.length * 40, width = (container.clientWidth || 400) - margin.left - margin.right;
+                const svg = d3.select(container).append("svg").attr("width", "100%").attr("height", height + margin.top + margin.bottom).attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
                 const xScale = d3.scaleLinear().domain([0, d3.max(chartData, d => d.percentLoss) * 1.1 || 10]).range([0, width]);
                 const yScale = d3.scaleBand().domain(chartData.map(d => d.name)).range([0, height]).padding(0.2);
 
                 svg.append("g").call(d3.axisLeft(yScale).tickSize(0)).select(".domain").remove();
-                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(5).tickFormat(d => `${d.toFixed(1)}%`));
+                svg.selectAll(".tick text").style("fill", "var(--text-muted)");
+                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(5).tickFormat(d => `${d.toFixed(1)}%`)).selectAll("text").style("fill", "var(--text-muted)");
                 const colors = d3.scaleOrdinal(d3.schemeTableau10).domain(chartData.map(d => d.name));
 
                 svg.selectAll(".bar").data(chartData).enter().append("rect").attr("class", "bar").attr("y", d => yScale(d.name)).attr("x", 0).attr("height", yScale.bandwidth()).attr("width", 0).attr("fill", d => colors(d.name)).transition().duration(800).attr("width", d => xScale(d.percentLoss));
-                svg.selectAll(".bar-label").data(chartData).enter().append("text").attr("class", "bar-label").attr("y", d => yScale(d.name) + yScale.bandwidth() / 2).attr("x", d => xScale(d.percentLoss) + 5).attr("dy", ".35em").style("fill", "#333").style("font-weight", "bold").text(d => `${d.percentLoss.toFixed(2)}%`);
+                svg.selectAll(".bar-label").data(chartData).enter().append("text").attr("class", "bar-label").attr("y", d => yScale(d.name) + yScale.bandwidth() / 2).attr("x", d => xScale(d.percentLoss) + 5).attr("dy", ".35em").style("fill", "#fff").style("font-weight", "bold").text(d => `${d.percentLoss.toFixed(2)}%`);
             }
 
-            function renderTotalActivityChart(data) {
-                const chartContainer = document.getElementById('totalActivityChartContainer');
-                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2">Ranking de Atividades Totais</h3>`;
+            function renderTotalActivityChart(data, container) {
+                container.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Ranking de Atividades Totais</h3>`;
                 const chartData = data.map(p => ({ name: p.name, totalActivities: p.totalActivities })).sort((a, b) => b.totalActivities - a.totalActivities);
-                const margin = {top: 20, right: 50, bottom: 30, left: 120}, height = chartData.length * 40, width = (chartContainer.clientWidth || 400) - margin.left - margin.right;
-                const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", height + margin.top + margin.bottom).attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+                const margin = {top: 20, right: 50, bottom: 30, left: 120}, height = chartData.length * 40, width = (container.clientWidth || 400) - margin.left - margin.right;
+                const svg = d3.select(container).append("svg").attr("width", "100%").attr("height", height + margin.top + margin.bottom).attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
                 const xScale = d3.scaleLinear().domain([0, d3.max(chartData, d => d.totalActivities) * 1.1 || 10]).range([0, width]);
                 const yScale = d3.scaleBand().domain(chartData.map(d => d.name)).range([0, height]).padding(0.2);
 
                 svg.append("g").call(d3.axisLeft(yScale).tickSize(0)).select(".domain").remove();
-                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(5));
+                svg.selectAll(".tick text").style("fill", "var(--text-muted)");
+                svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).ticks(5)).selectAll("text").style("fill", "var(--text-muted)");
                 const colors = d3.scaleOrdinal(d3.schemeTableau10).domain(chartData.map(d => d.name));
 
                 svg.selectAll(".bar").data(chartData).enter().append("rect").attr("class", "bar").attr("y", d => yScale(d.name)).attr("x", 0).attr("height", yScale.bandwidth()).attr("width", 0).attr("fill", d => colors(d.name)).transition().duration(800).attr("width", d => xScale(d.totalActivities));
-                svg.selectAll(".bar-label").data(chartData).enter().append("text").attr("class", "bar-label").attr("y", d => yScale(d.name) + yScale.bandwidth() / 2).attr("x", d => xScale(d.totalActivities) + 5).attr("dy", ".35em").style("fill", "#333").style("font-weight", "bold").text(d => d.totalActivities);
+                svg.selectAll(".bar-label").data(chartData).enter().append("text").attr("class", "bar-label").attr("y", d => yScale(d.name) + yScale.bandwidth() / 2).attr("x", d => xScale(d.totalActivities) + 5).attr("dy", ".35em").style("fill", "#fff").style("font-weight", "bold").text(d => d.totalActivities);
             }
 
             function renderGroupEvolutionChart(data, container) {
                 container.innerHTML = `
                     <div id="group-evolution-wrapper">
-                        <h3 class="text-xl font-semibold text-center mb-2">Evolução da Perda de Peso do Grupo</h3>
+                        <h3 class="text-xl font-semibold text-center mb-2 text-white">Evolução da Perda de Peso do Grupo</h3>
                         <div id="groupEvolutionChartContainer" class="w-full h-96 mb-8"></div>
                         <div id="groupPieChartContainer" class="w-full mt-8"></div>
                     </div>`;
@@ -1220,14 +1288,14 @@
                     }
 
                     if (weeklyLossData.every(d => d.totalLoss === 0)) {
-                        chartContainer.innerHTML = `<div class="empty-state-message">Nenhuma perda de peso registrada para o grupo.</div>`;
+                        chartContainer.innerHTML = `<div class="text-center py-10 text-gray-500">Nenhuma perda de peso registrada para o grupo.</div>`;
                     } else {
                         const margin = {top: 20, right: 30, bottom: 40, left: 70}, width = chartContainer.clientWidth - margin.left - margin.right, height = chartContainer.clientHeight - margin.top - margin.bottom;
                         const svg = d3.select(chartContainer).append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", `0 0 ${chartContainer.clientWidth} ${chartContainer.clientHeight}`).append("g").attr("transform", `translate(${margin.left},${margin.top})`);
                         const xScale = d3.scaleBand().domain(weeklyLossData.map(d => d.week)).range([0, width]).padding(0.2);
                         const yScale = d3.scaleLinear().domain([0, d3.max(weeklyLossData, d => d.totalLoss) * 1.1 || 1]).range([height, 0]);
-                        svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale)).append("text").attr("y", 35).attr("x", width / 2).attr("text-anchor", "middle").attr("fill", "var(--text-dark)").text("Semana");
-                        svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d.toFixed(1)}kg`)).append("text").attr("transform", "rotate(-90)").attr("y", -margin.left + 20).attr("x", -height / 2).attr("text-anchor", "middle").attr("fill", "var(--text-dark)").text("Perda Total (kg)");
+                        svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale)).append("text").attr("y", 35).attr("x", width / 2).attr("text-anchor", "middle").attr("fill", "var(--text-muted)").text("Semana");
+                        svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d.toFixed(1)}kg`)).append("text").attr("transform", "rotate(-90)").attr("y", -margin.left + 20).attr("x", -height / 2).attr("text-anchor", "middle").attr("fill", "var(--text-muted)").text("Perda Total (kg)");
                         svg.selectAll(".bar").data(weeklyLossData).enter().append("rect").attr("class", "bar").attr("x", d => xScale(d.week)).attr("y", d => yScale(Math.max(0, d.totalLoss))).attr("width", xScale.bandwidth()).attr("height", d => Math.abs(yScale(0) - yScale(d.totalLoss))).attr("fill", "var(--primary-color)");
                     }
                     
@@ -1235,9 +1303,9 @@
                     const totalLoss = d3.sum(pieData, d => d.value);
 
                     if (pieData.length > 0) {
-                        pieContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-4">Contribuição Individual para Perda Total</h3><div id="pie-chart-wrapper" class="grid grid-cols-1 md:grid-cols-3 items-center justify-center gap-8"></div>`;
+                        pieContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-4 text-white">Contribuição Individual para Perda Total</h3><div id="pie-chart-wrapper" class="grid grid-cols-1 md:grid-cols-3 items-center justify-center gap-8"></div>`;
                         const wrapper = d3.select("#pie-chart-wrapper");
-                        wrapper.append("div").attr("class", "flex flex-col items-center justify-center text-center bg-gradient-to-br from-indigo-50 to-indigo-100 p-6 rounded-2xl shadow-lg h-full").html(`<h4 class="text-lg font-bold text-indigo-800 mb-2">PERDA TOTAL DO GRUPO</h4><p class="text-6xl font-extrabold text-indigo-600">${totalLoss.toFixed(2)}</p><p class="text-2xl font-semibold text-indigo-800">kg</p>`);
+                        wrapper.append("div").attr("class", "flex flex-col items-center justify-center text-center bg-gradient-to-br from-indigo-900 to-gray-800 p-6 rounded-2xl shadow-lg h-full").html(`<h4 class="text-lg font-bold text-indigo-300 mb-2">PERDA TOTAL DO GRUPO</h4><p class="text-6xl font-extrabold text-indigo-400">${totalLoss.toFixed(2)}</p><p class="text-2xl font-semibold text-indigo-300">kg</p>`);
                         const svgContainer = wrapper.append("div").attr("class", "flex items-center justify-center");
                         const legendContainer = wrapper.append("div").attr("class", "flex flex-col justify-center");
                         const pieWidth = 300, pieHeight = 300, radius = Math.min(pieWidth, pieHeight) / 2 - 10;
@@ -1245,7 +1313,7 @@
                         const colors = d3.scaleOrdinal(d3.schemeTableau10);
                         const pie = d3.pie().value(d => d.value);
                         const arc = d3.arc().innerRadius(radius * 0.5).outerRadius(radius);
-                        pieSvg.selectAll('slices').data(pie(pieData)).enter().append('path').attr('d', arc).attr('fill', d => colors(d.data.name)).attr("stroke", "white").style("stroke-width", "2px");
+                        pieSvg.selectAll('slices').data(pie(pieData)).enter().append('path').attr('d', arc).attr('fill', d => colors(d.data.name)).attr("stroke", "#1f2937").style("stroke-width", "2px");
                         const legend = legendContainer.selectAll(".legend-item").data(pieData).enter().append("div").attr("class", "legend-item flex items-center mb-2 text-sm");
                         legend.append("div").style("width", "18px").style("height", "18px").style("background-color", d => colors(d.name)).attr("class", "mr-2 rounded-sm flex-shrink-0");
                         legend.append("span").text(d => `${d.name}: ${d.value.toFixed(2)}kg (${(d.value / totalLoss * 100).toFixed(1)}%)`);
@@ -1254,11 +1322,11 @@
             }
             
             function renderComparisonChart(data, container) {
-                let checkboxesHTML = data.map(p => `<label class="inline-flex items-center mr-4 mb-2"><input type="checkbox" class="comparison-checkbox form-checkbox h-5 w-5 text-indigo-600" value="${p.name}"><span class="ml-2">${p.name}</span></label>`).join('');
-                let metricsHTML = `<div id="comparison-metrics" class="flex flex-wrap gap-4 mb-4 pb-4 border-b">
-                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="weight" class="form-radio text-indigo-600" checked><span class="ml-2">Peso (kg)</span></label>
-                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="percentLoss" class="form-radio text-indigo-600"><span class="ml-2">% Perda de Peso</span></label>
-                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="activities" class="form-radio text-indigo-600"><span class="ml-2">Total de Atividades</span></label>
+                let checkboxesHTML = data.map(p => `<label class="inline-flex items-center mr-4 mb-2"><input type="checkbox" class="comparison-checkbox form-checkbox h-5 w-5 text-indigo-500 bg-gray-700 border-gray-600" value="${p.name}"><span class="ml-2">${p.name}</span></label>`).join('');
+                let metricsHTML = `<div id="comparison-metrics" class="flex flex-wrap gap-4 mb-4 pb-4 border-b border-gray-700">
+                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="weight" class="form-radio text-indigo-500 bg-gray-700 border-gray-600" checked><span class="ml-2">Peso (kg)</span></label>
+                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="percentLoss" class="form-radio text-indigo-500 bg-gray-700 border-gray-600"><span class="ml-2">% Perda de Peso</span></label>
+                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="activities" class="form-radio text-indigo-500 bg-gray-700 border-gray-600"><span class="ml-2">Total de Atividades</span></label>
                     </div>`;
                 container.innerHTML = `<div id="comparison-content">${metricsHTML}<div id="comparison-checkboxes" class="p-4 rounded-lg mb-4">${checkboxesHTML}</div><div id="comparisonChartContainer" class="w-full h-96"></div></div>`;
                 updateComparisonChart();
@@ -1272,7 +1340,7 @@
                 chartContainer.innerHTML = '';
 
                 if (selectedParticipants.length === 0) {
-                    return chartContainer.innerHTML = `<div class="empty-state-message">Selecione um ou mais participantes para comparar.</div>`;
+                    return chartContainer.innerHTML = `<div class="text-center py-10 text-gray-500">Selecione um ou mais participantes para comparar.</div>`;
                 }
 
                 const colors = d3.scaleOrdinal(d3.schemeTableau10);
@@ -1281,7 +1349,7 @@
 
                 if (selectedMetric === 'weight' || selectedMetric === 'percentLoss') {
                     const participantsWithHistory = selectedParticipants.filter(p => p.weight_history && p.weight_history.length > 0);
-                    if (participantsWithHistory.length === 0) return chartContainer.innerHTML = `<div class="empty-state-message">Nenhum histórico de peso para os selecionados.</div>`;
+                    if (participantsWithHistory.length === 0) return chartContainer.innerHTML = `<div class="text-center py-10 text-gray-500">Nenhum histórico de peso para os selecionados.</div>`;
 
                     let allChartDates = [], allChartValues = [];
                     const chartData = participantsWithHistory.map(p => {
@@ -1297,13 +1365,13 @@
                     const yScale = d3.scaleLinear().domain([d3.min(allChartValues) - 1, d3.max(allChartValues) + 1]).range([height, 0]);
                     const line = d3.line().x(d => xScale(new Date(d.date))).y(d => yScale(d.value));
 
-                    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m")));
-                    svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => selectedMetric === 'weight' ? `${d}kg` : `${d.toFixed(1)}%`));
+                    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m"))).selectAll("text").style("fill", "var(--text-muted)");
+                    svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => selectedMetric === 'weight' ? `${d}kg` : `${d.toFixed(1)}%`)).selectAll("text").style("fill", "var(--text-muted)");
 
                     chartData.forEach(p => { svg.append("path").datum(p.history).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2).attr("d", line); });
                     const legend = svg.selectAll(".legend").data(chartData).enter().append("g").attr("class", "legend").attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
                     legend.append("rect").attr("width", 18).attr("height", 18).style("fill", d => colors(d.name));
-                    legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name);
+                    legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name).style("fill", "var(--text-light)");
 
                 } else if (selectedMetric === 'activities') {
                     const weeks = Array.from({length: MAX_WEEKS}, (_, i) => i + 1);
@@ -1313,8 +1381,8 @@
                     const xSubgroup = d3.scaleBand().domain(selectedNames).range([0, xScale.bandwidth()]).padding([0.05]);
                     const yScale = d3.scaleLinear().domain([0, maxActivities > 0 ? maxActivities : 5]).range([height, 0]);
 
-                    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale)).append("text").attr("x", width / 2).attr("y", margin.bottom - 5).attr("fill", "currentColor").text("Semana");
-                    svg.append("g").call(d3.axisLeft(yScale));
+                    svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale)).append("text").attr("x", width / 2).attr("y", margin.bottom - 5).attr("fill", "var(--text-muted)").text("Semana");
+                    svg.append("g").call(d3.axisLeft(yScale)).selectAll("text").style("fill", "var(--text-muted)");
 
                     svg.append("g").selectAll("g").data(selectedParticipants).enter().append("g")
                         .attr("transform", d => `translate(${xSubgroup(d.name)},0)`)
@@ -1326,7 +1394,7 @@
                     
                     const legend = svg.selectAll(".legend").data(selectedParticipants).enter().append("g").attr("class", "legend").attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
                     legend.append("rect").attr("width", 18).attr("height", 18).style("fill", d => colors(d.name));
-                    legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name);
+                    legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name).style("fill", "var(--text-light)");
                 }
             }
             
@@ -1337,18 +1405,18 @@
                 
                 container.innerHTML = `<div class="space-y-8">
                         <div>
-                            <h3 class="text-lg font-semibold mb-2">Gerenciamento de Participantes</h3>
-                            <div class="bg-gray-50 p-6 rounded-xl border">
-                                <p class="mb-4">Adicione, edite ou remova participantes e suas credenciais de login.</p>
+                            <h3 class="text-lg font-semibold mb-2 text-white">Gerenciamento de Participantes</h3>
+                            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+                                <p class="mb-4 text-gray-300">Adicione, edite ou remova participantes e suas credenciais de login.</p>
                                 <button data-action="go-to-participants" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Gerenciar Participantes</button>
                             </div>
                         </div>
                         <div>
-                             <h3 class="text-lg font-semibold mb-2">Configurações do Desafio</h3>
-                             <form id="challengeConfigForm" class="bg-gray-50 p-6 rounded-xl border">
+                             <h3 class="text-lg font-semibold mb-2 text-white">Configurações do Desafio</h3>
+                             <form id="challengeConfigForm" class="bg-gray-800 p-6 rounded-xl border border-gray-700">
                                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                     <div><label for="startDate" class="block font-bold">Data de Início:</label><input type="date" id="startDate" class="border rounded w-full py-2 px-3" value="${startDate}" required></div>
-                                     <div><label for="endDate" class="block font-bold">Data de Fim:</label><input type="date" id="endDate" class="border rounded w-full py-2 px-3" value="${endDate}" required></div>
+                                     <div><label for="startDate" class="block font-bold text-gray-300">Data de Início:</label><input type="date" id="startDate" class="w-full" value="${startDate}" required></div>
+                                     <div><label for="endDate" class="block font-bold text-gray-300">Data de Fim:</label><input type="date" id="endDate" class="w-full" value="${endDate}" required></div>
                                  </div>
                                  <button type="submit" style="background-color: var(--success-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded w-full">Salvar Datas</button>
                              </form>
@@ -1367,64 +1435,64 @@
                 container.innerHTML = `
                     <div class="max-w-4xl mx-auto space-y-8">
                         <div class="text-center">
-                            <h2 class="text-3xl font-extrabold text-gray-900">Regras do Desafio FIT PRO</h2>
-                            <p class="mt-2 text-lg text-gray-600">Entenda como funciona a pontuação e conquiste a vitória!</p>
+                            <h2 class="text-3xl font-extrabold text-white">Regras do Desafio FIT PRO</h2>
+                            <p class="mt-2 text-lg text-gray-400">Entenda como funciona a pontuação e conquiste a vitória!</p>
                         </div>
 
                         <!-- Seção de Pontuação -->
                         <div class="profile-card">
-                            <h3 class="text-xl font-bold text-indigo-600 mb-4 flex items-center">
+                            <h3 class="text-xl font-bold text-indigo-400 mb-4 flex items-center">
                                 <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
                                 Sistema de Pontuação (Máximo 100 Pontos)
                             </h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div class="bg-indigo-50 p-6 rounded-lg">
-                                    <h4 class="font-bold text-lg">Pontos por Perda de Peso (até 50 pts)</h4>
-                                    <p class="text-sm text-gray-600 mt-1">Os pontos são baseados no **percentual de peso perdido** em relação ao seu peso inicial. Quanto maior o percentual, mais pontos você ganha!</p>
-                                    <ul class="mt-4 space-y-2 text-sm">
-                                        <li class="flex items-start"><span class="font-bold text-indigo-500 mr-2">►</span> 2% de perda = 10 pts</li>
-                                        <li class="flex items-start"><span class="font-bold text-indigo-500 mr-2">►</span> 4% de perda = 15 pts</li>
-                                        <li class="flex items-start"><span class="font-bold text-indigo-500 mr-2">►</span> 6% de perda = 20 pts</li>
-                                        <li class="flex items-start"><span class="font-bold text-indigo-500 mr-2">►</span> 8% de perda = 30 pts</li>
-                                        <li class="flex items-start"><span class="font-bold text-indigo-500 mr-2">►</span> 10% de perda = 35 pts</li>
-                                        <li class="flex items-start"><span class="font-bold text-indigo-500 mr-2">►</span> 12% de perda = 40 pts</li>
-                                        <li class="flex items-start"><span class="font-bold text-indigo-500 mr-2">►</span> 15% de perda = 50 pts</li>
+                                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                                    <h4 class="font-bold text-lg text-white">Pontos por Perda de Peso (até 50 pts)</h4>
+                                    <p class="text-sm text-gray-400 mt-1">Os pontos são baseados no **percentual de peso perdido** em relação ao seu peso inicial. Quanto maior o percentual, mais pontos você ganha!</p>
+                                    <ul class="mt-4 space-y-2 text-sm text-gray-300">
+                                        <li class="flex items-start"><span class="font-bold text-indigo-400 mr-2">►</span> 2% de perda = 10 pts</li>
+                                        <li class="flex items-start"><span class="font-bold text-indigo-400 mr-2">►</span> 4% de perda = 15 pts</li>
+                                        <li class="flex items-start"><span class="font-bold text-indigo-400 mr-2">►</span> 6% de perda = 20 pts</li>
+                                        <li class="flex items-start"><span class="font-bold text-indigo-400 mr-2">►</span> 8% de perda = 30 pts</li>
+                                        <li class="flex items-start"><span class="font-bold text-indigo-400 mr-2">►</span> 10% de perda = 35 pts</li>
+                                        <li class="flex items-start"><span class="font-bold text-indigo-400 mr-2">►</span> 12% de perda = 40 pts</li>
+                                        <li class="flex items-start"><span class="font-bold text-indigo-400 mr-2">►</span> 15% de perda = 50 pts</li>
                                     </ul>
                                 </div>
-                                <div class="bg-green-50 p-6 rounded-lg">
-                                    <h4 class="font-bold text-lg">Pontos por Atividades (até 50 pts)</h4>
-                                    <p class="text-sm text-gray-600 mt-1">Para validar uma semana, você precisa registrar pelo menos **3 atividades físicas**.</p>
-                                    <p class="text-sm text-gray-600 mt-2">A pontuação é calculada com base no número de semanas que você validou. Se validar todas as 12 semanas, você ganha os 50 pontos!</p>
+                                <div class="bg-gray-800 p-6 rounded-lg border border-gray-700">
+                                    <h4 class="font-bold text-lg text-white">Pontos por Atividades (até 50 pts)</h4>
+                                    <p class="text-sm text-gray-400 mt-1">Para validar uma semana, você precisa registrar pelo menos **3 atividades físicas**.</p>
+                                    <p class="text-sm text-gray-400 mt-2">A pontuação é calculada com base no número de semanas que você validou. Se validar todas as 12 semanas, você ganha os 50 pontos!</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Seção de Emblemas -->
                         <div class="profile-card">
-                            <h3 class="text-xl font-bold text-amber-600 mb-4 flex items-center">
+                            <h3 class="text-xl font-bold text-amber-400 mb-4 flex items-center">
                                 <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-12v4m-2-2h4m5 10v4m-2-2h4M5 3a2 2 0 00-2 2v1m14 0V5a2 2 0 00-2-2h-1m-4 18a2 2 0 002-2v-1m-4 0v1a2 2 0 002 2h1M5 21a2 2 0 012-2h1m4 0h1a2 2 0 012 2v0M3 17a2 2 0 012-2h1m4 0h1a2 2 0 012 2v0m6-14a2 2 0 00-2-2h-1m-4 0h-1a2 2 0 00-2 2v1"></path></svg>
                                 Emblemas e Conquistas
                             </h3>
                             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                                <div class="bg-gray-100 p-4 rounded-lg">
+                                <div class="bg-gray-800 p-4 rounded-lg">
                                     <p class="text-4xl">🎯</p>
-                                    <p class="font-semibold mt-2">Meta Atingida</p>
-                                    <p class="text-xs text-gray-600">Alcance o seu peso meta.</p>
+                                    <p class="font-semibold mt-2 text-white">Meta Atingida</p>
+                                    <p class="text-xs text-gray-400">Alcance o seu peso meta.</p>
                                 </div>
-                                <div class="bg-gray-100 p-4 rounded-lg">
+                                <div class="bg-gray-800 p-4 rounded-lg">
                                     <p class="text-4xl">5️⃣</p>
-                                    <p class="font-semibold mt-2">Clube dos 5kg</p>
-                                    <p class="text-xs text-gray-600">Perca 5kg no total.</p>
+                                    <p class="font-semibold mt-2 text-white">Clube dos 5kg</p>
+                                    <p class="text-xs text-gray-400">Perca 5kg no total.</p>
                                 </div>
-                                <div class="bg-gray-100 p-4 rounded-lg">
+                                <div class="bg-gray-800 p-4 rounded-lg">
                                     <p class="text-4xl">🔟</p>
-                                    <p class="font-semibold mt-2">Clube dos 10kg</p>
-                                    <p class="text-xs text-gray-600">Perca 10kg no total.</p>
+                                    <p class="font-semibold mt-2 text-white">Clube dos 10kg</p>
+                                    <p class="text-xs text-gray-400">Perca 10kg no total.</p>
                                 </div>
-                                <div class="bg-gray-100 p-4 rounded-lg">
+                                <div class="bg-gray-800 p-4 rounded-lg">
                                     <p class="text-4xl">🔥</p>
-                                    <p class="font-semibold mt-2">Em Chamas!</p>
-                                    <p class="text-xs text-gray-600">Valide 4 semanas seguidas.</p>
+                                    <p class="font-semibold mt-2 text-white">Em Chamas!</p>
+                                    <p class="text-xs text-gray-400">Valide 4 semanas seguidas.</p>
                                 </div>
                             </div>
                         </div>
@@ -1480,15 +1548,16 @@
             }
             
             async function handleAddActivity(participantId) {
-                const weekIndex = parseInt(document.getElementById('profile-activity-week').value);
                 const type = document.getElementById('profile-activity-type').value;
                 const duration = parseInt(document.getElementById('profile-activity-duration').value);
+                const activityDate = new Date(); // Always use current date
+                const weekIndex = Math.floor((activityDate - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
 
                 if (!type || !duration || duration <= 0) return showFeedbackMessage('Preencha todos os campos da atividade.', true);
                 
                 const participant = participants.find(p => p.id == participantId);
                 if (participant) {
-                    const newActivity = { id: Date.now(), type, duration };
+                    const newActivity = { id: Date.now(), type, duration, date: activityDate.toISOString() };
                     const newSemanasValidas = JSON.parse(JSON.stringify(participant.semanas_validas));
                     if (!Array.isArray(newSemanasValidas[weekIndex])) newSemanasValidas[weekIndex] = [];
                     newSemanasValidas[weekIndex].push(newActivity);
@@ -1553,39 +1622,43 @@
                 const isEdit = id !== null;
                 const p = isEdit ? participants.find(p => p.id == id) : {};
                 const avatarSrc = p.avatar_url || `https://placehold.co/100x100/E2E8F0/4A5568?text=?`;
+                document.body.style.overflow = 'hidden';
 
                 modal.innerHTML = `<div class="modal-content">
-                        <span class="close-button">&times;</span>
-                        <h3 class="text-2xl font-bold mb-6">${isEdit ? 'Editar' : 'Adicionar'} Participante</h3>
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-2xl font-bold text-white">${isEdit ? 'Editar' : 'Adicionar'} Participante</h3>
+                            <span class="close-button text-3xl cursor-pointer hover:text-white">&times;</span>
+                        </div>
                         <form id="participantForm">
                             <input type="hidden" id="participantId" value="${isEdit ? p.id : ''}">
                             <input type="hidden" id="existingAvatarUrl" value="${p.avatar_url || ''}">
                             <div class="flex flex-col items-center mb-4">
-                                <img id="avatarPreview" src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=?';" class="rounded-full w-24 h-24 object-cover mb-2 border-2 border-gray-300">
-                                <label for="pAvatarFile" class="cursor-pointer bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg text-sm">Selecionar Foto</label>
+                                <img id="avatarPreview" src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=?';" class="rounded-full w-24 h-24 object-cover mb-2 border-2 border-gray-600">
+                                <label for="pAvatarFile" class="cursor-pointer bg-gray-600 hover:bg-gray-500 text-gray-200 font-semibold py-2 px-4 rounded-lg text-sm">Selecionar Foto</label>
                                 <input type="file" id="pAvatarFile" class="hidden" accept="image/*">
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                <div><label class="block font-bold mb-1">Nome:</label><input type="text" id="pName" class="border rounded-lg w-full py-2 px-3" value="${p.name || ''}" required></div>
-                                <div><label class="block font-bold mb-1">Sexo:</label><select id="pSexo" class="border rounded-lg w-full py-2 px-3"><option value="M" ${p.sexo === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${p.sexo === 'F' ? 'selected' : ''}>Feminino</option></select></div>
-                                <div><label class="block font-bold mb-1">Peso Inicial (kg):</label><input type="number" step="any" id="pInitial" class="border rounded-lg w-full py-2 px-3" value="${p.peso_inicial || ''}" ${isEdit ? 'readonly' : ''} required></div>
-                                <div><label class="block font-bold mb-1">Peso Atual (kg):</label><input type="number" step="any" id="pCurrent" class="border rounded-lg w-full py-2 px-3" value="${p.peso_atual || ''}" required></div>
-                                <div><label class="block font-bold mb-1">Altura (m):</label><input type="number" step="any" id="pHeight" class="border rounded-lg w-full py-2 px-3" value="${p.altura || ''}" placeholder="Ex: 1.75" required></div>
-                                <div><label class="block font-bold mb-1">Meta de Peso (kg):</label><input type="number" step="any" id="pTarget" class="border rounded-lg w-full py-2 px-3" value="${p.target_weight || ''}"></div>
+                                <div><label class="block font-bold mb-1 text-gray-300">Nome:</label><input type="text" id="pName" class="w-full" value="${p.name || ''}" required></div>
+                                <div><label class="block font-bold mb-1 text-gray-300">Sexo:</label><select id="pSexo" class="w-full"><option value="M" ${p.sexo === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${p.sexo === 'F' ? 'selected' : ''}>Feminino</option></select></div>
+                                <div><label class="block font-bold mb-1 text-gray-300">Peso Inicial (kg):</label><input type="number" step="any" id="pInitial" class="w-full" value="${p.peso_inicial || ''}" ${isEdit ? 'readonly class="bg-gray-700"' : ''} required></div>
+                                <div><label class="block font-bold mb-1 text-gray-300">Peso Atual (kg):</label><input type="number" step="any" id="pCurrent" class="w-full" value="${p.peso_atual || ''}" required></div>
+                                <div><label class="block font-bold mb-1 text-gray-300">Altura (m):</label><input type="number" step="any" id="pHeight" class="w-full" value="${p.altura || ''}" placeholder="Ex: 1.75" required></div>
+                                <div><label class="block font-bold mb-1 text-gray-300">Meta de Peso (kg):</label><input type="number" step="any" id="pTarget" class="w-full" value="${p.target_weight || ''}"></div>
                             </div>
-                            <hr class="my-4">
-                            <h4 class="font-bold mb-2">Credenciais de Acesso</h4>
-                            <p class="text-sm text-gray-500 mb-4">Crie um login para o participante acessar o próprio perfil.</p>
+                            <hr class="my-4 border-gray-700">
+                            <h4 class="font-bold mb-2 text-white">Credenciais de Acesso</h4>
+                            <p class="text-sm text-gray-400 mb-4">Crie um login para o participante acessar o próprio perfil.</p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                <div><label class="block font-bold mb-1">Usuário:</label><input type="text" id="pUsername" class="border rounded-lg w-full py-2 px-3" value="${p.username || ''}" required></div>
-                                <div><label class="block font-bold mb-1">Senha:</label><input type="password" id="pPassword" class="border rounded-lg w-full py-2 px-3" placeholder="${isEdit ? 'Deixe em branco para não alterar' : ''}" ${isEdit ? '' : 'required'}></div>
+                                <div><label class="block font-bold mb-1 text-gray-300">Usuário:</label><input type="text" id="pUsername" class="w-full" value="${p.username || ''}" required></div>
+                                <div><label class="block font-bold mb-1 text-gray-300">Senha:</label><input type="password" id="pPassword" class="w-full" placeholder="${isEdit ? 'Deixe em branco para não alterar' : ''}" ${isEdit ? '' : 'required'}></div>
                             </div>
-                            <div class="flex justify-end gap-4 mt-8"><button type="button" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg close-button-action">Cancelar</button><button type="submit" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Salvar</button></div>
+                            <div class="flex justify-end gap-4 mt-8"><button type="button" class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg close-button-action">Cancelar</button><button type="submit" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Salvar</button></div>
                         </form>
                     </div>`;
                 
-                modal.querySelector('.close-button').onclick = () => modal.classList.remove('show');
-                modal.querySelector('.close-button-action').onclick = () => modal.classList.remove('show');
+                modal.classList.add('show');
+                modal.querySelector('.close-button').onclick = () => { modal.classList.remove('show'); document.body.style.overflow = 'auto'; };
+                modal.querySelector('.close-button-action').onclick = () => { modal.classList.remove('show'); document.body.style.overflow = 'auto'; };
                 modal.querySelector('#participantForm').onsubmit = handleParticipantFormSubmit;
                 modal.querySelector('#pAvatarFile').onchange = (event) => {
                     const file = event.target.files[0];
@@ -1595,7 +1668,6 @@
                         reader.readAsDataURL(file);
                     }
                 };
-                modal.classList.add('show');
             }
             
             async function handleParticipantFormSubmit(e) {
@@ -1668,6 +1740,7 @@
                     console.error("Erro detalhado do Supabase:", JSON.stringify(dbError, null, 2));
                 } else {
                     document.getElementById('participantModal').classList.remove('show');
+                    document.body.style.overflow = 'auto';
                     showFeedbackMessage(`Participante ${id ? 'atualizado' : 'adicionado'}!`);
                     loadDataAndLogin(currentUser);
                 }
@@ -1676,23 +1749,25 @@
             async function openDeleteModal(id, name) {
                 if (currentUser.role !== 'admin') return;
                 const modal = document.getElementById('deleteConfirmModal');
+                document.body.style.overflow = 'hidden';
+                modal.classList.add('show');
                 modal.innerHTML = `<div class="modal-content text-center">
-                        <h3 class="text-2xl font-bold mb-4">Confirmar Exclusão</h3>
-                        <p class="mb-6">Tem certeza que deseja excluir <strong>${name}</strong>? Esta ação não pode ser desfeita.</p>
+                        <h3 class="text-2xl font-bold mb-4 text-white">Confirmar Exclusão</h3>
+                        <p class="mb-6 text-gray-300">Tem certeza que deseja excluir <strong>${name}</strong>? Esta ação não pode ser desfeita.</p>
                         <div class="flex justify-center gap-4">
-                            <button class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg" id="cancelDelete">Cancelar</button>
+                            <button class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" id="cancelDelete">Cancelar</button>
                             <button style="background-color: var(--danger-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg" id="confirmDelete">Confirmar</button>
                         </div>
                     </div>`;
                 
-                modal.querySelector('#cancelDelete').onclick = () => modal.classList.remove('show');
+                modal.querySelector('#cancelDelete').onclick = () => { modal.classList.remove('show'); document.body.style.overflow = 'auto'; };
                 modal.querySelector('#confirmDelete').onclick = async () => {
                     const { error } = await supabase.from('participants').delete().eq('id', id);
                     if (error) showFeedbackMessage('Erro ao excluir.', true);
                     else { showFeedbackMessage("Excluído com sucesso!"); loadDataAndLogin(currentUser); }
                     modal.classList.remove('show');
+                    document.body.style.overflow = 'auto';
                 };
-                modal.classList.add('show');
             }
 
             // --- UTILITY FUNCTIONS ---
@@ -1705,9 +1780,9 @@
                 const ranked = participants.map(p => calculateMetrics(p)).sort((a, b) => b.totalPoints - a.totalPoints);
                 if (ranked.length > 0) {
                     const leader = ranked[0];
-                    leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-500">👑 Líder Atual</div><div class="text-2xl font-bold" style="color: var(--success-color);">${leader.name}</div><div class="text-sm text-gray-600">${leader.totalPoints.toFixed(2)} pts</div>`;
+                    leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-400">👑 Líder Atual</div><div class="text-2xl font-bold" style="color: var(--success-color);">${leader.name}</div><div class="text-sm text-gray-300">${leader.totalPoints.toFixed(2)} pts</div>`;
                 } else {
-                    leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-500">👑 Líder Atual</div><div class="text-2xl font-bold">N/A</div>`;
+                    leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-400">👑 Líder Atual</div><div class="text-2xl font-bold">N/A</div>`;
                 }
                 
                 let weeklyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
@@ -1716,7 +1791,7 @@
                     const loss = getWeightAtDate(p, oneWeekAgo) - p.peso_atual;
                     if (loss > weeklyWinner.loss) weeklyWinner = { name: p.name, loss };
                 });
-                weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">🔥 Destaque da Semana</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${weeklyWinner.loss > 0 ? weeklyWinner.name : 'N/A'}</div><div class="text-sm text-gray-600">${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
+                weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-400">🔥 Destaque da Semana</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${weeklyWinner.loss > 0 ? weeklyWinner.name : 'N/A'}</div><div class="text-sm text-gray-300">${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
 
                 let monthlyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
                 const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
@@ -1724,10 +1799,10 @@
                     const loss = getWeightAtDate(p, firstDayOfMonth) - p.peso_atual;
                     if (loss > monthlyWinner.loss) monthlyWinner = { name: p.name, loss };
                 });
-                monthlyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">🌟 Destaque do Mês</div><div class="text-2xl font-bold" style="color: var(--primary-color);">${monthlyWinner.loss > 0 ? monthlyWinner.name : 'N/A'}</div><div class="text-sm text-gray-600">Perdeu ${monthlyWinner.loss > 0 ? monthlyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
+                monthlyBox.innerHTML = `<div class="text-sm font-medium text-gray-400">🌟 Destaque do Mês</div><div class="text-2xl font-bold" style="color: var(--primary-color);">${monthlyWinner.loss > 0 ? monthlyWinner.name : 'N/A'}</div><div class="text-sm text-gray-300">Perdeu ${monthlyWinner.loss > 0 ? monthlyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
 
                 const daysRemaining = Math.max(0, Math.ceil((CHALLENGE_END_DATE - new Date()) / (1000 * 60 * 60 * 24)));
-                daysBox.innerHTML = `<div class="text-sm font-medium text-gray-500">⏳ Dias Restantes</div><div class="text-3xl font-bold text-gray-700">${daysRemaining}</div>`;
+                daysBox.innerHTML = `<div class="text-sm font-medium text-gray-400">⏳ Dias Restantes</div><div class="text-3xl font-bold text-white">${daysRemaining}</div>`;
             }
             
             function calculateTrendLine(data) {
@@ -1756,19 +1831,25 @@
                 const prompt = `Seja um coach de fitness motivador e amigável, em português do Brasil. Dê uma dica curta e prática para o participante: Nome: ${participant.name}, Peso Inicial: ${participant.peso_inicial} kg, Peso Atual: ${participant.peso_atual} kg, Meta: ${participant.target_weight || 'N/A'} kg. Atividades nas últimas 4 semanas: ${activityHistory}. Fale diretamente com o participante (use "você").`;
 
                 try {
-                    const { data, error } = await supabase.functions.invoke('get-ai-tip', {
-                        body: { prompt: prompt },
-                    });
+                    // This assumes a Supabase Edge Function named 'get-ai-tip' is deployed.
+                    // The function would take the prompt and return a completion from an AI model.
+                    // Since we cannot implement the backend function here, we will simulate a response.
+                    // In a real scenario, you would use:
+                    // const { data, error } = await supabase.functions.invoke('get-ai-tip', { body: { prompt } });
+                    
+                    // Simulated response for demonstration:
+                    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+                    const simulatedTips = [
+                        `Olá, ${participant.name}! Você está indo muito bem. Que tal tentar adicionar um dia de treino de força para acelerar o metabolismo? Um pouco de musculação pode fazer maravilhas!`,
+                        `E aí, ${participant.name}! Notei que você está consistente. Para dar um gás, experimente variar sua corrida, alternando entre picos de velocidade e um ritmo mais lento. Continue assim!`,
+                        `Força, ${participant.name}! A jornada é longa, mas cada passo conta. Lembre-se de beber bastante água durante o dia, isso ajuda muito na perda de peso e na recuperação muscular.`
+                    ];
+                    const randomTip = simulatedTips[Math.floor(Math.random() * simulatedTips.length)];
+                    
+                    tipContainer.innerHTML = randomTip.replace(/\n/g, '<br>');
 
-                    if (error) throw error;
-
-                    if (data && data.tip) {
-                        tipContainer.innerHTML = data.tip.replace(/\n/g, '<br>');
-                    } else {
-                        throw new Error("Resposta da IA inválida.");
-                    }
                 } catch (error) {
-                    console.error("Erro ao invocar a Supabase Function:", error);
+                    console.error("Erro ao buscar dica da IA:", error);
                     tipContainer.innerHTML = 'Ocorreu um erro ao falar com o nosso coach. Tente novamente mais tarde.';
                 }
             }
@@ -1779,7 +1860,7 @@
                 if (!detailsElement || !participant) return;
                 
                 showFeedbackMessage('Gerando relatório PDF...', false);
-                html2canvas(detailsElement, { scale: 2, useCORS: true, backgroundColor: '#f4f5f7' }).then(canvas => {
+                html2canvas(detailsElement, { scale: 2, useCORS: true, backgroundColor: '#1f2937' }).then(canvas => {
                     const { jsPDF } = window.jspdf;
                     const imgData = canvas.toDataURL('image/png');
                     const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height] });
