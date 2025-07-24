@@ -114,6 +114,37 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
             padding: 1.5rem;
         }
+
+        /* Activity Log Styles */
+        .activity-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 0.5rem;
+        }
+        .activity-cell {
+            width: 100%;
+            padding-bottom: 100%; /* Creates a square aspect ratio */
+            border-radius: 0.25rem;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        .activity-cell:hover {
+            transform: scale(1.1);
+        }
+        .activity-cell-label {
+            position: absolute;
+            top: -1.2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+        .activity-cell.current-week {
+            border: 2px solid var(--primary-color);
+        }
+        .activity-none { background-color: #e5e7eb; } /* Gray */
+        .activity-partial { background-color: #fef3c7; } /* Amber Light */
+        .activity-complete { background-color: #dcfce7; } /* Green Light */
     </style>
 </head>
 <body class="bg-gray-100">
@@ -873,32 +904,56 @@
 
             function renderActivityLogPage(data, container) {
                 const today = new Date();
-                const currentWeek = Math.floor((today - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7)) + 1;
+                const currentWeekIndex = Math.floor((today - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
                 
-                let headers = `<th>Nome</th>`;
-                for (let i = 1; i <= MAX_WEEKS; i++) headers += `<th class="${i === currentWeek ? 'bg-indigo-100' : ''}">${i}</th>`;
+                let legendHTML = `
+                    <div class="flex justify-center items-center gap-4 mb-6 text-xs text-gray-600">
+                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded activity-none"></div><span>Nenhuma atividade</span></div>
+                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded activity-partial"></div><span>1-2 atividades</span></div>
+                        <div class="flex items-center gap-2"><div class="w-4 h-4 rounded activity-complete"></div><span>Semana validada (3+)</span></div>
+                    </div>
+                `;
 
-                let bodyHTML = '';
+                let cardsHTML = '<div class="space-y-6">';
                 if (data.length > 0) {
                     data.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
-                        bodyHTML += `<tr><td class="font-medium">${p.name}</td>`;
+                        const avatarSrc = p.avatar_url || `https://placehold.co/48x48/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
+                        let gridHTML = '<div class="activity-grid mt-4">';
                         for (let i = 0; i < MAX_WEEKS; i++) {
-                            const weekActivities = p.semanas_validas[i];
+                            const weekActivities = p.semanas_validas[i] || [];
                             const activityCount = Array.isArray(weekActivities) ? weekActivities.length : 0;
-                            const isPastOrCurrent = (i + 1) <= currentWeek;
-                            let tdClasses = '';
-                            if (isPastOrCurrent) {
-                                tdClasses = activityCount >= MIN_ACTIVITIES_FOR_VALID_WEEK ? 'bg-green-100' : 'bg-red-100';
+                            let cellClass = 'activity-none';
+                            if (activityCount >= MIN_ACTIVITIES_FOR_VALID_WEEK) {
+                                cellClass = 'activity-complete';
+                            } else if (activityCount > 0) {
+                                cellClass = 'activity-partial';
                             }
-                            bodyHTML += `<td class="text-center ${tdClasses}">${activityCount}</td>`;
+                            const isCurrentWeek = i === currentWeekIndex ? 'current-week' : '';
+                            gridHTML += `
+                                <div class="relative">
+                                    <div class="activity-cell-label">${i + 1}</div>
+                                    <div class="activity-cell ${cellClass} ${isCurrentWeek}" title="Semana ${i + 1}: ${activityCount} atividades"></div>
+                                </div>
+                            `;
                         }
-                        bodyHTML += `</tr>`;
+                        gridHTML += '</div>';
+
+                        cardsHTML += `
+                            <div class="profile-card">
+                                <div class="flex items-center gap-4">
+                                    <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-12 h-12 rounded-full object-cover" onerror="this.onerror=null;this.src='https://placehold.co/48x48/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
+                                    <h3 class="text-lg font-bold text-gray-800">${p.name}</h3>
+                                </div>
+                                ${gridHTML}
+                            </div>
+                        `;
                     });
                 } else {
-                    bodyHTML = `<tr><td colspan="${MAX_WEEKS + 1}" class="empty-state-message">Nenhum participante.</td></tr>`;
+                    cardsHTML += `<div class="empty-state-message">Nenhum participante para exibir.</div>`;
                 }
+                cardsHTML += '</div>';
 
-                container.innerHTML = `<div class="overflow-x-auto"><table class="w-full"><thead><tr>${headers}</tr></thead><tbody>${bodyHTML}</tbody></table></div>`;
+                container.innerHTML = legendHTML + cardsHTML;
             }
 
             function renderWeeklySummaryPage(data, container) {
@@ -1661,7 +1716,7 @@
                     const loss = getWeightAtDate(p, oneWeekAgo) - p.peso_atual;
                     if (loss > weeklyWinner.loss) weeklyWinner = { name: p.name, loss };
                 });
-                weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">� Destaque da Semana</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${weeklyWinner.loss > 0 ? weeklyWinner.name : 'N/A'}</div><div class="text-sm text-gray-600">${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
+                weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-500">🔥 Destaque da Semana</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${weeklyWinner.loss > 0 ? weeklyWinner.name : 'N/A'}</div><div class="text-sm text-gray-600">${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
 
                 let monthlyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
                 const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
