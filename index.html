@@ -70,14 +70,16 @@
             width: 1.25rem; height: 1.25rem; margin-right: 0.75rem; flex-shrink: 0; 
         }
 
+        /* --- INÍCIO DA ALTERAÇÃO NA TABELA --- */
         /* Modern Table Style */
         table { width: 100%; border-collapse: separate; border-spacing: 0; }
         th, td { 
-            padding: 1rem; 
+            padding: 0.75rem; /* Padding reduzido para melhor visualização mobile */
             text-align: left; 
             border-bottom: 1px solid var(--border-color); 
             vertical-align: middle; 
         }
+        /* --- FIM DA ALTERAÇÃO NA TABELA --- */
         th { 
             background-color: #374151; /* Slightly lighter than card bg */
             font-weight: 600; 
@@ -107,7 +109,6 @@
         .feedback-message.show { opacity: 1; }
         .feedback-message.error { background-color: var(--danger-color); }
         
-        /* --- INÍCIO DA CORREÇÃO DO MODAL --- */
         .modal {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -134,7 +135,6 @@
             padding: 2rem;
         }
         .close-button { color: #9ca3af; }
-        /* --- FIM DA CORREÇÃO DO MODAL --- */
 
         /* Modern Form Elements */
         input, select {
@@ -193,8 +193,6 @@
         .activity-partial { background-color: var(--warning-color); } /* Amber */
         .activity-complete { background-color: var(--success-color); } /* Green */
 
-        /* --- INÍCIO DA CORREÇÃO DOS BOTÕES --- */
-        /* ESTILOS PARA OS BOTÕES DOS CARDS DE PARTICIPANTE */
         .action-btn {
             padding: 0.5rem 1rem;
             border-radius: 0.5rem;
@@ -207,12 +205,34 @@
             text-align: center;
         }
         
-        /* Efeito minimalista ao passar o mouse */
         .action-btn:hover {
             background-color: #4b5563; /* Cor de fundo um pouco mais clara */
         }
-        /* --- FIM DA CORREÇÃO DOS BOTÕES --- */
 
+        .imc-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            color: white;
+        }
+        .imc-normal { background-color: var(--success-color); }
+        .imc-sobrepeso { background-color: var(--warning-color); }
+        .imc-obesidade { background-color: var(--danger-color); }
+        .imc-abaixo { background-color: var(--primary-color); }
+
+        /* AI Center Styles */
+        .ai-result-box {
+            background-color: var(--bg-main);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            min-height: 100px;
+            border: 1px solid var(--border-color);
+            white-space: pre-wrap; /* Preserves line breaks from AI */
+            max-height: 300px; /* Altura máxima para a caixa */
+            overflow-y: auto; /* Adiciona scroll se o conteúdo for maior */
+        }
     </style>
 </head>
 <body class="bg-gray-900">
@@ -321,6 +341,7 @@
                 { id: 'myProfile', text: 'Meu Perfil', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>', roles: ['participant'] },
                 { id: 'ranking', text: 'Ranking Geral', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>', roles: ['admin', 'participant'] },
                 { id: 'participants', text: 'Participantes', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>', roles: ['admin'] },
+                { id: 'aiCenter', text: 'Central de IA', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>', roles: ['admin', 'participant'] },
                 { id: 'weeklySummary', text: 'Resumo Semanal', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>', roles: ['admin', 'participant'] },
                 { id: 'activityLog', text: 'Histórico de Atividades', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>', roles: ['admin', 'participant'] },
                 { id: 'coachVirtual', text: 'Coach Virtual', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>', roles: ['admin', 'participant'] },
@@ -543,10 +564,7 @@
 
                 switch(action) {
                     case 'open-add-modal': openParticipantModal(); break;
-                    // --- INÍCIO DA CORREÇÃO ---
-                    // Adicionando a ação que faltava para o botão de editar
                     case 'open-edit-modal': openParticipantModal(id); break;
-                    // --- FIM DA CORREÇÃO ---
                     case 'open-delete-modal': openDeleteModal(id, name); break;
                     case 'view-profile': e.preventDefault(); currentProfileParticipantId = id; showSection('participantProfile'); break;
                     case 'go-to-participants': e.preventDefault(); showSection('participants'); break;
@@ -557,10 +575,38 @@
                     case 'add-activity': handleAddActivity(id); break;
                     case 'delete-activity': handleDeleteActivity(id, target.dataset.week, target.dataset.activityId); break;
                     case 'update-measurements': handleUpdateMeasurements(id); break;
+                    case 'generate-meal-plan': handleGenerateMealPlan(); break;
+                    case 'generate-workout': handleGenerateWorkout(); break;
+                    case 'generate-motivation': handleGenerateMotivation(); break;
+                    case 'generate-group-analysis': handleGenerateGroupAnalysis(); break;
+                    case 'generate-stagnation-tip': handleGenerateStagnationTip(); break;
                 }
             }
             
             // --- DATA & VIEW MANAGEMENT ---
+            function calculateIMC(weight, height) {
+                if (!weight || !height || height <= 0) {
+                    return { value: 'N/A', classification: 'Dados incompletos', className: '' };
+                }
+                const imc = weight / (height * height);
+                let classification = '';
+                let className = '';
+                if (imc < 18.5) {
+                    classification = 'Abaixo do peso';
+                    className = 'imc-abaixo';
+                } else if (imc < 24.9) {
+                    classification = 'Peso Normal';
+                    className = 'imc-normal';
+                } else if (imc < 29.9) {
+                    classification = 'Sobrepeso';
+                    className = 'imc-sobrepeso';
+                } else {
+                    classification = 'Obesidade';
+                    className = 'imc-obesidade';
+                }
+                return { value: imc.toFixed(1), classification, className };
+            }
+
             function calculateMetrics(p, referenceDate = new Date()) {
                 const pesoNaData = getWeightAtDate(p, referenceDate);
                 const pesoPerdido = p.peso_inicial - pesoNaData;
@@ -582,7 +628,10 @@
                     const currentLoss = p.peso_inicial - p.peso_atual;
                     progressToTarget = Math.max(0, Math.min(100, (currentLoss / totalNeeded) * 100));
                 }
-                return { ...p, name: p.name, percentLoss: Math.max(0, percentLoss), weightPoints, validWeeksCount, totalActivities, activityPoints, totalPoints: weightPoints + activityPoints, progressToTarget };
+                
+                const imcData = calculateIMC(p.peso_atual, p.altura);
+
+                return { ...p, name: p.name, percentLoss: Math.max(0, percentLoss), weightPoints, validWeeksCount, totalActivities, activityPoints, totalPoints: weightPoints + activityPoints, progressToTarget, imc: imcData.value, imcClassification: imcData.classification, imcClassName: imcData.className };
             }
 
             function getBadges(p) {
@@ -657,6 +706,10 @@
                     case 'participantProfile':
                     case 'myProfile':
                         renderParticipantProfilePage(dynamicContentContainer);
+                        document.getElementById('summary-grid').style.display = 'none';
+                        break;
+                    case 'aiCenter':
+                        renderAiCenterPage(dynamicContentContainer);
                         document.getElementById('summary-grid').style.display = 'none';
                         break;
                     case 'weeklySummary': renderWeeklySummaryPage(allMetrics, contentWrapper); break;
@@ -763,11 +816,9 @@
                                 </div>
                             </div>
                             <div class="bg-gray-800 p-3 grid grid-cols-3 gap-2 rounded-b-lg">
-                                <!-- --- INÍCIO DA CORREÇÃO --- -->
                                 <button data-action="view-profile" data-id="${p.id}" class="action-btn">Ver Perfil</button>
                                 <button data-action="open-edit-modal" data-id="${p.id}" class="action-btn">Editar</button>
                                 <button data-action="open-delete-modal" data-id="${p.id}" data-name="${p.name}" class="action-btn">Excluir</button>
-                                <!-- --- FIM DA CORREÇÃO --- -->
                             </div>
                         </div>
                     `;
@@ -810,7 +861,10 @@
                             <img src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=${pMetric.name.charAt(0)}';" class="rounded-full w-24 h-24 object-cover border-4 border-indigo-500">
                             <div class="flex-grow text-center sm:text-left">
                                 <h3 class="text-3xl font-bold text-white">${pMetric.name} <span class="text-2xl">${getBadges(pMetric)}</span></h3>
-                                <p class="text-gray-400">Altura: ${pMetric.altura ? pMetric.altura.toFixed(2) + 'm' : 'N/A'}</p>
+                                <div class="flex items-center gap-4 mt-1 justify-center sm:justify-start flex-wrap">
+                                    <p class="text-gray-400">Altura: ${pMetric.altura ? pMetric.altura.toFixed(2) + 'm' : 'N/A'}</p>
+                                    <p class="text-gray-400 flex items-center gap-2">IMC: <strong>${pMetric.imc}</strong> <span class="imc-badge ${pMetric.imcClassName}">${pMetric.imcClassification}</span></p>
+                                </div>
                             </div>
                             <div class="grid grid-cols-3 gap-4 text-center w-full sm:w-auto mt-4 sm:mt-0">
                                 <div>
@@ -893,6 +947,59 @@
                 updateProfileActivityList(pMetric);
             }
             
+            function renderAiCenterPage(container) {
+                container.innerHTML = `
+                    <div class="space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-3xl font-extrabold text-white">Central de IA 🤖</h2>
+                            <p class="mt-2 text-lg text-gray-400">Ferramentas inteligentes para turbinar seu desafio.</p>
+                        </div>
+                        
+                        <!-- --- INÍCIO DA ALTERAÇÃO (VISIBILIDADE DOS CARDS) --- -->
+                        ${currentUser.role === 'admin' ? `
+                        <div class="card">
+                            <h3 class="text-xl font-bold text-red-400 mb-2">Análise de Tendências do Grupo (Admin)</h3>
+                            <p class="text-sm text-gray-400 mb-4">Receba uma análise inteligente sobre o desempenho geral do grupo, identificando tendências e sugerindo ações.</p>
+                            <button data-action="generate-group-analysis" style="background-color: var(--danger-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Analisar Grupo</button>
+                            <div id="group-analysis-result" class="ai-result-box">Clique em "Analisar" para receber os insights.</div>
+                        </div>
+
+                        <div class="card">
+                            <h3 class="text-xl font-bold text-blue-400 mb-2">Dica Anti-Platô (Admin)</h3>
+                            <p class="text-sm text-gray-400 mb-4">Verifique se algum participante está estagnado e gere uma dica para ajudá-lo a quebrar o platô.</p>
+                            <button data-action="generate-stagnation-tip" style="background-color: #3b82f6;" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Verificar e Gerar Dica</button>
+                            <div id="stagnation-tip-result" class="ai-result-box">Clique para verificar se algum participante está em um platô e receber uma dica.</div>
+                        </div>
+                        ` : ''}
+                        <!-- --- FIM DA ALTERAÇÃO (VISIBILIDADE DOS CARDS) --- -->
+
+                        <!-- Card de Plano de Refeições -->
+                        <div class="card">
+                            <h3 class="text-xl font-bold text-indigo-400 mb-2">Plano de Refeições Sugerido</h3>
+                            <p class="text-sm text-gray-400 mb-4">Receba um cardápio diário, gerado por IA, com base no seu perfil e metas.</p>
+                            <button data-action="generate-meal-plan" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Gerar Cardápio do Dia</button>
+                            <div id="meal-plan-result" class="ai-result-box">Clique em "Gerar" para receber sua sugestão.</div>
+                        </div>
+
+                        <!-- Card de Sugestão de Treino -->
+                        <div class="card">
+                            <h3 class="text-xl font-bold text-green-400 mb-2">Sugestão de Treino Dinâmica</h3>
+                            <p class="text-sm text-gray-400 mb-4">Com base nas suas atividades recentes, a IA sugere treinos complementares para otimizar seus resultados.</p>
+                            <button data-action="generate-workout" style="background-color: var(--success-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Sugerir Próximo Treino</button>
+                            <div id="workout-result" class="ai-result-box">Clique em "Gerar" para receber sua sugestão.</div>
+                        </div>
+
+                        <!-- Card de Resumo Semanal -->
+                        <div class="card">
+                            <h3 class="text-xl font-bold text-amber-400 mb-2">Resumo Semanal</h3>
+                            <p class="text-sm text-gray-400 mb-4">Receba uma análise motivacional do seu progresso na última semana, escrita pela nossa IA.</p>
+                            <button data-action="generate-motivation" style="background-color: var(--warning-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Gerar Resumo da Semana</button>
+                            <div id="motivation-result" class="ai-result-box">Clique em "Gerar" para receber sua análise.</div>
+                        </div>
+                    </div>
+                `;
+            }
+
             function updateProfileWeightList(participant) {
                 const listContainer = document.getElementById('profile-weight-history-list');
                 if (!listContainer) return;
@@ -1820,39 +1927,136 @@
                 return { start: { date: new Date(data[0].date), weight: predict(startDay) }, end: { date: CHALLENGE_END_DATE, weight: predict(endDay) } };
             }
 
+            // --- INÍCIO DA CENTRAL DE FUNÇÕES DE IA ---
+
+            async function getAIGeneration(prompt, resultContainer) {
+                resultContainer.innerHTML = '<div class="ai-tip-loader"></div>';
+                try {
+                    // ** SUBSTITUA ESTA SEÇÃO PELA SUA CHAMADA REAL DA API GEMINI **
+                    // Exemplo usando a Supabase Function que já existia:
+                    const { data, error } = await supabase.functions.invoke('get-ai-tip', {
+                        body: { prompt: prompt },
+                    });
+
+                    if (error) throw error;
+                    
+                    if (data && data.tip) {
+                        resultContainer.innerHTML = data.tip.replace(/\n/g, '<br>');
+                    } else {
+                        throw new Error("Resposta da IA inválida.");
+                    }
+                    // ** FIM DA SEÇÃO DE SUBSTITUIÇÃO **
+
+                } catch (error) {
+                    console.error("Erro ao chamar a IA:", error);
+                    resultContainer.innerHTML = 'Ocorreu um erro ao gerar a resposta. Tente novamente mais tarde.';
+                }
+            }
+
+            async function handleGenerateMealPlan() {
+                const resultContainer = document.getElementById('meal-plan-result');
+                const participantId = currentUser.role === 'admin' ? participants[0]?.id : currentUser.participantId;
+                const p = participants.find(p => p.id === participantId);
+                if (!p) return resultContainer.innerHTML = 'Nenhum participante encontrado para gerar o plano.';
+
+                const prompt = `Aja como um nutricionista. Crie um plano de refeições simples para um dia (café da manhã, almoço, lanche da tarde e jantar) para a/o ${p.name}, que atualmente pesa ${p.peso_atual} kg e tem como meta perder peso. O plano deve ter aproximadamente 1800 calorias.`;
+                getAIGeneration(prompt, resultContainer);
+            }
+
+            async function handleGenerateWorkout() {
+                const resultContainer = document.getElementById('workout-result');
+                const participantId = currentUser.role === 'admin' ? participants[0]?.id : currentUser.participantId;
+                const p = participants.find(p => p.id === participantId);
+                if (!p) return resultContainer.innerHTML = 'Nenhum participante encontrado para gerar o treino.';
+
+                const lastActivities = (p.semanas_validas || []).flat().slice(-3).map(a => a.type).join(', ') || 'nenhuma atividade recente';
+                const prompt = `Aja como um personal trainer. O participante ${p.name} registrou recentemente as seguintes atividades: ${lastActivities}. Sugira um treino complementar para o próximo dia, com 3 a 4 exercícios que podem ser feitos em casa, explicando cada um brevemente.`;
+                getAIGeneration(prompt, resultContainer);
+            }
+
+            async function handleGenerateMotivation() {
+                const resultContainer = document.getElementById('motivation-result');
+                const participantId = currentUser.role === 'admin' ? participants[0]?.id : currentUser.participantId;
+                const p = participants.find(p => p.id === participantId);
+                if (!p) return resultContainer.innerHTML = 'Nenhum participante encontrado para gerar o resumo.';
+
+                const today = new Date();
+                const oneWeekAgo = new Date(); oneWeekAgo.setDate(today.getDate() - 7);
+                const weightThen = getWeightAtDate(p, oneWeekAgo);
+                const weightLossThisWeek = weightThen - p.peso_atual;
+                const currentWeekIndex = Math.floor((today - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
+                const activitiesThisWeek = (p.semanas_validas[currentWeekIndex] || []).length;
+                
+                const prompt = `Escreva um resumo motivacional curto e amigável para ${p.name}. Dados da última semana: perdeu ${weightLossThisWeek.toFixed(1)}kg, registrou ${activitiesThisWeek} atividades. Perda total no desafio: ${(p.peso_inicial - p.peso_atual).toFixed(1)}kg. Parabenize-o(a) pelo esforço e incentive-o(a) a manter o foco.`;
+                getAIGeneration(prompt, resultContainer);
+            }
+            
+            async function handleGenerateGroupAnalysis() {
+                if (currentUser.role !== 'admin') return;
+                const resultContainer = document.getElementById('group-analysis-result');
+                
+                let weeklyDataString = '';
+                const currentWeekIndex = Math.floor((new Date() - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
+
+                for (let i = 0; i <= currentWeekIndex && i < MAX_WEEKS; i++) {
+                    const weekStartDate = new Date(CHALLENGE_START_DATE);
+                    weekStartDate.setDate(weekStartDate.getDate() + i * 7);
+                    const weekEndDate = new Date(weekStartDate);
+                    weekEndDate.setDate(weekEndDate.getDate() + 7);
+
+                    let totalWeeklyLoss = 0;
+                    let totalWeeklyActivities = 0;
+
+                    participants.forEach(p => {
+                        const weightStart = getWeightAtDate(p, weekStartDate);
+                        const weightEnd = getWeightAtDate(p, weekEndDate);
+                        if (weightStart > weightEnd) {
+                            totalWeeklyLoss += weightStart - weightEnd;
+                        }
+                        totalWeeklyActivities += (p.semanas_validas[i] || []).length;
+                    });
+                    weeklyDataString += `Na Semana ${i + 1}, o grupo perdeu um total de ${totalWeeklyLoss.toFixed(1)}kg e registrou ${totalWeeklyActivities} atividades. `;
+                }
+
+                const prompt = `Analise os seguintes dados agregados de um desafio de fitness: ${weeklyDataString} Identifique a tendência geral (o ritmo está diminuindo, aumentando ou estável?), aponte a semana de maior sucesso e sugira uma ação para o administrador, como enviar uma mensagem de incentivo geral.`;
+                getAIGeneration(prompt, resultContainer);
+            }
+
+            async function handleGenerateStagnationTip() {
+                const resultContainer = document.getElementById('stagnation-tip-result');
+                const participantId = currentUser.role === 'admin' ? (document.getElementById('stagnation-participant-selector')?.value || participants[0]?.id) : currentUser.participantId;
+                const p = participants.find(p => p.id == participantId);
+                if (!p) return resultContainer.innerHTML = 'Nenhum participante encontrado.';
+
+                const history = p.weight_history || [];
+                if (history.length < 2) {
+                    return resultContainer.innerHTML = 'Você está indo bem! Continue registrando seu peso para detectarmos tendências.';
+                }
+
+                const lastWeight = history[history.length - 1].weight;
+                const secondLastWeight = history[history.length - 2].weight;
+
+                if (lastWeight >= secondLastWeight) {
+                    // Stagnation detected
+                    const lastActivities = (p.semanas_validas || []).flat().slice(-3).map(a => a.type).join(', ') || 'Caminhada';
+                    const prompt = `O participante ${p.name} não perdeu peso na última pesagem. Suas atividades principais recentes são '${lastActivities}'. Crie uma mensagem curta, amigável e encorajadora sugerindo uma forma de quebrar o platô. Sugira, por exemplo, aumentar a intensidade, variar o tipo de treino ou uma dica de nutrição.`;
+                    getAIGeneration(prompt, resultContainer);
+                } else {
+                    resultContainer.innerHTML = 'Ótimo trabalho! Seu progresso está constante e não detectamos sinais de estagnação. Continue assim!';
+                }
+            }
+            
             async function getAICoachingTip(participantId) {
                 const participant = participants.find(p => p.id == participantId);
                 if (!participant) return;
 
                 const tipContainer = document.getElementById('ai-tip-container');
-                tipContainer.innerHTML = '<div class="ai-tip-loader"></div>';
-
                 const activityHistory = participant.semanas_validas.slice(-4).map(week => (Array.isArray(week) ? week.length : 0)).join(', ');
                 const prompt = `Seja um coach de fitness motivador e amigável, em português do Brasil. Dê uma dica curta e prática para o participante: Nome: ${participant.name}, Peso Inicial: ${participant.peso_inicial} kg, Peso Atual: ${participant.peso_atual} kg, Meta: ${participant.target_weight || 'N/A'} kg. Atividades nas últimas 4 semanas: ${activityHistory}. Fale diretamente com o participante (use "você").`;
-
-                try {
-                    // This assumes a Supabase Edge Function named 'get-ai-tip' is deployed.
-                    // The function would take the prompt and return a completion from an AI model.
-                    // Since we cannot implement the backend function here, we will simulate a response.
-                    // In a real scenario, you would use:
-                    // const { data, error } = await supabase.functions.invoke('get-ai-tip', { body: { prompt } });
-                    
-                    // Simulated response for demonstration:
-                    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-                    const simulatedTips = [
-                        `Olá, ${participant.name}! Você está indo muito bem. Que tal tentar adicionar um dia de treino de força para acelerar o metabolismo? Um pouco de musculação pode fazer maravilhas!`,
-                        `E aí, ${participant.name}! Notei que você está consistente. Para dar um gás, experimente variar sua corrida, alternando entre picos de velocidade e um ritmo mais lento. Continue assim!`,
-                        `Força, ${participant.name}! A jornada é longa, mas cada passo conta. Lembre-se de beber bastante água durante o dia, isso ajuda muito na perda de peso e na recuperação muscular.`
-                    ];
-                    const randomTip = simulatedTips[Math.floor(Math.random() * simulatedTips.length)];
-                    
-                    tipContainer.innerHTML = randomTip.replace(/\n/g, '<br>');
-
-                } catch (error) {
-                    console.error("Erro ao buscar dica da IA:", error);
-                    tipContainer.innerHTML = 'Ocorreu um erro ao falar com o nosso coach. Tente novamente mais tarde.';
-                }
+                
+                getAIGeneration(prompt, tipContainer);
             }
+            // --- FIM DA CENTRAL DE FUNÇÕES DE IA ---
 
              async function exportDetailsToPDF(participantId) {
                 const detailsElement = document.getElementById('profile-content');
