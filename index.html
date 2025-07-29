@@ -335,9 +335,7 @@
 
     <div id="feedbackMessage" class="feedback-message"></div>
     <div id="participantModal" class="modal"></div>
-    <div id="deleteConfirmModal" class="modal"></div>
-
-    <script>
+    <div id="deleteConfirmModal" class="modal"></div> <script>
         // --- PWA Service Worker (Placeholder) ---
         if ('serviceWorker' in navigator) {
             const manifest = {
@@ -359,7 +357,7 @@
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
             // --- CONFIGURAÇÕES E CONSTANTES DO DESAFIO ---
-            const ADMIN_USER = { username: 'admin', password: 'admin' }; // Admin credentials
+            const ADMIN_USER = { username: 'admin', password: 'admin' }; // Admin credentials - Mover para variáveis de ambiente ou serviço de autenticação!
             let CHALLENGE_START_DATE = new Date('2025-07-07T00:00:00');
             let CHALLENGE_END_DATE = new Date('2025-10-07T23:59:59');
             const MAX_WEEKS = 12;
@@ -429,7 +427,8 @@
                 participants = participantsData.map(p => ({
                     ...p,
                     semanas_validas: (p.semanas_validas && Array.isArray(p.semanas_validas)) ? p.semanas_validas : Array.from({ length: 12 }, () => []),
-                    weight_history: p.weight_history || [],
+                    // Garante que weight_history e measurements_history são arrays, e cada item tem is_public (default true se não existir)
+                    weight_history: (p.weight_history || []).map(entry => ({ ...entry, is_public: entry.is_public !== undefined ? entry.is_public : true })),
                     measurements_history: p.measurements_history || [],
                 }));
                 reactions = reactionsData;
@@ -471,7 +470,8 @@
                 participants = participantsData.map(p => ({
                     ...p,
                     semanas_validas: (p.semanas_validas && Array.isArray(p.semanas_validas)) ? p.semanas_validas : Array.from({ length: 12 }, () => []),
-                    weight_history: p.weight_history || [],
+                    // Garante que weight_history e measurements_history são arrays, e cada item tem is_public (default true se não existir)
+                    weight_history: (p.weight_history || []).map(entry => ({ ...entry, is_public: entry.is_public !== undefined ? entry.is_public : true })),
                     measurements_history: p.measurements_history || [],
                 }));
 
@@ -610,15 +610,10 @@
             }
 
             function handleMainContentClick(e) {
-                // --- BUG FIX START: CLICK EVENT HANDLING ---
-                // This revised logic correctly identifies the target button even if the user clicks
-                // on an inner element like an SVG icon or a text span, which was the cause of the bug
-                // on posts with images.
                 const targetElement = e.target;
                 const button = targetElement.closest('button[data-action]');
                 const link = targetElement.closest('a[data-action]');
                 const th = targetElement.closest('th.sortable');
-                // --- BUG FIX END ---
 
                 if (th) {
                     const sortKey = th.dataset.sortKey;
@@ -642,15 +637,34 @@
                 switch(action) {
                     case 'open-add-modal': openParticipantModal(); break;
                     case 'open-edit-modal': openParticipantModal(id); break;
-                    case 'open-delete-modal': openDeleteModal(id, name); break;
+                    case 'open-delete-modal': 
+                        openConfirmModal(`Tem certeza que deseja excluir <strong>${name}</strong>? Esta ação não pode ser desfeita.`, () => {
+                            // Ação de exclusão do participante
+                            supabase.from('participants').delete().eq('id', id)
+                                .then(({ error }) => {
+                                    if (error) showFeedbackMessage('Erro ao excluir participante.', true);
+                                    else { showFeedbackMessage("Participante excluído com sucesso!"); loadDataAndLogin(currentUser); }
+                                    document.getElementById('deleteConfirmModal').classList.remove('show');
+                                    document.body.style.overflow = 'auto';
+                                });
+                        });
+                        break;
                     case 'view-profile': e.preventDefault(); currentProfileParticipantId = id; showSection('participantProfile'); break;
                     case 'go-to-participants': e.preventDefault(); showSection('participants'); break;
                     case 'generate-report': exportDetailsToPDF(id); break;
                     case 'ai-coach': getAICoachingTip(id); break;
                     case 'update-weight': handleUpdateWeight(id); break;
-                    case 'delete-weight-entry': handleDeleteWeightEntry(id, interactiveTarget.dataset.entryDate); break;
+                    case 'detect-weight-ai': detectWeightFromImage(id); break; // Nova ação para IA
+                    case 'delete-weight-entry': 
+                        const entryDate = interactiveTarget.dataset.entryDate;
+                        openConfirmModal(`Tem certeza que deseja excluir este registro de peso de ${name} (${new Date(entryDate).toLocaleDateString('pt-BR')})?`, () => handleDeleteWeightEntryConfirmed(id, entryDate));
+                        break;
                     case 'add-activity': handleAddActivity(id); break;
-                    case 'delete-activity': handleDeleteActivity(id, interactiveTarget.dataset.week, interactiveTarget.dataset.activityId); break;
+                    case 'delete-activity': 
+                        const week = interactiveTarget.dataset.week;
+                        const activityId = interactiveTarget.dataset.activityId;
+                        openConfirmModal(`Tem certeza que deseja excluir esta atividade de ${name} (Semana ${parseInt(week) + 1})?`, () => handleDeleteActivityConfirmed(id, week, activityId));
+                        break;
                     case 'update-measurements': handleUpdateMeasurements(id); break;
                     case 'generate-meal-plan': handleGenerateMealPlan(); break;
                     case 'generate-workout': handleGenerateWorkout(); break;
@@ -686,8 +700,9 @@
             }
 
             function calculateMetrics(p, referenceDate = new Date()) {
-                const pesoNaData = getWeightAtDate(p, referenceDate);
-                const pesoPerdido = p.peso_inicial - pesoNaData;
+                const pesoNaData = getWeightAtDate(p, referenceDate); // Peso mais recente até a data de referência
+                
+                const pesoPerdido = p.peso_inicial - pesoNaData; // Perda de peso em relação ao peso inicial
                 const percentLoss = p.peso_inicial > 0 ? (pesoPerdido / p.peso_inicial) * 100 : 0;
                 let weightPoints = 0;
                 if (percentLoss >= 15) weightPoints = 50; else if (percentLoss >= 12) weightPoints = 40;
@@ -703,21 +718,37 @@
                 let progressToTarget = null;
                 if (p.target_weight && p.peso_inicial > p.target_weight) {
                     const totalNeeded = p.peso_inicial - p.target_weight;
-                    const currentLoss = p.peso_inicial - p.peso_atual;
-                    progressToTarget = Math.max(0, Math.min(100, (currentLoss / totalNeeded) * 100));
+                    const currentLossToTarget = p.peso_inicial - pesoNaData; // Usa pesoNaData para o progresso da meta
+                    progressToTarget = Math.max(0, Math.min(100, (currentLossToTarget / totalNeeded) * 100));
                 }
                 
-                const imcData = calculateIMC(p.peso_atual, p.altura);
+                // O IMC deve ser calculado com base no peso na data de referência
+                const imcData = calculateIMC(pesoNaData, p.altura);
 
-                // *** CORREÇÃO #1.1: Adicionando 'pesoPerdidoTotal' ao retorno da função ***
-                const pesoPerdidoTotal = p.peso_inicial - pesoNaData;
-                return { ...p, name: p.name, pesoPerdidoTotal: pesoPerdidoTotal, percentLoss: Math.max(0, percentLoss), weightPoints, validWeeksCount, totalActivities, activityPoints, totalPoints: weightPoints + activityPoints, progressToTarget, imc: imcData.value, imcClassification: imcData.classification, imcClassName: imcData.className };
+                // O 'peso_atual' retornado pelo calculateMetrics agora é o pesoNaData
+                return { 
+                    ...p, 
+                    name: p.name, 
+                    peso_atual: pesoNaData, // Garante que peso_atual reflete o pesoNaData
+                    pesoPerdidoTotal: pesoPerdido, 
+                    percentLoss: Math.max(0, percentLoss), 
+                    weightPoints, 
+                    validWeeksCount, 
+                    totalActivities, 
+                    activityPoints, 
+                    totalPoints: weightPoints + activityPoints, 
+                    progressToTarget, 
+                    imc: imcData.value, 
+                    imcClassification: imcData.classification, 
+                    imcClassName: imcData.className 
+                };
             }
 
             function getBadges(p) {
                 let badges = '';
+                // Assegura que peso_atual aqui também usa o peso mais recente (que agora é retornado por calculateMetrics)
                 if (p.target_weight && p.peso_atual <= p.target_weight) badges += `<span class="badge" title="Meta Atingida!">🎯</span>`;
-                const pesoPerdido = p.peso_inicial - p.peso_atual;
+                const pesoPerdido = p.peso_inicial - p.peso_atual; // p.peso_atual já é o pesoNaData aqui
                 if (pesoPerdido >= 10) badges += `<span class="badge" title="Clube dos 10kg!">🔟</span>`;
                 else if (pesoPerdido >= 5) badges += `<span class="badge" title="Clube dos 5kg!">5️⃣</span>`;
                 const consecutive = (p.semanas_validas || []).map(w => (Array.isArray(w) && w.length >= MIN_ACTIVITIES_FOR_VALID_WEEK) ? '1' : '0').join('').split('0').reduce((max, s) => Math.max(max, s.length), 0);
@@ -728,9 +759,18 @@
 
             function getWeightAtDate(participant, targetDate) {
                 const history = participant.weight_history || [];
-                if (history.length === 0) return participant.peso_inicial;
-                const relevantHistory = history.filter(entry => new Date(entry.date) <= targetDate).sort((a, b) => new Date(b.date) - new Date(a.date)); 
-                return relevantHistory.length > 0 ? relevantHistory[0].weight : participant.peso_inicial;
+                // Filtra entradas do histórico que são na ou antes da data alvo
+                const relevantHistory = history.filter(entry => new Date(entry.date) <= targetDate); 
+                
+                if (relevantHistory.length === 0) {
+                    // Se não há histórico relevante, retorna o peso inicial do participante
+                    return participant.peso_inicial;
+                }
+                
+                // Ordena o histórico relevante para pegar a entrada mais recente
+                relevantHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                return relevantHistory[0].weight; // Retorna o peso da entrada mais recente
             }
 
             function calculateWeeklyWinners() {
@@ -738,7 +778,8 @@
                 const oneWeekAgo = new Date(); oneWeekAgo.setDate(today.getDate() - 7);
                 let weeklyWinner = { name: null, pointsGained: -1 };
                 participants.forEach(p => {
-                    const pointsNow = calculateMetrics(p, today).totalPoints;
+                    // calculateMetrics já usa getWeightAtDate internamente
+                    const pointsNow = calculateMetrics(p, today).totalPoints; 
                     const pointsThen = calculateMetrics(p, oneWeekAgo).totalPoints;
                     const pointsGained = pointsNow - pointsThen;
                     if (pointsGained > weeklyWinner.pointsGained) weeklyWinner = { name: p.name, pointsGained };
@@ -763,6 +804,7 @@
                 currentViewId = sectionId;
                 const link = NAV_LINKS.find(l => l.id === sectionId);
                 if (!link || !currentUser || !link.roles.includes(currentUser.role)) {
+                    // Fallback para uma seção permitida se a seção solicitada não for válida para o usuário
                     return showSection(currentUser.role === 'admin' ? 'ranking' : 'myProfile');
                 }
                 
@@ -771,7 +813,8 @@
                     pageTitle.textContent = 'Meu Perfil';
                 }
                 
-                const allMetrics = participants.map(p => calculateMetrics(p));
+                // Passa a data atual como referência para calculateMetrics aqui também
+                const allMetrics = participants.map(p => calculateMetrics(p, new Date())); 
                 const searchTerm = document.getElementById('searchParticipantInput').value.toLowerCase();
                 const filteredMetrics = allMetrics.filter(p => p.name.toLowerCase().includes(searchTerm));
 
@@ -820,6 +863,7 @@
             // --- PAGE RENDERERS ---
 
             function renderRankingTable(data, container) {
+                // calculateMetrics já é chamado com a data atual em showSection, então os dados 'p' aqui já são os mais recentes
                 const pointRanked = [...participants.map(p => calculateMetrics(p))].sort((a, b) => b.totalPoints - a.totalPoints);
                 const sortArrow = (key) => rankingSortConfig.key === key ? (rankingSortConfig.direction === 'asc' ? ' ▲' : ' ▼') : '';
                 
@@ -881,9 +925,12 @@
                 }
 
                 let cardsHTML = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">';
-                data.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
+                // Garante que os dados de participantes estão atualizados para a renderização
+                const participantsToRender = participants.map(p => calculateMetrics(p, new Date()));
+
+                participantsToRender.sort((a,b) => a.name.localeCompare(b.name)).forEach(p => {
                     const avatarSrc = p.avatar_url || `https://placehold.co/80x80/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
-                    const pesoPerdido = p.pesoPerdidoTotal;
+                    const pesoPerdido = p.pesoPerdidoTotal; 
                     cardsHTML += `
                         <div class="card transform hover:bg-gray-700 transition-colors duration-300 flex flex-col">
                             <div class="p-5 flex-grow">
@@ -912,7 +959,8 @@
             }
 
             function renderParticipantProfilePage(container) {
-                const pMetric = calculateMetrics(participants.find(p => p.id == currentProfileParticipantId));
+                // Ao renderizar o perfil, sempre pegue o peso mais atual
+                const pMetric = calculateMetrics(participants.find(p => p.id == currentProfileParticipantId), new Date()); 
                 if (!pMetric) {
                     container.innerHTML = `<div class="card"><div class="text-center py-10 text-gray-500">Participante não encontrado.</div></div>`;
                     return;
@@ -930,8 +978,7 @@
                     backButtonHTML = `<a href="#" data-action="go-to-participants" style="color: var(--primary-color);" class="hover:underline mb-4 inline-block">&larr; Voltar para todos os participantes</a>`;
                 }
                 
-                // *** CORREÇÃO #1.2: Usando 'pesoPerdidoTotal' para garantir o cálculo correto ***
-                const pesoPerdido = pMetric.pesoPerdidoTotal;
+                const pesoPerdido = pMetric.pesoPerdidoTotal; // Já usa pesoNaData atual
 
                 container.innerHTML = `
                     <div id="profile-content" class="max-w-4xl mx-auto space-y-6">
@@ -979,6 +1026,21 @@
                                             <label class="text-sm font-medium text-gray-300">Data do Registro</label>
                                             <input id="profile-weight-date" type="date" class="mt-1 w-full p-2" value="${todayStr}" max="${todayStr}" ${currentUser.role !== 'admin' ? 'readonly' : ''}>
                                         </div>
+                                        
+                                        <div class="border border-gray-700 p-3 rounded-lg bg-gray-800">
+                                            <label for="profile-weight-photo" class="block text-sm font-medium text-gray-300 mb-1">Foto da Balança (Opcional)</label>
+                                            <input type="file" id="profile-weight-photo" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-200 file:text-indigo-700 hover:file:bg-indigo-300" accept="image/*">
+                                            <button data-action="detect-weight-ai" data-id="${pMetric.id}" class="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md text-sm">Detectar Peso (IA)</button>
+                                            <p id="ai-weight-feedback" class="text-xs text-gray-400 mt-2 text-center"></p>
+                                            <div class="mt-2">
+                                                <label for="profile-weight-photo-privacy" class="block text-sm font-medium text-gray-300 mb-1">Privacidade da Foto:</label>
+                                                <select id="profile-weight-photo-privacy" class="w-full p-2">
+                                                    <option value="public">Público (Visível no Mural)</option>
+                                                    <option value="private">Privado (Visível apenas pra você e Administrador)</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
                                         <button data-action="update-weight" data-id="${pMetric.id}" style="background-color: var(--primary-color);" class="w-full hover:opacity-90 text-white font-bold py-2.5 px-4 rounded-md">Salvar Peso</button>
                                     </div>
                                 </div>
@@ -987,7 +1049,17 @@
                                     <div class="space-y-4">
                                         <div><label class="text-sm font-medium text-gray-300">Tipo</label><select id="profile-activity-type" class="mt-1 w-full p-2">${ACTIVITY_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select></div>
                                         <div><label class="text-sm font-medium text-gray-300">Duração (min)</label><input type="number" id="profile-activity-duration" class="w-full p-2"></div>
-                                        <div><label class="text-sm font-medium text-gray-300">Foto do Treino (Opcional)</label><input type="file" id="profile-activity-photo" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-200 file:text-indigo-700 hover:file:bg-indigo-300" accept="image/*"></div>
+                                        <div>
+                                            <label for="profile-activity-photo" class="text-sm font-medium text-gray-300">Foto do Treino (Opcional)</label>
+                                            <input type="file" id="profile-activity-photo" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-200 file:text-indigo-700 hover:file:bg-indigo-300" accept="image/*">
+                                            <div class="mt-2">
+                                                <label for="profile-activity-photo-privacy" class="block text-sm font-medium text-gray-300 mb-1">Privacidade da Foto:</label>
+                                                <select id="profile-activity-photo-privacy" class="w-full p-2">
+                                                    <option value="public">Público (Visível no Mural)</option>
+                                                    <option value="private">Privado (Visível apenas pra você e Administrador)</option>
+                                                </select>
+                                            </div>
+                                        </div>
                                         <button data-action="add-activity" data-id="${pMetric.id}" style="background-color: var(--success-color);" class="w-full hover:opacity-90 text-white font-bold py-2.5 px-4 rounded-md">Adicionar Atividade</button>
                                     </div>
                                 </div>
@@ -1091,23 +1163,70 @@
 
             function renderActivityFeedPage(container) {
                 let allActivities = [];
+                const now = new Date();
+
                 participants.forEach(p => {
-                    const participantActivities = (p.semanas_validas || []).flat().map(act => ({
-                        ...act,
-                        participantId: p.id,
-                        participantName: p.name,
-                        participantAvatar: p.avatar_url || `https://placehold.co/48x48/E2E8F0/4A5568?text=${p.name.charAt(0)}`
-                    }));
-                    allActivities.push(...participantActivities);
+                    // Adiciona atividades de peso ao mural se forem públicas ou se for admin
+                    p.weight_history.forEach(wh => {
+                        // Garante que a data de registro de peso não é no futuro (para evitar posts "futuros" no mural)
+                        if (new Date(wh.date) <= now && (wh.imageUrl && (wh.is_public || currentUser.role === 'admin'))) {
+                             // ID único para a entrada de peso no mural. Use um prefixo para distinguir.
+                            const weightEntryId = `weight-${p.id}-${new Date(wh.date).getTime()}`; 
+                            allActivities.push({
+                                id: weightEntryId,
+                                participantId: p.id,
+                                participantName: p.name,
+                                participantAvatar: p.avatar_url || `https://placehold.co/48x48/E2E8F0/4A5568?text=${p.name.charAt(0)}`,
+                                type: 'Pesagem',
+                                duration: null,
+                                date: wh.date,
+                                imageUrl: wh.imageUrl,
+                                is_public: wh.is_public,
+                                // Adiciona um texto descritivo para a pesagem
+                                description: `pesou ${parseFloat(wh.weight).toFixed(1)} kg.`, 
+                                isWeightEntry: true
+                            });
+                        }
+                    });
+
+                    // Adiciona atividades de treino ao mural
+                    (p.semanas_validas || []).flat().forEach(act => {
+                        // Garante que a data da atividade não é no futuro
+                        if (new Date(act.date) <= now) {
+                            // Se a atividade tem foto, verifica a privacidade
+                            if (act.imageUrl) {
+                                if (act.is_public || currentUser.role === 'admin') {
+                                    allActivities.push({
+                                        ...act,
+                                        participantId: p.id,
+                                        participantName: p.name,
+                                        participantAvatar: p.avatar_url || `https://placehold.co/48x48/E2E8F0/4A5568?text=${p.name.charAt(0)}`,
+                                        isWeightEntry: false
+                                    });
+                                }
+                            } else {
+                                // Atividades sem foto sempre são consideradas públicas no mural (se não houver outro requisito)
+                                allActivities.push({
+                                    ...act,
+                                    participantId: p.id,
+                                    participantName: p.name,
+                                    participantAvatar: p.avatar_url || `https://placehold.co/48x48/E2E8F0/4A5568?text=${p.name.charAt(0)}`,
+                                    isWeightEntry: false
+                                });
+                            }
+                        }
+                    });
                 });
 
-                allActivities.sort((a, b) => getActivityTimestamp(b) - getActivityTimestamp(a));
+                // Ordena por data, mais recente primeiro
+                allActivities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); 
 
                 const heartSVG = `
                     <svg class="w-6 h-6" viewBox="0 0 24 24">
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                     </svg>
                 `;
+                const privateSVG = `<svg class="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>`;
 
                 let feedHTML = `
                     <div class="space-y-4 max-w-2xl mx-auto">
@@ -1120,38 +1239,48 @@
                 if (allActivities.length === 0) {
                     feedHTML += `<div class="card text-center py-10 text-gray-500">Nenhuma atividade registrada ainda. Seja o primeiro!</div>`;
                 } else {
-                    allActivities.slice(0, 50).forEach(act => { // Limit to last 50 activities
-                        const activityDate = new Date(act.date);
-                        const timeAgo = formatTimeAgo(activityDate);
+                    allActivities.slice(0, 50).forEach(item => { // Limit to last 50 activities
+                        const itemId = item.id; 
+                        const itemDate = new Date(item.date);
+                        const timeAgo = formatTimeAgo(itemDate);
 
-                        // *** CORREÇÃO #2.1: Garantindo que o filtro e a contagem funcionem ***
-                        const activityReactions = reactions.filter(r => parseInt(r.activity_id) === parseInt(act.id));
-                        const count = activityReactions.length;
+                        // Ajuste para garantir que r.activity_id é comparável ao itemId (que pode ser string ou number)
+                        const itemReactions = reactions.filter(r => r.activity_id == itemId); 
+                        const count = itemReactions.length;
                         
-                        // *** CORREÇÃO #2.2: Garantindo que a checagem de reação do usuário funcione ***
-                        const userReacted = reactions.some(r => parseInt(r.activity_id) === parseInt(act.id) && r.user_id == currentUser.participantId);
+                        const userReacted = reactions.some(r => r.activity_id == itemId && r.user_id == currentUser.participantId);
 
                         const reactionsHTML = `
-                            <button data-action="react" data-activity-id="${act.id}" data-reaction-type="❤️" class="reaction-btn ${userReacted ? 'reacted' : ''}">
+                            <button data-action="react" data-activity-id="${itemId}" data-reaction-type="❤️" class="reaction-btn ${userReacted ? 'reacted' : ''}">
                                 ${heartSVG}
                                 <span class="font-semibold">${count}</span>
                             </button>
                         `;
 
-                        const imageHTML = act.imageUrl ? `
-                            <img src="${act.imageUrl}" alt="Foto da atividade de ${act.participantName}" class="mt-3 rounded-lg w-full object-cover max-h-96 border border-gray-600" loading="lazy" onerror="this.style.display='none'">
+                        const imageHTML = item.imageUrl ? `
+                            <img src="${item.imageUrl}" alt="Foto da ${item.type} de ${item.participantName}" class="mt-3 rounded-lg w-full object-cover max-h-96 border border-gray-600" loading="lazy" onerror="this.style.display='none'">
                         ` : '';
+
+                        // Verifica a privacidade e exibe o ícone de privado se necessário para participantes
+                        const privacyIndicator = item.is_public === false ? `<span class="text-gray-500 text-sm ml-2 flex items-center">${privateSVG} Privado</span>` : '';
+                        
+                        let activityDescription = '';
+                        if (item.isWeightEntry) {
+                            activityDescription = `pesou ${parseFloat(item.weight).toFixed(1)} kg.`; // Usa item.weight para entradas de peso
+                        } else {
+                            activityDescription = `registrou uma atividade: <span class="text-lg font-semibold text-indigo-300">${item.type} - ${item.duration} min</span>`;
+                        }
 
                         feedHTML += `
                             <div class="card">
                                 <div class="flex items-start gap-4">
-                                    <img src="${act.participantAvatar}" class="w-12 h-12 rounded-full object-cover" onerror="this.onerror=null;this.src='${act.participantAvatar}';">
+                                    <img src="${item.participantAvatar}" class="w-12 h-12 rounded-full object-cover" onerror="this.onerror=null;this.src='${item.participantAvatar}';">
                                     <div class="flex-1">
                                         <p>
-                                            <strong class="text-white">${act.participantName}</strong>
-                                            <span class="text-gray-400">registrou uma atividade:</span>
+                                            <strong class="text-white">${item.participantName}</strong>
+                                            <span class="text-gray-400">${activityDescription}</span>
+                                            ${privacyIndicator}
                                         </p>
-                                        <p class="text-lg font-semibold text-indigo-300">${act.type} - ${act.duration} min</p>
                                         
                                         ${imageHTML}
 
@@ -1177,6 +1306,7 @@
                 const isOwnProfile = currentUser.participantId == participant.id;
                 const canEditProfile = currentUser.role === 'admin' || isOwnProfile;
                 
+                // Ordena o histórico do mais recente para o mais antigo
                 const history = [...(participant.weight_history || [])].sort((a,b) => new Date(b.date) - new Date(a.date));
 
                 if (history.length === 0) {
@@ -1186,26 +1316,34 @@
 
                 history.forEach((entry, index) => {
                     const formattedDate = new Date(entry.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                    let changeHTML = '';
-                    const previousEntry = history[index + 1];
+                    let currentWeightAndChangeHTML = '';
+                    const previousEntry = history[index + 1]; // O registro anterior na linha do tempo (próximo item no array ordenado decrescentemente)
+
                     if (previousEntry) {
-                        const change = entry.weight - previousEntry.weight;
+                        const change = entry.weight - previousEntry.weight; // Variação do peso atual para o peso anterior
                         const changeColor = change < 0 ? 'text-green-400' : (change > 0 ? 'text-red-400' : 'text-gray-400');
                         const sign = change > 0 ? '+' : '';
-                        changeHTML = `<span class="font-semibold w-20 text-right ${changeColor}">${sign}${change.toFixed(2)}</span>`;
+                        
+                        // Exibe o peso do registro e a variação entre parênteses
+                        currentWeightAndChangeHTML = `<span class="font-semibold text-white">${parseFloat(entry.weight).toFixed(2)} kg</span> <span class="text-xs ${changeColor}">(${sign}${change.toFixed(2)} kg)</span>`;
                     } else {
-                        changeHTML = `<span class="w-20 text-right text-gray-500 text-xs">INÍCIO</span>`;
+                        // Para o primeiro registro (peso inicial), exibe o peso e "INÍCIO"
+                        currentWeightAndChangeHTML = `<span class="font-semibold text-white">${parseFloat(entry.weight).toFixed(2)} kg</span> <span class="text-xs text-gray-500">(INÍCIO)</span>`;
                     }
+
+                    // A lixeira só aparece se for possível excluir (não o peso inicial se for o único, ou se não for admin)
+                    // NOTA: A lógica para impedir que o usuário comum apague o peso inicial será implementada na próxima revisão.
+                    // Por enquanto, a lixeira aparece para todos os registros que não sejam o ÚLTIMO remanescente.
+                    const canDeleteEntry = canEditProfile && history.length > 1; 
 
                     listContainer.innerHTML += `
                         <div class="flex justify-between items-center text-sm p-2 bg-gray-800 rounded-lg hover:bg-gray-700">
                             <div class="flex items-center gap-3">
-                                <span class="font-bold text-white w-20">${parseFloat(entry.weight).toFixed(2)} kg</span>
                                 <span class="text-gray-400">${formattedDate}</span>
                             </div>
                             <div class="flex items-center gap-2">
-                                ${changeHTML}
-                                ${canEditProfile && history.length > 1 ? `<button data-action="delete-weight-entry" data-id="${participant.id}" data-entry-date="${entry.date}" class="text-gray-500 hover:text-red-500 p-1" title="Excluir">
+                                ${currentWeightAndChangeHTML}
+                                ${canDeleteEntry ? `<button data-action="delete-weight-entry" data-id="${participant.id}" data-entry-date="${entry.date}" class="text-gray-500 hover:text-red-500 p-1" title="Excluir">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
                                 </button>` : `<div class="w-6"></div>`}
                             </div>
@@ -1241,6 +1379,7 @@
                                 <span class="font-bold text-white">${act.type}</span> - 
                                 <span class="text-gray-300">${act.duration} min</span>
                                 <span class="text-gray-400 text-xs italic">(Sem. ${act.weekIndex + 1} - ${formattedDate})</span>
+                                ${act.is_public === false ? `<span class="text-gray-500 text-xs ml-2 flex items-center"><svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>Privado</span>` : ''}
                             </div>
                             ${canEditProfile ? `
                             <button data-action="delete-activity" data-id="${participant.id}" data-week="${act.weekIndex}" data-activity-id="${act.id}" class="text-gray-500 hover:text-red-500 p-1" title="Apagar Atividade">
@@ -1319,7 +1458,7 @@
 
                 let weeklyData = data.map(p => {
                     const weightThen = getWeightAtDate(p, beforeStartOfWeek);
-                    const weightNow = p.peso_atual;
+                    const weightNow = getWeightAtDate(p, today); // Usa getWeightAtDate para o peso 'atual' da semana
                     const weightChange = weightNow - weightThen;
                     
                     const activitiesThisWeek = (p.semanas_validas[currentWeekIndex] || []).length;
@@ -1435,6 +1574,8 @@
             function renderIndividualEvolutionPage(data, container) {
                 container.innerHTML = `
                     <div id="all-charts-wrapper">
+                        <h3 class="text-xl font-semibold text-center mb-2 text-white">Evolução de Peso Individual</h3>
+                        <p class="text-center text-gray-400 mb-6">Acompanhe a variação do peso ao longo do tempo e a projeção de sua meta.</p>
                         <div id="mainWeightChartWrapper" class="mb-8 card"></div>
                         <div id="trendChartWrapper" class="mb-8 card"></div>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
@@ -1451,7 +1592,7 @@
 
             function renderMainWeightChart(data) {
                 const chartContainer = document.getElementById('mainWeightChartWrapper');
-                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Evolução do Peso</h3>`;
+                // chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Evolução do Peso</h3>`; // Removido para evitar duplicidade
                 const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 0);
                 if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="text-center py-10 text-gray-500">Não há histórico de peso para exibir.</div>`;
 
@@ -1470,15 +1611,19 @@
                 svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`)).selectAll("text").style("fill", "var(--text-muted)");
 
                 participantsWithHistory.forEach(p => {
+                    // Garante que o histórico para o gráfico está ordenado por data
+                    const sortedHistory = [...p.weight_history].sort((a,b) => new Date(a.date) - new Date(b.date));
                     const line = d3.line().curve(d3.curveMonotoneX).x(d => xScale(new Date(d.date))).y(d => yScale(d.weight));
-                    svg.append("path").datum(p.weight_history).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2.5).attr("d", line);
-                    svg.append("text").attr("transform", `translate(${width+5},${yScale(p.weight_history[p.weight_history.length-1].weight)})`).attr("dy", ".35em").attr("text-anchor", "start").style("fill", colors(p.name)).text(p.name);
+                    svg.append("path").datum(sortedHistory).attr("fill", "none").attr("stroke", colors(p.name)).attr("stroke-width", 2.5).attr("d", line);
+                    if (sortedHistory.length > 0) {
+                        svg.append("text").attr("transform", `translate(${width+5},${yScale(sortedHistory[sortedHistory.length-1].weight)})`).attr("dy", ".35em").attr("text-anchor", "start").style("fill", colors(p.name)).text(p.name);
+                    }
                 });
             }
 
             function renderTrendChart(data) {
                 const chartContainer = document.getElementById('trendChartWrapper');
-                chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Projeção de Tendência</h3>`;
+                // chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Projeção de Tendência</h3>`; // Removido para evitar duplicidade
                 const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 1);
                 if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="text-center py-10 text-gray-500">Dados insuficientes para projeção.</div>`;
                 
@@ -1580,7 +1725,7 @@
                         svg.selectAll(".bar").data(weeklyLossData).enter().append("rect").attr("class", "bar").attr("x", d => xScale(d.week)).attr("y", d => yScale(Math.max(0, d.totalLoss))).attr("width", xScale.bandwidth()).attr("height", d => Math.abs(yScale(0) - yScale(d.totalLoss))).attr("fill", "var(--primary-color)");
                     }
                     
-                    const pieData = participants.map(p => ({ name: p.name, value: Math.max(0, p.peso_inicial - p.peso_atual) })).filter(p => p.value > 0);
+                    const pieData = participants.map(p => ({ name: p.name, value: Math.max(0, p.peso_inicial - getWeightAtDate(p, new Date())) })).filter(p => p.value > 0); // Usa getWeightAtDate
                     const totalLoss = d3.sum(pieData, d => d.value);
 
                     if (pieData.length > 0) {
@@ -1634,7 +1779,9 @@
 
                     let allChartDates = [], allChartValues = [];
                     const chartData = participantsWithHistory.map(p => {
-                        const history = p.weight_history.map(entry => {
+                        // Certifique-se de que a história está ordenada para o gráfico
+                        const sortedHistory = [...p.weight_history].sort((a, b) => new Date(a.date) - new Date(b.date));
+                        const history = sortedHistory.map(entry => {
                             const value = selectedMetric === 'weight' ? entry.weight : ((p.peso_inicial - entry.weight) / p.peso_inicial) * 100;
                             allChartDates.push(new Date(entry.date)); allChartValues.push(value);
                             return { date: entry.date, value: value };
@@ -1783,6 +1930,9 @@
             async function handleUpdateWeight(participantId) {
                 const weightInput = document.getElementById('profile-weight-input');
                 const dateInput = document.getElementById('profile-weight-date');
+                const photoFile = document.getElementById('profile-weight-photo').files[0];
+                const photoPrivacy = document.getElementById('profile-weight-photo-privacy').value === 'public'; // true for public, false for private
+                
                 const newWeight = parseFloat(weightInput.value);
                 const dateValue = dateInput.value;
 
@@ -1790,46 +1940,144 @@
                 if (!dateValue) return showFeedbackMessage("Selecione uma data.", true);
                 
                 const participant = participants.find(p => p.id == participantId);
-                if (participant) {
-                    const newEntry = { date: new Date(dateValue + 'T00:00:00').toISOString(), weight: newWeight };
-                    const filteredHistory = (participant.weight_history || []).filter(entry => new Date(entry.date).toDateString() !== new Date(newEntry.date).toDateString());
-                    const newHistory = [...filteredHistory, newEntry];
-                    newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                if (!participant) return;
+
+                let imageUrl = null;
+                if (photoFile) {
+                    showFeedbackMessage('Enviando foto da balança...', false);
+                    const fileName = `public/weights/${participantId}-${Date.now()}-${photoFile.name}`;
+                    const { data: uploadData, error: uploadError } = await supabase.storage.from('activity-photos').upload(fileName, photoFile);
                     
-                    const { error } = await supabase.from('participants').update({ peso_atual: newWeight, weight_history: newHistory }).eq('id', participantId);
-                    if (error) showFeedbackMessage('Erro ao atualizar peso.', true);
-                    else { 
-                        showFeedbackMessage(`Peso de ${participant.name} atualizado!`); 
-                        participant.peso_atual = newWeight;
-                        participant.weight_history = newHistory;
-                        updateCurrentView();
+                    if (uploadError) {
+                        console.error("Erro no upload da foto da balança:", uploadError);
+                        return showFeedbackMessage('Erro ao enviar a foto da balança.', true);
                     }
+                    imageUrl = supabase.storage.from('activity-photos').getPublicUrl(fileName).data.publicUrl;
+                }
+
+                const newEntry = { 
+                    date: new Date(dateValue + 'T00:00:00').toISOString(), 
+                    weight: newWeight,
+                    imageUrl: imageUrl,
+                    is_public: photoPrivacy // Salva a privacidade da foto de peso
+                };
+
+                const filteredHistory = (participant.weight_history || []).filter(entry => 
+                    new Date(entry.date).toDateString() !== new Date(newEntry.date).toDateString()
+                );
+                const newHistory = [...filteredHistory, newEntry];
+                newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                const latestWeightInHistory = newHistory.length > 0 ? newHistory[newHistory.length - 1].weight : participant.peso_inicial;
+
+                const { error } = await supabase.from('participants').update({ 
+                    weight_history: newHistory,
+                    peso_atual: latestWeightInHistory 
+                }).eq('id', participantId);
+
+                if (error) {
+                    showFeedbackMessage('Erro ao atualizar peso.', true);
+                } else { 
+                    showFeedbackMessage(`Peso de ${participant.name} atualizado!`); 
+                    reloadData(); 
                 }
             }
 
-            async function handleDeleteWeightEntry(participantId, entryDateISO) {
-                const participant = participants.find(p => p.id == participantId);
-                if (!participant || (participant.weight_history && participant.weight_history.length <= 1)) {
-                    return showFeedbackMessage("Não é possível excluir o único registro de peso.", true);
+            async function detectWeightFromImage(participantId) {
+                const weightPhotoInput = document.getElementById('profile-weight-photo');
+                const weightInput = document.getElementById('profile-weight-input');
+                const aiFeedback = document.getElementById('ai-weight-feedback');
+                const photoFile = weightPhotoInput.files[0];
+
+                if (!photoFile) {
+                    aiFeedback.textContent = 'Por favor, selecione uma foto da balança.';
+                    return;
                 }
+
+                aiFeedback.textContent = 'Detectando peso via IA...';
+                showFeedbackMessage('Enviando foto para análise de IA...', false);
+
+                try {
+                    // Upload da imagem para o Supabase Storage
+                    const fileName = `public/temp_uploads/${participantId}-${Date.now()}-${photoFile.name}`;
+                    const { data: uploadData, error: uploadError } = await supabase.storage.from('activity-photos').upload(fileName, photoFile);
+
+                    if (uploadError) {
+                        throw new Error('Erro ao enviar foto para o storage: ' + uploadError.message);
+                    }
+                    const imageUrl = supabase.storage.from('activity-photos').getPublicUrl(fileName).data.publicUrl;
+
+                    // Chamada para a Supabase Edge Function que faz o OCR
+                    // ATENÇÃO: Você precisa ter uma Supabase Edge Function chamada 'get-weight-from-image'
+                    // configurada em seu projeto Supabase, que fará a comunicação com um serviço de IA
+                    // para reconhecimento de texto em imagem (OCR).
+                    // O exemplo conceitual dessa função foi fornecido na conversa anterior.
+                    const { data, error } = await supabase.functions.invoke('get-weight-from-image', {
+                        body: { imageUrl: imageUrl },
+                    });
+
+                    if (error) {
+                        throw new Error('Erro na função de IA: ' + error.message);
+                    }
+                    
+                    if (data && data.weight) {
+                        weightInput.value = parseFloat(data.weight).toFixed(1);
+                        aiFeedback.textContent = `Peso detectado: ${parseFloat(data.weight).toFixed(1)} kg. Revise e salve.`;
+                        showFeedbackMessage('Peso detectado com sucesso!');
+                    } else {
+                        aiFeedback.textContent = 'Não foi possível detectar o peso na imagem. Por favor, insira manualmente.';
+                        showFeedbackMessage('Não foi possível detectar o peso.', true);
+                    }
+
+                    // Opcional: Limpar a imagem temporária do storage após a detecção
+                    supabase.storage.from('activity-photos').remove([fileName]);
+
+                } catch (error) {
+                    console.error("Erro na detecção de peso por IA:", error);
+                    aiFeedback.textContent = `Erro ao detectar peso: ${error.message}`;
+                    showFeedbackMessage('Erro na detecção de peso por IA.', true);
+                }
+            }
+
+            async function handleDeleteWeightEntryConfirmed(participantId, entryDateISO) {
+                const participant = participants.find(p => p.id == participantId);
+                if (!participant) return;
+
                 const newHistory = participant.weight_history.filter(entry => entry.date !== entryDateISO);
+
+                // Permite apagar o último registro apenas se houver peso inicial, caso contrário, avisa.
+                if (newHistory.length === 0 && (participant.peso_inicial === undefined || participant.peso_inicial === null)) {
+                    showFeedbackMessage("Não é possível excluir o único registro de peso se não houver peso inicial definido.", true);
+                    document.getElementById('deleteConfirmModal').classList.remove('show');
+                    document.body.style.overflow = 'auto';
+                    return;
+                }
+                
                 newHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
+                // O novo peso atual será o último no histórico atualizado, ou o peso inicial se o histórico estiver vazio
                 const newCurrentWeight = newHistory.length > 0 ? newHistory[newHistory.length - 1].weight : participant.peso_inicial;
 
-                const { error } = await supabase.from('participants').update({ weight_history: newHistory, peso_atual: newCurrentWeight }).eq('id', participant.id);
-                if (error) showFeedbackMessage('Erro ao excluir registro de peso.', true);
-                else { 
+                const { error } = await supabase.from('participants').update({ 
+                    weight_history: newHistory, 
+                    peso_atual: newCurrentWeight // Atualiza o campo peso_atual no DB
+                }).eq('id', participant.id);
+
+                if (error) {
+                    showFeedbackMessage('Erro ao excluir registro de peso.', true);
+                } else { 
                     showFeedbackMessage("Registro de peso excluído!"); 
-                    participant.weight_history = newHistory;
-                    participant.peso_atual = newCurrentWeight;
-                    updateCurrentView();
+                    reloadData();
                 }
+                // Fecha o modal de confirmação após a ação
+                document.getElementById('deleteConfirmModal').classList.remove('show');
+                document.body.style.overflow = 'auto';
             }
             
             async function handleAddActivity(participantId) {
                 const type = document.getElementById('profile-activity-type').value;
                 const duration = parseInt(document.getElementById('profile-activity-duration').value);
                 const photoFile = document.getElementById('profile-activity-photo').files[0];
+                const photoPrivacy = document.getElementById('profile-activity-photo-privacy').value === 'public'; // true for public, false for private
                 const activityDate = new Date();
                 const weekIndex = Math.floor((activityDate - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
 
@@ -1838,28 +2086,29 @@
                 const participant = participants.find(p => p.id == participantId);
                 if (!participant) return;
 
+                let imageUrl = null;
+                if (photoFile) {
+                    showFeedbackMessage('Enviando foto da atividade...', false);
+                    const fileName = `public/activities/${participantId}-${Date.now()}-${photoFile.name}`;
+                    const { error: uploadError } = await supabase.storage.from('activity-photos').upload(fileName, photoFile);
+                    
+                    if (uploadError) {
+                        console.error("Erro no upload da foto da atividade:", uploadError);
+                        return showFeedbackMessage('Erro ao enviar a foto da atividade.', true);
+                    }
+                    
+                    imageUrl = supabase.storage.from('activity-photos').getPublicUrl(fileName).data.publicUrl;
+                }
+
                 const newActivity = { 
-                    id: Date.now(), // Use a numeric timestamp as the ID
+                    id: Date.now(), // Use a numeric timestamp as o ID
                     participantId: participantId,
                     type, 
                     duration, 
                     date: activityDate.toISOString(),
-                    imageUrl: null 
+                    imageUrl: imageUrl,
+                    is_public: photoPrivacy // Salva a privacidade da foto da atividade
                 };
-
-                if (photoFile) {
-                    showFeedbackMessage('Enviando foto...', false);
-                    const fileName = `public/${participantId}-${Date.now()}-${photoFile.name}`;
-                    const { error: uploadError } = await supabase.storage.from('activity-photos').upload(fileName, photoFile);
-                    
-                    if (uploadError) {
-                        console.error("Erro no upload da foto:", uploadError);
-                        return showFeedbackMessage('Erro ao enviar a foto.', true);
-                    }
-                    
-                    const { data: urlData } = supabase.storage.from('activity-photos').getPublicUrl(fileName);
-                    newActivity.imageUrl = urlData.publicUrl;
-                }
 
                 const newSemanasValidas = JSON.parse(JSON.stringify(participant.semanas_validas));
                 if (!Array.isArray(newSemanasValidas[weekIndex])) newSemanasValidas[weekIndex] = [];
@@ -1874,50 +2123,76 @@
                 }
             }
 
-            async function handleDeleteActivity(participantId, weekIndex, activityIdStr) {
-    // A CORREÇÃO ESTÁ AQUI: Nós tratamos o ID como o texto que ele realmente é.
-    const activityId = activityIdStr; 
+            async function handleDeleteActivityConfirmed(participantId, weekIndex, activityIdStr) {
+                const activityId = activityIdStr; 
 
-    const localParticipantIndex = participants.findIndex(p => p.id == participantId);
-    if (localParticipantIndex === -1) return;
+                const localParticipantIndex = participants.findIndex(p => p.id == participantId);
+                if (localParticipantIndex === -1) {
+                    document.getElementById('deleteConfirmModal').classList.remove('show');
+                    document.body.style.overflow = 'auto';
+                    return;
+                }
 
-    const participant = participants[localParticipantIndex];
-    const originalParticipantState = JSON.parse(JSON.stringify(participant));
+                const participant = participants[localParticipantIndex];
+                const originalParticipantState = JSON.parse(JSON.stringify(participant));
 
-    // ATUALIZAÇÃO OTIMISTA
-    const updatedParticipant = JSON.parse(JSON.stringify(participant));
-    if (updatedParticipant.semanas_validas[weekIndex]) {
-        // A comparação agora funciona (texto === texto)
-        updatedParticipant.semanas_validas[weekIndex] = updatedParticipant.semanas_validas[weekIndex].filter(act => act.id !== activityId);
-    } else {
-        return;
-    }
+                // ATUALIZAÇÃO OTIMISTA
+                const updatedParticipant = JSON.parse(JSON.stringify(participant));
+                if (updatedParticipant.semanas_validas[weekIndex]) {
+                    updatedParticipant.semanas_validas[weekIndex] = updatedParticipant.semanas_validas[weekIndex].filter(act => act.id !== activityId);
+                } else {
+                    document.getElementById('deleteConfirmModal').classList.remove('show');
+                    document.body.style.overflow = 'auto';
+                    return;
+                }
 
-    participants[localParticipantIndex] = updatedParticipant;
+                participants[localParticipantIndex] = updatedParticipant;
 
-    // ATUALIZAÇÃO DA TELA
-    showFeedbackMessage('Atividade apagada.');
-    updateCurrentView();
+                // ATUALIZAÇÃO DA TELA
+                showFeedbackMessage('Atividade apagada.');
+                updateCurrentView();
 
-    // SINCRONIZAÇÃO COM O BANCO
-    const { error } = await supabase
-        .from('participants')
-        .update({ semanas_validas: updatedParticipant.semanas_validas })
-        .eq('id', participantId);
+                // SINCRONIZAÇÃO COM O BANCO
+                const { error } = await supabase
+                    .from('participants')
+                    .update({ semanas_validas: updatedParticipant.semanas_validas })
+                    .eq('id', participantId);
 
-    // REVERSÃO EM CASO DE ERRO
-    if (error) {
-        showFeedbackMessage('Erro ao apagar. A atividade será restaurada.', true);
-        participants[localParticipantIndex] = originalParticipantState;
-        updateCurrentView();
-    } else {
-        const activityToDelete = originalParticipantState.semanas_validas[weekIndex]?.find(act => act.id === activityId);
-        if (activityToDelete && activityToDelete.imageUrl) {
-            const fileName = activityToDelete.imageUrl.split('/').pop();
-            supabase.storage.from('activity-photos').remove([`public/${fileName}`]);
-        }
-    }
-}
+                // REVERSÃO EM CASO DE ERRO
+                if (error) {
+                    showFeedbackMessage('Erro ao apagar. A atividade será restaurada.', true);
+                    participants[localParticipantIndex] = originalParticipantState;
+                    updateCurrentView();
+                } else {
+                    const activityToDelete = originalParticipantState.semanas_validas[weekIndex]?.find(act => act.id === activityId);
+                    if (activityToDelete && activityToDelete.imageUrl) {
+                        const fileName = activityToDelete.imageUrl.split('/').pop();
+                        // As imagens de peso e atividade agora estão em subpastas 'weights' e 'activities'
+                        // Precisamos determinar qual pasta para remover corretamente
+                        let storagePath = '';
+                        if (fileName.startsWith('weights/')) { // Assume um prefixo se for o caso
+                             storagePath = `public/${fileName}`;
+                        } else if (fileName.startsWith('activities/')) { // Assume um prefixo se for o caso
+                             storagePath = `public/${fileName}`;
+                        } else {
+                             // Tenta remover do local original (para compatibilidade com imagens antigas ou se não houver subpasta)
+                             storagePath = `public/activities/${fileName}`; // Default para atividades
+                             // Ou poderia ser: storagePath = `public/${fileName}`; se o nome já for único e na raiz
+                        }
+                        
+                        // Melhorar a lógica de remoção se você tiver pastas 'public/weights/' e 'public/activities/'
+                        // Por agora, o `handleUpdateWeight` e `handleAddActivity` salvam em `public/weights/...` e `public/activities/...`
+                        // A remoção precisa refletir isso.
+                        // Correção: `fileName` já vem com `public/weights/` ou `public/activities/` se foi feito upload pelo frontend
+                        // A remoção precisa apenas do caminho relativo após `from('bucket_name')`.
+                        const pathToRemove = activityToDelete.imageUrl.split('.co/')[1].split('/').slice(2).join('/'); // Pega path após bucket/public/
+                        supabase.storage.from('activity-photos').remove([pathToRemove]);
+                    }
+                }
+                // Fecha o modal de confirmação após a ação
+                document.getElementById('deleteConfirmModal').classList.remove('show');
+                document.body.style.overflow = 'auto';
+            }
             
             async function handleUpdateMeasurements(participantId) {
                 const cintura = parseFloat(document.getElementById('profile-cintura').value);
@@ -1945,161 +2220,29 @@
                 }
             }
 
-            // --- MODALS ---
-            function openParticipantModal(id = null) {
-                if (currentUser.role !== 'admin') return;
-                const modal = document.getElementById('participantModal');
-                const isEdit = id !== null;
-                const p = isEdit ? participants.find(p => p.id == id) : {};
-                const avatarSrc = p.avatar_url || `https://placehold.co/100x100/E2E8F0/4A5568?text=?`;
-                document.body.style.overflow = 'hidden';
-
-                modal.innerHTML = `<div class="modal-content">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-2xl font-bold text-white">${isEdit ? 'Editar' : 'Adicionar'} Participante</h3>
-                            <span class="close-button text-3xl cursor-pointer hover:text-white">&times;</span>
-                        </div>
-                        <form id="participantForm">
-                            <input type="hidden" id="participantId" value="${isEdit ? p.id : ''}">
-                            <input type="hidden" id="existingAvatarUrl" value="${p.avatar_url || ''}">
-                            <div class="flex flex-col items-center mb-4">
-                                <img id="avatarPreview" src="${avatarSrc}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/E2E8F0/4A5568?text=?';" class="rounded-full w-24 h-24 object-cover mb-2 border-2 border-gray-600">
-                                <label for="pAvatarFile" class="cursor-pointer bg-gray-600 hover:bg-gray-500 text-gray-200 font-semibold py-2 px-4 rounded-lg text-sm">Selecionar Foto</label>
-                                <input type="file" id="pAvatarFile" class="hidden" accept="image/*">
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                <div><label class="block font-bold mb-1 text-gray-300">Nome:</label><input type="text" id="pName" class="w-full" value="${p.name || ''}" required></div>
-                                <div><label class="block font-bold mb-1 text-gray-300">Sexo:</label><select id="pSexo" class="w-full"><option value="M" ${p.sexo === 'M' ? 'selected' : ''}>Masculino</option><option value="F" ${p.sexo === 'F' ? 'selected' : ''}>Feminino</option></select></div>
-                                <div><label class="block font-bold mb-1 text-gray-300">Peso Inicial (kg):</label><input type="number" step="any" id="pInitial" class="w-full" value="${p.peso_inicial || ''}" ${isEdit ? 'readonly class="bg-gray-700"' : ''} required></div>
-                                <div><label class="block font-bold mb-1 text-gray-300">Peso Atual (kg):</label><input type="number" step="any" id="pCurrent" class="w-full" value="${p.peso_atual || ''}" required></div>
-                                <div><label class="block font-bold mb-1 text-gray-300">Altura (m):</label><input type="number" step="any" id="pHeight" class="w-full" value="${p.altura || ''}" placeholder="Ex: 1.75" required></div>
-                                <div><label class="block font-bold mb-1 text-gray-300">Meta de Peso (kg):</label><input type="number" step="any" id="pTarget" class="w-full" value="${p.target_weight || ''}"></div>
-                            </div>
-                            <hr class="my-4 border-gray-700">
-                            <h4 class="font-bold mb-2 text-white">Credenciais de Acesso</h4>
-                            <p class="text-sm text-gray-400 mb-4">Crie um login para o participante acessar o próprio perfil.</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                <div><label class="block font-bold mb-1 text-gray-300">Usuário:</label><input type="text" id="pUsername" class="w-full" value="${p.username || ''}" required></div>
-                                <div><label class="block font-bold mb-1 text-gray-300">Senha:</label><input type="password" id="pPassword" class="w-full" placeholder="${isEdit ? 'Deixe em branco para não alterar' : ''}" ${isEdit ? '' : 'required'}></div>
-                            </div>
-                            <div class="flex justify-end gap-4 mt-8"><button type="button" class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg close-button-action">Cancelar</button><button type="submit" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Salvar</button></div>
-                        </form>
-                    </div>`;
-                
-                modal.classList.add('show');
-                modal.querySelector('.close-button').onclick = () => { modal.classList.remove('show'); document.body.style.overflow = 'auto'; };
-                modal.querySelector('.close-button-action').onclick = () => { modal.classList.remove('show'); document.body.style.overflow = 'auto'; };
-                modal.querySelector('#participantForm').onsubmit = handleParticipantFormSubmit;
-                modal.querySelector('#pAvatarFile').onchange = (event) => {
-                    const file = event.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (e) => { document.getElementById('avatarPreview').src = e.target.result; }
-                        reader.readAsDataURL(file);
-                    }
-                };
-            }
-            
-            async function handleParticipantFormSubmit(e) {
-                e.preventDefault();
-                if (currentUser.role !== 'admin') return;
-                const form = e.target;
-                const id = form.querySelector('#participantId').value;
-                const newUsername = document.getElementById('pUsername').value.trim();
-
-                let query = supabase.from('participants').select('id').eq('username', newUsername);
-                if (id) {
-                    query = query.not('id', 'eq', id);
-                }
-                const { data: existingUser, error: validationError } = await query;
-
-                if (validationError) {
-                    showFeedbackMessage('Erro ao validar usuário.', true);
-                    console.error("Supabase validation error:", JSON.stringify(validationError, null, 2));
-                    return;
-                }
-
-                if (existingUser && existingUser.length > 0) {
-                    showFeedbackMessage('Erro ao salvar: este nome de usuário já está em uso por outro participante.', true);
-                    return;
-                }
-
-                let avatarUrl = form.querySelector('#existingAvatarUrl').value;
-                const avatarFile = form.querySelector('#pAvatarFile').files[0];
-                if (avatarFile) {
-                    showFeedbackMessage('Enviando imagem...', false);
-                    const fileName = `${Date.now()}-${avatarFile.name}`;
-                    const { error: uploadError } = await supabase.storage.from('avatars').upload(`public/${fileName}`, avatarFile);
-                    if (uploadError) { return showFeedbackMessage('Erro ao enviar o avatar.', true); }
-                    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`public/${fileName}`);
-                    avatarUrl = urlData.publicUrl;
-                }
-
-                const pesoAtual = parseFloat(document.getElementById('pCurrent').value);
-                const passwordValue = document.getElementById('pPassword').value;
-
-                const participantData = {
-                    name: document.getElementById('pName').value.trim(),
-                    username: newUsername,
-                    sexo: document.getElementById('pSexo').value,
-                    peso_inicial: parseFloat(document.getElementById('pInitial').value),
-                    peso_atual: pesoAtual,
-                    altura: parseFloat(document.getElementById('pHeight').value),
-                    target_weight: parseFloat(document.getElementById('pTarget').value) || null,
-                    avatar_url: avatarUrl,
-                };
-
-                if (passwordValue) {
-                    participantData.password = passwordValue;
-                }
-
-                let dbError;
-                if (id) {
-                    delete participantData.peso_inicial;
-                    const { error: updateError } = await supabase.from('participants').update(participantData).eq('id', id);
-                    dbError = updateError;
-                } else {
-                    participantData.semanas_validas = Array.from({ length: 12 }, () => []);
-                    participantData.weight_history = [{ date: new Date().toISOString(), weight: pesoAtual }];
-                    const { error: insertError } = await supabase.from('participants').insert([participantData]);
-                    dbError = insertError;
-                }
-                
-                if (dbError) {
-                    showFeedbackMessage('Erro ao salvar participante. Verifique o console para mais detalhes.', true);
-                    console.error("Erro detalhado do Supabase:", JSON.stringify(dbError, null, 2));
-                } else {
-                    document.getElementById('participantModal').classList.remove('show');
-                    document.body.style.overflow = 'auto';
-                    showFeedbackMessage(`Participante ${id ? 'atualizado' : 'adicionado'}!`);
-                    loadDataAndLogin(currentUser);
-                }
-            }
-            
-            async function openDeleteModal(id, name) {
-                if (currentUser.role !== 'admin') return;
+            // --- MODALS (Generalizado openConfirmModal) ---
+            function openConfirmModal(messageHTML, onConfirmCallback) {
                 const modal = document.getElementById('deleteConfirmModal');
                 document.body.style.overflow = 'hidden';
                 modal.classList.add('show');
                 modal.innerHTML = `<div class="modal-content text-center">
                         <h3 class="text-2xl font-bold mb-4 text-white">Confirmar Exclusão</h3>
-                        <p class="mb-6 text-gray-300">Tem certeza que deseja excluir <strong>${name}</strong>? Esta ação não pode ser desfeita.</p>
+                        <p class="mb-6 text-gray-300">${messageHTML}</p>
                         <div class="flex justify-center gap-4">
-                            <button class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" id="cancelDelete">Cancelar</button>
-                            <button style="background-color: var(--danger-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg" id="confirmDelete">Confirmar</button>
+                            <button class="bg-gray-600 text-white font-bold py-2 px-4 rounded-lg" id="cancelConfirm">Cancelar</button>
+                            <button style="background-color: var(--danger-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg" id="confirmAction">Confirmar</button>
                         </div>
                     </div>`;
                 
-                modal.querySelector('#cancelDelete').onclick = () => { modal.classList.remove('show'); document.body.style.overflow = 'auto'; };
-                modal.querySelector('#confirmDelete').onclick = async () => {
-                    const { error } = await supabase.from('participants').delete().eq('id', id);
-                    if (error) showFeedbackMessage('Erro ao excluir.', true);
-                    else { showFeedbackMessage("Excluído com sucesso!"); loadDataAndLogin(currentUser); }
-                    modal.classList.remove('show');
-                    document.body.style.overflow = 'auto';
+                modal.querySelector('#cancelConfirm').onclick = () => { 
+                    modal.classList.remove('show'); 
+                    document.body.style.overflow = 'auto'; 
+                };
+                modal.querySelector('#confirmAction').onclick = () => {
+                    onConfirmCallback(); // Executa a função de callback fornecida
                 };
             }
-
+            
             // --- UTILITY FUNCTIONS ---
             function updateSummaryBoxes() {
                 const leaderBox = document.getElementById('leaderBox');
@@ -2107,7 +2250,7 @@
                 const monthlyBox = document.getElementById('monthlyHighlightBox');
                 const daysBox = document.getElementById('daysRemainingBox');
 
-                const ranked = participants.map(p => calculateMetrics(p)).sort((a, b) => b.totalPoints - a.totalPoints);
+                const ranked = participants.map(p => calculateMetrics(p, new Date())).sort((a, b) => b.totalPoints - a.totalPoints);
                 if (ranked.length > 0) {
                     const leader = ranked[0];
                     leaderBox.innerHTML = `<div class="text-sm font-medium text-gray-400">👑 Líder Atual</div><div class="text-2xl font-bold" style="color: var(--success-color);">${leader.name}</div><div class="text-sm text-gray-300">${leader.totalPoints.toFixed(2)} pts</div>`;
@@ -2118,7 +2261,8 @@
                 let weeklyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
                 const oneWeekAgo = new Date(); oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
                 participants.forEach(p => {
-                    const loss = getWeightAtDate(p, oneWeekAgo) - p.peso_atual;
+                    // Usa getWeightAtDate para garantir a precisão
+                    const loss = getWeightAtDate(p, oneWeekAgo) - getWeightAtDate(p, new Date()); 
                     if (loss > weeklyWinner.loss) weeklyWinner = { name: p.name, loss };
                 });
                 weeklyBox.innerHTML = `<div class="text-sm font-medium text-gray-400">🔥 Destaque da Semana</div><div class="text-2xl font-bold" style="color: var(--warning-color);">${weeklyWinner.loss > 0 ? weeklyWinner.name : 'N/A'}</div><div class="text-sm text-gray-300">${weeklyWinner.loss > 0 ? weeklyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
@@ -2126,7 +2270,8 @@
                 let monthlyWinner = { name: 'N/A', loss: Number.NEGATIVE_INFINITY };
                 const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
                 participants.forEach(p => {
-                    const loss = getWeightAtDate(p, firstDayOfMonth) - p.peso_atual;
+                    // Usa getWeightAtDate para garantir a precisão
+                    const loss = getWeightAtDate(p, firstDayOfMonth) - getWeightAtDate(p, new Date()); 
                     if (loss > monthlyWinner.loss) monthlyWinner = { name: p.name, loss };
                 });
                 monthlyBox.innerHTML = `<div class="text-sm font-medium text-gray-400">🌟 Destaque do Mês</div><div class="text-2xl font-bold" style="color: var(--primary-color);">${monthlyWinner.loss > 0 ? monthlyWinner.name : 'N/A'}</div><div class="text-sm text-gray-300">Perdeu ${monthlyWinner.loss > 0 ? monthlyWinner.loss.toFixed(2) : '0.00'} kg</div>`;
@@ -2175,20 +2320,25 @@
 
             async function handleGenerateMealPlan() {
                 const resultContainer = document.getElementById('meal-plan-result');
-                const participantId = currentUser.role === 'admin' ? participants[0]?.id : currentUser.participantId;
+                // Pega o participante logado para gerar o plano, ou o primeiro se for admin
+                const participantId = currentUser.role === 'admin' && participants.length > 0 ? participants[0].id : currentUser.participantId;
                 const p = participants.find(p => p.id === participantId);
                 if (!p) return resultContainer.innerHTML = 'Nenhum participante encontrado para gerar o plano.';
 
                 const likedFoods = document.getElementById('liked-foods').value || 'nenhuma preferência';
                 const dislikedFoods = document.getElementById('disliked-foods').value || 'nenhuma restrição';
+                
+                // Usa o peso atual mais recente do participante para a IA
+                const currentWeight = getWeightAtDate(p, new Date()); 
 
-                const prompt = `Aja como um nutricionista. Crie um plano de refeições simples para um dia (café da manhã, almoço, lanche da tarde e jantar) para a/o ${p.name}, que atualmente pesa ${p.peso_atual} kg e tem como meta perder peso. O plano deve ter aproximadamente 1800 calorias. Considere que ele(a) gosta de ${likedFoods} e deve evitar ${dislikedFoods}.`;
+                const prompt = `Aja como um nutricionista. Crie um plano de refeições simples para um dia (café da manhã, almoço, lanche da tarde e jantar) para a/o ${p.name}, que atualmente pesa ${currentWeight.toFixed(1)} kg e tem como meta perder peso. O plano deve ter aproximadamente 1800 calorias. Considere que ele(a) gosta de ${likedFoods} e deve evitar ${dislikedFoods}.`;
                 getAIGeneration(prompt, resultContainer);
             }
 
             async function handleGenerateWorkout() {
                 const resultContainer = document.getElementById('workout-result');
-                const participantId = currentUser.role === 'admin' ? participants[0]?.id : currentUser.participantId;
+                // Pega o participante logado para gerar o treino, ou o primeiro se for admin
+                const participantId = currentUser.role === 'admin' && participants.length > 0 ? participants[0].id : currentUser.participantId;
                 const p = participants.find(p => p.id === participantId);
                 if (!p) return resultContainer.innerHTML = 'Nenhum participante encontrado para gerar o treino.';
 
@@ -2199,18 +2349,23 @@
 
             async function handleGenerateMotivation() {
                 const resultContainer = document.getElementById('motivation-result');
-                const participantId = currentUser.role === 'admin' ? participants[0]?.id : currentUser.participantId;
+                // Pega o participante logado para gerar a motivação, ou o primeiro se for admin
+                const participantId = currentUser.role === 'admin' && participants.length > 0 ? participants[0].id : currentUser.participantId;
                 const p = participants.find(p => p.id === participantId);
                 if (!p) return resultContainer.innerHTML = 'Nenhum participante encontrado para gerar o resumo.';
 
                 const today = new Date();
                 const oneWeekAgo = new Date(); oneWeekAgo.setDate(today.getDate() - 7);
                 const weightThen = getWeightAtDate(p, oneWeekAgo);
-                const weightLossThisWeek = weightThen - p.peso_atual;
+                const weightNow = getWeightAtDate(p, today); // Pega o peso mais recente
+                const weightLossThisWeek = weightThen - weightNow;
                 const currentWeekIndex = Math.floor((today - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
                 const activitiesThisWeek = (p.semanas_validas[currentWeekIndex] || []).length;
                 
-                const prompt = `Escreva um resumo motivacional curto e amigável para ${p.name}. Dados da última semana: perdeu ${weightLossThisWeek.toFixed(1)}kg, registrou ${activitiesThisWeek} atividades. Perda total no desafio: ${(p.peso_inicial - p.peso_atual).toFixed(1)}kg. Parabenize-o(a) pelo esforço e incentive-o(a) a manter o foco.`;
+                // Usa o peso atual mais recente para o total perdido
+                const totalLost = p.peso_inicial - getWeightAtDate(p, today);
+
+                const prompt = `Escreva um resumo motivacional curto e amigável para ${p.name}. Dados da última semana: perdeu ${weightLossThisWeek.toFixed(1)}kg, registrou ${activitiesThisWeek} atividades. Perda total no desafio: ${totalLost.toFixed(1)}kg. Parabenize-o(a) pelo esforço e incentive-o(a) a manter o foco.`;
                 getAIGeneration(prompt, resultContainer);
             }
             
@@ -2247,7 +2402,7 @@
 
             async function handleGenerateStagnationTip() {
                 const resultContainer = document.getElementById('stagnation-tip-result');
-                const participantId = currentUser.role === 'admin' ? (document.getElementById('stagnation-participant-selector')?.value || participants[0]?.id) : currentUser.participantId;
+                const participantId = currentUser.role === 'admin' && participants.length > 0 ? (document.getElementById('stagnation-participant-selector')?.value || participants[0].id) : currentUser.participantId;
                 const p = participants.find(p => p.id == participantId);
                 if (!p) return resultContainer.innerHTML = 'Nenhum participante encontrado.';
 
@@ -2256,16 +2411,18 @@
                     return resultContainer.innerHTML = 'Dados insuficientes. Continue registrando seu peso para detectarmos tendências.';
                 }
 
-                const lastWeight = history[history.length - 1].weight;
-                const secondLastWeight = history[history.length - 2].weight;
+                // Pega os dois últimos pesos na ordem cronológica
+                const sortedHistory = [...history].sort((a, b) => new Date(a.date) - new Date(b.date));
+                const lastWeightEntry = sortedHistory[sortedHistory.length - 1];
+                const secondLastWeightEntry = sortedHistory[sortedHistory.length - 2];
 
-                if (lastWeight >= secondLastWeight) {
+                if (lastWeightEntry.weight >= secondLastWeightEntry.weight) {
                     // Stagnation detected
                     const lastActivities = (p.semanas_validas || []).flat().slice(-3).map(a => a.type).join(', ') || 'Caminhada';
-                    const prompt = `O participante ${p.name} não perdeu peso na última pesagem. Suas atividades principais recentes são '${lastActivities}'. Crie uma mensagem curta, amigável e encorajadora sugerindo uma forma de quebrar o platô. Sugira, por exemplo, aumentar a intensidade, variar o tipo de treino ou uma dica de nutrição.`;
+                    const prompt = `O participante ${p.name} não perdeu peso na última pesagem registrada (${lastWeightEntry.weight.toFixed(1)} kg) em comparação com a penúltima (${secondLastWeightEntry.weight.toFixed(1)} kg). Suas atividades principais recentes são '${lastActivities}'. Crie uma mensagem curta, amigável e encorajadora sugerindo uma forma de quebrar o platô. Sugira, por exemplo, aumentar a intensidade, variar o tipo de treino ou uma dica de nutrição.`;
                     getAIGeneration(prompt, resultContainer);
                 } else {
-                    resultContainer.innerHTML = 'Ótimo trabalho! Seu progresso está constante e não detectamos sinais de estagnação. Continue assim!';
+                    resultContainer.innerHTML = `Ótimo trabalho! Seu progresso está constante (perdeu ${(secondLastWeightEntry.weight - lastWeightEntry.weight).toFixed(1)} kg na última pesagem) e não detectamos sinais de estagnação. Continue assim!`;
                 }
             }
             
@@ -2275,17 +2432,17 @@
 
                 const tipContainer = document.getElementById('ai-tip-container');
                 const activityHistory = participant.semanas_validas.slice(-4).map(week => (Array.isArray(week) ? week.length : 0)).join(', ');
-                const prompt = `Seja um coach de fitness motivador e amigável, em português do Brasil. Dê uma dica curta e prática para o participante: Nome: ${participant.name}, Peso Inicial: ${participant.peso_inicial} kg, Peso Atual: ${participant.peso_atual} kg, Meta: ${participant.target_weight || 'N/A'} kg. Atividades nas últimas 4 semanas: ${activityHistory}. Fale diretamente com o participante (use "você").`;
+                
+                // Usa o peso mais recente para a dica
+                const currentWeight = getWeightAtDate(participant, new Date());
+
+                const prompt = `Seja um coach de fitness motivador e amigável, em português do Brasil. Dê uma dica curta e prática para o participante: Nome: ${participant.name}, Peso Inicial: ${participant.peso_inicial.toFixed(1)} kg, Peso Atual: ${currentWeight.toFixed(1)} kg, Meta: ${participant.target_weight ? participant.target_weight.toFixed(1) : 'N/A'} kg. Atividades nas últimas 4 semanas: ${activityHistory}. Fale diretamente com o participante (use "você").`;
                 
                 getAIGeneration(prompt, tipContainer);
             }
             
             async function handleReactionClick(button) {
-                const activityId = parseInt(button.dataset.activityId, 10);
-                if (isNaN(activityId)) {
-                    console.error("Invalid activityId:", button.dataset.activityId);
-                    return;
-                }
+                const activityId = button.dataset.activityId; // ID pode ser string para entradas de peso
                 const reactionType = button.dataset.reactionType;
                 const userId = currentUser.participantId;
                 
@@ -2294,7 +2451,10 @@
                     return;
                 }
 
-                const existingReaction = reactions.find(r => r.activity_id === activityId && r.user_id === userId && r.reaction_type === reactionType);
+                // Filtrar reações usando comparação frouxa (==) para lidar com strings e números se necessário,
+                // mas é melhor garantir que os IDs sejam do mesmo tipo (string ou number) para consistência.
+                // O ideal é que todos os IDs de atividade/peso sejam strings ou todos números.
+                const existingReaction = reactions.find(r => r.activity_id == activityId && r.user_id == userId && r.reaction_type === reactionType);
 
                 if (existingReaction) {
                     // User is removing the reaction
@@ -2372,18 +2532,19 @@
             
             // --- NEW UTILITY FUNCTION FOR SORTING ---
             function getActivityTimestamp(activity) {
-                if (!activity || !activity.id) return 0;
-                const id = activity.id;
-                // Handles new numeric timestamp IDs
-                if (typeof id === 'number') {
-                    return id;
+                // Prioriza a data real do registro para ordenação
+                if (activity && activity.date) {
+                    return new Date(activity.date).getTime();
                 }
-                // Handles old string-based IDs like "participantId-timestamp"
-                if (typeof id === 'string' && id.includes('-')) {
-                    return parseInt(id.split('-').pop() || '0', 10);
+                // Fallback para IDs numéricos (usado para pesagens geradas com Date.now())
+                if (activity && typeof activity.id === 'number') {
+                    return activity.id;
                 }
-                // Fallback for any other unexpected format
-                return parseInt(id, 10) || 0;
+                // Fallback para IDs de string contendo timestamp
+                if (activity && typeof activity.id === 'string' && activity.id.includes('-')) {
+                    return parseInt(activity.id.split('-').pop() || '0', 10);
+                }
+                return 0;
             }
 
             // --- INITIALIZE THE APP ---
