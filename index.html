@@ -335,7 +335,9 @@
 
     <div id="feedbackMessage" class="feedback-message"></div>
     <div id="participantModal" class="modal"></div>
-    <div id="deleteConfirmModal" class="modal"></div> <script>
+    <div id="deleteConfirmModal" class="modal"></div> <!-- Reutilizado para confirmações -->
+
+    <script>
         // --- PWA Service Worker (Placeholder) ---
         if ('serviceWorker' in navigator) {
             const manifest = {
@@ -357,7 +359,7 @@
             const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
             // --- CONFIGURAÇÕES E CONSTANTES DO DESAFIO ---
-            const ADMIN_USER = { username: 'admin', password: 'admin' }; // Admin credentials - Mover para variáveis de ambiente ou serviço de autenticação!
+            const ADMIN_USER = { username: 'admin', password: 'admin' }; // Credenciais do Admin - Mover para variáveis de ambiente ou serviço de autenticação!
             let CHALLENGE_START_DATE = new Date('2025-07-07T00:00:00');
             let CHALLENGE_END_DATE = new Date('2025-10-07T23:59:59');
             const MAX_WEEKS = 12;
@@ -365,7 +367,7 @@
             const MAX_ACTIVITY_POINTS = 50;
             const ACTIVITY_TYPES = ['Musculação', 'Corrida', 'Caminhada', 'Natação', 'Yoga', 'Dança', 'Ciclismo', 'Outro'];
             
-            // --- NAVIGATION LINKS WITH ROLE-BASED ACCESS ---
+            // --- LINKS DE NAVEGAÇÃO COM ACESSO BASEADO EM FUNÇÕES ---
             const NAV_LINKS = [
                 { id: 'myProfile', text: 'Meu Perfil', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>', roles: ['participant'] },
                 { id: 'ranking', text: 'Ranking Geral', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>', roles: ['admin', 'participant'] },
@@ -380,19 +382,19 @@
                 { id: 'comparison', text: 'Comparativo', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>', roles: ['admin', 'participant'] },
                 { id: 'rules', text: 'Regras', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>', roles: ['admin', 'participant'] },
                 { id: 'configuracoes', text: 'Configurações', icon: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>', roles: ['admin'] },
-                { id: 'participantProfile', text: 'Perfil do Participante', icon: '', hidden: true, roles: ['admin'] } // Hidden route for admin access
+                { id: 'participantProfile', text: 'Perfil do Participante', icon: '', hidden: true, roles: ['admin'] } // Rota oculta para acesso do administrador
             ];
             
-            // --- APPLICATION STATE ---
-            let currentUser = null; // Will be an object: { username, role, participantId }
+            // --- ESTADO DA APLICAÇÃO ---
+            let currentUser = null; // Será um objeto: { username, role, participantId }
             let participants = [];
             let reactions = [];
             let weeklyPointsWinnerName = null;
             let rankingSortConfig = { key: 'totalPoints', direction: 'desc' };
             let currentProfileParticipantId = null;
-            let currentViewId = null; // State to track the current view
+            let currentViewId = null; // Estado para rastrear a visualização atual
 
-            // --- DOM ELEMENTS ---
+            // --- ELEMENTOS DO DOM ---
             const loginScreen = document.getElementById('loginScreen');
             const appContainer = document.getElementById('app');
             const feedbackMessageDiv = document.getElementById('feedbackMessage');
@@ -401,7 +403,7 @@
             const pageTitle = document.getElementById('pageTitle');
             const headerActionButtons = document.getElementById('header-action-buttons');
             
-            // --- INITIALIZATION AND AUTH ---
+            // --- INICIALIZAÇÃO E AUTENTICAÇÃO ---
             function initApp() {
                 loadChallengeConfig();
                 setupEventListeners();
@@ -433,7 +435,7 @@
                 }));
                 reactions = reactionsData;
                 
-                // Esconde o indicador e redesenha a view ATUAL com os dados novos
+                // Esconde o indicador e redesenha a visualização ATUAL com os dados novos
                 loadingIndicator.classList.add('hidden');
                 updateCurrentView();
             }
@@ -477,7 +479,7 @@
 
                 const { data: reactionsData, error: reactionsError } = await supabase.from('reactions').select('*');
                 if (reactionsError) {
-                    console.warn("Could not load reactions. This is normal if the table doesn't exist yet.", reactionsError.message);
+                    console.warn("Não foi possível carregar as reações. Isso é normal se a tabela ainda não existir.", reactionsError.message);
                     reactions = []; 
                 } else {
                     reactions = reactionsData;
@@ -555,7 +557,7 @@
                 appContainer.classList.remove('flex');
             }
 
-            // --- EVENT LISTENERS SETUP ---
+            // --- CONFIGURAÇÃO DE LISTENERS DE EVENTOS ---
             function setupEventListeners() {
                 document.getElementById('loginForm').addEventListener('submit', handleLogin);
                 document.getElementById('logoutBtn').addEventListener('click', handleLogout);
@@ -675,7 +677,7 @@
                 }
             }
             
-            // --- DATA & VIEW MANAGEMENT ---
+            // --- GERENCIAMENTO DE DADOS E VISUALIZAÇÃO ---
             function calculateIMC(weight, height) {
                 if (!weight || !height || height <= 0) {
                     return { value: 'N/A', classification: 'Dados incompletos', className: '' };
@@ -825,7 +827,7 @@
 
                 switch(sectionId) {
                     case 'ranking': renderRankingTable(sortData(filteredMetrics, rankingSortConfig), contentWrapper); break;
-                    case 'participants': renderParticipantsPage(filteredMetrics, dynamicContentContainer); break; // Renders directly
+                    case 'participants': renderParticipantsPage(filteredMetrics, dynamicContentContainer); break; // Renderiza diretamente
                     case 'participantProfile':
                     case 'myProfile':
                         renderParticipantProfilePage(dynamicContentContainer);
@@ -840,7 +842,7 @@
                         document.getElementById('summary-grid').style.display = 'none';
                         break;
                     case 'weeklySummary': renderWeeklySummaryPage(allMetrics, contentWrapper); break;
-                    case 'activityLog': renderActivityLogPage(filteredMetrics, dynamicContentContainer); break; // Renders directly
+                    case 'activityLog': renderActivityLogPage(filteredMetrics, dynamicContentContainer); break; // Renderiza diretamente
                     case 'coachVirtual': renderCoachVirtualPage(contentWrapper); break;
                     case 'individualEvolution': renderIndividualEvolutionPage(allMetrics, contentWrapper); break;
                     case 'groupEvolution': renderGroupEvolutionChart(allMetrics, contentWrapper); break;
@@ -860,7 +862,7 @@
                 });
             }
 
-            // --- PAGE RENDERERS ---
+            // --- RENDERIZADORES DE PÁGINAS ---
 
             function renderRankingTable(data, container) {
                 // calculateMetrics já é chamado com a data atual em showSection, então os dados 'p' aqui já são os mais recentes
@@ -959,7 +961,7 @@
             }
 
             function renderParticipantProfilePage(container) {
-                // Ao renderizar o perfil, sempre pegue o peso mais atual
+                // Ao renderizar o perfil, sempre pega o peso mais atual
                 const pMetric = calculateMetrics(participants.find(p => p.id == currentProfileParticipantId), new Date()); 
                 if (!pMetric) {
                     container.innerHTML = `<div class="card"><div class="text-center py-10 text-gray-500">Participante não encontrado.</div></div>`;
@@ -978,7 +980,7 @@
                     backButtonHTML = `<a href="#" data-action="go-to-participants" style="color: var(--primary-color);" class="hover:underline mb-4 inline-block">&larr; Voltar para todos os participantes</a>`;
                 }
                 
-                const pesoPerdido = pMetric.pesoPerdidoTotal; // Já usa pesoNaData atual
+                const pesoPerdido = pMetric.pesoPerdidoTotal; 
 
                 container.innerHTML = `
                     <div id="profile-content" class="max-w-4xl mx-auto space-y-6">
@@ -1036,7 +1038,7 @@
                                                 <label for="profile-weight-photo-privacy" class="block text-sm font-medium text-gray-300 mb-1">Privacidade da Foto:</label>
                                                 <select id="profile-weight-photo-privacy" class="w-full p-2">
                                                     <option value="public">Público (Visível no Mural)</option>
-                                                    <option value="private">Privado (Visível apenas pra você e Administrador)</option>
+                                                    <option value="private">Privado (Visível apenas para você e Administrador)</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -1056,7 +1058,7 @@
                                                 <label for="profile-activity-photo-privacy" class="block text-sm font-medium text-gray-300 mb-1">Privacidade da Foto:</label>
                                                 <select id="profile-activity-photo-privacy" class="w-full p-2">
                                                     <option value="public">Público (Visível no Mural)</option>
-                                                    <option value="private">Privado (Visível apenas pra você e Administrador)</option>
+                                                    <option value="private">Privado (Visível apenas para você e Administrador)</option>
                                                 </select>
                                             </div>
                                         </div>
@@ -1184,7 +1186,8 @@
                                 is_public: wh.is_public,
                                 // Adiciona um texto descritivo para a pesagem
                                 description: `pesou ${parseFloat(wh.weight).toFixed(1)} kg.`, 
-                                isWeightEntry: true
+                                isWeightEntry: true,
+                                weight: wh.weight // Inclui o peso para o texto do mural
                             });
                         }
                     });
@@ -1239,7 +1242,7 @@
                 if (allActivities.length === 0) {
                     feedHTML += `<div class="card text-center py-10 text-gray-500">Nenhuma atividade registrada ainda. Seja o primeiro!</div>`;
                 } else {
-                    allActivities.slice(0, 50).forEach(item => { // Limit to last 50 activities
+                    allActivities.slice(0, 50).forEach(item => { // Limita às últimas 50 atividades
                         const itemId = item.id; 
                         const itemDate = new Date(item.date);
                         const timeAgo = formatTimeAgo(itemDate);
@@ -1266,7 +1269,7 @@
                         
                         let activityDescription = '';
                         if (item.isWeightEntry) {
-                            activityDescription = `pesou ${parseFloat(item.weight).toFixed(1)} kg.`; // Usa item.weight para entradas de peso
+                            activityDescription = `pesou ${parseFloat(item.weight).toFixed(1)} kg.`; 
                         } else {
                             activityDescription = `registrou uma atividade: <span class="text-lg font-semibold text-indigo-300">${item.type} - ${item.duration} min</span>`;
                         }
@@ -1446,7 +1449,7 @@
 
             function renderWeeklySummaryPage(data, container) {
                 const today = new Date();
-                const dayOfWeek = today.getDay(); // Sunday = 0, Monday = 1...
+                const dayOfWeek = today.getDay(); // Domingo = 0, Segunda = 1...
                 const startOfWeek = new Date(today);
                 startOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
                 startOfWeek.setHours(0, 0, 0, 0);
@@ -1502,12 +1505,7 @@
                                     <thead><tr><th>Nome</th><th>Variação de Peso</th><th>Atividades</th></tr></thead>
                                     <tbody>
                                         ${weeklyData.map(p => {
-                                            const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
-                                            return `
-                                            <tr>
-                                                <td>
-                                                    <div class="flex items-center">
-                                                        <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-8 h-8 rounded-full mr-3 object-cover flex-shrink-0" onerror="this.onerror=null;this.src='https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
+                                            const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
                                                         <span>${p.name}</span>
                                                     </div>
                                                 </td>
@@ -1592,7 +1590,6 @@
 
             function renderMainWeightChart(data) {
                 const chartContainer = document.getElementById('mainWeightChartWrapper');
-                // chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Evolução do Peso</h3>`; // Removido para evitar duplicidade
                 const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 0);
                 if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="text-center py-10 text-gray-500">Não há histórico de peso para exibir.</div>`;
 
@@ -1623,7 +1620,6 @@
 
             function renderTrendChart(data) {
                 const chartContainer = document.getElementById('trendChartWrapper');
-                // chartContainer.innerHTML = `<h3 class="text-xl font-semibold text-center mb-2 text-white">Projeção de Tendência</h3>`; // Removido para evitar duplicidade
                 const participantsWithHistory = data.filter(p => p.weight_history && p.weight_history.length > 1);
                 if (participantsWithHistory.length === 0) return chartContainer.innerHTML += `<div class="text-center py-10 text-gray-500">Dados insuficientes para projeção.</div>`;
                 
@@ -1640,7 +1636,7 @@
                 const xScale = d3.scaleTime().domain([CHALLENGE_START_DATE, CHALLENGE_END_DATE]).range([0, width]);
                 const yScale = d3.scaleLinear().domain([d3.min(allChartWeights) - 2, d3.max(allChartWeights) + 2]).range([height, 0]);
                 const colors = d3.scaleOrdinal(d3.schemeTableau10);
-
+                
                 svg.append("g").attr("class", "grid").call(d3.axisLeft(yScale).tickSize(-width).tickFormat("")).selectAll("line").attr("stroke", "#374151");
                 svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(xScale).tickFormat(d3.timeFormat("%d/%m"))).selectAll("text").style("fill", "var(--text-muted)");
                 svg.append("g").call(d3.axisLeft(yScale).tickFormat(d => `${d}kg`)).selectAll("text").style("fill", "var(--text-muted)");
@@ -1746,7 +1742,7 @@
                     }
                 }, 0);
             }
-            
+
             function renderComparisonChart(data, container) {
                 let checkboxesHTML = data.map(p => `<label class="inline-flex items-center mr-4 mb-2"><input type="checkbox" class="comparison-checkbox form-checkbox h-5 w-5 text-indigo-500 bg-gray-700 border-gray-600" value="${p.name}"><span class="ml-2">${p.name}</span></label>`).join('');
                 let metricsHTML = `<div id="comparison-metrics" class="flex flex-wrap gap-4 mb-4 pb-4 border-b border-gray-700">
@@ -1779,7 +1775,7 @@
 
                     let allChartDates = [], allChartValues = [];
                     const chartData = participantsWithHistory.map(p => {
-                        // Certifique-se de que a história está ordenada para o gráfico
+                        // Garante que a história está ordenada para o gráfico
                         const sortedHistory = [...p.weight_history].sort((a, b) => new Date(a.date) - new Date(b.date));
                         const history = sortedHistory.map(entry => {
                             const value = selectedMetric === 'weight' ? entry.weight : ((p.peso_inicial - entry.weight) / p.peso_inicial) * 100;
@@ -1825,7 +1821,7 @@
                     legend.append("text").attr("x", 24).attr("y", 9).attr("dy", ".35em").style("text-anchor", "start").text(d => d.name).style("fill", "var(--text-light)");
                 }
             }
-            
+
             function renderSettingsPage(container) {
                 if (currentUser.role !== 'admin') return;
                 const startDate = CHALLENGE_START_DATE.toISOString().split('T')[0];
@@ -1926,12 +1922,12 @@
                 `;
             }
 
-            // --- ACTION HANDLERS ---
+            // --- MANIPULADORES DE AÇÃO ---
             async function handleUpdateWeight(participantId) {
                 const weightInput = document.getElementById('profile-weight-input');
                 const dateInput = document.getElementById('profile-weight-date');
                 const photoFile = document.getElementById('profile-weight-photo').files[0];
-                const photoPrivacy = document.getElementById('profile-weight-photo-privacy').value === 'public'; // true for public, false for private
+                const photoPrivacy = document.getElementById('profile-weight-photo-privacy').value === 'public'; // true para público, false para privado
                 
                 const newWeight = parseFloat(weightInput.value);
                 const dateValue = dateInput.value;
@@ -2008,10 +2004,6 @@
                     const imageUrl = supabase.storage.from('activity-photos').getPublicUrl(fileName).data.publicUrl;
 
                     // Chamada para a Supabase Edge Function que faz o OCR
-                    // ATENÇÃO: Você precisa ter uma Supabase Edge Function chamada 'get-weight-from-image'
-                    // configurada em seu projeto Supabase, que fará a comunicação com um serviço de IA
-                    // para reconhecimento de texto em imagem (OCR).
-                    // O exemplo conceitual dessa função foi fornecido na conversa anterior.
                     const { data, error } = await supabase.functions.invoke('get-weight-from-image', {
                         body: { imageUrl: imageUrl },
                     });
@@ -2021,8 +2013,9 @@
                     }
                     
                     if (data && data.weight) {
-                        weightInput.value = parseFloat(data.weight).toFixed(1);
-                        aiFeedback.textContent = `Peso detectado: ${parseFloat(data.weight).toFixed(1)} kg. Revise e salve.`;
+                        // Formata o peso para 2 casas decimais para exibição
+                        weightInput.value = data.weight.toFixed(2); 
+                        aiFeedback.textContent = `Peso detectado: ${data.weight.toFixed(2)} kg. Revise e salve.`;
                         showFeedbackMessage('Peso detectado com sucesso!');
                     } else {
                         aiFeedback.textContent = 'Não foi possível detectar o peso na imagem. Por favor, insira manualmente.';
@@ -2046,6 +2039,8 @@
                 const newHistory = participant.weight_history.filter(entry => entry.date !== entryDateISO);
 
                 // Permite apagar o último registro apenas se houver peso inicial, caso contrário, avisa.
+                // NOTA: A lógica para impedir que o usuário comum apague o peso inicial (primeiro registro)
+                // será implementada na próxima iteração, conforme solicitado.
                 if (newHistory.length === 0 && (participant.peso_inicial === undefined || participant.peso_inicial === null)) {
                     showFeedbackMessage("Não é possível excluir o único registro de peso se não houver peso inicial definido.", true);
                     document.getElementById('deleteConfirmModal').classList.remove('show');
@@ -2077,7 +2072,7 @@
                 const type = document.getElementById('profile-activity-type').value;
                 const duration = parseInt(document.getElementById('profile-activity-duration').value);
                 const photoFile = document.getElementById('profile-activity-photo').files[0];
-                const photoPrivacy = document.getElementById('profile-activity-photo-privacy').value === 'public'; // true for public, false for private
+                const photoPrivacy = document.getElementById('profile-activity-photo-privacy').value === 'public'; // true para público, false para privado
                 const activityDate = new Date();
                 const weekIndex = Math.floor((activityDate - CHALLENGE_START_DATE) / (1000 * 60 * 60 * 24 * 7));
 
@@ -2101,7 +2096,7 @@
                 }
 
                 const newActivity = { 
-                    id: Date.now(), // Use a numeric timestamp as o ID
+                    id: Date.now(), // Usa um timestamp numérico como o ID
                     participantId: participantId,
                     type, 
                     duration, 
@@ -2166,26 +2161,8 @@
                 } else {
                     const activityToDelete = originalParticipantState.semanas_validas[weekIndex]?.find(act => act.id === activityId);
                     if (activityToDelete && activityToDelete.imageUrl) {
-                        const fileName = activityToDelete.imageUrl.split('/').pop();
-                        // As imagens de peso e atividade agora estão em subpastas 'weights' e 'activities'
-                        // Precisamos determinar qual pasta para remover corretamente
-                        let storagePath = '';
-                        if (fileName.startsWith('weights/')) { // Assume um prefixo se for o caso
-                             storagePath = `public/${fileName}`;
-                        } else if (fileName.startsWith('activities/')) { // Assume um prefixo se for o caso
-                             storagePath = `public/${fileName}`;
-                        } else {
-                             // Tenta remover do local original (para compatibilidade com imagens antigas ou se não houver subpasta)
-                             storagePath = `public/activities/${fileName}`; // Default para atividades
-                             // Ou poderia ser: storagePath = `public/${fileName}`; se o nome já for único e na raiz
-                        }
-                        
-                        // Melhorar a lógica de remoção se você tiver pastas 'public/weights/' e 'public/activities/'
-                        // Por agora, o `handleUpdateWeight` e `handleAddActivity` salvam em `public/weights/...` e `public/activities/...`
-                        // A remoção precisa refletir isso.
-                        // Correção: `fileName` já vem com `public/weights/` ou `public/activities/` se foi feito upload pelo frontend
-                        // A remoção precisa apenas do caminho relativo após `from('bucket_name')`.
-                        const pathToRemove = activityToDelete.imageUrl.split('.co/')[1].split('/').slice(2).join('/'); // Pega path após bucket/public/
+                        // Extrai o caminho da imagem após o bucket name e 'public/'
+                        const pathToRemove = activityToDelete.imageUrl.split('.co/')[1].split('/').slice(2).join('/'); 
                         supabase.storage.from('activity-photos').remove([pathToRemove]);
                     }
                 }
@@ -2220,7 +2197,7 @@
                 }
             }
 
-            // --- MODALS (Generalizado openConfirmModal) ---
+            // --- MODAIS (Generalizado openConfirmModal) ---
             function openConfirmModal(messageHTML, onConfirmCallback) {
                 const modal = document.getElementById('deleteConfirmModal');
                 document.body.style.overflow = 'hidden';
@@ -2243,7 +2220,7 @@
                 };
             }
             
-            // --- UTILITY FUNCTIONS ---
+            // --- FUNÇÕES DE UTILIDADE ---
             function updateSummaryBoxes() {
                 const leaderBox = document.getElementById('leaderBox');
                 const weeklyBox = document.getElementById('weeklyHighlightBox');
@@ -2295,7 +2272,7 @@
                 return { start: { date: new Date(data[0].date), weight: predict(startDay) }, end: { date: CHALLENGE_END_DATE, weight: predict(endDay) } };
             }
 
-            // --- AI FUNCTIONS ---
+            // --- FUNÇÕES DE IA ---
 
             async function getAIGeneration(prompt, resultContainer) {
                 resultContainer.innerHTML = '<div class="ai-tip-loader"></div>';
@@ -2417,7 +2394,7 @@
                 const secondLastWeightEntry = sortedHistory[sortedHistory.length - 2];
 
                 if (lastWeightEntry.weight >= secondLastWeightEntry.weight) {
-                    // Stagnation detected
+                    // Estagnação detectada
                     const lastActivities = (p.semanas_validas || []).flat().slice(-3).map(a => a.type).join(', ') || 'Caminhada';
                     const prompt = `O participante ${p.name} não perdeu peso na última pesagem registrada (${lastWeightEntry.weight.toFixed(1)} kg) em comparação com a penúltima (${secondLastWeightEntry.weight.toFixed(1)} kg). Suas atividades principais recentes são '${lastActivities}'. Crie uma mensagem curta, amigável e encorajadora sugerindo uma forma de quebrar o platô. Sugira, por exemplo, aumentar a intensidade, variar o tipo de treino ou uma dica de nutrição.`;
                     getAIGeneration(prompt, resultContainer);
@@ -2452,37 +2429,36 @@
                 }
 
                 // Filtrar reações usando comparação frouxa (==) para lidar com strings e números se necessário,
-                // mas é melhor garantir que os IDs sejam do mesmo tipo (string ou number) para consistência.
-                // O ideal é que todos os IDs de atividade/peso sejam strings ou todos números.
+                // mas é melhor garantir que todos os IDs de atividade/peso sejam strings ou todos números.
                 const existingReaction = reactions.find(r => r.activity_id == activityId && r.user_id == userId && r.reaction_type === reactionType);
 
                 if (existingReaction) {
-                    // User is removing the reaction
+                    // O usuário está removendo a reação
                     const { error } = await supabase.from('reactions').delete().match({ id: existingReaction.id });
                     if (error) {
                         showFeedbackMessage(`Não foi possível remover a reação.`, true);
-                        console.error("Error removing reaction:", error);
+                        console.error("Erro ao remover reação:", error);
                     } else {
                         showFeedbackMessage('Reação removida!');
                     }
                 } else {
-                    // User is adding a new reaction
+                    // O usuário está adicionando uma nova reação
                     const { data, error } = await supabase.from('reactions').insert([{ activity_id: activityId, user_id: userId, reaction_type: reactionType }]).select();
                     if (error) {
                         showFeedbackMessage(`Não foi possível adicionar a reação.`, true);
-                        console.error("Error adding reaction:", error);
+                        console.error("Erro ao adicionar reação:", error);
                     } else {
                         showFeedbackMessage('Reação adicionada!');
                     }
                 }
 
-                // After attempting the action, refetch all reactions from the database
-                // to update the local state and ensure the UI is correct.
+                // Após tentar a ação, busca novamente todas as reações do banco
+                // para atualizar o estado local e garantir que a UI esteja correta.
                 const { data: reactionsData, error: reactionsError } = await supabase.from('reactions').select('*');
                 if (!reactionsError) {
                     reactions = reactionsData;
                 }
-                // Re-render the activity feed with the fresh data
+                // Renderiza novamente o feed de atividades com os dados atualizados
                 showSection('activityFeed');
             }
 
@@ -2530,7 +2506,7 @@
                 return "agora mesmo";
             }
             
-            // --- NEW UTILITY FUNCTION FOR SORTING ---
+            // --- NOVA FUNÇÃO DE UTILIDADE PARA ORDENAÇÃO ---
             function getActivityTimestamp(activity) {
                 // Prioriza a data real do registro para ordenação
                 if (activity && activity.date) {
@@ -2547,7 +2523,7 @@
                 return 0;
             }
 
-            // --- INITIALIZE THE APP ---
+            // --- INICIALIZA O APLICATIVO ---
             initApp();
         });
     </script>
