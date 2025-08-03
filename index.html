@@ -335,9 +335,7 @@
 
     <div id="feedbackMessage" class="feedback-message"></div>
     <div id="participantModal" class="modal"></div>
-    <div id="deleteConfirmModal" class="modal"></div> <!-- Reutilizado para confirmações -->
-
-    <script>
+    <div id="deleteConfirmModal" class="modal"></div> <script>
         // --- PWA Service Worker (Placeholder) ---
         if ('serviceWorker' in navigator) {
             const manifest = {
@@ -349,6 +347,13 @@
             const manifestURL = URL.createObjectURL(manifestBlob);
             document.querySelector('link[rel="manifest"]').setAttribute('href', manifestURL);
         }
+
+        // Esta função agora está no escopo global para que o onclick no HTML possa acessá-la.
+        function closeModal(modalElement) {
+            modalElement.classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
+
     </script>
     
     <script>
@@ -616,7 +621,7 @@
                 const button = targetElement.closest('button[data-action]');
                 const link = targetElement.closest('a[data-action]');
                 const th = targetElement.closest('th.sortable');
-
+            
                 if (th) {
                     const sortKey = th.dataset.sortKey;
                     if (rankingSortConfig.key === sortKey) {
@@ -656,7 +661,7 @@
                     case 'generate-report': exportDetailsToPDF(id); break;
                     case 'ai-coach': getAICoachingTip(id); break;
                     case 'update-weight': handleUpdateWeight(id); break;
-                    case 'detect-weight-ai': detectWeightFromImage(id); break; // Nova ação para IA
+                    case 'detect-weight-ai': detectWeightFromImage(id); break;
                     case 'delete-weight-entry': 
                         const entryDate = interactiveTarget.dataset.entryDate;
                         openConfirmModal(`Tem certeza que deseja excluir este registro de peso de ${name} (${new Date(entryDate).toLocaleDateString('pt-BR')})?`, () => handleDeleteWeightEntryConfirmed(id, entryDate));
@@ -937,7 +942,7 @@
                         <div class="card transform hover:bg-gray-700 transition-colors duration-300 flex flex-col">
                             <div class="p-5 flex-grow">
                                 <div class="flex items-center gap-4 mb-4">
-                                    <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-16 h-16 rounded-full object-cover border-2 border-gray-700" onerror="this.onerror=null;this.src='https://placehold.co/80x80/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
+                                    <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-16 h-16 rounded-full mr-3 object-cover border-2 border-gray-700" onerror="this.onerror=null;this.src='https://placehold.co/80x80/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
                                     <div>
                                         <h3 class="text-lg font-bold text-white">${p.name}</h3>
                                         <p class="text-sm text-gray-400">Total: ${p.totalPoints.toFixed(1)} pts</p>
@@ -1248,10 +1253,10 @@
                         const timeAgo = formatTimeAgo(itemDate);
 
                         // Ajuste para garantir que r.activity_id é comparável ao itemId (que pode ser string ou number)
-                        const itemReactions = reactions.filter(r => r.activity_id == itemId); 
+                        const itemReactions = reactions.filter(r => String(r.activity_id) === String(itemId));
                         const count = itemReactions.length;
                         
-                        const userReacted = reactions.some(r => r.activity_id == itemId && r.user_id == currentUser.participantId);
+                        const userReacted = reactions.some(r => String(r.activity_id) === String(itemId) && r.user_id === currentUser.participantId);
 
                         const reactionsHTML = `
                             <button data-action="react" data-activity-id="${itemId}" data-reaction-type="❤️" class="reaction-btn ${userReacted ? 'reacted' : ''}">
@@ -1335,7 +1340,6 @@
                     }
 
                     // A lixeira só aparece se for possível excluir (não o peso inicial se for o único, ou se não for admin)
-                    // NOTA: A lógica para impedir que o usuário comum apague o peso inicial será implementada na próxima revisão.
                     // Por enquanto, a lixeira aparece para todos os registros que não sejam o ÚLTIMO remanescente.
                     const canDeleteEntry = canEditProfile && history.length > 1; 
 
@@ -1505,14 +1509,19 @@
                                     <thead><tr><th>Nome</th><th>Variação de Peso</th><th>Atividades</th></tr></thead>
                                     <tbody>
                                         ${weeklyData.map(p => {
-                                            const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
-                                                        <span>${p.name}</span>
-                                                    </div>
-                                                </td>
-                                                <td><span class="font-semibold ${p.weightChange < 0 ? 'text-green-400' : (p.weightChange > 0 ? 'text-red-400' : '')}">${p.weightChange > 0 ? '+' : ''}${p.weightChange.toFixed(2)} kg</span></td>
-                                                <td class="text-center">${p.activitiesThisWeek}</td>
-                                            </tr>
-                                        `}).join('')}
+                                            const avatarSrc = p.avatar_url || `https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}`;
+                                            return `
+                                                <tr>
+                                                    <td>
+                                                        <div class="flex items-center">
+                                                            <img src="${avatarSrc}" alt="Avatar de ${p.name}" class="w-8 h-8 rounded-full mr-3 object-cover flex-shrink-0" onerror="this.onerror=null;this.src='https://placehold.co/40x40/E2E8F0/4A5568?text=${p.name.charAt(0)}';">
+                                                            <span>${p.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td><span class="font-semibold ${p.weightChange < 0 ? 'text-green-400' : (p.weightChange > 0 ? 'text-red-400' : '')}">${p.weightChange > 0 ? '+' : ''}${p.weightChange.toFixed(2)} kg</span></td>
+                                                    <td class="text-center">${p.activitiesThisWeek}</td>
+                                                </tr>
+                                            `}).join('')}
                                     </tbody>
                                 </table>
                              </div>
@@ -1698,7 +1707,7 @@
                     const weeklyLossData = [];
                     for (let i = 0; i < MAX_WEEKS; i++) {
                         const weekStartDate = new Date(CHALLENGE_START_DATE); weekStartDate.setDate(weekStartDate.getDate() + i * 7);
-                        const weekEndDate = new Date(CHALLENGE_START_DATE); weekEndDate.setDate(weekEndDate.getDate() + (i + 1) * 7);
+                        const weekEndDate = new Date(weekStartDate); weekEndDate.setDate(weekEndDate.getDate() + 7);
                         let totalWeeklyLoss = 0;
                         participants.forEach(p => { 
                             const lossThisWeek = getWeightAtDate(p, weekStartDate) - getWeightAtDate(p, weekEndDate);
@@ -1747,7 +1756,7 @@
                 let checkboxesHTML = data.map(p => `<label class="inline-flex items-center mr-4 mb-2"><input type="checkbox" class="comparison-checkbox form-checkbox h-5 w-5 text-indigo-500 bg-gray-700 border-gray-600" value="${p.name}"><span class="ml-2">${p.name}</span></label>`).join('');
                 let metricsHTML = `<div id="comparison-metrics" class="flex flex-wrap gap-4 mb-4 pb-4 border-b border-gray-700">
                         <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="weight" class="form-radio text-indigo-500 bg-gray-700 border-gray-600" checked><span class="ml-2">Peso (kg)</span></label>
-                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="percentLoss" class="form-radio text-indigo-500 bg-gray-700 border-gray-600"><span class="ml-2">% Perda de Peso</span></label>
+                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="percentLoss" class="form-radio text-indigo-500 bg-gray-700 border-gray-600"><span class="ml-2">B% Perda de Peso</span></label>
                         <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="activities" class="form-radio text-indigo-500 bg-gray-700 border-gray-600"><span class="ml-2">Total de Atividades</span></label>
                     </div>`;
                 container.innerHTML = `<div id="comparison-content">${metricsHTML}<div id="comparison-checkboxes" class="p-4 rounded-lg mb-4">${checkboxesHTML}</div><div id="comparisonChartContainer" class="w-full h-96"></div></div>`;
@@ -2039,8 +2048,7 @@
                 const newHistory = participant.weight_history.filter(entry => entry.date !== entryDateISO);
 
                 // Permite apagar o último registro apenas se houver peso inicial, caso contrário, avisa.
-                // NOTA: A lógica para impedir que o usuário comum apague o peso inicial (primeiro registro)
-                // será implementada na próxima iteração, conforme solicitado.
+                // Por enquanto, a lixeira aparece para todos os registros que não sejam o ÚLTIMO remanescente.
                 if (newHistory.length === 0 && (participant.peso_inicial === undefined || participant.peso_inicial === null)) {
                     showFeedbackMessage("Não é possível excluir o único registro de peso se não houver peso inicial definido.", true);
                     document.getElementById('deleteConfirmModal').classList.remove('show');
@@ -2119,7 +2127,7 @@
             }
 
             async function handleDeleteActivityConfirmed(participantId, weekIndex, activityIdStr) {
-                const activityId = activityIdStr; 
+                const activityId = isNaN(Number(activityIdStr)) ? activityIdStr : Number(activityIdStr);
 
                 const localParticipantIndex = participants.findIndex(p => p.id == participantId);
                 if (localParticipantIndex === -1) {
@@ -2134,7 +2142,7 @@
                 // ATUALIZAÇÃO OTIMISTA
                 const updatedParticipant = JSON.parse(JSON.stringify(participant));
                 if (updatedParticipant.semanas_validas[weekIndex]) {
-                    updatedParticipant.semanas_validas[weekIndex] = updatedParticipant.semanas_validas[weekIndex].filter(act => act.id !== activityId);
+                    updatedParticipant.semanas_validas[weekIndex] = updatedParticipant.semanas_validas[weekIndex].filter(act => String(act.id) !== String(activityId));
                 } else {
                     document.getElementById('deleteConfirmModal').classList.remove('show');
                     document.body.style.overflow = 'auto';
@@ -2159,7 +2167,7 @@
                     participants[localParticipantIndex] = originalParticipantState;
                     updateCurrentView();
                 } else {
-                    const activityToDelete = originalParticipantState.semanas_validas[weekIndex]?.find(act => act.id === activityId);
+                    const activityToDelete = originalParticipantState.semanas_validas[weekIndex]?.find(act => String(act.id) === String(activityId));
                     if (activityToDelete && activityToDelete.imageUrl) {
                         // Extrai o caminho da imagem após o bucket name e 'public/'
                         const pathToRemove = activityToDelete.imageUrl.split('.co/')[1].split('/').slice(2).join('/'); 
@@ -2196,7 +2204,163 @@
                     }
                 }
             }
+            
+            // --- MODAIS (Adicionado o modal de edição de participante) ---
+            function openParticipantModal(participantId = null) {
+                const modal = document.getElementById('participantModal');
+                const isEditing = participantId !== null;
+                const participant = isEditing ? participants.find(p => p.id == participantId) : {};
 
+                document.body.style.overflow = 'hidden';
+                modal.classList.add('show');
+
+                // Conteúdo do modal recriado para ficar como na imagem fornecida
+                modal.innerHTML = `
+                    <div class="modal-content text-center">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-2xl font-bold text-white">${isEditing ? 'Editar Participante' : 'Adicionar Participante'}</h3>
+                            <button type="button" class="close-button" onclick="closeModal(document.getElementById('participantModal'))">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+                            </button>
+                        </div>
+                        <form id="participantForm">
+                            <input type="hidden" id="participantId" value="${participant.id || ''}">
+                            <div class="mb-6">
+                                <img id="profile-pic-preview" src="${participant.avatar_url || 'https://placehold.co/100x100/1f2937/fff?text=Adicionar+Foto'}" class="w-24 h-24 rounded-full mx-auto object-cover border-4 border-gray-600 mb-2" alt="Foto de Perfil">
+                                <label class="block text-sm font-medium text-gray-300">
+                                    <span class="cursor-pointer bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg">Selecionar Foto</span>
+                                    <input type="file" id="profile-pic-upload" class="hidden">
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                <div><label class="block text-sm font-medium text-gray-300">Nome:</label><input type="text" id="participantName" class="w-full" value="${participant.name || ''}" required></div>
+                                <div><label class="block text-sm font-medium text-gray-300">Sexo:</label>
+                                    <select id="participantSexo" class="w-full">
+                                        <option value="Masculino" ${participant.sexo === 'Masculino' ? 'selected' : ''}>Masculino</option>
+                                        <option value="Feminino" ${participant.sexo === 'Feminino' ? 'selected' : ''}>Feminino</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                <div><label class="block text-sm font-medium text-gray-300">Peso Inicial (kg):</label><input type="number" id="participantPesoInicial" step="any" class="w-full" value="${participant.peso_inicial || ''}" required></div>
+                                <div><label class="block text-sm font-medium text-gray-300">Peso Atual (kg):</label><input type="number" id="participantPesoAtual" step="any" class="w-full" value="${participant.peso_atual || ''}" ${isEditing ? '' : 'readonly'}></div>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                                <div><label class="block text-sm font-medium text-gray-300">Altura (m):</label><input type="number" id="participantAltura" step="any" class="w-full" value="${participant.altura || ''}" required></div>
+                                <div><label class="block text-sm font-medium text-gray-300">Meta de Peso (kg):</label><input type="number" id="participantMetaPeso" step="any" class="w-full" value="${participant.target_weight || ''}"></div>
+                            </div>
+                            <div class="p-4 bg-gray-800 rounded-lg border border-gray-700 mb-6">
+                                <h4 class="font-bold text-lg text-white mb-2">Credenciais de Acesso</h4>
+                                <p class="text-xs text-gray-400 mb-4">Crie um login para o participante acessar o próprio perfil.</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div><label class="block text-sm font-medium text-gray-300">Usuário:</label><input type="text" id="participantUsername" class="w-full" value="${participant.username || ''}" required></div>
+                                    <div><label class="block text-sm font-medium text-gray-300">Senha:</label><input type="password" id="participantPassword" class="w-full" placeholder="${isEditing ? 'Deixe em branco para não alterar' : 'Digite a senha'}" ${!isEditing ? 'required' : ''}></div>
+                                </div>
+                            </div>
+                            <div class="flex justify-center gap-4">
+                                <button type="button" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg" onclick="closeModal(document.getElementById('participantModal'))">Cancelar</button>
+                                <button type="submit" style="background-color: var(--primary-color);" class="hover:opacity-90 text-white font-bold py-2 px-4 rounded-lg">Salvar</button>
+                            </div>
+                        </form>
+                    </div>`;
+
+                document.getElementById('participantForm').addEventListener('submit', handleSaveParticipant);
+                document.getElementById('profile-pic-upload').addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        document.getElementById('profile-pic-preview').src = URL.createObjectURL(file);
+                    }
+                });
+            }
+
+            async function handleSaveParticipant(e) {
+                e.preventDefault();
+                const participantId = document.getElementById('participantId').value;
+                const name = document.getElementById('participantName').value;
+                const sexo = document.getElementById('participantSexo').value;
+                const peso_inicial = parseFloat(document.getElementById('participantPesoInicial').value);
+                const altura = parseFloat(document.getElementById('participantAltura').value);
+                const target_weight = parseFloat(document.getElementById('participantMetaPeso').value) || null;
+                const username = document.getElementById('participantUsername').value;
+                const password = document.getElementById('participantPassword').value;
+                const photoFile = document.getElementById('profile-pic-upload').files[0];
+
+                let avatarUrl = null;
+                let currentPesoAtual = peso_inicial;
+
+                if (photoFile) {
+                    showFeedbackMessage('Enviando foto de perfil...', false);
+                    const fileName = `public/avatars/${name.replace(/\s/g, '_')}-${Date.now()}-${photoFile.name}`;
+                    const { error: uploadError } = await supabase.storage.from('activity-photos').upload(fileName, photoFile);
+                    if (uploadError) {
+                        showFeedbackMessage('Erro ao fazer upload da foto.', true);
+                        return;
+                    }
+                    avatarUrl = supabase.storage.from('activity-photos').getPublicUrl(fileName).data.publicUrl;
+                }
+
+                let participantData = {
+                    name, sexo, peso_inicial, altura, target_weight, username, avatar_url: avatarUrl
+                };
+
+                // Se for um novo participante, o peso atual é o inicial
+                if (!participantId) {
+                     participantData.peso_atual = peso_inicial;
+                     participantData.weight_history = [{ date: new Date().toISOString(), weight: peso_inicial, is_public: true }];
+                     participantData.semanas_validas = Array.from({ length: 12 }, () => []);
+                     participantData.measurements_history = [];
+                }
+
+                if (password) {
+                    participantData.password = password;
+                }
+                
+                let error;
+                if (participantId) {
+                    // Edição
+                    const originalParticipant = participants.find(p => p.id == participantId);
+                    if (originalParticipant) {
+                         currentPesoAtual = document.getElementById('participantPesoAtual').value || originalParticipant.peso_atual;
+                         // Atualiza peso_atual apenas se o campo não estiver vazio
+                         if (document.getElementById('participantPesoAtual').value !== "") {
+                            participantData.peso_atual = parseFloat(currentPesoAtual);
+                            // Se o peso atual é alterado manualmente, adiciona um registro no histórico
+                             const newEntry = {
+                                date: new Date().toISOString(),
+                                weight: parseFloat(currentPesoAtual),
+                                is_public: true
+                            };
+                            const existingHistory = originalParticipant.weight_history || [];
+                            participantData.weight_history = [...existingHistory, newEntry].sort((a,b) => new Date(a.date) - new Date(b.date));
+                         } else {
+                            // Se o campo está vazio, não altera o peso_atual no DB para manter o último valor
+                            delete participantData.peso_atual;
+                         }
+
+                         // Mantém o avatar original se um novo não foi enviado
+                         if (!avatarUrl) {
+                            participantData.avatar_url = originalParticipant.avatar_url;
+                         }
+                    }
+                    
+                    const { error: updateError } = await supabase.from('participants').update(participantData).eq('id', participantId);
+                    error = updateError;
+                } else {
+                    // Adição
+                    const { error: insertError } = await supabase.from('participants').insert([participantData]);
+                    error = insertError;
+                }
+
+                if (error) {
+                    showFeedbackMessage('Erro ao salvar participante.', true);
+                    console.error('Erro ao salvar participante:', error);
+                } else {
+                    showFeedbackMessage('Participante salvo com sucesso!');
+                    closeModal(document.getElementById('participantModal'));
+                    reloadData();
+                }
+            }
+            
             // --- MODAIS (Generalizado openConfirmModal) ---
             function openConfirmModal(messageHTML, onConfirmCallback) {
                 const modal = document.getElementById('deleteConfirmModal');
@@ -2420,7 +2584,7 @@
             
             async function handleReactionClick(button) {
                 const activityId = button.dataset.activityId; // ID pode ser string para entradas de peso
-                const reactionType = button.dataset.reactionType;
+                const reactionType = button.dataset.reaction-type;
                 const userId = currentUser.participantId;
                 
                 if (!userId) {
@@ -2430,7 +2594,7 @@
 
                 // Filtrar reações usando comparação frouxa (==) para lidar com strings e números se necessário,
                 // mas é melhor garantir que todos os IDs de atividade/peso sejam strings ou todos números.
-                const existingReaction = reactions.find(r => r.activity_id == activityId && r.user_id == userId && r.reaction_type === reactionType);
+                const existingReaction = reactions.find(r => String(r.activity_id) === String(activityId) && r.user_id === userId && r.reaction_type === reactionType);
 
                 if (existingReaction) {
                     // O usuário está removendo a reação
