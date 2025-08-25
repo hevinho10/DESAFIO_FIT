@@ -738,6 +738,34 @@ tr + tr td{ border-top:1px solid var(--muted) }
 #loginScreen button[type="submit"]:active{ transform: translateY(1px) !important; }
 
 </style>
+
+<style>
+/* ===== FIX "Comparativo" mobile layout ===== */
+@media (max-width: 767px){
+  /* Evita quebra bizarra do texto das opções */
+  label.inline-flex.items-center span,
+  .comparison-option span{
+    white-space: nowrap;
+    line-height: 1.2;
+    font-size: 0.95rem;
+  }
+  /* Mantém o rádio/checkbox fixo e alinha melhor */
+  label.inline-flex.items-center{
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  #dynamic-content input[type="radio"],
+  #dynamic-content input[type="checkbox"]{
+    flex: 0 0 auto;
+  }
+  /* Grade para lista de participantes (2 colunas no mobile) */
+  .comparison-participants{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 12px;
+  }
+}
+</style>
 </head>
 <body class="bg-gray-900">
 
@@ -2690,7 +2718,7 @@ function renderTotalActivityChart(data, container) {
                 let checkboxesHTML = data.map(p => `<label class="inline-flex items-center mr-4 mb-2"><input type="checkbox" class="comparison-checkbox form-checkbox h-5 w-5 text-indigo-500 bg-gray-700 border-gray-600" value="${p.name}"><span class="ml-2">${p.name}</span></label>`).join('');
                 let metricsHTML = `<div id="comparison-metrics" class="flex flex-wrap gap-4 mb-4 pb-4 border-b border-gray-700">
                         <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="weight" class="form-radio text-indigo-500 bg-gray-700 border-gray-600" checked><span class="ml-2">Peso (kg)</span></label>
-                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="percentLoss" class="form-radio text-indigo-500 bg-gray-700 border-gray-600"><span class="ml-2">B% Perda de Peso</span></label>
+                        <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="percentLoss" class="form-radio text-indigo-500 bg-gray-700 border-gray-600"><span class="ml-2">% Perda de Peso</span></label>
                         <label class="inline-flex items-center"><input type="radio" name="comparisonMetric" value="activities" class="form-radio text-indigo-500 bg-gray-700 border-gray-600"><span class="ml-2">Total de Atividades</span></label>
                     </div>`;
                 container.innerHTML = `<div id="comparison-content">${metricsHTML}<div id="comparison-checkboxes" class="p-4 rounded-lg mb-4">${checkboxesHTML}</div><div id="comparisonChartContainer" class="w-full h-96"></div></div>`;
