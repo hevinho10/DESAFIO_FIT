@@ -261,8 +261,8 @@ button{ font-family:inherit; cursor:pointer; }
             <label>Email</label>
             <input type="email" id="suEmail" required autocomplete="email">
 
-            <label>Senha (mínimo 6)</label>
-            <input type="password" id="suPassword" required minlength="6" autocomplete="new-password">
+            <label>Senha (mín. 6, com número e caractere especial)</label>
+            <input type="password" id="suPassword" required minlength="6" autocomplete="new-password" placeholder="ex: minhaSenha1@">
 
             <button type="submit" class="auth-btn" id="suBtn">Criar conta</button>
             <div id="suMsg"></div>
@@ -301,7 +301,7 @@ button{ font-family:inherit; cursor:pointer; }
             <button type="button" class="auth-link" data-goto="signin">Voltar para entrar</button>
         </div>
 
-        <p class="auth-hint" id="authHint">Ao continuar, você concorda em usar o app de forma respeitosa. Pontos expiram em 90 dias.</p>
+        <p class="auth-hint" id="authHint">Ao continuar, você concorda em usar o app de forma respeitosa.</p>
     </div>
 </div>
 
@@ -591,9 +591,18 @@ $('#suUsername').addEventListener('input', e => {
 
     clearTimeout(usernameCheckTimer);
 
+    const BANNED = ['teste','tests','test','testes','admin','administrador','root','user','usuario','null','undefined','anonimo','anonymous','none','xxxx','abc','abcd','xyz'];
+
     if (!val) { status.textContent = ''; status.className = 'uname-status'; usernameIsAvailable = false; return; }
     if (val.length < 3) { status.textContent = 'muito curto'; status.className = 'uname-status err'; usernameIsAvailable = false; return; }
     if (!/^[a-z0-9_]+$/.test(val)) { status.textContent = 'só letras, números e _'; status.className = 'uname-status err'; usernameIsAvailable = false; return; }
+    if (!/[a-z]/.test(val)) { status.textContent = 'precisa ter pelo menos 1 letra'; status.className = 'uname-status err'; usernameIsAvailable = false; return; }
+    if (BANNED.includes(val) || /^teste/.test(val) || /^test[0-9]*$/.test(val)) {
+        status.textContent = 'nome não permitido';
+        status.className = 'uname-status err';
+        usernameIsAvailable = false;
+        return;
+    }
 
     status.textContent = 'verificando...';
     status.className = 'uname-status checking';
@@ -618,6 +627,22 @@ $('#signupForm').addEventListener('submit', async e => {
 
     msg.innerHTML = '';
 
+    const BANNED_NAMES = ['teste','test','testes','admin','user','usuario','null','undefined','abc','xyz','anonimo','anonymous'];
+
+    // Nome de exibição
+    if (displayName.length < 2) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Nome de exibição precisa ter pelo menos 2 caracteres.';
+        return;
+    }
+    const dnLower = displayName.toLowerCase();
+    if (BANNED_NAMES.includes(dnLower) || /^teste/.test(dnLower) || /^test[0-9]*$/.test(dnLower)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Este nome de exibição não é permitido. Use seu nome real.';
+        return;
+    }
+
+    // Username
     if (!/^[a-z0-9_]+$/.test(username)) {
         msg.className = 'auth-msg err';
         msg.textContent = 'Usuário só pode ter letras, números e _';
@@ -628,18 +653,47 @@ $('#signupForm').addEventListener('submit', async e => {
         msg.textContent = 'Usuário precisa ter no mínimo 3 caracteres.';
         return;
     }
+    if (!/[a-z]/.test(username)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Usuário precisa ter pelo menos uma letra (não pode ser só números).';
+        return;
+    }
+    if (BANNED_NAMES.includes(username) || /^teste/.test(username) || /^test[0-9]*$/.test(username)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Este usuário não é permitido. Escolha outro.';
+        return;
+    }
+
+    // Email
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         msg.className = 'auth-msg err';
         msg.textContent = 'Email inválido.';
         return;
     }
-    // Se o username digitado é o mesmo que foi checado E está indisponível, bloqueia
+
+    // Senha forte: mínimo 6, com pelo menos 1 número e 1 caractere especial
+    if (password.length < 6) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Senha precisa ter no mínimo 6 caracteres.';
+        return;
+    }
+    if (!/[0-9]/.test(password)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Senha precisa ter pelo menos 1 número.';
+        return;
+    }
+    if (!/[^a-zA-Z0-9]/.test(password)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Senha precisa ter pelo menos 1 caractere especial (!@#$%&*...).';
+        return;
+    }
+
+    // Username duplicado
     if (lastCheckedUsername === username && !usernameIsAvailable) {
         msg.className = 'auth-msg err';
         msg.textContent = 'Este usuário já está em uso. Escolha outro.';
         return;
     }
-    // Se ainda não checou, checa agora (proteção final)
     if (lastCheckedUsername !== username) {
         const { data: available } = await sb.rpc('check_username_available', { uname: username });
         if (available === false) {
@@ -663,7 +717,9 @@ $('#signupForm').addEventListener('submit', async e => {
         if (error.message.toLowerCase().includes('registered') || error.message.toLowerCase().includes('already')) {
             msg.textContent = 'Este email já tem conta. Tente entrar ou recuperar a senha.';
         } else if (error.message.toLowerCase().includes('password')) {
-            msg.textContent = 'Senha muito fraca. Use pelo menos 6 caracteres.';
+            msg.textContent = 'Senha muito fraca. Use pelo menos 6 caracteres com número e especial.';
+        } else if (error.message.toLowerCase().includes('database')) {
+            msg.textContent = 'Erro no banco. Rode o fix_signup.sql no Supabase.';
         } else {
             msg.textContent = error.message;
         }
