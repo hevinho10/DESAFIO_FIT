@@ -76,6 +76,16 @@ button{ font-family:inherit; cursor:pointer; }
 .auth-msg.err{ background:rgba(255,90,90,.12); color:#FF9E8F; border:1px solid rgba(255,90,90,.25); }
 .auth-msg.ok{ background:var(--vital-dim); color:var(--vital); border:1px solid rgba(53,225,155,.28); }
 .auth-hint{ font-size:11.5px; color:var(--ink-faint); text-align:center; margin-top:14px; line-height:1.55; }
+.auth-link{ background:none; border:none; color:var(--vital); font-size:12.5px; font-weight:500; padding:8px; text-align:center; cursor:pointer; text-decoration:none; }
+.auth-link:hover{ text-decoration:underline; }
+.auth-subtitle{ font-family:var(--ff-display); font-size:19px; font-weight:600; color:var(--ink); text-align:center; margin-bottom:6px; }
+.auth-subhint{ font-size:13px; color:var(--ink-dim); text-align:center; margin-bottom:14px; line-height:1.5; }
+.auth-subhint b{ color:var(--ink); font-weight:600; }
+.uname-status{ font-size:11px; font-weight:500; margin-left:6px; }
+.uname-status.ok{ color:var(--vital); }
+.uname-status.err{ color:#FF9E8F; }
+.uname-status.checking{ color:var(--ink-faint); }
+.confirm-icon{ font-size:44px; text-align:center; margin-bottom:8px; }
 
 /* ============ APP SHELL ============ */
 .app{ display:none; min-height:100vh; padding-bottom:calc(90px + env(safe-area-inset-bottom)); }
@@ -223,34 +233,75 @@ button{ font-family:inherit; cursor:pointer; }
     </div>
 
     <div class="auth-card">
-        <div class="auth-tabs">
+        <!-- Tabs (só aparecem em signin/signup, escondidas em forgot/confirm) -->
+        <div class="auth-tabs" id="authTabs">
             <button class="auth-tab on" data-tab="signin">Entrar</button>
             <button class="auth-tab" data-tab="signup">Criar conta</button>
         </div>
 
+        <!-- SIGN IN -->
         <form id="signinForm" class="auth-form">
-            <label>Email</label>
-            <input type="email" id="siEmail" required autocomplete="email">
+            <label>Email ou usuário</label>
+            <input type="text" id="siLogin" required autocomplete="username" placeholder="voce@email.com ou hevinho">
             <label>Senha</label>
             <input type="password" id="siPassword" required autocomplete="current-password">
             <button type="submit" class="auth-btn" id="siBtn">Entrar</button>
             <div id="siMsg"></div>
+            <button type="button" class="auth-link" data-goto="forgot">Esqueci minha senha</button>
         </form>
 
+        <!-- SIGN UP -->
         <form id="signupForm" class="auth-form hidden">
             <label>Nome de exibição</label>
             <input type="text" id="suName" required maxlength="60" placeholder="Como quer aparecer no feed">
-            <label>Usuário (único)</label>
-            <input type="text" id="suUsername" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+" placeholder="ex: hevinho">
+
+            <label>Usuário (único) <span id="suUsernameStatus" class="uname-status"></span></label>
+            <input type="text" id="suUsername" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+" placeholder="ex: hevinho" autocomplete="username">
+
             <label>Email</label>
             <input type="email" id="suEmail" required autocomplete="email">
+
             <label>Senha (mínimo 6)</label>
             <input type="password" id="suPassword" required minlength="6" autocomplete="new-password">
+
             <button type="submit" class="auth-btn" id="suBtn">Criar conta</button>
             <div id="suMsg"></div>
         </form>
 
-        <p class="auth-hint">Ao continuar, você concorda em usar o app de forma respeitosa. Pontos expiram em 90 dias.</p>
+        <!-- FORGOT PASSWORD (2 passos) -->
+        <div id="forgotStep1" class="auth-form hidden">
+            <h3 class="auth-subtitle">Recuperar senha</h3>
+            <p class="auth-subhint">Vamos enviar um código de 6 dígitos para o seu email.</p>
+            <label>Email da conta</label>
+            <input type="email" id="fpEmail" autocomplete="email" placeholder="voce@email.com">
+            <button type="button" class="auth-btn" id="fpSendBtn">Enviar código</button>
+            <div id="fpMsg1"></div>
+            <button type="button" class="auth-link" data-goto="signin">Voltar</button>
+        </div>
+
+        <div id="forgotStep2" class="auth-form hidden">
+            <h3 class="auth-subtitle">Digite o código</h3>
+            <p class="auth-subhint">Enviamos um código para <b id="fpShowEmail"></b>. Verifique também o spam.</p>
+            <label>Código de 6 dígitos</label>
+            <input type="text" id="fpCode" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="000000" autocomplete="one-time-code">
+            <label>Nova senha (mínimo 6)</label>
+            <input type="password" id="fpNewPassword" minlength="6" autocomplete="new-password">
+            <button type="button" class="auth-btn" id="fpVerifyBtn">Redefinir senha</button>
+            <div id="fpMsg2"></div>
+            <button type="button" class="auth-link" data-goto="forgot-step1">Reenviar código</button>
+        </div>
+
+        <!-- AWAITING EMAIL CONFIRMATION -->
+        <div id="awaitConfirm" class="auth-form hidden">
+            <div class="confirm-icon">📩</div>
+            <h3 class="auth-subtitle">Confirme seu email</h3>
+            <p class="auth-subhint">Enviamos um link de confirmação para <b id="acShowEmail"></b>. Abra o email, clique no link, e depois volte aqui para entrar.</p>
+            <button type="button" class="auth-btn" id="acResendBtn">Reenviar email</button>
+            <div id="acMsg"></div>
+            <button type="button" class="auth-link" data-goto="signin">Voltar para entrar</button>
+        </div>
+
+        <p class="auth-hint" id="authHint">Ao continuar, você concorda em usar o app de forma respeitosa. Pontos expiram em 90 dias.</p>
     </div>
 </div>
 
@@ -446,26 +497,115 @@ async function countTodayByReason(reason) {
 // ============================================================
 // AUTH
 // ============================================================
+
+// Alterna entre subtelas: signin, signup, forgot-step1, forgot-step2, await-confirm
+function showAuthScreen(name) {
+    const screens = {
+        'signin':       ['signinForm', true],
+        'signup':       ['signupForm', true],
+        'forgot-step1': ['forgotStep1', false],
+        'forgot-step2': ['forgotStep2', false],
+        'await-confirm':['awaitConfirm', false],
+    };
+    Object.values(screens).forEach(([id]) => $('#'+id).classList.add('hidden'));
+    const [showId, showTabs] = screens[name];
+    $('#'+showId).classList.remove('hidden');
+    $('#authTabs').classList.toggle('hidden', !showTabs);
+    $('#authHint').classList.toggle('hidden', !showTabs);
+    if (showTabs) {
+        $$('.auth-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+    }
+}
+
+// Cliques nos tabs
 $$('.auth-tab').forEach(btn => btn.addEventListener('click', e => {
-    const tab = e.currentTarget.dataset.tab;
-    $$('.auth-tab').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
-    $('#signinForm').classList.toggle('hidden', tab !== 'signin');
-    $('#signupForm').classList.toggle('hidden', tab !== 'signup');
+    showAuthScreen(e.currentTarget.dataset.tab);
 }));
 
+// Cliques nos data-goto (links internos entre subtelas)
+document.addEventListener('click', e => {
+    const el = e.target.closest('[data-goto]');
+    if (!el) return;
+    const target = el.dataset.goto;
+    if (target === 'forgot') {
+        // pré-preenche o email da tela de login se tiver
+        const guess = $('#siLogin').value.trim();
+        if (guess.includes('@')) $('#fpEmail').value = guess;
+        showAuthScreen('forgot-step1');
+    } else if (target === 'forgot-step1') {
+        showAuthScreen('forgot-step1');
+    } else if (target === 'signin') {
+        showAuthScreen('signin');
+    }
+});
+
+// ---- SIGN IN (email OU username) ----
 $('#signinForm').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = $('#siBtn'), msg = $('#siMsg');
+    const loginInput = $('#siLogin').value.trim();
+    const password = $('#siPassword').value;
+    if (!loginInput || !password) return;
+
     btn.disabled = true; btn.textContent = 'Entrando...'; msg.innerHTML = '';
-    const { error } = await sb.auth.signInWithPassword({
-        email: $('#siEmail').value.trim(),
-        password: $('#siPassword').value
-    });
+
+    let email = loginInput;
+
+    // Se não parece email, trata como username: resolve pra email via RPC
+    if (!loginInput.includes('@')) {
+        const { data: resolvedEmail, error: rpcErr } = await sb.rpc('get_email_by_username', { uname: loginInput });
+        if (rpcErr || !resolvedEmail) {
+            btn.disabled = false; btn.textContent = 'Entrar';
+            msg.className = 'auth-msg err';
+            msg.textContent = 'Usuário ou senha incorretos.';
+            return;
+        }
+        email = resolvedEmail;
+    }
+
+    const { error } = await sb.auth.signInWithPassword({ email, password });
     btn.disabled = false; btn.textContent = 'Entrar';
+
     if (error) {
         msg.className = 'auth-msg err';
-        msg.textContent = error.message.includes('Invalid') ? 'Email ou senha incorretos.' : error.message;
+        if (error.message.toLowerCase().includes('email not confirmed')) {
+            msg.textContent = 'Confirme seu email antes de entrar. Verifique sua caixa de entrada.';
+            $('#acShowEmail').textContent = email;
+            setTimeout(() => showAuthScreen('await-confirm'), 800);
+        } else if (error.message.toLowerCase().includes('invalid')) {
+            msg.textContent = 'Email/usuário ou senha incorretos.';
+        } else {
+            msg.textContent = error.message;
+        }
     }
+});
+
+// ---- SIGN UP com validação em tempo real do username ----
+let usernameCheckTimer = null;
+let lastCheckedUsername = null;
+let usernameIsAvailable = false;
+
+$('#suUsername').addEventListener('input', e => {
+    const val = e.target.value.trim().toLowerCase();
+    const status = $('#suUsernameStatus');
+
+    clearTimeout(usernameCheckTimer);
+
+    if (!val) { status.textContent = ''; status.className = 'uname-status'; usernameIsAvailable = false; return; }
+    if (val.length < 3) { status.textContent = 'muito curto'; status.className = 'uname-status err'; usernameIsAvailable = false; return; }
+    if (!/^[a-z0-9_]+$/.test(val)) { status.textContent = 'só letras, números e _'; status.className = 'uname-status err'; usernameIsAvailable = false; return; }
+
+    status.textContent = 'verificando...';
+    status.className = 'uname-status checking';
+
+    usernameCheckTimer = setTimeout(async () => {
+        const { data: available, error } = await sb.rpc('check_username_available', { uname: val });
+        if (error) { status.textContent = ''; status.className = 'uname-status'; return; }
+        lastCheckedUsername = val;
+        usernameIsAvailable = !!available;
+        if (available) { status.textContent = '✓ disponível'; status.className = 'uname-status ok'; }
+        else { status.textContent = '✗ já em uso'; status.className = 'uname-status err'; }
+    }, 400);
 });
 
 $('#signupForm').addEventListener('submit', async e => {
@@ -473,26 +613,152 @@ $('#signupForm').addEventListener('submit', async e => {
     const btn = $('#suBtn'), msg = $('#suMsg');
     const username = $('#suUsername').value.trim().toLowerCase();
     const displayName = $('#suName').value.trim();
+    const email = $('#suEmail').value.trim();
+    const password = $('#suPassword').value;
+
+    msg.innerHTML = '';
+
     if (!/^[a-z0-9_]+$/.test(username)) {
         msg.className = 'auth-msg err';
         msg.textContent = 'Usuário só pode ter letras, números e _';
         return;
     }
-    btn.disabled = true; btn.textContent = 'Criando...'; msg.innerHTML = '';
-    const { data, error } = await sb.auth.signUp({
-        email: $('#suEmail').value.trim(),
-        password: $('#suPassword').value,
-        options: { data: { username, display_name: displayName } }
-    });
-    btn.disabled = false; btn.textContent = 'Criar conta';
-    if (error) {
+    if (username.length < 3) {
         msg.className = 'auth-msg err';
-        msg.textContent = error.message.includes('registered') ? 'Este email já tem conta.' : error.message;
+        msg.textContent = 'Usuário precisa ter no mínimo 3 caracteres.';
         return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Email inválido.';
+        return;
+    }
+    // Se o username digitado é o mesmo que foi checado E está indisponível, bloqueia
+    if (lastCheckedUsername === username && !usernameIsAvailable) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Este usuário já está em uso. Escolha outro.';
+        return;
+    }
+    // Se ainda não checou, checa agora (proteção final)
+    if (lastCheckedUsername !== username) {
+        const { data: available } = await sb.rpc('check_username_available', { uname: username });
+        if (available === false) {
+            msg.className = 'auth-msg err';
+            msg.textContent = 'Este usuário já está em uso. Escolha outro.';
+            return;
+        }
+    }
+
+    btn.disabled = true; btn.textContent = 'Criando...';
+
+    const { data, error } = await sb.auth.signUp({
+        email, password,
+        options: { data: { username, display_name: displayName } }
+    });
+
+    btn.disabled = false; btn.textContent = 'Criar conta';
+
+    if (error) {
+        msg.className = 'auth-msg err';
+        if (error.message.toLowerCase().includes('registered') || error.message.toLowerCase().includes('already')) {
+            msg.textContent = 'Este email já tem conta. Tente entrar ou recuperar a senha.';
+        } else if (error.message.toLowerCase().includes('password')) {
+            msg.textContent = 'Senha muito fraca. Use pelo menos 6 caracteres.';
+        } else {
+            msg.textContent = error.message;
+        }
+        return;
+    }
+
+    // Se precisa confirmar email (sem session), mostra tela de espera
     if (data.user && !data.session) {
+        $('#acShowEmail').textContent = email;
+        showAuthScreen('await-confirm');
+    }
+    // Se veio session direto (confirmação desabilitada), o onAuthStateChange cuida
+});
+
+// ---- FORGOT PASSWORD passo 1: envia código ----
+$('#fpSendBtn').addEventListener('click', async () => {
+    const btn = $('#fpSendBtn'), msg = $('#fpMsg1');
+    const email = $('#fpEmail').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Digite um email válido.';
+        return;
+    }
+    btn.disabled = true; btn.textContent = 'Enviando...'; msg.innerHTML = '';
+
+    const { error } = await sb.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: false }
+    });
+
+    btn.disabled = false; btn.textContent = 'Enviar código';
+
+    // Por segurança, não revela se o email existe ou não
+    $('#fpShowEmail').textContent = email;
+    msg.className = 'auth-msg ok';
+    msg.textContent = 'Se este email estiver cadastrado, o código chegará em instantes.';
+    setTimeout(() => showAuthScreen('forgot-step2'), 1200);
+});
+
+// ---- FORGOT PASSWORD passo 2: verifica código e troca senha ----
+$('#fpVerifyBtn').addEventListener('click', async () => {
+    const btn = $('#fpVerifyBtn'), msg = $('#fpMsg2');
+    const email = $('#fpShowEmail').textContent;
+    const code = $('#fpCode').value.trim();
+    const newPassword = $('#fpNewPassword').value;
+
+    if (!/^\d{6}$/.test(code)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Digite o código de 6 dígitos.';
+        return;
+    }
+    if (newPassword.length < 6) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Nova senha precisa ter no mínimo 6 caracteres.';
+        return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Verificando...'; msg.innerHTML = '';
+
+    // Valida o código (cria uma sessão temporária)
+    const { error: verifyErr } = await sb.auth.verifyOtp({ email, token: code, type: 'email' });
+    if (verifyErr) {
+        btn.disabled = false; btn.textContent = 'Redefinir senha';
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Código inválido ou expirado. Peça um novo.';
+        return;
+    }
+
+    // Já logado com sessão temporária, atualiza a senha
+    const { error: updErr } = await sb.auth.updateUser({ password: newPassword });
+    btn.disabled = false; btn.textContent = 'Redefinir senha';
+    if (updErr) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Não foi possível redefinir: ' + updErr.message;
+        return;
+    }
+
+    msg.className = 'auth-msg ok';
+    msg.textContent = 'Senha redefinida! Entrando...';
+    // A sessão do OTP já é válida, o onAuthStateChange vai levar pro app
+});
+
+// ---- REENVIAR EMAIL DE CONFIRMAÇÃO ----
+$('#acResendBtn').addEventListener('click', async () => {
+    const btn = $('#acResendBtn'), msg = $('#acMsg');
+    const email = $('#acShowEmail').textContent;
+    btn.disabled = true; btn.textContent = 'Enviando...'; msg.innerHTML = '';
+    const { error } = await sb.auth.resend({ type: 'signup', email });
+    btn.disabled = false; btn.textContent = 'Reenviar email';
+    if (error) {
+        msg.className = 'auth-msg err';
+        msg.textContent = error.message.toLowerCase().includes('rate') ? 'Aguarde alguns segundos antes de reenviar.' : error.message;
+    } else {
         msg.className = 'auth-msg ok';
-        msg.textContent = 'Conta criada! Verifique seu email para confirmar.';
+        msg.textContent = 'Email reenviado! Verifique sua caixa.';
     }
 });
 
@@ -506,8 +772,8 @@ async function renderFeed() {
     const { data: posts, error } = await sb
         .from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at,
-            user:profiles!posts_user_id_fkey (id, username, display_name, avatar_url),
+            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id,
+            user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
         `)
