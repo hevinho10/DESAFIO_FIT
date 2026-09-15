@@ -214,6 +214,74 @@ button{ font-family:inherit; cursor:pointer; }
 
 .hidden{ display:none !important; }
 
+/* ============ STORIES BAR ============ */
+.stories-bar{ display:flex; gap:10px; overflow-x:auto; padding:14px 4px 18px; scrollbar-width:none; }
+.stories-bar::-webkit-scrollbar{ display:none; }
+.story-item{ display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; width:68px; cursor:pointer; }
+.story-avatar{ width:60px; height:60px; border-radius:50%; padding:2.5px; background:conic-gradient(from 180deg, var(--vital), var(--vital-2), var(--effort), var(--vital)); display:grid; place-items:center; position:relative; transition:transform .12s; }
+.story-avatar:active{ transform:scale(0.94); }
+.story-avatar.seen{ background:var(--line); }
+.story-avatar.mine{ background:conic-gradient(from 180deg, var(--info), var(--vital-2), var(--info)); }
+.story-avatar-in{ width:100%; height:100%; border-radius:50%; border:2.5px solid var(--bg); overflow:hidden; display:grid; place-items:center; background:var(--bg-elev); }
+.story-avatar-in .avatar{ width:100%; height:100%; font-size:19px; border-radius:50%; }
+.story-plus{ position:absolute; bottom:-2px; right:-2px; width:22px; height:22px; border-radius:50%; background:var(--vital); color:#08110C; display:grid; place-items:center; font-weight:700; font-size:14px; border:3px solid var(--bg); }
+.story-name{ font-size:11px; color:var(--ink-dim); max-width:66px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; }
+
+/* Story viewer (fullscreen) */
+.story-viewer{ position:fixed; inset:0; background:#000; z-index:80; display:none; flex-direction:column; }
+.story-viewer.on{ display:flex; }
+.story-progress-row{ display:flex; gap:4px; padding:14px 12px calc(6px + env(safe-area-inset-top,0px)); padding-top:calc(14px + env(safe-area-inset-top,0px)); }
+.story-progress-bar{ flex:1; height:3px; background:rgba(255,255,255,.25); border-radius:3px; overflow:hidden; }
+.story-progress-bar .fill{ height:100%; background:#fff; width:0%; transition:width linear; }
+.story-progress-bar.done .fill{ width:100%; }
+.story-progress-bar.active .fill{ width:0%; animation:storyFill 6s linear forwards; }
+@keyframes storyFill{ to{ width:100%; } }
+.story-viewer-head{ display:flex; align-items:center; gap:10px; padding:0 16px 12px; color:#fff; }
+.story-viewer-head .avatar{ width:38px; height:38px; font-size:14px; border-radius:50%; }
+.story-viewer-head .meta{ flex:1; }
+.story-viewer-head .name{ font-weight:600; font-size:14px; }
+.story-viewer-head .time{ font-size:11px; color:rgba(255,255,255,.65); }
+.story-viewer-head .close-btn{ background:none; border:none; color:#fff; font-size:26px; cursor:pointer; padding:0 6px; }
+.story-content{ flex:1; display:flex; align-items:center; justify-content:center; position:relative; }
+.story-content img{ max-width:100%; max-height:100%; object-fit:contain; }
+.story-content.text-story{ padding:40px 24px; text-align:center; align-items:center; }
+.story-content .text-body{ font-family:var(--ff-display); font-size:26px; font-weight:600; line-height:1.4; color:#fff; }
+.story-content .caption-over{ position:absolute; bottom:24px; left:16px; right:16px; padding:12px 16px; background:rgba(0,0,0,.5); border-radius:16px; color:#fff; font-size:14px; line-height:1.4; backdrop-filter:blur(8px); }
+.story-nav-zones{ position:absolute; inset:0; display:flex; }
+.story-nav-zones > div{ flex:1; cursor:pointer; }
+
+/* ============ SELETOR DE PRIVACIDADE (chip + popover) ============ */
+#privacySection{ position:relative; margin-bottom:10px; }
+.privacy-chip{ display:inline-flex; align-items:center; gap:6px; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink); padding:7px 11px 7px 9px; border-radius:20px; font-size:12.5px; font-weight:500; transition:all .15s; cursor:pointer; }
+.privacy-chip:hover{ border-color:var(--vital); }
+.privacy-chip[aria-expanded="true"]{ border-color:var(--vital); background:var(--vital-dim); color:var(--vital); }
+.privacy-chip .pc-emo{ font-size:14px; }
+.privacy-chip .pc-caret{ opacity:.6; margin-left:2px; }
+
+.privacy-menu{ position:absolute; bottom:100%; left:0; margin-bottom:8px; background:var(--bg-card); border:1px solid var(--line); border-radius:14px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,.5); z-index:5; min-width:260px; display:flex; flex-direction:column; gap:2px; animation:popIn .15s ease; }
+@keyframes popIn{ from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none} }
+.privacy-opt{ display:flex; align-items:center; gap:12px; background:transparent; border:none; color:var(--ink); padding:10px; border-radius:10px; text-align:left; cursor:pointer; transition:background .12s; width:100%; }
+.privacy-opt:hover{ background:var(--bg-elev); }
+.privacy-opt.on{ background:var(--vital-dim); }
+.privacy-opt .po-emo{ font-size:20px; width:28px; text-align:center; flex-shrink:0; }
+.privacy-opt .po-txt{ display:flex; flex-direction:column; gap:2px; }
+.privacy-opt .po-txt b{ font-size:13.5px; font-weight:600; color:var(--ink); }
+.privacy-opt .po-txt small{ font-size:11.5px; color:var(--ink-dim); }
+
+.post-privacy-badge{ display:inline-flex; align-items:center; gap:3px; font-size:10.5px; color:var(--ink-faint); margin-left:6px; }
+
+/* ============ BOTÃO SEGUIR ============ */
+.follow-btn{ background:var(--vital); color:#08110C; border:none; padding:7px 14px; border-radius:20px; font-size:12.5px; font-weight:700; margin-left:auto; transition:transform .1s; }
+.follow-btn:active{ transform:scale(0.96); }
+.follow-btn.following{ background:var(--bg-elev); color:var(--ink); border:1px solid var(--line); }
+
+/* ============ MODAL DE STORY COMPOSER ============ */
+.story-composer{ display:flex; flex-direction:column; gap:12px; }
+.bg-color-picker{ display:flex; gap:8px; overflow-x:auto; padding:6px 2px; }
+.bg-color-picker::-webkit-scrollbar{ display:none; }
+.bg-color-swatch{ width:36px; height:36px; border-radius:10px; border:2px solid transparent; cursor:pointer; flex-shrink:0; }
+.bg-color-swatch.on{ border-color:#fff; box-shadow:0 0 0 2px var(--vital); }
+
 @media(min-width:768px){
     .view{ max-width:640px; }
     .stat-grid{ grid-template-columns:repeat(4,1fr); }
@@ -346,6 +414,7 @@ button{ font-family:inherit; cursor:pointer; }
             <button class="kind-btn on" data-kind="workout"><span class="emo">💪</span><span>Treino</span></button>
             <button class="kind-btn" data-kind="meal"><span class="emo">🍽️</span><span>Refeição</span></button>
             <button class="kind-btn" data-kind="text"><span class="emo">✍️</span><span>Texto</span></button>
+            <button class="kind-btn" data-kind="story"><span class="emo">⚡</span><span>Story 24h</span></button>
         </div>
 
         <div id="workoutFields">
@@ -376,6 +445,20 @@ button{ font-family:inherit; cursor:pointer; }
             </div>
         </div>
 
+        <div id="storyFields" class="hidden">
+            <div class="field">
+                <label>Cor de fundo (para story de texto)</label>
+                <div class="bg-color-picker" id="bgPicker">
+                    <button type="button" class="bg-color-swatch on" data-color="#35E19B" style="background:#35E19B"></button>
+                    <button type="button" class="bg-color-swatch" data-color="#5FB0FF" style="background:#5FB0FF"></button>
+                    <button type="button" class="bg-color-swatch" data-color="#FF7A4D" style="background:#FF7A4D"></button>
+                    <button type="button" class="bg-color-swatch" data-color="#C08BFF" style="background:#C08BFF"></button>
+                    <button type="button" class="bg-color-swatch" data-color="#FFC24B" style="background:#FFC24B"></button>
+                    <button type="button" class="bg-color-swatch" data-color="#151B18" style="background:#151B18"></button>
+                </div>
+            </div>
+        </div>
+
         <div class="field">
             <label id="captionLabel">Legenda (opcional)</label>
             <textarea id="pCaption" maxlength="500" placeholder="Conta pra gente como foi..."></textarea>
@@ -387,9 +470,51 @@ button{ font-family:inherit; cursor:pointer; }
             <img id="pPhotoPreview" class="file-preview">
         </div>
 
+        <div id="privacySection">
+            <button type="button" id="privacyChip" class="privacy-chip" aria-haspopup="menu" aria-expanded="false">
+                <span class="pc-emo" id="pcEmo">👥</span>
+                <span class="pc-label" id="pcLabel">Seguidores</span>
+                <svg class="pc-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+
+            <div id="privacyMenu" class="privacy-menu hidden" role="menu">
+                <button type="button" class="privacy-opt" data-privacy="public" role="menuitem">
+                    <span class="po-emo">🌍</span>
+                    <div class="po-txt"><b>Público</b><small>Qualquer pessoa do Pulso pode ver</small></div>
+                </button>
+                <button type="button" class="privacy-opt" data-privacy="followers" role="menuitem">
+                    <span class="po-emo">👥</span>
+                    <div class="po-txt"><b>Seguidores</b><small>Só quem te segue vai ver</small></div>
+                </button>
+                <button type="button" class="privacy-opt" data-privacy="private" role="menuitem">
+                    <span class="po-emo">🔒</span>
+                    <div class="po-txt"><b>Só eu</b><small>Ninguém além de você vê</small></div>
+                </button>
+            </div>
+        </div>
+
         <div class="sheet-footer">
             <button class="btn-ghost" id="composerCancel">Cancelar</button>
             <button class="btn-primary" id="composerSubmit">Publicar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============ STORY VIEWER ============ -->
+<div id="storyViewer" class="story-viewer">
+    <div class="story-progress-row" id="storyProgress"></div>
+    <div class="story-viewer-head">
+        <span class="avatar" id="svAvatar"></span>
+        <div class="meta">
+            <div class="name" id="svName"></div>
+            <div class="time" id="svTime"></div>
+        </div>
+        <button class="close-btn" id="svClose">×</button>
+    </div>
+    <div class="story-content" id="svContent">
+        <div class="story-nav-zones">
+            <div id="svPrev"></div>
+            <div id="svNext"></div>
         </div>
     </div>
 </div>
@@ -415,6 +540,12 @@ const state = {
     posts: [],
     composerKind: 'workout',
     composerPhoto: null,
+    composerPrivacy: 'followers',  // padrão dinâmico ajustado no boot
+    composerBg: '#35E19B',
+    storiesData: [],
+    storyIdx: 0,
+    storyItemIdx: 0,
+    storyTimer: null,
 };
 
 // ============================================================
@@ -835,21 +966,72 @@ async function renderFeed() {
     const c = $('#viewContainer');
     c.innerHTML = '<div class="view"><h1 class="screen-title">Feed</h1><p class="screen-sub">O que a comunidade está fazendo agora.</p><div class="spinner"></div></div>';
 
-    const { data: posts, error } = await sb
+    // Carrega stories em paralelo com posts
+    const storiesPromise = sb.from('stories')
+        .select(`id, user_id, caption, image_url, background_color, created_at, user:profiles!inner (id, username, display_name, avatar_url)`)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+
+    // Posts com policy do banco filtrando visibilidade
+    const postsPromise = sb
         .from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id,
+            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility,
             user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
         `)
-        .eq('is_public', true)
+        .neq('kind', 'story')  // stories vão pra barra separada
         .order('created_at', { ascending: false })
         .limit(50);
 
+    const [{ data: stories }, { data: posts, error }] = await Promise.all([storiesPromise, postsPromise]);
+
     if (error) { c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro ao carregar: ${error.message}</p></div>`; return; }
 
+    // Agrupa stories por autor
+    const storiesByUser = {};
+    (stories || []).forEach(s => {
+        const uid = s.user_id;
+        if (!storiesByUser[uid]) storiesByUser[uid] = { user: s.user, items: [] };
+        storiesByUser[uid].items.push(s);
+    });
+    // Ordena: meus primeiro, resto por mais recente
+    const mine = storiesByUser[state.session.user.id];
+    const others = Object.entries(storiesByUser)
+        .filter(([uid]) => uid !== state.session.user.id)
+        .map(([, v]) => v)
+        .sort((a, b) => new Date(b.items[0].created_at) - new Date(a.items[0].created_at));
+    const storiesOrdered = mine ? [mine, ...others] : others;
+    state.storiesData = storiesOrdered;
+
+    // HTML da barra de stories
+    let storiesHTML = '<div class="stories-bar">';
+    // Meu botão de adicionar story sempre presente
+    storiesHTML += `<div class="story-item" data-add-story="1">
+        <div class="story-avatar mine">
+            <div class="story-avatar-in">${avatarHTML(state.profile, 'md').replace('avatar-md','avatar')}</div>
+            <span class="story-plus">+</span>
+        </div>
+        <span class="story-name">Seu story</span>
+    </div>`;
+    storiesOrdered.forEach((group, i) => {
+        if (group === mine) return;  // já ficou embutido no botão de cima quando eu tenho meus stories, mostro os outros aqui
+        storiesHTML += `<div class="story-item" data-story-idx="${i}">
+            <div class="story-avatar">
+                <div class="story-avatar-in">${avatarHTML(group.user, 'md').replace('avatar-md','avatar')}</div>
+            </div>
+            <span class="story-name">${escapeHTML(group.user.display_name || group.user.username)}</span>
+        </div>`;
+    });
+    // Se eu tenho meus stories, adiciona também um item pra ver (além do botão +)
+    if (mine) {
+        storiesHTML = storiesHTML.replace('data-add-story="1"', `data-add-story="1" data-story-idx="0"`);
+    }
+    storiesHTML += '</div>';
+
     let html = '<div class="view"><h1 class="screen-title">Feed</h1><p class="screen-sub">O que a comunidade está fazendo agora.</p>';
+    html += storiesHTML;
 
     if (!posts || posts.length === 0) {
         html += `<div class="feed-empty"><span class="emo">🌱</span><h3>Nada por aqui ainda</h3><p>Seja o primeiro a postar. Toque no + abaixo.</p></div>`;
@@ -858,6 +1040,23 @@ async function renderFeed() {
     }
     html += '</div>';
     c.innerHTML = html;
+
+    // Marca botões de seguir com estado real
+    const followBtns = c.querySelectorAll('[data-act="follow-toggle"]');
+    if (followBtns.length > 0) {
+        const uids = [...new Set([...followBtns].map(b => b.dataset.uid))];
+        const { data: myFollows } = await sb.from('follows')
+            .select('following_id')
+            .eq('follower_id', state.session.user.id)
+            .in('following_id', uids);
+        const followingSet = new Set((myFollows||[]).map(r => r.following_id));
+        followBtns.forEach(b => {
+            const isFollowing = followingSet.has(b.dataset.uid);
+            b.dataset.following = isFollowing ? '1' : '0';
+            b.textContent = isFollowing ? 'Seguindo' : 'Seguir';
+            b.classList.toggle('following', isFollowing);
+        });
+    }
 }
 
 function renderPost(p) {
@@ -865,6 +1064,10 @@ function renderPost(p) {
     const reacted = p.reactions?.some(r => r.user_id === state.session.user.id);
     const rCount = p.reactions?.length || 0;
     const cCount = p.comments?.length || 0;
+
+    const privacyIcon = { public:'🌍', followers:'👥', private:'🔒' }[p.visibility || 'public'];
+    const privacyLabel = { public:'Público', followers:'Seguidores', private:'Só eu' }[p.visibility || 'public'];
+    const privacyBadge = `<span class="post-privacy-badge">${privacyIcon} ${privacyLabel}</span>`;
 
     let badge = '', body = '';
     if (p.kind === 'workout') {
@@ -879,14 +1082,20 @@ function renderPost(p) {
     if (p.caption) body += `<p class="post-caption">${escapeHTML(p.caption)}</p>`;
     if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy">`;
 
+    const isMine = p.user_id === state.session.user.id;
+    const followBtn = !isMine
+        ? `<button class="follow-btn" data-act="follow-toggle" data-uid="${p.user_id}" data-following="?">…</button>`
+        : '';
+
     return `
         <article class="post" data-post-id="${p.id}">
             <div class="post-head">
                 ${avatarHTML(user, 'sm')}
                 <div class="post-meta">
                     <div class="post-name">${escapeHTML(user.display_name)}</div>
-                    <div class="post-time">@${escapeHTML(user.username)} · ${timeAgo(p.created_at)}</div>
+                    <div class="post-time">@${escapeHTML(user.username)} · ${timeAgo(p.created_at)} ${privacyBadge}</div>
                 </div>
+                ${followBtn}
             </div>
             ${badge}
             ${body}
@@ -1024,8 +1233,148 @@ document.addEventListener('click', async e => {
         }
     } else if (act === 'comment') {
         toast('Comentários — próxima onda', 'ok');
+    } else if (act === 'follow-toggle') {
+        const uid = btn.dataset.uid;
+        const following = btn.dataset.following === '1';
+        btn.disabled = true;
+        if (following) {
+            await sb.from('follows').delete().match({ follower_id: state.session.user.id, following_id: uid });
+            btn.dataset.following = '0';
+            btn.textContent = 'Seguir';
+            btn.classList.remove('following');
+        } else {
+            const { error } = await sb.from('follows').insert({ follower_id: state.session.user.id, following_id: uid });
+            if (!error) {
+                btn.dataset.following = '1';
+                btn.textContent = 'Seguindo';
+                btn.classList.add('following');
+            }
+        }
+        btn.disabled = false;
     }
 });
+
+// Cliques na barra de stories
+document.addEventListener('click', async e => {
+    const item = e.target.closest('[data-story-idx], [data-add-story]');
+    if (!item) return;
+
+    const addStory = item.hasAttribute('data-add-story');
+    const idx = item.dataset.storyIdx;
+
+    // Se clicou no + do meu story e eu ainda não tenho stories, abre composer
+    if (addStory && !state.storiesData.some(g => g.user.id === state.session.user.id)) {
+        openComposerAsStory();
+        return;
+    }
+
+    // Se clicou no meu botão E eu TENHO stories, considera clique como abrir viewer
+    if (idx !== undefined) {
+        openStoryViewer(parseInt(idx));
+    }
+});
+
+function openComposerAsStory() {
+    $('#composerSheet').classList.add('on');
+    document.body.style.overflow = 'hidden';
+    // Simula clique no botão story
+    document.querySelector('.kind-btn[data-kind="story"]').click();
+}
+
+// ============================================================
+// STORY VIEWER
+// ============================================================
+async function openStoryViewer(groupIdx) {
+    state.storyIdx = groupIdx;
+    state.storyItemIdx = 0;
+    $('#storyViewer').classList.add('on');
+    document.body.style.overflow = 'hidden';
+    showCurrentStory();
+}
+
+function closeStoryViewer() {
+    $('#storyViewer').classList.remove('on');
+    document.body.style.overflow = '';
+    clearTimeout(state.storyTimer);
+}
+
+function showCurrentStory() {
+    const group = state.storiesData[state.storyIdx];
+    if (!group) { closeStoryViewer(); return; }
+    const item = group.items[state.storyItemIdx];
+    if (!item) {
+        // avança pro próximo grupo
+        state.storyIdx++;
+        state.storyItemIdx = 0;
+        if (state.storyIdx >= state.storiesData.length) { closeStoryViewer(); return; }
+        showCurrentStory();
+        return;
+    }
+
+    // Progress bars
+    const progressHTML = group.items.map((_, i) => {
+        const cls = i < state.storyItemIdx ? 'done' : i === state.storyItemIdx ? 'active' : '';
+        return `<div class="story-progress-bar ${cls}"><div class="fill"></div></div>`;
+    }).join('');
+    $('#storyProgress').innerHTML = progressHTML;
+
+    // Header
+    $('#svAvatar').outerHTML = avatarHTML(group.user, 'sm').replace('class="avatar avatar-sm"', 'class="avatar" id="svAvatar"');
+    $('#svName').textContent = group.user.display_name || group.user.username;
+    $('#svTime').textContent = timeAgo(item.created_at);
+
+    // Content
+    const content = $('#svContent');
+    if (item.image_url) {
+        content.className = 'story-content';
+        content.innerHTML = `<img src="${item.image_url}">
+            ${item.caption ? `<div class="caption-over">${escapeHTML(item.caption)}</div>` : ''}
+            <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
+    } else {
+        // Story de texto puro
+        content.className = 'story-content text-story';
+        content.style.background = item.background_color || '#35E19B';
+        content.innerHTML = `<div class="text-body">${escapeHTML(item.caption || '')}</div>
+            <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
+    }
+
+    // Marca como visto
+    if (group.user.id !== state.session.user.id) {
+        sb.from('story_views').insert({ story_id: item.id, viewer_id: state.session.user.id }).then(() => {});
+    }
+
+    // Handlers nav
+    document.getElementById('svPrev').onclick = () => advanceStory(-1);
+    document.getElementById('svNext').onclick = () => advanceStory(1);
+
+    // Auto-avança em 6s (só se não tem imagem, senão espera load)
+    clearTimeout(state.storyTimer);
+    state.storyTimer = setTimeout(() => advanceStory(1), 6000);
+}
+
+function advanceStory(dir) {
+    clearTimeout(state.storyTimer);
+    const group = state.storiesData[state.storyIdx];
+    if (!group) { closeStoryViewer(); return; }
+    if (dir > 0) {
+        state.storyItemIdx++;
+        if (state.storyItemIdx >= group.items.length) {
+            state.storyIdx++;
+            state.storyItemIdx = 0;
+            if (state.storyIdx >= state.storiesData.length) { closeStoryViewer(); return; }
+        }
+    } else {
+        state.storyItemIdx--;
+        if (state.storyItemIdx < 0) {
+            state.storyIdx--;
+            if (state.storyIdx < 0) { state.storyIdx = 0; state.storyItemIdx = 0; }
+            else state.storyItemIdx = state.storiesData[state.storyIdx].items.length - 1;
+        }
+    }
+    showCurrentStory();
+}
+
+document.getElementById('svClose').onclick = closeStoryViewer;
 
 // ============================================================
 // COMPOSER
@@ -1051,10 +1400,63 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     $$('.kind-btn').forEach(x => x.classList.toggle('on', x === e.currentTarget));
     $('#workoutFields').classList.toggle('hidden', state.composerKind !== 'workout');
     $('#mealFields').classList.toggle('hidden', state.composerKind !== 'meal');
+    $('#storyFields').classList.toggle('hidden', state.composerKind !== 'story');
+    // Story sempre "público" pra seguidores (padrão Instagram), então some o seletor
+    $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
+
     const hint = $('#photoHint');
     if (state.composerKind === 'workout') hint.textContent = '(opcional, +3 pts se anexar)';
     else if (state.composerKind === 'meal') hint.textContent = '(com foto: 5 pts / sem foto: 2 pts)';
+    else if (state.composerKind === 'story') hint.textContent = '(opcional — pode ser só texto)';
     else hint.textContent = '(opcional)';
+
+    $('#composerSubmit').textContent = state.composerKind === 'story' ? 'Publicar Story' : 'Publicar';
+}));
+
+// Privacy chip: abre/fecha popover
+$('#privacyChip').addEventListener('click', e => {
+    e.stopPropagation();
+    const menu = $('#privacyMenu');
+    const chip = $('#privacyChip');
+    const isOpen = !menu.classList.contains('hidden');
+    menu.classList.toggle('hidden', isOpen);
+    chip.setAttribute('aria-expanded', String(!isOpen));
+});
+
+// Privacy option: escolher e fechar
+$$('.privacy-opt').forEach(opt => opt.addEventListener('click', e => {
+    state.composerPrivacy = e.currentTarget.dataset.privacy;
+    updatePrivacyChip();
+    $('#privacyMenu').classList.add('hidden');
+    $('#privacyChip').setAttribute('aria-expanded', 'false');
+}));
+
+// Fecha popover ao clicar fora
+document.addEventListener('click', e => {
+    if (!e.target.closest('#privacySection')) {
+        const menu = $('#privacyMenu');
+        if (menu && !menu.classList.contains('hidden')) {
+            menu.classList.add('hidden');
+            $('#privacyChip').setAttribute('aria-expanded', 'false');
+        }
+    }
+});
+
+function updatePrivacyChip() {
+    const meta = {
+        public:    { emo:'🌍', label:'Público' },
+        followers: { emo:'👥', label:'Seguidores' },
+        private:   { emo:'🔒', label:'Só eu' },
+    }[state.composerPrivacy] || { emo:'👥', label:'Seguidores' };
+    $('#pcEmo').textContent = meta.emo;
+    $('#pcLabel').textContent = meta.label;
+    $$('.privacy-opt').forEach(x => x.classList.toggle('on', x.dataset.privacy === state.composerPrivacy));
+}
+
+// Background color picker for story
+$$('.bg-color-swatch').forEach(s => s.addEventListener('click', e => {
+    state.composerBg = e.currentTarget.dataset.color;
+    $$('.bg-color-swatch').forEach(x => x.classList.toggle('on', x === e.currentTarget));
 }));
 
 $('#pPhoto').addEventListener('change', e => {
@@ -1083,12 +1485,43 @@ $('#composerSubmit').addEventListener('click', async () => {
             imageUrl = sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
         }
 
-        // monta post
+        // ============ STORY (tabela separada, expira em 24h) ============
+        if (state.composerKind === 'story') {
+            if (!caption && !imageUrl) {
+                toast('Escreva algo ou anexe uma foto', 'err');
+                btn.disabled = false; btn.textContent = 'Publicar Story';
+                return;
+            }
+
+            const { data: story, error: storyErr } = await sb.from('stories').insert({
+                user_id: state.session.user.id,
+                caption: caption || null,
+                image_url: imageUrl,
+                background_color: !imageUrl ? state.composerBg : null,
+            }).select().single();
+            if (storyErr) throw storyErr;
+
+            // Ponto por story (máx 3/dia)
+            const storiesToday = await countTodayByReason('story');
+            if (storiesToday < 3) {
+                await creditPoints(3, 'story', story.id);
+                await loadScore();
+            }
+
+            closeComposer();
+            toast(storiesToday < 3 ? '+3 pontos! Story publicado' : 'Story publicado (limite diário de pontos atingido)', 'ok');
+            if (state.view === 'feed') await renderFeed();
+            return;
+        }
+
+        // ============ POST (tabela posts, permanente) ============
         const post = {
             user_id: state.session.user.id,
             kind: state.composerKind,
             caption: caption || null,
             image_url: imageUrl,
+            visibility: state.composerPrivacy,
+            is_public: state.composerPrivacy === 'public',
         };
         let ptsToCredit = 0, ptsReason = '';
         const today = new Date().toISOString().split('T')[0];
@@ -1100,7 +1533,6 @@ $('#composerSubmit').addEventListener('click', async () => {
             ptsReason = 'workout';
         } else if (state.composerKind === 'meal') {
             post.meal_slot = $('#mSlot').value;
-            // limite 3 refeições/dia
             const mealsToday = await countTodayByReason('meal_photo') + await countTodayByReason('meal_text');
             if (mealsToday >= 3) {
                 toast('Limite de 3 refeições/dia atingido', 'err');
@@ -1120,12 +1552,10 @@ $('#composerSubmit').addEventListener('click', async () => {
         const { data: created, error: postErr } = await sb.from('posts').insert(post).select().single();
         if (postErr) throw postErr;
 
-        // credita pontos
         if (ptsToCredit > 0) {
             await creditPoints(ptsToCredit, ptsReason, created.id);
         }
 
-        // atualiza streak (apenas workout conta pra streak)
         let streakInfo = null;
         if (state.composerKind === 'workout') {
             streakInfo = await updateStreak(today);
@@ -1144,7 +1574,8 @@ $('#composerSubmit').addEventListener('click', async () => {
         console.error(err);
         toast('Erro: ' + (err.message || 'não foi possível publicar'), 'err');
     } finally {
-        btn.disabled = false; btn.textContent = 'Publicar';
+        btn.disabled = false;
+        btn.textContent = state.composerKind === 'story' ? 'Publicar Story' : 'Publicar';
     }
 });
 
@@ -1190,6 +1621,11 @@ async function boot() {
 
     $('#authScreen').style.display = 'none';
     $('#app').classList.add('on');
+
+    // Ajusta privacidade padrão: se 0 seguidores, público; senão, seguidores
+    const { data: followersCount } = await sb.rpc('my_followers_count');
+    state.composerPrivacy = (followersCount || 0) > 0 ? 'followers' : 'public';
+    updatePrivacyChip();
 
     await loadScore();
     await switchView('feed');
