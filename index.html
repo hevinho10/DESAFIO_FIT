@@ -268,27 +268,35 @@ button{ font-family:inherit; cursor:pointer; }
             <div id="suMsg"></div>
         </form>
 
-        <!-- FORGOT PASSWORD (2 passos) -->
+        <!-- FORGOT PASSWORD (enviar link) -->
         <div id="forgotStep1" class="auth-form hidden">
             <h3 class="auth-subtitle">Recuperar senha</h3>
-            <p class="auth-subhint">Vamos enviar um código de 6 dígitos para o seu email.</p>
+            <p class="auth-subhint">Vamos enviar um link para o seu email. Clique nele para definir uma nova senha.</p>
             <label>Email da conta</label>
             <input type="email" id="fpEmail" autocomplete="email" placeholder="voce@email.com">
-            <button type="button" class="auth-btn" id="fpSendBtn">Enviar código</button>
+            <button type="button" class="auth-btn" id="fpSendBtn">Enviar link</button>
             <div id="fpMsg1"></div>
             <button type="button" class="auth-link" data-goto="signin">Voltar</button>
         </div>
 
+        <!-- CONFIRMAÇÃO: link enviado -->
         <div id="forgotStep2" class="auth-form hidden">
-            <h3 class="auth-subtitle">Digite o código</h3>
-            <p class="auth-subhint">Enviamos um código para <b id="fpShowEmail"></b>. Verifique também o spam.</p>
-            <label>Código de 6 dígitos</label>
-            <input type="text" id="fpCode" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="000000" autocomplete="one-time-code">
-            <label>Nova senha (mínimo 6)</label>
-            <input type="password" id="fpNewPassword" minlength="6" autocomplete="new-password">
-            <button type="button" class="auth-btn" id="fpVerifyBtn">Redefinir senha</button>
-            <div id="fpMsg2"></div>
-            <button type="button" class="auth-link" data-goto="forgot-step1">Reenviar código</button>
+            <div class="confirm-icon">📩</div>
+            <h3 class="auth-subtitle">Verifique seu email</h3>
+            <p class="auth-subhint">Se <b id="fpShowEmail"></b> estiver cadastrado, um link chegará em instantes. Verifique o spam.</p>
+            <button type="button" class="auth-link" data-goto="signin">Voltar para entrar</button>
+        </div>
+
+        <!-- REDEFINIR SENHA (após clicar no link do email) -->
+        <div id="resetPasswordForm" class="auth-form hidden">
+            <h3 class="auth-subtitle">Nova senha</h3>
+            <p class="auth-subhint">Você confirmou seu email. Defina uma nova senha para entrar.</p>
+            <label>Nova senha (mín. 6, com número e caractere especial)</label>
+            <input type="password" id="rpPassword" minlength="6" autocomplete="new-password" placeholder="ex: minhaSenha1@">
+            <label>Confirmar senha</label>
+            <input type="password" id="rpPassword2" minlength="6" autocomplete="new-password">
+            <button type="button" class="auth-btn" id="rpBtn">Salvar nova senha</button>
+            <div id="rpMsg"></div>
         </div>
 
         <!-- AWAITING EMAIL CONFIRMATION -->
@@ -498,14 +506,15 @@ async function countTodayByReason(reason) {
 // AUTH
 // ============================================================
 
-// Alterna entre subtelas: signin, signup, forgot-step1, forgot-step2, await-confirm
+// Alterna entre subtelas: signin, signup, forgot-step1, forgot-step2, await-confirm, reset-password
 function showAuthScreen(name) {
     const screens = {
-        'signin':       ['signinForm', true],
-        'signup':       ['signupForm', true],
-        'forgot-step1': ['forgotStep1', false],
-        'forgot-step2': ['forgotStep2', false],
-        'await-confirm':['awaitConfirm', false],
+        'signin':         ['signinForm', true],
+        'signup':         ['signupForm', true],
+        'forgot-step1':   ['forgotStep1', false],
+        'forgot-step2':   ['forgotStep2', false],
+        'await-confirm':  ['awaitConfirm', false],
+        'reset-password': ['resetPasswordForm', false],
     };
     Object.values(screens).forEach(([id]) => $('#'+id).classList.add('hidden'));
     const [showId, showTabs] = screens[name];
@@ -734,7 +743,7 @@ $('#signupForm').addEventListener('submit', async e => {
     // Se veio session direto (confirmação desabilitada), o onAuthStateChange cuida
 });
 
-// ---- FORGOT PASSWORD passo 1: envia código ----
+// ---- FORGOT PASSWORD: envia link por email ----
 $('#fpSendBtn').addEventListener('click', async () => {
     const btn = $('#fpSendBtn'), msg = $('#fpMsg1');
     const email = $('#fpEmail').value.trim();
@@ -745,61 +754,62 @@ $('#fpSendBtn').addEventListener('click', async () => {
     }
     btn.disabled = true; btn.textContent = 'Enviando...'; msg.innerHTML = '';
 
-    const { error } = await sb.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: false }
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname
     });
 
-    btn.disabled = false; btn.textContent = 'Enviar código';
+    btn.disabled = false; btn.textContent = 'Enviar link';
 
-    // Por segurança, não revela se o email existe ou não
+    // Por segurança, não revela se o email existe
     $('#fpShowEmail').textContent = email;
-    msg.className = 'auth-msg ok';
-    msg.textContent = 'Se este email estiver cadastrado, o código chegará em instantes.';
-    setTimeout(() => showAuthScreen('forgot-step2'), 1200);
+    setTimeout(() => showAuthScreen('forgot-step2'), 400);
 });
 
-// ---- FORGOT PASSWORD passo 2: verifica código e troca senha ----
-$('#fpVerifyBtn').addEventListener('click', async () => {
-    const btn = $('#fpVerifyBtn'), msg = $('#fpMsg2');
-    const email = $('#fpShowEmail').textContent;
-    const code = $('#fpCode').value.trim();
-    const newPassword = $('#fpNewPassword').value;
+// ---- RESET PASSWORD: após clicar no link, definir nova senha ----
+$('#rpBtn').addEventListener('click', async () => {
+    const btn = $('#rpBtn'), msg = $('#rpMsg');
+    const pw1 = $('#rpPassword').value;
+    const pw2 = $('#rpPassword2').value;
 
-    if (!/^\d{6}$/.test(code)) {
+    msg.innerHTML = '';
+
+    if (pw1.length < 6) {
         msg.className = 'auth-msg err';
-        msg.textContent = 'Digite o código de 6 dígitos.';
+        msg.textContent = 'Senha precisa ter no mínimo 6 caracteres.';
         return;
     }
-    if (newPassword.length < 6) {
+    if (!/[0-9]/.test(pw1)) {
         msg.className = 'auth-msg err';
-        msg.textContent = 'Nova senha precisa ter no mínimo 6 caracteres.';
+        msg.textContent = 'Senha precisa ter pelo menos 1 número.';
+        return;
+    }
+    if (!/[^a-zA-Z0-9]/.test(pw1)) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'Senha precisa ter pelo menos 1 caractere especial.';
+        return;
+    }
+    if (pw1 !== pw2) {
+        msg.className = 'auth-msg err';
+        msg.textContent = 'As senhas não coincidem.';
         return;
     }
 
-    btn.disabled = true; btn.textContent = 'Verificando...'; msg.innerHTML = '';
+    btn.disabled = true; btn.textContent = 'Salvando...';
 
-    // Valida o código (cria uma sessão temporária)
-    const { error: verifyErr } = await sb.auth.verifyOtp({ email, token: code, type: 'email' });
-    if (verifyErr) {
-        btn.disabled = false; btn.textContent = 'Redefinir senha';
-        msg.className = 'auth-msg err';
-        msg.textContent = 'Código inválido ou expirado. Peça um novo.';
-        return;
-    }
+    const { error } = await sb.auth.updateUser({ password: pw1 });
 
-    // Já logado com sessão temporária, atualiza a senha
-    const { error: updErr } = await sb.auth.updateUser({ password: newPassword });
-    btn.disabled = false; btn.textContent = 'Redefinir senha';
-    if (updErr) {
+    btn.disabled = false; btn.textContent = 'Salvar nova senha';
+
+    if (error) {
         msg.className = 'auth-msg err';
-        msg.textContent = 'Não foi possível redefinir: ' + updErr.message;
+        msg.textContent = 'Erro: ' + error.message;
         return;
     }
 
     msg.className = 'auth-msg ok';
-    msg.textContent = 'Senha redefinida! Entrando...';
-    // A sessão do OTP já é válida, o onAuthStateChange vai levar pro app
+    msg.textContent = 'Senha atualizada! Entrando...';
+    // A sessão já é válida (veio do link), então o boot vai carregar o app
+    setTimeout(() => boot(), 800);
 });
 
 // ---- REENVIAR EMAIL DE CONFIRMAÇÃO ----
@@ -1142,7 +1152,22 @@ $('#composerSubmit').addEventListener('click', async () => {
 // INIT
 // ============================================================
 async function boot() {
+    // Detecta se veio pelo link de "esqueci senha" (URL tem #access_token e type=recovery)
+    const hash = window.location.hash || '';
+    const isRecovery = hash.includes('type=recovery');
+
     const { data: { session } } = await sb.auth.getSession();
+
+    if (isRecovery && session) {
+        // Chegou pelo link do email — mostra tela de nova senha
+        $('#authScreen').style.display = 'flex';
+        $('#app').classList.remove('on');
+        showAuthScreen('reset-password');
+        // Limpa a URL pra não mostrar o hash na barra
+        history.replaceState(null, '', window.location.pathname);
+        return;
+    }
+
     if (!session) {
         $('#authScreen').style.display = 'flex';
         $('#app').classList.remove('on');
@@ -1153,11 +1178,10 @@ async function boot() {
     // carrega ou cria profile
     let { data: prof } = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
     if (!prof) {
-        // fallback caso trigger tenha falhado
         const meta = session.user.user_metadata || {};
         const insert = await sb.from('profiles').insert({
             id: session.user.id,
-            username: meta.username || `user_${session.user.id.slice(0,8)}`,
+            username: (meta.username || `user_${session.user.id.slice(0,8)}`).toLowerCase(),
             display_name: meta.display_name || 'Novo usuário'
         }).select().single();
         prof = insert.data;
@@ -1172,6 +1196,14 @@ async function boot() {
 }
 
 sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+        // Usuário clicou no link de recuperação — mostra tela de nova senha
+        state.session = session;
+        $('#authScreen').style.display = 'flex';
+        $('#app').classList.remove('on');
+        showAuthScreen('reset-password');
+        return;
+    }
     if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
         if (session && !state.session) boot();
     } else if (event === 'SIGNED_OUT') {
