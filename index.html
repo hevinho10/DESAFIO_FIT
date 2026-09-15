@@ -214,6 +214,87 @@ button{ font-family:inherit; cursor:pointer; }
 
 .hidden{ display:none !important; }
 
+/* ============ PERFIL ESTILO INSTAGRAM ============ */
+.user-topbar{ display:flex; align-items:center; justify-content:space-between; padding-bottom:12px; margin-bottom:12px; border-bottom:1px solid var(--line); }
+.topbar-back{ background:none; border:none; color:var(--ink); font-size:24px; padding:4px 8px; cursor:pointer; }
+.topbar-title{ font-family:var(--ff-display); font-weight:600; font-size:16px; }
+
+.ig-profile-head{ display:flex; align-items:center; gap:20px; padding:8px 4px 16px; }
+.ig-profile-stats{ display:flex; gap:22px; flex:1; justify-content:space-around; }
+.ig-stat{ display:flex; flex-direction:column; align-items:center; }
+.ig-stat .v{ font-family:var(--ff-display); font-size:19px; font-weight:600; color:var(--ink); }
+.ig-stat .l{ font-size:11.5px; color:var(--ink-dim); margin-top:1px; }
+
+.ig-profile-info{ padding:0 4px 12px; }
+.ig-name{ font-family:var(--ff-display); font-size:15px; font-weight:600; }
+.ig-uname{ font-size:12.5px; color:var(--ink-dim); margin-top:1px; }
+.ig-bio{ font-size:13.5px; color:var(--ink); margin-top:6px; line-height:1.4; white-space:pre-wrap; }
+.ig-loc{ font-size:12.5px; color:var(--ink-dim); margin-top:4px; }
+
+.ig-profile-actions{ display:flex; gap:8px; padding:0 4px; }
+.flex-1{ flex:1; }
+.btn-primary-sm{ background:var(--vital); color:#08110C; border:none; padding:9px 14px; border-radius:10px; font-size:13.5px; font-weight:700; }
+
+.ig-tabs{ display:flex; gap:0; margin-top:20px; border-top:1px solid var(--line); }
+.ig-tab{ flex:1; background:none; border:none; color:var(--ink-dim); padding:12px; font-size:13px; font-weight:500; border-top:2px solid transparent; margin-top:-1px; cursor:pointer; }
+.ig-tab.on{ color:var(--ink); border-top-color:var(--ink); }
+
+.ig-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:3px; margin-top:3px; }
+.grid-item{ aspect-ratio:1; background:var(--bg-elev); overflow:hidden; cursor:pointer; position:relative; }
+.grid-item img{ width:100%; height:100%; object-fit:cover; }
+.grid-text-thumb{ width:100%; height:100%; display:grid; place-items:center; padding:8px; background:linear-gradient(135deg, var(--vital-dim), var(--bg-elev)); }
+.grid-text-thumb span{ font-size:11px; color:var(--ink); text-align:center; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; }
+.grid-empty{ grid-column:1/-1; text-align:center; padding:40px 20px; color:var(--ink-dim); font-size:13px; }
+
+.post-head-link{ cursor:pointer; }
+.post-meta[data-act="view-user"]{ cursor:pointer; }
+
+/* ============ EDITAR PERFIL ============ */
+.edit-avatar-section{ display:flex; flex-direction:column; align-items:center; gap:12px; padding:16px 0 24px; }
+.avatar-upload-btn{ background:var(--bg-elev); color:var(--vital); border:1px solid var(--line); padding:8px 16px; border-radius:20px; font-size:12.5px; font-weight:500; cursor:pointer; }
+.edit-section-title{ font-family:var(--ff-display); font-size:14px; font-weight:600; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.08em; margin:20px 4px 8px; }
+
+/* ============ SUGESTÕES DE SEGUIR ============ */
+.suggestions-section{ margin:8px 0 20px; }
+.suggestions-title{ font-family:var(--ff-display); font-size:14px; font-weight:600; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.08em; margin:0 4px 12px; }
+.suggestions-row{ display:flex; gap:10px; overflow-x:auto; padding:2px 2px 6px; scrollbar-width:none; }
+.suggestions-row::-webkit-scrollbar{ display:none; }
+.suggestion-card{ flex-shrink:0; width:130px; background:var(--bg-card); border:1px solid var(--line); border-radius:14px; padding:14px 10px 12px; text-align:center; cursor:pointer; }
+.suggestion-card .avatar{ margin:0 auto 8px; }
+.suggestion-name{ font-size:12.5px; font-weight:600; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.suggestion-uname{ font-size:11px; color:var(--ink-dim); margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.suggestion-follow{ background:var(--vital); color:#08110C; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; width:100%; cursor:pointer; }
+.suggestion-follow.following{ background:var(--bg-elev); color:var(--ink); border:1px solid var(--line); }
+
+/* ============ MENU DE POST (3 pontinhos) ============ */
+.post-menu-btn{ background:none; border:none; color:var(--ink-dim); padding:6px; cursor:pointer; }
+.post-menu-btn svg{ width:20px; height:20px; }
+.post-menu{ position:absolute; z-index:50; background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,.5); min-width:180px; animation:popIn .15s ease; }
+.post-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink); padding:10px 14px; border-radius:8px; font-size:13.5px; cursor:pointer; }
+.post-menu-item:hover{ background:var(--bg-elev); }
+.post-menu-item.danger{ color:#FF9E8F; }
+
+/* ============ COMENTÁRIOS ============ */
+.comments-list{ max-height:50vh; overflow-y:auto; padding-right:4px; margin-bottom:14px; }
+.comments-empty{ text-align:center; color:var(--ink-dim); font-size:13px; padding:24px 12px; }
+.comment-item{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); }
+.comment-item:last-child{ border-bottom:none; }
+.comment-body{ flex:1; min-width:0; }
+.comment-name{ font-size:13px; font-weight:600; color:var(--ink); }
+.comment-time{ font-size:11px; font-weight:400; color:var(--ink-faint); margin-left:4px; }
+.comment-text{ font-size:13.5px; color:var(--ink); margin-top:2px; word-wrap:break-word; }
+.comment-del{ background:none; border:none; color:var(--ink-faint); font-size:20px; cursor:pointer; padding:0 4px; flex-shrink:0; }
+.comment-composer{ display:flex; gap:8px; align-items:flex-end; padding-top:12px; border-top:1px solid var(--line); }
+.comment-composer textarea{ flex:1; background:var(--bg-input); border:1px solid var(--line); color:var(--ink); padding:10px 12px; border-radius:12px; font-size:14px; font-family:inherit; resize:none; min-height:44px; max-height:120px; }
+.comment-composer textarea:focus{ outline:none; border-color:var(--vital); box-shadow:var(--ring); }
+.comment-composer .btn-primary{ flex:0 0 auto; padding:10px 16px; font-size:13px; }
+
+/* ============ BOTÕES CÂMERA/GALERIA ============ */
+.photo-btn-row{ display:flex; gap:8px; margin-top:8px; }
+.photo-btn-choice{ flex:1; background:var(--bg-input); border:1px solid var(--line); color:var(--ink); padding:12px; border-radius:11px; font-size:13px; font-weight:500; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; transition:border-color .15s; }
+.photo-btn-choice:hover{ border-color:var(--vital); }
+.photo-btn-choice .emo{ font-size:18px; }
+
 /* ============ STORIES BAR ============ */
 .stories-bar{ display:flex; gap:10px; overflow-x:auto; padding:14px 4px 18px; scrollbar-width:none; }
 .stories-bar::-webkit-scrollbar{ display:none; }
@@ -465,8 +546,17 @@ button{ font-family:inherit; cursor:pointer; }
         </div>
 
         <div class="file-drop">
-            <label for="pPhoto">📷 Adicionar foto <span id="photoHint" style="color:var(--ink-faint);font-size:11px;display:block;margin-top:2px">(opcional, +bônus de pontos)</span></label>
-            <input type="file" id="pPhoto" accept="image/*">
+            <label style="font-size:13px; color:var(--ink-dim); font-weight:500;">📷 Adicionar foto <span id="photoHint" style="color:var(--ink-faint);font-size:11px;display:block;margin-top:2px">(opcional, +bônus de pontos)</span></label>
+            <div class="photo-btn-row">
+                <label class="photo-btn-choice">
+                    <span class="emo">📸</span><span>Câmera</span>
+                    <input type="file" id="pPhotoCam" accept="image/*" capture="environment" style="display:none">
+                </label>
+                <label class="photo-btn-choice">
+                    <span class="emo">🖼️</span><span>Galeria</span>
+                    <input type="file" id="pPhotoGal" accept="image/*" style="display:none">
+                </label>
+            </div>
             <img id="pPhotoPreview" class="file-preview">
         </div>
 
@@ -1033,6 +1123,22 @@ async function renderFeed() {
     let html = '<div class="view"><h1 class="screen-title">Feed</h1><p class="screen-sub">O que a comunidade está fazendo agora.</p>';
     html += storiesHTML;
 
+    // Sugestões de seguir (só aparece se você não segue ninguém ainda ou poucas pessoas)
+    const { data: suggestions } = await sb.rpc('suggest_users_to_follow', { lim: 6 });
+    if (suggestions && suggestions.length > 0) {
+        let sugHTML = '<div class="suggestions-section"><h3 class="suggestions-title">Descobrir pessoas</h3><div class="suggestions-row">';
+        suggestions.forEach(u => {
+            sugHTML += `<div class="suggestion-card" data-act="view-user" data-uid="${u.id}">
+                ${avatarHTML(u, 'md')}
+                <div class="suggestion-name">${escapeHTML(u.display_name)}</div>
+                <div class="suggestion-uname">@${escapeHTML(u.username)}</div>
+                <button class="suggestion-follow" data-act="quick-follow" data-uid="${u.id}" data-following="0">Seguir</button>
+            </div>`;
+        });
+        sugHTML += '</div></div>';
+        html += sugHTML;
+    }
+
     if (!posts || posts.length === 0) {
         html += `<div class="feed-empty"><span class="emo">🌱</span><h3>Nada por aqui ainda</h3><p>Seja o primeiro a postar. Toque no + abaixo.</p></div>`;
     } else {
@@ -1040,23 +1146,6 @@ async function renderFeed() {
     }
     html += '</div>';
     c.innerHTML = html;
-
-    // Marca botões de seguir com estado real
-    const followBtns = c.querySelectorAll('[data-act="follow-toggle"]');
-    if (followBtns.length > 0) {
-        const uids = [...new Set([...followBtns].map(b => b.dataset.uid))];
-        const { data: myFollows } = await sb.from('follows')
-            .select('following_id')
-            .eq('follower_id', state.session.user.id)
-            .in('following_id', uids);
-        const followingSet = new Set((myFollows||[]).map(r => r.following_id));
-        followBtns.forEach(b => {
-            const isFollowing = followingSet.has(b.dataset.uid);
-            b.dataset.following = isFollowing ? '1' : '0';
-            b.textContent = isFollowing ? 'Seguindo' : 'Seguir';
-            b.classList.toggle('following', isFollowing);
-        });
-    }
 }
 
 function renderPost(p) {
@@ -1083,19 +1172,21 @@ function renderPost(p) {
     if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy">`;
 
     const isMine = p.user_id === state.session.user.id;
-    const followBtn = !isMine
-        ? `<button class="follow-btn" data-act="follow-toggle" data-uid="${p.user_id}" data-following="?">…</button>`
+    const menuBtn = isMine
+        ? `<button class="post-menu-btn" data-act="post-menu" data-id="${p.id}" aria-label="Opções">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
+           </button>`
         : '';
 
     return `
         <article class="post" data-post-id="${p.id}">
             <div class="post-head">
-                ${avatarHTML(user, 'sm')}
-                <div class="post-meta">
+                <span data-act="view-user" data-uid="${p.user_id}" class="post-head-link">${avatarHTML(user, 'sm')}</span>
+                <div class="post-meta" data-act="view-user" data-uid="${p.user_id}">
                     <div class="post-name">${escapeHTML(user.display_name)}</div>
                     <div class="post-time">@${escapeHTML(user.username)} · ${timeAgo(p.created_at)} ${privacyBadge}</div>
                 </div>
-                ${followBtn}
+                ${menuBtn}
             </div>
             ${badge}
             ${body}
@@ -1168,44 +1259,253 @@ function renderChallenges() {
 async function renderProfile() {
     const c = $('#viewContainer');
     const p = state.profile;
-    const { count: postCount } = await sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', state.session.user.id);
-    const { data: streak } = await sb.from('daily_streaks').select('*').eq('user_id', state.session.user.id).maybeSingle();
+    const [{ count: postCount }, { data: streak }, { data: followersCount }, { data: followingCount }] = await Promise.all([
+        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', state.session.user.id),
+        sb.from('daily_streaks').select('*').eq('user_id', state.session.user.id).maybeSingle(),
+        sb.rpc('my_followers_count'),
+        sb.rpc('my_following_count'),
+    ]);
+
+    const { data: myPosts } = await sb.from('posts')
+        .select('id, image_url, kind, caption, created_at')
+        .eq('user_id', state.session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+    const gridHTML = (myPosts || []).map(p => {
+        const thumb = p.image_url
+            ? `<img src="${p.image_url}" loading="lazy">`
+            : `<div class="grid-text-thumb"><span>${escapeHTML((p.caption||'').slice(0,60))}</span></div>`;
+        return `<div class="grid-item" data-act="view-post" data-id="${p.id}">${thumb}</div>`;
+    }).join('') || '<div class="grid-empty">Nada postado ainda.</div>';
 
     c.innerHTML = `
         <div class="view">
-            <div class="profile-head">
+            <div class="ig-profile-head">
                 ${avatarHTML(p, 'lg')}
-                <div class="profile-name">${escapeHTML(p.display_name)}</div>
-                <div class="profile-uname">@${escapeHTML(p.username)}</div>
-                ${p.bio ? `<div class="profile-bio">${escapeHTML(p.bio)}</div>` : ''}
-                <div class="profile-actions">
-                    <button class="btn-secondary" id="editProfileBtn">Editar perfil</button>
-                    <button class="btn-danger" id="logoutBtn">Sair</button>
+                <div class="ig-profile-stats">
+                    <div class="ig-stat"><span class="v">${postCount || 0}</span><span class="l">Posts</span></div>
+                    <div class="ig-stat"><span class="v">${followersCount || 0}</span><span class="l">Seguidores</span></div>
+                    <div class="ig-stat"><span class="v">${followingCount || 0}</span><span class="l">Seguindo</span></div>
                 </div>
             </div>
-            <div class="stat-grid">
-                <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
-                <div class="stat-card"><div class="num">${postCount || 0}</div><div class="lbl">Posts totais</div></div>
-                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Streak</div></div>
-                <div class="stat-card"><div class="num">${streak?.longest_streak || 0}</div><div class="lbl">Melhor streak</div></div>
+            <div class="ig-profile-info">
+                <div class="ig-name">${escapeHTML(p.display_name)}</div>
+                <div class="ig-uname">@${escapeHTML(p.username)}</div>
+                ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
+                ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
+            <div class="ig-profile-actions">
+                <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
+                <button class="btn-danger" id="logoutBtn">Sair</button>
+            </div>
+            <div class="stat-grid" style="margin-top:14px">
+                <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
+                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Streak</div></div>
+            </div>
+            <div class="ig-tabs"><button class="ig-tab on">▦ Posts</button></div>
+            <div class="ig-grid">${gridHTML}</div>
         </div>
     `;
 
     $('#logoutBtn').addEventListener('click', async () => {
+        if (!confirm('Tem certeza que quer sair?')) return;
         await sb.auth.signOut();
         location.reload();
     });
-    $('#editProfileBtn').addEventListener('click', () => toast('Em breve — próxima onda', 'ok'));
+    $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
 }
 
-async function switchView(v) {
+async function renderUserProfile(uid) {
+    const c = $('#viewContainer');
+    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+
+    const { data: p, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+    if (error || !p) {
+        c.innerHTML = '<div class="view"><p style="color:var(--danger)">Usuário não encontrado.</p></div>';
+        return;
+    }
+
+    const isMe = uid === state.session.user.id;
+    if (isMe) { switchView('profile'); return; }
+
+    const [{ count: postCount }, followersRes, followingRes, iFollowRes, streakRes, postsRes] = await Promise.all([
+        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uid),
+        sb.from('follows').select('*', {count:'exact', head:true}).eq('following_id', uid),
+        sb.from('follows').select('*', {count:'exact', head:true}).eq('follower_id', uid),
+        sb.rpc('am_i_following', { target_id: uid }),
+        sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
+        sb.from('posts').select('id, image_url, kind, caption, created_at')
+            .eq('user_id', uid).order('created_at', { ascending: false }).limit(30),
+    ]);
+    const iFollow = !!iFollowRes.data;
+    const streak = streakRes.data;
+    const posts = postsRes.data || [];
+
+    const gridHTML = posts.map(pp => {
+        const thumb = pp.image_url
+            ? `<img src="${pp.image_url}" loading="lazy">`
+            : `<div class="grid-text-thumb"><span>${escapeHTML((pp.caption||'').slice(0,60))}</span></div>`;
+        return `<div class="grid-item" data-act="view-post" data-id="${pp.id}">${thumb}</div>`;
+    }).join('') || '<div class="grid-empty">Nenhum post visível.</div>';
+
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back">←</button>
+                <div class="topbar-title">@${escapeHTML(p.username)}</div>
+                <div style="width:28px"></div>
+            </div>
+            <div class="ig-profile-head">
+                ${avatarHTML(p, 'lg')}
+                <div class="ig-profile-stats">
+                    <div class="ig-stat"><span class="v">${postCount || 0}</span><span class="l">Posts</span></div>
+                    <div class="ig-stat"><span class="v">${followersRes.count || 0}</span><span class="l">Seguidores</span></div>
+                    <div class="ig-stat"><span class="v">${followingRes.count || 0}</span><span class="l">Seguindo</span></div>
+                </div>
+            </div>
+            <div class="ig-profile-info">
+                <div class="ig-name">${escapeHTML(p.display_name)}</div>
+                ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
+                ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
+            </div>
+            <div class="ig-profile-actions">
+                <button class="${iFollow?'btn-secondary':'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${iFollow?'1':'0'}">
+                    ${iFollow ? 'Seguindo' : 'Seguir'}
+                </button>
+            </div>
+            ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}🔥</div><div class="lbl">Streak atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor streak</div></div></div>` : ''}
+            <div class="ig-tabs"><button class="ig-tab on">▦ Posts</button></div>
+            <div class="ig-grid">${gridHTML}</div>
+        </div>
+    `;
+}
+
+async function renderEditProfile() {
+    const c = $('#viewContainer');
+    const p = state.profile;
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back">←</button>
+                <div class="topbar-title">Editar perfil</div>
+                <div style="width:28px"></div>
+            </div>
+
+            <div class="edit-avatar-section">
+                <div id="editAvatarPreview">${avatarHTML(p, 'lg')}</div>
+                <label class="btn-ghost avatar-upload-btn">
+                    Alterar foto
+                    <input type="file" id="editAvatarFile" accept="image/*" style="display:none">
+                </label>
+            </div>
+
+            <div class="field">
+                <label>Nome de exibição</label>
+                <input type="text" id="edName" value="${escapeHTML(p.display_name || '')}" maxlength="60">
+            </div>
+            <div class="field">
+                <label>Bio</label>
+                <textarea id="edBio" maxlength="200" placeholder="Uma frase sobre você...">${escapeHTML(p.bio || '')}</textarea>
+            </div>
+            <div class="field">
+                <label>Cidade</label>
+                <input type="text" id="edCity" value="${escapeHTML(p.city || '')}" maxlength="60">
+            </div>
+
+            <h3 class="edit-section-title">Dados físicos (opcional)</h3>
+            <div class="field-row">
+                <div class="field">
+                    <label>Altura (m)</label>
+                    <input type="number" id="edAltura" value="${p.altura || ''}" step="0.01" min="0.5" max="2.5">
+                </div>
+                <div class="field">
+                    <label>Sexo</label>
+                    <select id="edSexo">
+                        <option value="">—</option>
+                        <option value="M" ${p.sexo==='M'?'selected':''}>Masculino</option>
+                        <option value="F" ${p.sexo==='F'?'selected':''}>Feminino</option>
+                        <option value="O" ${p.sexo==='O'?'selected':''}>Outro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-row">
+                <div class="field">
+                    <label>Peso inicial (kg)</label>
+                    <input type="number" id="edPesoInicial" value="${p.peso_inicial || ''}" step="0.1">
+                </div>
+                <div class="field">
+                    <label>Meta de peso (kg)</label>
+                    <input type="number" id="edMeta" value="${p.target_weight || ''}" step="0.1">
+                </div>
+            </div>
+
+            <button class="btn-primary" id="edSaveBtn" style="margin-top:16px">Salvar alterações</button>
+            <div id="edMsg" style="margin-top:10px"></div>
+        </div>
+    `;
+
+    // Preview do avatar novo
+    let newAvatarFile = null;
+    $('#editAvatarFile').addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        newAvatarFile = file;
+        const url = URL.createObjectURL(file);
+        $('#editAvatarPreview').innerHTML = `<span class="avatar avatar-lg" style="overflow:hidden"><img src="${url}" style="width:100%;height:100%;object-fit:cover"></span>`;
+    });
+
+    $('#edSaveBtn').addEventListener('click', async () => {
+        const btn = $('#edSaveBtn'), msg = $('#edMsg');
+        btn.disabled = true; btn.textContent = 'Salvando...';
+
+        try {
+            let avatarUrl = state.profile.avatar_url;
+            if (newAvatarFile) {
+                const ext = newAvatarFile.name.split('.').pop();
+                const path = `${state.session.user.id}/avatar.${ext}?t=${Date.now()}`;
+                const cleanPath = path.split('?')[0];
+                await sb.storage.from('avatars').remove([cleanPath]);
+                const { error: upErr } = await sb.storage.from('avatars').upload(cleanPath, newAvatarFile, { upsert: true });
+                if (upErr) throw upErr;
+                avatarUrl = sb.storage.from('avatars').getPublicUrl(cleanPath).data.publicUrl + '?t=' + Date.now();
+            }
+
+            const updates = {
+                display_name: $('#edName').value.trim(),
+                bio: $('#edBio').value.trim() || null,
+                city: $('#edCity').value.trim() || null,
+                altura: parseFloat($('#edAltura').value) || null,
+                sexo: $('#edSexo').value || null,
+                peso_inicial: parseFloat($('#edPesoInicial').value) || null,
+                target_weight: parseFloat($('#edMeta').value) || null,
+                avatar_url: avatarUrl,
+            };
+            const { error } = await sb.from('profiles').update(updates).eq('id', state.session.user.id);
+            if (error) throw error;
+
+            // Atualiza state
+            Object.assign(state.profile, updates);
+            btn.disabled = false; btn.textContent = 'Salvar alterações';
+            toast('Perfil atualizado!', 'ok');
+            switchView('profile');
+        } catch (err) {
+            btn.disabled = false; btn.textContent = 'Salvar alterações';
+            msg.innerHTML = `<div class="auth-msg err">Erro: ${err.message}</div>`;
+        }
+    });
+}
+
+async function switchView(v, params = {}) {
     state.view = v;
+    state.viewParams = params;
     $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === v));
     if (v === 'feed') await renderFeed();
     else if (v === 'progress') await renderProgress();
     else if (v === 'challenges') renderChallenges();
     else if (v === 'profile') await renderProfile();
+    else if (v === 'user-profile') await renderUserProfile(params.uid);
+    else if (v === 'edit-profile') await renderEditProfile();
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1232,8 +1532,14 @@ document.addEventListener('click', async e => {
             if (error) { btn.classList.remove('on'); span.textContent = Number(span.textContent) - 1; toast('Erro ao reagir', 'err'); }
         }
     } else if (act === 'comment') {
-        toast('Comentários — próxima onda', 'ok');
-    } else if (act === 'follow-toggle') {
+        openCommentSheet(id);
+    } else if (act === 'view-user') {
+        const uid = btn.dataset.uid;
+        switchView('user-profile', { uid });
+    } else if (act === 'post-menu') {
+        showPostMenu(id, btn);
+    } else if (act === 'quick-follow') {
+        e.stopPropagation();
         const uid = btn.dataset.uid;
         const following = btn.dataset.following === '1';
         btn.disabled = true;
@@ -1251,7 +1557,152 @@ document.addEventListener('click', async e => {
             }
         }
         btn.disabled = false;
+    } else if (act === 'profile-follow-toggle') {
+        const uid = btn.dataset.uid;
+        const following = btn.dataset.following === '1';
+        btn.disabled = true;
+        if (following) {
+            await sb.from('follows').delete().match({ follower_id: state.session.user.id, following_id: uid });
+            btn.dataset.following = '0';
+            btn.textContent = 'Seguir';
+            btn.className = 'btn-primary-sm flex-1';
+        } else {
+            await sb.from('follows').insert({ follower_id: state.session.user.id, following_id: uid });
+            btn.dataset.following = '1';
+            btn.textContent = 'Seguindo';
+            btn.className = 'btn-secondary flex-1';
+        }
+        btn.disabled = false;
+    } else if (act === 'back') {
+        switchView('feed');
+    } else if (act === 'delete-post') {
+        if (!confirm('Apagar este post? Essa ação não pode ser desfeita.')) return;
+        const postId = btn.dataset.id;
+        await sb.from('posts').delete().eq('id', postId);
+        toast('Post apagado', 'ok');
+        // remove do DOM
+        const postEl = document.querySelector(`[data-post-id="${postId}"]`);
+        if (postEl) postEl.remove();
+        hidePostMenu();
     }
+});
+
+// ============================================================
+// MENU DO POST (3 pontinhos)
+// ============================================================
+function showPostMenu(postId, anchor) {
+    hidePostMenu();
+    const menu = document.createElement('div');
+    menu.id = 'floatingPostMenu';
+    menu.className = 'post-menu';
+    menu.innerHTML = `<button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">🗑️ Apagar post</button>`;
+    const rect = anchor.getBoundingClientRect();
+    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    document.body.appendChild(menu);
+    setTimeout(() => {
+        document.addEventListener('click', hidePostMenuOnce, { once: true });
+    }, 10);
+}
+function hidePostMenu() {
+    const m = document.getElementById('floatingPostMenu');
+    if (m) m.remove();
+}
+function hidePostMenuOnce(e) {
+    if (!e.target.closest('#floatingPostMenu')) hidePostMenu();
+}
+
+// ============================================================
+// COMENTÁRIOS
+// ============================================================
+async function openCommentSheet(postId) {
+    let sheet = document.getElementById('commentSheet');
+    if (!sheet) {
+        sheet = document.createElement('div');
+        sheet.id = 'commentSheet';
+        sheet.className = 'sheet';
+        sheet.innerHTML = `
+            <div class="sheet-card">
+                <div class="sheet-handle"></div>
+                <h3 class="sheet-title">Comentários</h3>
+                <div id="commentsList" class="comments-list"></div>
+                <div class="comment-composer">
+                    <textarea id="commentInput" placeholder="Escreva um comentário..." maxlength="500"></textarea>
+                    <button class="btn-primary" id="commentSendBtn">Enviar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(sheet);
+    }
+    sheet.classList.add('on');
+    document.body.style.overflow = 'hidden';
+    sheet.dataset.postId = postId;
+
+    // clique fora fecha
+    sheet.onclick = e => { if (e.target === sheet) closeCommentSheet(); };
+
+    await loadComments(postId);
+
+    document.getElementById('commentSendBtn').onclick = async () => {
+        const input = document.getElementById('commentInput');
+        const body = input.value.trim();
+        if (!body) return;
+        const btn = document.getElementById('commentSendBtn');
+        btn.disabled = true; btn.textContent = 'Enviando...';
+        const { error } = await sb.from('comments').insert({
+            post_id: postId, user_id: state.session.user.id, body
+        });
+        btn.disabled = false; btn.textContent = 'Enviar';
+        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+        input.value = '';
+        await loadComments(postId);
+        // Atualiza contador no feed
+        const countSpan = document.querySelector(`.post[data-post-id="${postId}"] [data-act="comment"] span`);
+        if (countSpan) countSpan.textContent = String(Number(countSpan.textContent) + 1);
+    };
+}
+
+async function loadComments(postId) {
+    const list = document.getElementById('commentsList');
+    list.innerHTML = '<div class="spinner"></div>';
+    const { data: comments, error } = await sb.from('comments')
+        .select(`id, body, created_at, user_id, user:profiles!inner (id, username, display_name, avatar_url)`)
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+    if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+    if (!comments || comments.length === 0) {
+        list.innerHTML = '<p class="comments-empty">Nenhum comentário ainda. Seja o primeiro!</p>';
+        return;
+    }
+    list.innerHTML = comments.map(cm => {
+        const isMine = cm.user_id === state.session.user.id;
+        return `
+            <div class="comment-item">
+                <span data-act="view-user" data-uid="${cm.user_id}">${avatarHTML(cm.user, 'sm')}</span>
+                <div class="comment-body">
+                    <div class="comment-name">${escapeHTML(cm.user.display_name)} <span class="comment-time">${timeAgo(cm.created_at)}</span></div>
+                    <div class="comment-text">${escapeHTML(cm.body)}</div>
+                </div>
+                ${isMine ? `<button class="comment-del" data-act="delete-comment" data-id="${cm.id}">×</button>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+function closeCommentSheet() {
+    const s = document.getElementById('commentSheet');
+    if (s) s.classList.remove('on');
+    document.body.style.overflow = '';
+}
+
+// Delete comment
+document.addEventListener('click', async e => {
+    const btn = e.target.closest('[data-act="delete-comment"]');
+    if (!btn) return;
+    if (!confirm('Apagar comentário?')) return;
+    await sb.from('comments').delete().eq('id', btn.dataset.id);
+    const sheet = document.getElementById('commentSheet');
+    if (sheet && sheet.dataset.postId) loadComments(sheet.dataset.postId);
 });
 
 // Cliques na barra de stories
@@ -1390,7 +1841,8 @@ function closeComposer() {
     $('#composerSheet').classList.remove('on');
     document.body.style.overflow = '';
     $('#pCaption').value = '';
-    $('#pPhoto').value = '';
+    $('#pPhotoCam').value = '';
+    $('#pPhotoGal').value = '';
     $('#pPhotoPreview').classList.remove('on');
     state.composerPhoto = null;
 }
@@ -1459,14 +1911,16 @@ $$('.bg-color-swatch').forEach(s => s.addEventListener('click', e => {
     $$('.bg-color-swatch').forEach(x => x.classList.toggle('on', x === e.currentTarget));
 }));
 
-$('#pPhoto').addEventListener('change', e => {
+function handlePhotoPick(e) {
     const file = e.target.files[0];
     if (!file) return;
     state.composerPhoto = file;
     const url = URL.createObjectURL(file);
     $('#pPhotoPreview').src = url;
     $('#pPhotoPreview').classList.add('on');
-});
+}
+$('#pPhotoCam').addEventListener('change', handlePhotoPick);
+$('#pPhotoGal').addEventListener('change', handlePhotoPick);
 
 $('#composerSubmit').addEventListener('click', async () => {
     const btn = $('#composerSubmit');
