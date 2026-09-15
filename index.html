@@ -35,6 +35,27 @@ p{ margin:0; }
 button{ font-family:inherit; cursor:pointer; }
 ::selection{ background:var(--vital-dim); color:var(--vital); }
 
+/* Autofill do navegador: força as cores do tema */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+select:-webkit-autofill{
+    -webkit-text-fill-color:var(--ink) !important;
+    -webkit-box-shadow:0 0 0 30px var(--bg-input) inset !important;
+    box-shadow:0 0 0 30px var(--bg-input) inset !important;
+    caret-color:var(--ink) !important;
+    transition:background-color 5000s ease-in-out 0s;
+}
+
+/* Botão olhinho pra mostrar/esconder senha */
+.pw-wrap{ position:relative; }
+.pw-toggle{ position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--ink-dim); padding:6px; cursor:pointer; display:grid; place-items:center; }
+.pw-toggle:hover{ color:var(--ink); }
+.pw-toggle svg{ width:20px; height:20px; }
+.pw-wrap input{ padding-right:40px !important; }
+
 /* ============ TELA DE AUTH ============ */
 .auth-screen{
     min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -295,6 +316,38 @@ button{ font-family:inherit; cursor:pointer; }
 .photo-btn-choice:hover{ border-color:var(--vital); }
 .photo-btn-choice .emo{ font-size:18px; }
 
+/* ============ CARD PULSO DA SEMANA ============ */
+.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
+.weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
+.weekly-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.weekly-title{ font-family:var(--ff-display); font-size:13px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-dim); }
+.weekly-badge{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:600; padding:3px 8px; border-radius:10px; background:var(--vital-dim); color:var(--vital); }
+.weekly-body{ display:flex; align-items:baseline; gap:12px; }
+.weekly-days{ font-family:var(--ff-display); font-size:32px; font-weight:700; color:var(--vital); line-height:1; }
+.weekly-days-total{ font-size:15px; color:var(--ink-dim); }
+.weekly-hint{ font-size:12.5px; color:var(--ink-dim); margin-top:8px; }
+.weekly-track{ height:6px; background:var(--bg-elev); border-radius:3px; margin-top:12px; overflow:hidden; }
+.weekly-fill{ height:100%; background:linear-gradient(90deg, var(--vital), var(--vital-2)); border-radius:3px; transition:width .3s; }
+.weekly-stats{ display:flex; gap:14px; margin-top:12px; font-size:12px; }
+.weekly-stats span{ color:var(--ink-dim); }
+.weekly-stats b{ color:var(--ink); font-family:var(--ff-display); font-weight:600; }
+
+/* ============ CARD META DE PESO (no perfil) ============ */
+.goal-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-lg); padding:18px; margin:14px 0; }
+.goal-card-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; }
+.goal-title{ font-family:var(--ff-display); font-size:14px; font-weight:600; color:var(--ink); }
+.goal-delta{ font-family:var(--ff-display); font-size:13px; font-weight:600; }
+.goal-delta.down{ color:var(--vital); }
+.goal-delta.up{ color:var(--effort); }
+.goal-numbers{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px; }
+.goal-num{ text-align:center; }
+.goal-num .v{ font-family:var(--ff-display); font-size:18px; font-weight:600; color:var(--ink); display:block; }
+.goal-num .l{ font-size:10.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.06em; margin-top:1px; }
+.goal-num .v.current{ color:var(--vital); font-size:24px; }
+.goal-track{ position:relative; height:8px; background:var(--bg-elev); border-radius:4px; overflow:hidden; }
+.goal-fill{ height:100%; background:linear-gradient(90deg, var(--vital), var(--vital-2)); border-radius:4px; }
+.goal-pct{ text-align:center; font-family:var(--ff-display); font-size:13px; font-weight:600; color:var(--vital); margin-top:8px; }
+
 /* ============ STORIES BAR ============ */
 .stories-bar{ display:flex; gap:10px; overflow-x:auto; padding:14px 4px 18px; scrollbar-width:none; }
 .stories-bar::-webkit-scrollbar{ display:none; }
@@ -393,7 +446,12 @@ button{ font-family:inherit; cursor:pointer; }
             <label>Email ou usuário</label>
             <input type="text" id="siLogin" required autocomplete="username" placeholder="voce@email.com ou hevinho">
             <label>Senha</label>
-            <input type="password" id="siPassword" required autocomplete="current-password">
+            <div class="pw-wrap">
+                <input type="password" id="siPassword" required autocomplete="current-password">
+                <button type="button" class="pw-toggle" data-pw-target="siPassword" aria-label="Mostrar senha">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
             <button type="submit" class="auth-btn" id="siBtn">Entrar</button>
             <div id="siMsg"></div>
             <button type="button" class="auth-link" data-goto="forgot">Esqueci minha senha</button>
@@ -411,7 +469,12 @@ button{ font-family:inherit; cursor:pointer; }
             <input type="email" id="suEmail" required autocomplete="email">
 
             <label>Senha (mín. 6, com número e caractere especial)</label>
-            <input type="password" id="suPassword" required minlength="6" autocomplete="new-password" placeholder="ex: minhaSenha1@">
+            <div class="pw-wrap">
+                <input type="password" id="suPassword" required minlength="6" autocomplete="new-password" placeholder="ex: minhaSenha1@">
+                <button type="button" class="pw-toggle" data-pw-target="suPassword" aria-label="Mostrar senha">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
 
             <button type="submit" class="auth-btn" id="suBtn">Criar conta</button>
             <div id="suMsg"></div>
@@ -441,9 +504,19 @@ button{ font-family:inherit; cursor:pointer; }
             <h3 class="auth-subtitle">Nova senha</h3>
             <p class="auth-subhint">Você confirmou seu email. Defina uma nova senha para entrar.</p>
             <label>Nova senha (mín. 6, com número e caractere especial)</label>
-            <input type="password" id="rpPassword" minlength="6" autocomplete="new-password" placeholder="ex: minhaSenha1@">
+            <div class="pw-wrap">
+                <input type="password" id="rpPassword" minlength="6" autocomplete="new-password" placeholder="ex: minhaSenha1@">
+                <button type="button" class="pw-toggle" data-pw-target="rpPassword" aria-label="Mostrar senha">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
             <label>Confirmar senha</label>
-            <input type="password" id="rpPassword2" minlength="6" autocomplete="new-password">
+            <div class="pw-wrap">
+                <input type="password" id="rpPassword2" minlength="6" autocomplete="new-password">
+                <button type="button" class="pw-toggle" data-pw-target="rpPassword2" aria-label="Mostrar senha">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
             <button type="button" class="auth-btn" id="rpBtn">Salvar nova senha</button>
             <div id="rpMsg"></div>
         </div>
@@ -494,6 +567,7 @@ button{ font-family:inherit; cursor:pointer; }
         <div class="kind-picker">
             <button class="kind-btn on" data-kind="workout"><span class="emo">💪</span><span>Treino</span></button>
             <button class="kind-btn" data-kind="meal"><span class="emo">🍽️</span><span>Refeição</span></button>
+            <button class="kind-btn" data-kind="weight"><span class="emo">⚖️</span><span>Pesagem</span></button>
             <button class="kind-btn" data-kind="text"><span class="emo">✍️</span><span>Texto</span></button>
             <button class="kind-btn" data-kind="story"><span class="emo">⚡</span><span>Story 24h</span></button>
         </div>
@@ -523,6 +597,13 @@ button{ font-family:inherit; cursor:pointer; }
                     <option value="jantar">Jantar</option>
                     <option value="lanche">Lanche</option>
                 </select>
+            </div>
+        </div>
+
+        <div id="weightFields" class="hidden">
+            <div class="field">
+                <label>Peso (kg)</label>
+                <input type="number" id="wKg" step="0.1" min="20" max="300" placeholder="ex: 78.5">
             </div>
         </div>
 
@@ -754,6 +835,22 @@ $$('.auth-tab').forEach(btn => btn.addEventListener('click', e => {
 
 // Cliques nos data-goto (links internos entre subtelas)
 document.addEventListener('click', e => {
+    // Toggle mostrar/esconder senha
+    const pwBtn = e.target.closest('.pw-toggle');
+    if (pwBtn) {
+        const target = document.getElementById(pwBtn.dataset.pwTarget);
+        if (target) {
+            const isPw = target.type === 'password';
+            target.type = isPw ? 'text' : 'password';
+            pwBtn.setAttribute('aria-label', isPw ? 'Esconder senha' : 'Mostrar senha');
+            // Ícone muda: olho aberto <-> olho cortado
+            pwBtn.innerHTML = isPw
+                ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+                : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+        }
+        return;
+    }
+
     const el = e.target.closest('[data-goto]');
     if (!el) return;
     const target = el.dataset.goto;
@@ -1121,6 +1218,40 @@ async function renderFeed() {
     storiesHTML += '</div>';
 
     let html = '<div class="view"><h1 class="screen-title">Feed</h1><p class="screen-sub">O que a comunidade está fazendo agora.</p>';
+
+    // Card "Pulso da Semana"
+    const [{ data: daysThisWeek }, { data: validWeeks }, { data: streak }] = await Promise.all([
+        sb.rpc('count_days_current_week', { uid: state.session.user.id }),
+        sb.rpc('count_valid_weeks', { uid: state.session.user.id }),
+        sb.from('daily_streaks').select('current_streak').eq('user_id', state.session.user.id).maybeSingle(),
+    ]);
+    const days = Number(daysThisWeek || 0);
+    const isValid = days >= 3;
+    const pct = Math.min(100, Math.round((days / 3) * 100));
+    const currentStreak = streak?.current_streak || 0;
+    const totalValid = Number(validWeeks || 0);
+
+    html += `<div class="weekly-card ${isValid ? 'valid' : ''}">
+        <div class="weekly-head">
+            <span class="weekly-title">Sua semana</span>
+            ${isValid ? '<span class="weekly-badge">✓ Semana válida</span>' : ''}
+        </div>
+        <div class="weekly-body">
+            <span class="weekly-days">${days}</span>
+            <span class="weekly-days-total">/ 3 dias treinados</span>
+        </div>
+        <div class="weekly-track"><div class="weekly-fill" style="width:${pct}%"></div></div>
+        <div class="weekly-hint">
+            ${isValid
+                ? 'Semana válida contabilizada — +10 pts creditados.'
+                : `Faltam <b style="color:var(--vital)">${3-days}</b> ${3-days === 1 ? 'dia' : 'dias'} pra fechar a semana válida.`}
+        </div>
+        <div class="weekly-stats">
+            <span>🔥 <b>${currentStreak}</b> dias seguidos</span>
+            <span>✅ <b>${totalValid}</b> semanas válidas totais</span>
+        </div>
+    </div>`;
+
     html += storiesHTML;
 
     // Sugestões de seguir (só aparece se você não segue ninguém ainda ou poucas pessoas)
@@ -1272,6 +1403,34 @@ async function renderProfile() {
         .order('created_at', { ascending: false })
         .limit(30);
 
+    // Meta de peso
+    const { data: goalData } = await sb.rpc('weight_progress', { uid: state.session.user.id });
+    const goal = goalData?.[0];
+    let goalHTML = '';
+    if (goal && goal.peso_inicial && goal.meta) {
+        const delta = Number(goal.delta || 0);
+        const pct = Math.max(0, Math.min(100, Number(goal.progresso_pct || 0)));
+        const deltaClass = delta > 0 ? 'down' : delta < 0 ? 'up' : '';
+        const deltaSign = delta > 0 ? '↓ ' : delta < 0 ? '↑ ' : '';
+        goalHTML = `<div class="goal-card">
+            <div class="goal-card-head">
+                <span class="goal-title">🎯 Meta de peso</span>
+                <span class="goal-delta ${deltaClass}">${deltaSign}${Math.abs(delta).toFixed(1)} kg</span>
+            </div>
+            <div class="goal-numbers">
+                <div class="goal-num"><span class="v">${Number(goal.peso_inicial).toFixed(1)}</span><span class="l">Inicial</span></div>
+                <div class="goal-num"><span class="v current">${Number(goal.peso_atual).toFixed(1)}</span><span class="l">Atual</span></div>
+                <div class="goal-num"><span class="v">${Number(goal.meta).toFixed(1)}</span><span class="l">Meta (kg)</span></div>
+            </div>
+            <div class="goal-track"><div class="goal-fill" style="width:${pct}%"></div></div>
+            <div class="goal-pct">${pct}% da meta</div>
+        </div>`;
+    } else {
+        goalHTML = `<div class="goal-card" style="text-align:center; color:var(--ink-dim); font-size:13px;">
+            🎯 Defina peso inicial e meta em <b style="color:var(--vital)">Editar perfil</b> para ver seu progresso aqui.
+        </div>`;
+    }
+
     const gridHTML = (myPosts || []).map(p => {
         const thumb = p.image_url
             ? `<img src="${p.image_url}" loading="lazy">`
@@ -1303,6 +1462,7 @@ async function renderProfile() {
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
                 <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Streak</div></div>
             </div>
+            ${goalHTML}
             <div class="ig-tabs"><button class="ig-tab on">▦ Posts</button></div>
             <div class="ig-grid">${gridHTML}</div>
         </div>
@@ -1852,6 +2012,7 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     $$('.kind-btn').forEach(x => x.classList.toggle('on', x === e.currentTarget));
     $('#workoutFields').classList.toggle('hidden', state.composerKind !== 'workout');
     $('#mealFields').classList.toggle('hidden', state.composerKind !== 'meal');
+    $('#weightFields').classList.toggle('hidden', state.composerKind !== 'weight');
     $('#storyFields').classList.toggle('hidden', state.composerKind !== 'story');
     // Story sempre "público" pra seguidores (padrão Instagram), então some o seletor
     $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
@@ -1859,6 +2020,7 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     const hint = $('#photoHint');
     if (state.composerKind === 'workout') hint.textContent = '(opcional, +3 pts se anexar)';
     else if (state.composerKind === 'meal') hint.textContent = '(com foto: 5 pts / sem foto: 2 pts)';
+    else if (state.composerKind === 'weight') hint.textContent = '(foto da balança, opcional)';
     else if (state.composerKind === 'story') hint.textContent = '(opcional — pode ser só texto)';
     else hint.textContent = '(opcional)';
 
@@ -1994,6 +2156,16 @@ $('#composerSubmit').addEventListener('click', async () => {
                 ptsToCredit = imageUrl ? 5 : 2;
                 ptsReason = imageUrl ? 'meal_photo' : 'meal_text';
             }
+        } else if (state.composerKind === 'weight') {
+            const kg = parseFloat($('#wKg').value);
+            if (!kg || kg < 20 || kg > 300) {
+                toast('Informe um peso válido', 'err');
+                btn.disabled = false; btn.textContent = 'Publicar';
+                return;
+            }
+            post.weight_kg = kg;
+            ptsToCredit = 3;
+            ptsReason = 'weight_check';
         } else if (state.composerKind === 'text') {
             if (!caption && !imageUrl) { toast('Escreva algo ou anexe foto', 'err'); btn.disabled=false; btn.textContent='Publicar'; return; }
             const freePostsToday = await countTodayByReason('free_post');
@@ -2011,8 +2183,12 @@ $('#composerSubmit').addEventListener('click', async () => {
         }
 
         let streakInfo = null;
+        let weeklyBonus = 0;
         if (state.composerKind === 'workout') {
             streakInfo = await updateStreak(today);
+            // Bônus de semana válida (só credita se atingiu 3 dias essa semana e ainda não creditou)
+            const { data: bonusData } = await sb.rpc('check_and_credit_weekly_bonus', { uid: state.session.user.id });
+            weeklyBonus = Number(bonusData || 0);
         }
 
         await loadScore();
@@ -2020,6 +2196,7 @@ $('#composerSubmit').addEventListener('click', async () => {
 
         let msg = `+${ptsToCredit} pontos!`;
         if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus streak 🔥`;
+        if (weeklyBonus > 0) msg += ` · +${weeklyBonus} semana válida ✅`;
         toast(msg, 'ok');
 
         if (state.view === 'feed') await renderFeed();
