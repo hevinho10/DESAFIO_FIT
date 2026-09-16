@@ -2179,7 +2179,7 @@ async function renderCoach() {
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendCoachMessage(); }
     });
-    $('#coachSend').addEventListener('click', sendCoachMessage);
+    $('#coachSend').addEventListener('click', () => sendCoachMessage());
 }
 
 function paintCoachChat() {
@@ -2214,12 +2214,13 @@ function paintCoachChat() {
 
 async function sendCoachMessage(forced) {
     const input = $('#coachInput');
-    const text = (forced || input.value).trim();
+    const source = (typeof forced === 'string' && forced) ? forced : input.value;
+    const text = String(source || '').trim();
     if (!text) return;
 
     const btn = $('#coachSend');
     btn.disabled = true;
-    if (!forced) { input.value = ''; input.style.height = 'auto'; }
+    if (typeof forced !== 'string') { input.value = ''; input.style.height = 'auto'; }
 
     // Mostra a mensagem da pessoa na hora
     state.coachHistory.push({ role:'user', body:text });
