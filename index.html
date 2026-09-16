@@ -495,6 +495,7 @@ select:-webkit-autofill{
 .mr-items{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:16px; }
 .mr-item{ background:var(--bg-elev); border:1px solid var(--line); padding:5px 11px; border-radius:16px; font-size:12px; color:var(--ink-dim); }
 .mr-points{ font-family:var(--ff-display); font-size:17px; font-weight:600; color:var(--vital); margin-bottom:18px; }
+.mr-limit-note{ font-size:12px; color:var(--effort); background:rgba(255,122,77,.1); border:1px solid rgba(255,122,77,.25); border-radius:12px; padding:10px 14px; margin-bottom:18px; line-height:1.4; }
 
 /* ============ CARD PULSO DA SEMANA ============ */.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
 .weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
@@ -2679,7 +2680,7 @@ function closeMeasureSheet() {
 }
 
 // Resultado da análise do prato pela IA
-function showMealResult(an, pts) {
+function showMealResult(an, pts, limitReached) {
     const cor = an.score >= 8 ? 'var(--vital)' : an.score >= 5 ? 'var(--gold)' : 'var(--effort)';
     let overlay = document.getElementById('mealResult');
     if (overlay) overlay.remove();
@@ -2696,7 +2697,9 @@ function showMealResult(an, pts) {
             </div>
             <p class="mr-analysis">${escapeHTML(an.analysis || '')}</p>
             ${an.items && an.items.length ? `<div class="mr-items">${an.items.map(i => `<span class="mr-item">${escapeHTML(i)}</span>`).join('')}</div>` : ''}
-            <div class="mr-points">+${pts} pontos</div>
+            ${limitReached
+                ? `<div class="mr-limit-note">Limite diário de pontos por refeição atingido — essa não somou pontos, mas a análise é sua de qualquer forma.</div>`
+                : `<div class="mr-points">+${pts} pontos</div>`}
             <button class="btn-primary" id="mealResultClose">Fechar</button>
         </div>
     `;
@@ -3613,6 +3616,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         let ptsToCredit = 0, ptsReason = '';
         let mealFeedback = null;
         let mealAnalysisFailed = false;
+        let mealLimitReached = false;
         const today = new Date().toISOString().split('T')[0];
 
         if (state.composerKind === 'workout') {
@@ -3623,10 +3627,11 @@ $('#composerSubmit').addEventListener('click', async () => {
         } else if (state.composerKind === 'meal') {
             post.meal_slot = $('#mSlot').value;
             const mealsToday = await countTodayByReason('meal_photo') + await countTodayByReason('meal_text');
-            if (mealsToday >= 3) {
-                toast('Limite de 3 refeições com pontos por dia', 'err');
-            } else if (imageUrl) {
-                // IA analisa o prato e a nota vira ponto
+            const hitDailyLimit = mealsToday >= 3;
+
+            if (imageUrl) {
+                // IA analisa o prato mesmo que o limite diário já tenha sido batido
+                // (assim a pessoa ainda vê a nota, só não ganha pontos extras)
                 btn.textContent = 'Analisando o prato...';
                 try {
                     const { data: an, error: anErr } = await sb.functions.invoke('analyze-meal', {
@@ -3635,18 +3640,25 @@ $('#composerSubmit').addEventListener('click', async () => {
                     if (anErr || !an || typeof an.score !== 'number') throw (anErr || new Error('sem nota'));
                     post.meal_score = an.score;
                     post.meal_analysis = an.analysis || null;
-                    ptsToCredit = Math.round(an.score * 10) / 10;
-                    ptsReason = 'meal_photo';
+                    if (!hitDailyLimit) {
+                        ptsToCredit = Math.round(an.score * 10) / 10;
+                        ptsReason = 'meal_photo';
+                    }
                     mealFeedback = an;
+                    mealLimitReached = hitDailyLimit;
                 } catch (e) {
                     console.warn('analyze-meal indisponível, usando pontuação padrão', e);
-                    ptsToCredit = 5;
-                    ptsReason = 'meal_photo';
+                    if (!hitDailyLimit) {
+                        ptsToCredit = 5;
+                        ptsReason = 'meal_photo';
+                    }
                     mealAnalysisFailed = true;
                 }
-            } else {
+            } else if (!hitDailyLimit) {
                 ptsToCredit = 2;
                 ptsReason = 'meal_text';
+            } else {
+                toast('Limite de 3 refeições com pontos por dia — post salvo sem pontos', 'err');
             }
         } else if (state.composerKind === 'weight') {
             const kg = parseFloat($('#wKg').value);
@@ -3691,7 +3703,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         if (weeklyBonus > 0) msg += ` · +${weeklyBonus} semana válida ✅`;
 
         if (mealFeedback) {
-            showMealResult(mealFeedback, ptsToCredit);
+            showMealResult(mealFeedback, ptsToCredit, mealLimitReached);
         } else if (mealAnalysisFailed) {
             toast(`Não consegui analisar o prato agora (+${ptsToCredit} pts padrão). Pode tentar de novo em instantes.`, 'err');
         } else {
