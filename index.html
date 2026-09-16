@@ -316,8 +316,40 @@ select:-webkit-autofill{
 .photo-btn-choice:hover{ border-color:var(--vital); }
 .photo-btn-choice .emo{ font-size:18px; }
 
-/* ============ CARD PULSO DA SEMANA ============ */
-.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
+/* ============ META SEMANAL PICKER ============ */
+.weekly-goal-picker{ display:flex; gap:6px; margin-top:4px; }
+.wg-btn{ flex:1; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink-dim); padding:12px 0; border-radius:10px; font-family:var(--ff-display); font-weight:600; font-size:16px; cursor:pointer; transition:all .12s; }
+.wg-btn:hover{ border-color:var(--vital); color:var(--ink); }
+.wg-btn.on{ background:var(--vital); border-color:var(--vital); color:#08110C; }
+.field-hint{ font-size:11.5px; color:var(--ink-faint); margin-top:6px; line-height:1.4; }
+
+/* ============ ATALHOS DO PERFIL ============ */
+.profile-shortcuts{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px; }
+.shortcut-btn{ background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:12px 8px; display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--ink); font-size:11.5px; font-weight:500; cursor:pointer; transition:border-color .12s; }
+.shortcut-btn:hover{ border-color:var(--vital); }
+.shortcut-btn .emo{ font-size:20px; }
+
+/* ============ HISTÓRICO DE ATIVIDADES ============ */
+.log-filters{ display:flex; gap:6px; overflow-x:auto; padding:2px 2px 12px; scrollbar-width:none; margin-bottom:8px; }
+.log-filters::-webkit-scrollbar{ display:none; }
+.log-filter{ flex-shrink:0; background:var(--bg-elev); border:1px solid var(--line); border-radius:20px; padding:7px 14px; color:var(--ink-dim); font-size:12.5px; font-weight:500; white-space:nowrap; cursor:pointer; transition:all .12s; }
+.log-filter:hover{ border-color:var(--vital); color:var(--ink); }
+.log-filter.on{ background:var(--vital-dim); border-color:var(--vital); color:var(--vital); }
+.log-day{ margin-bottom:20px; }
+.log-day-title{ font-family:var(--ff-display); font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint); margin:0 4px 8px; }
+.log-item{ display:flex; align-items:center; gap:12px; background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:6px; }
+.log-emo{ font-size:22px; flex-shrink:0; }
+.log-body{ flex:1; min-width:0; }
+.log-title{ font-size:14px; font-weight:600; color:var(--ink); }
+.log-sub{ font-size:12px; color:var(--ink-dim); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.log-meta{ display:flex; flex-direction:column; align-items:flex-end; gap:2px; flex-shrink:0; }
+.log-time{ font-size:11px; color:var(--ink-faint); font-family:var(--ff-display); }
+.log-priv{ font-size:11px; opacity:.6; }
+.log-del{ background:none; border:none; color:var(--ink-faint); font-size:14px; cursor:pointer; padding:2px 4px; margin-top:2px; }
+.log-del:hover{ color:var(--danger); }
+.log-empty{ text-align:center; padding:40px 20px; color:var(--ink-dim); font-size:13px; }
+
+/* ============ CARD PULSO DA SEMANA ============ */.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
 .weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
 .weekly-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
 .weekly-title{ font-family:var(--ff-display); font-size:13px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-dim); }
@@ -1225,30 +1257,32 @@ async function renderFeed() {
         sb.rpc('count_valid_weeks', { uid: state.session.user.id }),
         sb.from('daily_streaks').select('current_streak').eq('user_id', state.session.user.id).maybeSingle(),
     ]);
+    const goal = state.profile.weekly_goal || 3;
     const days = Number(daysThisWeek || 0);
-    const isValid = days >= 3;
-    const pct = Math.min(100, Math.round((days / 3) * 100));
+    const isValid = days >= goal;
+    const pct = Math.min(100, Math.round((days / goal) * 100));
     const currentStreak = streak?.current_streak || 0;
     const totalValid = Number(validWeeks || 0);
+    const falta = goal - days;
 
     html += `<div class="weekly-card ${isValid ? 'valid' : ''}">
         <div class="weekly-head">
             <span class="weekly-title">Sua semana</span>
-            ${isValid ? '<span class="weekly-badge">✓ Semana válida</span>' : ''}
+            ${isValid ? '<span class="weekly-badge">✓ Meta batida</span>' : ''}
         </div>
         <div class="weekly-body">
             <span class="weekly-days">${days}</span>
-            <span class="weekly-days-total">/ 3 dias treinados</span>
+            <span class="weekly-days-total">/ ${goal} ${goal === 1 ? 'dia' : 'dias'} treinados</span>
         </div>
         <div class="weekly-track"><div class="weekly-fill" style="width:${pct}%"></div></div>
         <div class="weekly-hint">
             ${isValid
-                ? 'Semana válida contabilizada — +10 pts creditados.'
-                : `Faltam <b style="color:var(--vital)">${3-days}</b> ${3-days === 1 ? 'dia' : 'dias'} pra fechar a semana válida.`}
+                ? 'Meta atingida — +10 pts creditados essa semana.'
+                : `Falta${falta === 1 ? '' : 'm'} <b style="color:var(--vital)">${falta}</b> ${falta === 1 ? 'dia' : 'dias'} pra bater sua meta.`}
         </div>
         <div class="weekly-stats">
             <span>🔥 <b>${currentStreak}</b> dias seguidos</span>
-            <span>✅ <b>${totalValid}</b> semanas válidas totais</span>
+            <span>✅ <b>${totalValid}</b> semanas com meta batida</span>
         </div>
     </div>`;
 
@@ -1458,6 +1492,11 @@ async function renderProfile() {
                 <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
                 <button class="btn-danger" id="logoutBtn">Sair</button>
             </div>
+            <div class="profile-shortcuts">
+                <button class="shortcut-btn" data-act="quick-post" data-kind="weight"><span class="emo">⚖️</span><span>Pesar</span></button>
+                <button class="shortcut-btn" data-act="quick-post" data-kind="workout"><span class="emo">💪</span><span>Treino</span></button>
+                <button class="shortcut-btn" data-act="go-activity-log"><span class="emo">📊</span><span>Histórico</span></button>
+            </div>
             <div class="stat-grid" style="margin-top:14px">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
                 <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Streak</div></div>
@@ -1474,6 +1513,106 @@ async function renderProfile() {
         location.reload();
     });
     $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
+    $$('[data-act="quick-post"]').forEach(b => b.addEventListener('click', e => {
+        const kind = e.currentTarget.dataset.kind;
+        $('#composerSheet').classList.add('on');
+        document.body.style.overflow = 'hidden';
+        // Simula clique no botão do tipo correspondente
+        document.querySelector(`.kind-btn[data-kind="${kind}"]`).click();
+    }));
+    $('[data-act="go-activity-log"]').addEventListener('click', () => switchView('activity-log'));
+}
+
+// ============================================================
+// HISTÓRICO DE ATIVIDADES
+// ============================================================
+async function renderActivityLog() {
+    const c = $('#viewContainer');
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back-profile">←</button>
+                <div class="topbar-title">Histórico</div>
+                <div style="width:28px"></div>
+            </div>
+            <div class="log-filters">
+                <button class="log-filter on" data-filter="all">Tudo</button>
+                <button class="log-filter" data-filter="workout">💪 Treinos</button>
+                <button class="log-filter" data-filter="meal">🍽️ Refeições</button>
+                <button class="log-filter" data-filter="weight">⚖️ Pesagens</button>
+                <button class="log-filter" data-filter="text">✍️ Textos</button>
+            </div>
+            <div id="logList"><div class="spinner"></div></div>
+        </div>
+    `;
+
+    async function loadLog(filter) {
+        const list = $('#logList');
+        list.innerHTML = '<div class="spinner"></div>';
+        let q = sb.from('posts')
+            .select('id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, visibility')
+            .eq('user_id', state.session.user.id)
+            .order('created_at', { ascending: false })
+            .limit(100);
+        if (filter !== 'all') q = q.eq('kind', filter);
+
+        const { data: posts, error } = await q;
+        if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+        if (!posts || posts.length === 0) {
+            list.innerHTML = '<div class="log-empty">Nenhum registro nessa categoria.</div>';
+            return;
+        }
+
+        // Agrupa por dia
+        const byDay = {};
+        posts.forEach(p => {
+            const d = new Date(p.created_at);
+            const key = d.toLocaleDateString('pt-BR', { day:'2-digit', month:'long', year:'numeric' });
+            if (!byDay[key]) byDay[key] = [];
+            byDay[key].push(p);
+        });
+
+        list.innerHTML = Object.entries(byDay).map(([day, items]) => {
+            const rowsHTML = items.map(p => renderLogItem(p)).join('');
+            return `<div class="log-day"><h4 class="log-day-title">${day}</h4>${rowsHTML}</div>`;
+        }).join('');
+    }
+
+    function renderLogItem(p) {
+        const t = new Date(p.created_at).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+        let emo = '📝', title = '', sub = '';
+        if (p.kind === 'workout') {
+            emo = '💪'; title = p.activity_type || 'Treino'; sub = `${p.duration_min || 0} min`;
+        } else if (p.kind === 'meal') {
+            emo = '🍽️'; title = { cafe:'Café da manhã', almoco:'Almoço', jantar:'Jantar', lanche:'Lanche' }[p.meal_slot] || 'Refeição';
+            sub = p.image_url ? 'com foto' : 'sem foto';
+        } else if (p.kind === 'weight') {
+            emo = '⚖️'; title = 'Pesagem'; sub = `${p.weight_kg} kg`;
+        } else if (p.kind === 'text') {
+            emo = '✍️'; title = 'Texto'; sub = (p.caption||'').slice(0,60);
+        }
+        const privacyIcon = { public:'🌍', followers:'👥', private:'🔒' }[p.visibility || 'public'];
+        return `<div class="log-item">
+            <span class="log-emo">${emo}</span>
+            <div class="log-body">
+                <div class="log-title">${escapeHTML(title)}</div>
+                <div class="log-sub">${escapeHTML(sub)}${p.caption && p.kind !== 'text' ? ' · ' + escapeHTML(p.caption.slice(0,50)) : ''}</div>
+            </div>
+            <div class="log-meta">
+                <div class="log-time">${t}</div>
+                <div class="log-priv">${privacyIcon}</div>
+                <button class="log-del" data-act="delete-post" data-id="${p.id}" title="Apagar">🗑</button>
+            </div>
+        </div>`;
+    }
+
+    // Filter clicks
+    document.querySelectorAll('.log-filter').forEach(b => b.addEventListener('click', e => {
+        document.querySelectorAll('.log-filter').forEach(x => x.classList.toggle('on', x === e.currentTarget));
+        loadLog(e.currentTarget.dataset.filter);
+    }));
+
+    loadLog('all');
 }
 
 async function renderUserProfile(uid) {
@@ -1573,6 +1712,15 @@ async function renderEditProfile() {
                 <input type="text" id="edCity" value="${escapeHTML(p.city || '')}" maxlength="60">
             </div>
 
+            <h3 class="edit-section-title">Meta de treinos</h3>
+            <div class="field">
+                <label>Quantos treinos por semana você quer fazer?</label>
+                <div class="weekly-goal-picker">
+                    ${[1,2,3,4,5,6,7].map(n => `<button type="button" class="wg-btn ${(p.weekly_goal||3)===n?'on':''}" data-goal="${n}">${n}</button>`).join('')}
+                </div>
+                <p class="field-hint">Você ganha +10 pts de bônus toda semana que atingir sua meta.</p>
+            </div>
+
             <h3 class="edit-section-title">Dados físicos (opcional)</h3>
             <div class="field-row">
                 <div class="field">
@@ -1607,6 +1755,14 @@ async function renderEditProfile() {
 
     // Preview do avatar novo
     let newAvatarFile = null;
+    let selectedWeeklyGoal = p.weekly_goal || 3;
+
+    // Weekly goal picker
+    document.querySelectorAll('.wg-btn').forEach(b => b.addEventListener('click', e => {
+        selectedWeeklyGoal = parseInt(e.currentTarget.dataset.goal);
+        document.querySelectorAll('.wg-btn').forEach(x => x.classList.toggle('on', x === e.currentTarget));
+    }));
+
     $('#editAvatarFile').addEventListener('change', e => {
         const file = e.target.files[0];
         if (!file) return;
@@ -1639,6 +1795,7 @@ async function renderEditProfile() {
                 sexo: $('#edSexo').value || null,
                 peso_inicial: parseFloat($('#edPesoInicial').value) || null,
                 target_weight: parseFloat($('#edMeta').value) || null,
+                weekly_goal: selectedWeeklyGoal,
                 avatar_url: avatarUrl,
             };
             const { error } = await sb.from('profiles').update(updates).eq('id', state.session.user.id);
@@ -1666,6 +1823,7 @@ async function switchView(v, params = {}) {
     else if (v === 'profile') await renderProfile();
     else if (v === 'user-profile') await renderUserProfile(params.uid);
     else if (v === 'edit-profile') await renderEditProfile();
+    else if (v === 'activity-log') await renderActivityLog();
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1735,14 +1893,19 @@ document.addEventListener('click', async e => {
         btn.disabled = false;
     } else if (act === 'back') {
         switchView('feed');
+    } else if (act === 'back-profile') {
+        switchView('profile');
     } else if (act === 'delete-post') {
         if (!confirm('Apagar este post? Essa ação não pode ser desfeita.')) return;
         const postId = btn.dataset.id;
         await sb.from('posts').delete().eq('id', postId);
         toast('Post apagado', 'ok');
-        // remove do DOM
+        // remove do DOM se estiver no feed
         const postEl = document.querySelector(`[data-post-id="${postId}"]`);
         if (postEl) postEl.remove();
+        // remove do histórico se estiver na tela de log
+        const logEl = btn.closest('.log-item');
+        if (logEl) logEl.remove();
         hidePostMenu();
     }
 });
