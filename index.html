@@ -3421,9 +3421,18 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     // Story sempre "público" pra seguidores (padrão Instagram), então some o seletor
     $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
 
+    // Refeição é dado pessoal: por padrão só a própria pessoa vê.
+    // Os outros tipos usam o padrão geral (baseado em ter seguidores ou não).
+    if (state.composerKind === 'meal') {
+        state.composerPrivacy = 'private';
+    } else {
+        state.composerPrivacy = state.defaultPrivacy || 'public';
+    }
+    updatePrivacyChip();
+
     const hint = $('#photoHint');
     if (state.composerKind === 'workout') hint.textContent = '(opcional, +3 pts se anexar)';
-    else if (state.composerKind === 'meal') hint.textContent = '(com foto: 5 pts / sem foto: 2 pts)';
+    else if (state.composerKind === 'meal') hint.textContent = '(a IA analisa a foto e dá a pontuação)';
     else if (state.composerKind === 'weight') hint.textContent = '(foto da balança, opcional)';
     else if (state.composerKind === 'story') hint.textContent = '(opcional — pode ser só texto)';
     else hint.textContent = '(opcional)';
@@ -3683,7 +3692,8 @@ async function boot() {
 
     // Ajusta privacidade padrão: se 0 seguidores, público; senão, seguidores
     const { data: followersCount } = await sb.rpc('my_followers_count');
-    state.composerPrivacy = (followersCount || 0) > 0 ? 'followers' : 'public';
+    state.defaultPrivacy = (followersCount || 0) > 0 ? 'followers' : 'public';
+    state.composerPrivacy = state.defaultPrivacy;
     updatePrivacyChip();
 
     await loadScore();
