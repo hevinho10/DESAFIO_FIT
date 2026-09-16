@@ -404,6 +404,36 @@ select:-webkit-autofill{
 .hist-del{ background:none; border:none; color:var(--ink-faint); font-size:13px; cursor:pointer; padding:2px 4px; flex-shrink:0; }
 .hist-del:hover{ color:var(--danger); }
 
+/* ============ GRÁFICOS ============ */
+.chart-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px; margin-bottom:14px; }
+.chart-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+.chart-title{ font-family:var(--ff-display); font-size:13.5px; font-weight:600; color:var(--ink); }
+.chart-legend{ font-size:11px; color:var(--ink-faint); }
+.chart-delta{ font-family:var(--ff-display); font-size:13px; font-weight:600; }
+.chart-delta.down{ color:var(--vital); }
+.chart-delta.up{ color:var(--effort); }
+.chart{ width:100%; height:auto; display:block; overflow:visible; }
+.chart-foot{ font-size:11.5px; color:var(--ink-dim); margin-top:8px; text-align:center; }
+.chart-empty{ text-align:center; padding:28px 12px; color:var(--ink-faint); font-size:12.5px; }
+.chart-single{ text-align:center; padding:20px 12px; }
+.cs-val{ font-family:var(--ff-display); font-size:34px; font-weight:700; color:var(--vital); display:block; }
+.cs-hint{ font-size:11.5px; color:var(--ink-faint); margin-top:4px; display:block; }
+
+/* ============ HISTÓRICO DE SAÚDE ============ */
+.health-info-block{ margin-bottom:14px; }
+.hi-label{ font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px; }
+.hi-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.health-chip{ display:inline-flex; align-items:center; gap:4px; background:var(--bg-elev); border:1px solid var(--line); padding:5px 10px; border-radius:16px; font-size:12px; color:var(--ink); }
+.hi-empty{ font-size:12.5px; color:var(--ink-faint); font-style:italic; }
+.hi-text{ font-size:13.5px; color:var(--ink); }
+.hi-note{ font-size:11px; color:var(--ink-faint); margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+
+.cond-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; }
+.cond-btn{ display:flex; align-items:center; gap:8px; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink-dim); padding:11px 12px; border-radius:11px; font-size:12.5px; font-weight:500; cursor:pointer; text-align:left; transition:all .12s; }
+.cond-btn:hover{ border-color:var(--vital); }
+.cond-btn.on{ background:var(--vital-dim); border-color:var(--vital); color:var(--vital); }
+.cond-emo{ font-size:16px; flex-shrink:0; }
+
 /* ============ CARD PULSO DA SEMANA ============ */.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
 .weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
 .weekly-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
@@ -637,7 +667,7 @@ select:-webkit-autofill{
 
     <nav class="bottomnav">
         <button class="nav-btn on" data-view="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg><span>Feed</span></button>
-        <button class="nav-btn" data-view="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15l5-5 4 3 7-8M16 5h5v5"/></svg><span>Progresso</span></button>
+        <button class="nav-btn" data-view="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15l5-5 4 3 7-8M16 5h5v5"/></svg><span>Evolução</span></button>
         <button class="nav-fab" id="postFab" aria-label="Postar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
         <button class="nav-btn" data-view="challenges"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/></svg><span>Desafios</span></button>
         <button class="nav-btn" data-view="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Perfil</span></button>
@@ -1463,40 +1493,201 @@ function renderPost(p) {
     `;
 }
 
+// ============================================================
+// GRÁFICOS SVG (sem dependências)
+// ============================================================
+function lineChart(points, opts = {}) {
+    // points: [{x: Date|number, y: number}]
+    const W = opts.width || 320, H = opts.height || 140;
+    const pad = { t: 14, r: 10, b: 24, l: 34 };
+    if (!points || points.length === 0) {
+        return `<div class="chart-empty">Sem dados suficientes ainda.</div>`;
+    }
+    if (points.length === 1) {
+        return `<div class="chart-single">
+            <span class="cs-val">${points[0].y.toFixed(1)}</span>
+            <span class="cs-hint">${opts.unit || ''} — registre mais para ver a curva</span>
+        </div>`;
+    }
+
+    const xs = points.map(p => +p.x), ys = points.map(p => p.y);
+    const xMin = Math.min(...xs), xMax = Math.max(...xs);
+    let yMin = Math.min(...ys), yMax = Math.max(...ys);
+    const span = yMax - yMin || 1;
+    yMin -= span * 0.12; yMax += span * 0.12;
+
+    const px = x => pad.l + ((x - xMin) / (xMax - xMin || 1)) * (W - pad.l - pad.r);
+    const py = y => pad.t + (1 - (y - yMin) / (yMax - yMin || 1)) * (H - pad.t - pad.b);
+
+    const path = points.map((p, i) => `${i ? 'L' : 'M'}${px(+p.x).toFixed(1)} ${py(p.y).toFixed(1)}`).join(' ');
+    const areaPath = path + ` L${px(xMax).toFixed(1)} ${(H - pad.b).toFixed(1)} L${px(xMin).toFixed(1)} ${(H - pad.b).toFixed(1)} Z`;
+
+    // linha de meta (opcional)
+    let goalLine = '';
+    if (opts.goal != null && opts.goal >= yMin && opts.goal <= yMax) {
+        const gy = py(opts.goal).toFixed(1);
+        goalLine = `<line x1="${pad.l}" y1="${gy}" x2="${W - pad.r}" y2="${gy}" stroke="var(--gold)" stroke-width="1.2" stroke-dasharray="4 4" opacity=".8"/>
+                    <text x="${W - pad.r}" y="${gy - 4}" text-anchor="end" font-size="9" fill="var(--gold)">meta</text>`;
+    }
+
+    // eixo Y (3 marcas)
+    const ticks = [yMin + span * 0.12, (yMin + yMax) / 2, yMax - span * 0.12];
+    const yAxis = ticks.map(t => `
+        <line x1="${pad.l}" y1="${py(t).toFixed(1)}" x2="${W - pad.r}" y2="${py(t).toFixed(1)}" stroke="var(--line)" stroke-width="1" opacity=".5"/>
+        <text x="${pad.l - 5}" y="${(py(t) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--ink-faint)">${t.toFixed(opts.decimals ?? 1)}</text>
+    `).join('');
+
+    // pontos (só se poucos)
+    const dots = points.length <= 20
+        ? points.map(p => `<circle cx="${px(+p.x).toFixed(1)}" cy="${py(p.y).toFixed(1)}" r="2.6" fill="var(--vital)" stroke="var(--bg-card)" stroke-width="1.4"/>`).join('')
+        : '';
+
+    // labels X (primeiro e último)
+    const fmt = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+    const xLabels = `
+        <text x="${pad.l}" y="${H - 6}" font-size="9" fill="var(--ink-faint)">${fmt(xMin)}</text>
+        <text x="${W - pad.r}" y="${H - 6}" text-anchor="end" font-size="9" fill="var(--ink-faint)">${fmt(xMax)}</text>
+    `;
+
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <defs>
+            <linearGradient id="grad-${opts.id || 'a'}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="var(--vital)" stop-opacity=".28"/>
+                <stop offset="100%" stop-color="var(--vital)" stop-opacity="0"/>
+            </linearGradient>
+        </defs>
+        ${yAxis}
+        ${goalLine}
+        <path d="${areaPath}" fill="url(#grad-${opts.id || 'a'})"/>
+        <path d="${path}" fill="none" stroke="var(--vital)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        ${dots}
+        ${xLabels}
+    </svg>`;
+}
+
+function barChart(bars, opts = {}) {
+    // bars: [{label, value, highlight?}]
+    const W = opts.width || 320, H = opts.height || 130;
+    const pad = { t: 12, r: 8, b: 22, l: 8 };
+    if (!bars || bars.length === 0) return `<div class="chart-empty">Sem dados ainda.</div>`;
+
+    const maxV = Math.max(...bars.map(b => b.value), opts.goal || 0, 1);
+    const bw = (W - pad.l - pad.r) / bars.length;
+    const barW = Math.min(bw * 0.62, 28);
+
+    let goalLine = '';
+    if (opts.goal) {
+        const gy = (pad.t + (1 - opts.goal / maxV) * (H - pad.t - pad.b)).toFixed(1);
+        goalLine = `<line x1="${pad.l}" y1="${gy}" x2="${W - pad.r}" y2="${gy}" stroke="var(--gold)" stroke-width="1.2" stroke-dasharray="4 4" opacity=".85"/>`;
+    }
+
+    const rects = bars.map((b, i) => {
+        const h = (b.value / maxV) * (H - pad.t - pad.b);
+        const x = pad.l + i * bw + (bw - barW) / 2;
+        const y = H - pad.b - h;
+        const fill = b.value >= (opts.goal || Infinity) ? 'var(--vital)' : 'var(--bg-elev)';
+        const stroke = b.value >= (opts.goal || Infinity) ? 'none' : 'var(--line)';
+        return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(2,h).toFixed(1)}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="1"/>
+                ${b.value > 0 ? `<text x="${(x + barW/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--ink-dim)">${b.value}</text>` : ''}
+                <text x="${(x + barW/2).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="var(--ink-faint)">${b.label}</text>`;
+    }).join('');
+
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${goalLine}${rects}</svg>`;
+}
+
+// ============================================================
+// EVOLUÇÃO INDIVIDUAL (aba Progresso)
+// ============================================================
 async function renderProgress() {
     const c = $('#viewContainer');
-    const { data: streak } = await sb.from('daily_streaks').select('*').eq('user_id', state.session.user.id).maybeSingle();
+    c.innerHTML = '<div class="view"><h1 class="screen-title">Evolução</h1><div class="spinner"></div></div>';
 
-    // conta atividades últimos 7 dias
-    const weekAgo = new Date(Date.now() - 7*86400*1000).toISOString();
-    const { count: weekPosts } = await sb.from('posts').select('*', {count:'exact', head:true})
-        .eq('user_id', state.session.user.id).gte('created_at', weekAgo);
+    const uid = state.session.user.id;
+    const [
+        { data: wSeries }, { data: aSeries }, { data: mSeries }, { data: pSeries },
+        { data: goalData }, { data: streak }, { data: validWeeks }
+    ] = await Promise.all([
+        sb.rpc('weight_series', { uid, days_back: 180 }),
+        sb.rpc('activity_series', { uid, weeks_back: 12 }),
+        sb.rpc('measurement_series', { uid, months_back: 12 }),
+        sb.rpc('points_series', { uid, weeks_back: 12 }),
+        sb.rpc('weight_progress', { uid }),
+        sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
+        sb.rpc('count_valid_weeks', { uid }),
+    ]);
 
-    // pontos ganhos últimos 7 dias
-    const { data: recentPts } = await sb.from('points_ledger').select('amount')
-        .eq('user_id', state.session.user.id).gte('earned_at', weekAgo);
-    const weekPoints = recentPts?.reduce((s,r)=>s+Number(r.amount),0) || 0;
+    const goal = goalData?.[0] || {};
+    const weeklyGoal = state.profile.weekly_goal || 3;
 
-    // pontos expirando nos próximos 7 dias
-    const in7d = new Date(Date.now() + 7*86400*1000).toISOString();
-    const { data: expiring } = await sb.from('points_ledger').select('amount')
-        .eq('user_id', state.session.user.id).gt('expires_at', new Date().toISOString()).lt('expires_at', in7d);
-    const expSoon = expiring?.reduce((s,r)=>s+Number(r.amount),0) || 0;
+    // Gráfico de peso
+    const weightPoints = (wSeries || []).map(r => ({ x: new Date(r.d + 'T12:00:00'), y: Number(r.kg) }));
+    const weightChart = lineChart(weightPoints, { id:'w', goal: goal.meta ? Number(goal.meta) : null, unit:'kg', decimals:1 });
+
+    // Gráfico de atividade semanal
+    const actBars = (aSeries || []).slice(-8).map(r => {
+        const d = new Date(r.week_start + 'T12:00:00');
+        return { label: d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }), value: r.days_trained };
+    });
+    const actChart = barChart(actBars, { goal: weeklyGoal });
+
+    // Gráfico de pontos
+    const ptsBars = (pSeries || []).slice(-8).map(r => {
+        const d = new Date(r.week_start + 'T12:00:00');
+        return { label: d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' }), value: Math.round(Number(r.pts)) };
+    });
+    const ptsChart = barChart(ptsBars, {});
+
+    // Gráfico de medidas (cintura)
+    const cinturaPoints = (mSeries || []).filter(r => r.cintura != null)
+        .map(r => ({ x: new Date(r.d + 'T12:00:00'), y: Number(r.cintura) }));
+    const cinturaChart = lineChart(cinturaPoints, { id:'c', unit:'cm', decimals:1 });
+
+    // Totais
+    const totalMin = (aSeries || []).reduce((s, r) => s + (r.total_min || 0), 0);
+    const totalDays = (aSeries || []).reduce((s, r) => s + (r.days_trained || 0), 0);
+    const horas = Math.floor(totalMin / 60);
 
     c.innerHTML = `
         <div class="view">
-            <h1 class="screen-title">Progresso</h1>
-            <p class="screen-sub">Seu score de vida saudável. Pontos expiram em 90 dias.</p>
-            <div class="stat-hero">
-                <div class="num">${Math.round(state.score)}</div>
-                <div class="lbl">pontos ativos</div>
-            </div>
+            <h1 class="screen-title">Evolução</h1>
+            <p class="screen-sub">Seu progresso ao longo do tempo.</p>
+
             <div class="stat-grid">
-                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Streak atual</div><div class="sub">Recorde: ${streak?.longest_streak || 0} dias</div></div>
-                <div class="stat-card"><div class="num">${weekPosts || 0}</div><div class="lbl">Posts (7 dias)</div><div class="sub">+${Math.round(weekPoints)} pts</div></div>
-                <div class="stat-card"><div class="num" style="color:${expSoon>0?'var(--effort)':'var(--vital)'}">${Math.round(expSoon)}</div><div class="lbl">Expiram em 7d</div><div class="sub">${expSoon>0?'Poste pra recuperar':'Tudo tranquilo'}</div></div>
-                <div class="stat-card"><div class="num">${Math.round(weekPoints)}</div><div class="lbl">Ganhos (7 dias)</div><div class="sub">Média ${Math.round(weekPoints/7)}/dia</div></div>
+                <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
+                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Streak</div><div class="sub">Recorde: ${streak?.longest_streak || 0}</div></div>
+                <div class="stat-card"><div class="num">${Number(validWeeks || 0)}</div><div class="lbl">Semanas na meta</div></div>
+                <div class="stat-card"><div class="num">${horas}h</div><div class="lbl">Treinados (12 sem)</div><div class="sub">${totalDays} dias</div></div>
             </div>
+
+            <div class="chart-card">
+                <div class="chart-head">
+                    <span class="chart-title">⚖️ Peso</span>
+                    ${goal.delta != null && Number(goal.delta) !== 0
+                        ? `<span class="chart-delta ${Number(goal.delta) > 0 ? 'down' : 'up'}">${Number(goal.delta) > 0 ? '▼' : '▲'} ${Math.abs(Number(goal.delta)).toFixed(1)} kg</span>`
+                        : ''}
+                </div>
+                ${weightChart}
+                ${goal.meta ? `<div class="chart-foot">Meta: ${Number(goal.meta).toFixed(1)} kg · ${goal.progresso_pct != null ? Math.max(0, Math.min(100, Number(goal.progresso_pct))) : 0}% alcançado</div>` : ''}
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-head">
+                    <span class="chart-title">💪 Dias treinados por semana</span>
+                    <span class="chart-legend">meta: ${weeklyGoal}</span>
+                </div>
+                ${actChart}
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-head"><span class="chart-title">⚡ Pontos por semana</span></div>
+                ${ptsChart}
+            </div>
+
+            ${cinturaPoints.length > 0 ? `
+            <div class="chart-card">
+                <div class="chart-head"><span class="chart-title">📏 Cintura</span></div>
+                ${cinturaChart}
+            </div>` : ''}
         </div>
     `;
 }
@@ -1742,8 +1933,168 @@ async function renderHealth() {
                 <div class="health-card-head"><span class="hc-title">Histórico de medidas</span></div>
                 <div class="hist-list">${histHTML}</div>
             </div>
+
+            <!-- Histórico familiar e condições -->
+            <div class="health-card">
+                <div class="health-card-head">
+                    <span class="hc-title">Histórico de saúde</span>
+                    <button class="btn-mini" data-act="open-family">Editar</button>
+                </div>
+                ${renderHealthInfo()}
+            </div>
         </div>
     `;
+}
+
+const FAMILY_CONDITIONS = [
+    { id:'diabetes',    label:'Diabetes',        emo:'🩸' },
+    { id:'hipertensao', label:'Hipertensão',     emo:'💗' },
+    { id:'cardiopatia', label:'Doença cardíaca', emo:'❤️' },
+    { id:'obesidade',   label:'Obesidade',       emo:'⚖️' },
+    { id:'colesterol',  label:'Colesterol alto', emo:'🧈' },
+    { id:'tireoide',    label:'Tireoide',        emo:'🦋' },
+    { id:'cancer',      label:'Câncer',          emo:'🎗️' },
+    { id:'avc',         label:'AVC',             emo:'🧠' },
+];
+
+function renderHealthInfo() {
+    const p = state.profile;
+    const fam = Array.isArray(p.family_history) ? p.family_history : [];
+    const cond = Array.isArray(p.conditions) ? p.conditions : [];
+
+    const chip = (id) => {
+        const item = FAMILY_CONDITIONS.find(f => f.id === id);
+        return item ? `<span class="health-chip">${item.emo} ${item.label}</span>` : `<span class="health-chip">${escapeHTML(id)}</span>`;
+    };
+
+    let html = '';
+
+    html += `<div class="health-info-block">
+        <div class="hi-label">Na família</div>
+        <div class="hi-chips">${fam.length ? fam.map(chip).join('') : '<span class="hi-empty">Nada informado</span>'}</div>
+    </div>`;
+
+    html += `<div class="health-info-block">
+        <div class="hi-label">Comigo</div>
+        <div class="hi-chips">${cond.length ? cond.map(chip).join('') : '<span class="hi-empty">Nada informado</span>'}</div>
+    </div>`;
+
+    if (p.blood_type) html += `<div class="health-info-block"><div class="hi-label">Tipo sanguíneo</div><div class="hi-text">${escapeHTML(p.blood_type)}</div></div>`;
+    if (p.allergies) html += `<div class="health-info-block"><div class="hi-label">Alergias</div><div class="hi-text">${escapeHTML(p.allergies)}</div></div>`;
+    if (p.medications) html += `<div class="health-info-block"><div class="hi-label">Medicações em uso</div><div class="hi-text">${escapeHTML(p.medications)}</div></div>`;
+    if (p.emergency_contact) html += `<div class="health-info-block"><div class="hi-label">Contato de emergência</div><div class="hi-text">${escapeHTML(p.emergency_contact)}</div></div>`;
+
+    html += `<p class="hi-note">🔒 Essas informações são privadas. Ninguém além de você vê.</p>`;
+    return html;
+}
+
+function openFamilySheet() {
+    const p = state.profile;
+    const fam = Array.isArray(p.family_history) ? p.family_history : [];
+    const cond = Array.isArray(p.conditions) ? p.conditions : [];
+
+    let sheet = document.getElementById('familySheet');
+    if (sheet) sheet.remove();
+
+    sheet = document.createElement('div');
+    sheet.id = 'familySheet';
+    sheet.className = 'sheet';
+    sheet.innerHTML = `
+        <div class="sheet-card">
+            <div class="sheet-handle"></div>
+            <h3 class="sheet-title">Histórico de saúde</h3>
+            <p class="sheet-sub">Privado. Ajuda o coach a dar conselhos melhores.</p>
+
+            <div class="field">
+                <label>Casos na família (pais, irmãos, avós)</label>
+                <div class="cond-grid" id="famGrid">
+                    ${FAMILY_CONDITIONS.map(f => `
+                        <button type="button" class="cond-btn ${fam.includes(f.id)?'on':''}" data-group="fam" data-id="${f.id}">
+                            <span class="cond-emo">${f.emo}</span><span>${f.label}</span>
+                        </button>`).join('')}
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Condições que eu tenho</label>
+                <div class="cond-grid" id="condGrid">
+                    ${FAMILY_CONDITIONS.map(f => `
+                        <button type="button" class="cond-btn ${cond.includes(f.id)?'on':''}" data-group="cond" data-id="${f.id}">
+                            <span class="cond-emo">${f.emo}</span><span>${f.label}</span>
+                        </button>`).join('')}
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Tipo sanguíneo</label>
+                <select id="hsBlood">
+                    <option value="">—</option>
+                    ${['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b => `<option value="${b}" ${p.blood_type===b?'selected':''}>${b}</option>`).join('')}
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Alergias</label>
+                <input type="text" id="hsAllergies" value="${escapeHTML(p.allergies || '')}" placeholder="ex: amendoim, dipirona" maxlength="200">
+            </div>
+
+            <div class="field">
+                <label>Medicações em uso</label>
+                <input type="text" id="hsMeds" value="${escapeHTML(p.medications || '')}" placeholder="ex: losartana 50mg" maxlength="200">
+            </div>
+
+            <div class="field">
+                <label>Contato de emergência</label>
+                <input type="text" id="hsEmergency" value="${escapeHTML(p.emergency_contact || '')}" placeholder="ex: Maria (81) 99999-0000" maxlength="120">
+            </div>
+
+            <div class="sheet-footer">
+                <button class="btn-ghost" id="familyCancel">Cancelar</button>
+                <button class="btn-primary" id="familySave">Salvar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(sheet);
+    sheet.classList.add('on');
+    document.body.style.overflow = 'hidden';
+
+    sheet.onclick = e => { if (e.target === sheet) closeFamilySheet(); };
+    document.getElementById('familyCancel').onclick = closeFamilySheet;
+
+    // Toggle dos chips
+    sheet.querySelectorAll('.cond-btn').forEach(b => b.addEventListener('click', e => {
+        e.currentTarget.classList.toggle('on');
+    }));
+
+    document.getElementById('familySave').onclick = async () => {
+        const btn = document.getElementById('familySave');
+        btn.disabled = true; btn.textContent = 'Salvando...';
+
+        const collect = group => [...sheet.querySelectorAll(`.cond-btn[data-group="${group}"].on`)].map(b => b.dataset.id);
+        const updates = {
+            family_history: collect('fam'),
+            conditions: collect('cond'),
+            blood_type: document.getElementById('hsBlood').value || null,
+            allergies: document.getElementById('hsAllergies').value.trim() || null,
+            medications: document.getElementById('hsMeds').value.trim() || null,
+            emergency_contact: document.getElementById('hsEmergency').value.trim() || null,
+        };
+
+        const { error } = await sb.from('profiles').update(updates).eq('id', state.session.user.id);
+        btn.disabled = false; btn.textContent = 'Salvar';
+        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+
+        Object.assign(state.profile, updates);
+        closeFamilySheet();
+        toast('Histórico atualizado!', 'ok');
+        if (state.view === 'health') await renderHealth();
+    };
+}
+
+function closeFamilySheet() {
+    const s = document.getElementById('familySheet');
+    if (s) s.classList.remove('on');
+    document.body.style.overflow = '';
 }
 
 // Sheet de registrar medidas
@@ -2286,6 +2637,8 @@ document.addEventListener('click', async e => {
         switchView('profile');
     } else if (act === 'open-measure') {
         openMeasureSheet();
+    } else if (act === 'open-family') {
+        openFamilySheet();
     } else if (act === 'delete-measurement') {
         if (!confirm('Apagar esta medição?')) return;
         await sb.from('body_measurements').delete().eq('id', btn.dataset.id);
