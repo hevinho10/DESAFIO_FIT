@@ -316,12 +316,26 @@ select:-webkit-autofill{
 .photo-btn-choice:hover{ border-color:var(--vital); }
 .photo-btn-choice .emo{ font-size:18px; }
 
-/* ============ META SEMANAL PICKER ============ */
-.weekly-goal-picker{ display:flex; gap:6px; margin-top:4px; }
-.wg-btn{ flex:1; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink-dim); padding:12px 0; border-radius:10px; font-family:var(--ff-display); font-weight:600; font-size:16px; cursor:pointer; transition:all .12s; }
-.wg-btn:hover{ border-color:var(--vital); color:var(--ink); }
-.wg-btn.on{ background:var(--vital); border-color:var(--vital); color:#08110C; }
+/* ============ META SEMANAL PICKER (faixas) ============ */
+.weekly-goal-picker{ display:flex; flex-direction:column; gap:8px; margin-top:4px; }
+.wg-btn{ display:flex; align-items:center; gap:14px; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink); padding:14px 16px; border-radius:14px; cursor:pointer; transition:all .12s; text-align:left; }
+.wg-btn:hover{ border-color:var(--vital); }
+.wg-btn.on{ background:var(--vital-dim); border-color:var(--vital); }
+.wg-emo{ font-size:26px; flex-shrink:0; }
+.wg-title{ font-family:var(--ff-display); font-weight:600; font-size:15px; color:var(--ink); display:block; }
+.wg-sub{ font-size:12px; color:var(--ink-dim); display:block; margin-top:2px; }
+.wg-btn.on .wg-title{ color:var(--vital); }
 .field-hint{ font-size:11.5px; color:var(--ink-faint); margin-top:6px; line-height:1.4; }
+
+/* ============ STEPPER (− input +) ============ */
+.stepper{ display:flex; align-items:center; gap:0; background:var(--bg-input); border:1px solid var(--line); border-radius:11px; overflow:hidden; }
+.stepper:focus-within{ border-color:var(--vital); box-shadow:var(--ring); }
+.step-btn{ background:var(--bg-elev); border:none; color:var(--ink); width:42px; height:44px; font-size:20px; font-weight:600; cursor:pointer; flex-shrink:0; display:grid; place-items:center; user-select:none; transition:background .12s; }
+.step-btn:hover{ background:var(--vital-dim); color:var(--vital); }
+.step-btn:active{ background:var(--vital); color:#08110C; }
+.stepper input{ flex:1; background:transparent !important; border:none !important; text-align:center; font-family:var(--ff-display) !important; font-weight:600 !important; font-size:16px !important; color:var(--ink) !important; padding:10px 4px !important; border-radius:0 !important; min-width:0; -moz-appearance:textfield; }
+.stepper input:focus{ outline:none; box-shadow:none !important; }
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
 
 /* ============ ATALHOS DO PERFIL ============ */
 .profile-shortcuts{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px; }
@@ -615,7 +629,11 @@ select:-webkit-autofill{
                 </div>
                 <div class="field">
                     <label>Duração (min)</label>
-                    <input type="number" id="wDuration" min="1" max="300" value="45">
+                    <div class="stepper" data-target="wDuration" data-min="5" data-max="240" data-step="5" data-default="45">
+                        <button type="button" class="step-btn" data-dir="-">−</button>
+                        <input type="number" id="wDuration" min="5" max="240" value="45" inputmode="numeric">
+                        <button type="button" class="step-btn" data-dir="+">+</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -635,7 +653,11 @@ select:-webkit-autofill{
         <div id="weightFields" class="hidden">
             <div class="field">
                 <label>Peso (kg)</label>
-                <input type="number" id="wKg" step="0.1" min="20" max="300" placeholder="ex: 78.5">
+                <div class="stepper" data-target="wKg" data-min="30" data-max="250" data-step="0.1" data-default="70">
+                    <button type="button" class="step-btn" data-dir="-">−</button>
+                    <input type="number" id="wKg" step="0.1" min="30" max="250" placeholder="ex: 78.5" inputmode="decimal">
+                    <button type="button" class="step-btn" data-dir="+">+</button>
+                </div>
             </div>
         </div>
 
@@ -837,8 +859,39 @@ async function countTodayByReason(reason) {
 }
 
 // ============================================================
-// AUTH
+// STEPPERS (botões − e + em campos numéricos)
 // ============================================================
+document.addEventListener('click', e => {
+    const btn = e.target.closest('.step-btn');
+    if (!btn) return;
+    const stepper = btn.closest('.stepper');
+    const input = document.getElementById(stepper.dataset.target);
+    if (!input) return;
+    const step = parseFloat(stepper.dataset.step) || 1;
+    const min = parseFloat(stepper.dataset.min);
+    const max = parseFloat(stepper.dataset.max);
+    const def = parseFloat(stepper.dataset.default);
+    const dir = btn.dataset.dir === '+' ? 1 : -1;
+    let cur = parseFloat(input.value);
+    if (isNaN(cur)) cur = def;
+    let next = cur + (step * dir);
+    if (!isNaN(min) && next < min) next = min;
+    if (!isNaN(max) && next > max) next = max;
+    // Formata pra evitar 78.30000001
+    input.value = step < 1 ? Number(next).toFixed(String(step).split('.')[1]?.length || 1) : Math.round(next);
+    // Dispara event pra quem escuta
+    input.dispatchEvent(new Event('input', { bubbles:true }));
+    input.dispatchEvent(new Event('change', { bubbles:true }));
+});
+
+// Ao focar num stepper vazio, preencher com o default
+document.addEventListener('focusin', e => {
+    if (e.target.matches('.stepper input') && !e.target.value) {
+        const stepper = e.target.closest('.stepper');
+        const def = stepper.dataset.default;
+        if (def) e.target.value = def;
+    }
+});
 
 // Alterna entre subtelas: signin, signup, forgot-step1, forgot-step2, await-confirm, reset-password
 function showAuthScreen(name) {
@@ -1716,7 +1769,27 @@ async function renderEditProfile() {
             <div class="field">
                 <label>Quantos treinos por semana você quer fazer?</label>
                 <div class="weekly-goal-picker">
-                    ${[1,2,3,4,5,6,7].map(n => `<button type="button" class="wg-btn ${(p.weekly_goal||3)===n?'on':''}" data-goal="${n}">${n}</button>`).join('')}
+                    ${(() => {
+                        const g = p.weekly_goal || 3;
+                        const level = g <= 3 ? 'ini' : g <= 5 ? 'mid' : 'adv';
+                        return `
+                            <button type="button" class="wg-btn ${level==='ini'?'on':''}" data-goal="2" data-label="Iniciante">
+                                <span class="wg-emo">🌱</span>
+                                <span class="wg-title">Iniciante</span>
+                                <span class="wg-sub">1 a 3 dias/semana</span>
+                            </button>
+                            <button type="button" class="wg-btn ${level==='mid'?'on':''}" data-goal="4" data-label="Intermediário">
+                                <span class="wg-emo">🔥</span>
+                                <span class="wg-title">Intermediário</span>
+                                <span class="wg-sub">4 ou 5 dias/semana</span>
+                            </button>
+                            <button type="button" class="wg-btn ${level==='adv'?'on':''}" data-goal="6" data-label="Avançado">
+                                <span class="wg-emo">⚡</span>
+                                <span class="wg-title">Avançado</span>
+                                <span class="wg-sub">6 ou 7 dias/semana</span>
+                            </button>
+                        `;
+                    })()}
                 </div>
                 <p class="field-hint">Você ganha +10 pts de bônus toda semana que atingir sua meta.</p>
             </div>
@@ -1725,7 +1798,11 @@ async function renderEditProfile() {
             <div class="field-row">
                 <div class="field">
                     <label>Altura (m)</label>
-                    <input type="number" id="edAltura" value="${p.altura || ''}" step="0.01" min="0.5" max="2.5">
+                    <div class="stepper" data-target="edAltura" data-min="1.20" data-max="2.30" data-step="0.01" data-default="1.70">
+                        <button type="button" class="step-btn" data-dir="-">−</button>
+                        <input type="number" id="edAltura" value="${p.altura || ''}" step="0.01" min="1.20" max="2.30" inputmode="decimal">
+                        <button type="button" class="step-btn" data-dir="+">+</button>
+                    </div>
                 </div>
                 <div class="field">
                     <label>Sexo</label>
@@ -1733,18 +1810,25 @@ async function renderEditProfile() {
                         <option value="">—</option>
                         <option value="M" ${p.sexo==='M'?'selected':''}>Masculino</option>
                         <option value="F" ${p.sexo==='F'?'selected':''}>Feminino</option>
-                        <option value="O" ${p.sexo==='O'?'selected':''}>Outro</option>
                     </select>
                 </div>
             </div>
             <div class="field-row">
                 <div class="field">
                     <label>Peso inicial (kg)</label>
-                    <input type="number" id="edPesoInicial" value="${p.peso_inicial || ''}" step="0.1">
+                    <div class="stepper" data-target="edPesoInicial" data-min="30" data-max="250" data-step="0.5" data-default="70">
+                        <button type="button" class="step-btn" data-dir="-">−</button>
+                        <input type="number" id="edPesoInicial" value="${p.peso_inicial || ''}" step="0.5" min="30" max="250" inputmode="decimal">
+                        <button type="button" class="step-btn" data-dir="+">+</button>
+                    </div>
                 </div>
                 <div class="field">
                     <label>Meta de peso (kg)</label>
-                    <input type="number" id="edMeta" value="${p.target_weight || ''}" step="0.1">
+                    <div class="stepper" data-target="edMeta" data-min="30" data-max="250" data-step="0.5" data-default="65">
+                        <button type="button" class="step-btn" data-dir="-">−</button>
+                        <input type="number" id="edMeta" value="${p.target_weight || ''}" step="0.5" min="30" max="250" inputmode="decimal">
+                        <button type="button" class="step-btn" data-dir="+">+</button>
+                    </div>
                 </div>
             </div>
 
