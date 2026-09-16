@@ -339,7 +339,7 @@ select:-webkit-autofill{
 .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
 
 /* ============ ATALHOS DO PERFIL ============ */
-.profile-shortcuts{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+.profile-shortcuts{ display:grid; grid-template-columns:repeat(auto-fit, minmax(64px, 1fr)); gap:8px; margin-top:12px; }
 .shortcut-btn{ background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:12px 8px; display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--ink); font-size:11.5px; font-weight:500; cursor:pointer; transition:border-color .12s; }
 .shortcut-btn:hover{ border-color:var(--vital); }
 .shortcut-btn .emo{ font-size:20px; }
@@ -496,6 +496,27 @@ select:-webkit-autofill{
 .mr-item{ background:var(--bg-elev); border:1px solid var(--line); padding:5px 11px; border-radius:16px; font-size:12px; color:var(--ink-dim); }
 .mr-points{ font-family:var(--ff-display); font-size:17px; font-weight:600; color:var(--vital); margin-bottom:18px; }
 .mr-limit-note{ font-size:12px; color:var(--effort); background:rgba(255,122,77,.1); border:1px solid rgba(255,122,77,.25); border-radius:12px; padding:10px 14px; margin-bottom:18px; line-height:1.4; }
+
+/* ============ COMUNIDADE: pódio semanal ============ */
+.cw-rank-list{ display:flex; flex-direction:column; gap:6px; }
+.cw-rank-item{ display:flex; align-items:center; gap:10px; padding:9px 8px; border-radius:10px; cursor:pointer; }
+.cw-rank-item:hover{ background:var(--bg-elev); }
+.cw-rank-item.me{ background:var(--vital-dim); }
+.cw-rank-medal{ width:26px; text-align:center; font-size:14px; font-weight:600; color:var(--ink-dim); flex-shrink:0; }
+.cw-rank-name{ flex:1; font-size:13.5px; font-weight:500; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cw-rank-pts{ font-family:var(--ff-display); font-weight:600; font-size:13px; color:var(--vital); flex-shrink:0; }
+
+/* ============ ADMIN ============ */
+.shortcut-btn.admin{ border-color:rgba(255,159,69,.35); color:var(--gold); }
+.admin-user-list{ display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+.admin-user-row{ display:flex; align-items:center; gap:10px; background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; cursor:pointer; }
+.admin-user-row:hover{ border-color:var(--vital); }
+.admin-user-pos{ width:20px; text-align:center; font-family:var(--ff-display); font-size:12px; color:var(--ink-faint); flex-shrink:0; }
+.admin-user-info{ flex:1; min-width:0; }
+.admin-user-name{ font-size:13px; font-weight:600; color:var(--ink); }
+.admin-user-uname{ font-size:11px; font-weight:400; color:var(--ink-faint); }
+.admin-user-meta{ font-size:11px; color:var(--ink-dim); margin-top:1px; }
+.admin-user-score{ font-family:var(--ff-display); font-weight:700; font-size:15px; color:var(--vital); flex-shrink:0; }
 
 /* ============ CARD PULSO DA SEMANA ============ */.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
 .weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
@@ -1368,6 +1389,71 @@ $('#acResendBtn').addEventListener('click', async () => {
 });
 
 // ============================================================
+// PAINEL ADMIN
+// ============================================================
+async function renderAdmin() {
+    const c = $('#viewContainer');
+    if (!state.profile.is_admin) {
+        c.innerHTML = '<div class="view"><p style="color:var(--danger)">Acesso restrito.</p></div>';
+        return;
+    }
+    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+
+    const [{ data: ov, error: ovErr }, { data: users, error: usErr }] = await Promise.all([
+        sb.rpc('admin_overview'),
+        sb.rpc('admin_user_list'),
+    ]);
+
+    if (ovErr) { c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro: ${ovErr.message}</p></div>`; return; }
+    const o = ov?.[0] || {};
+
+    const usersHTML = (users || []).map((u, i) => {
+        const lastActive = u.last_active_at ? timeAgo(u.last_active_at) : 'nunca postou';
+        return `<div class="admin-user-row" data-act="view-user" data-uid="${u.id}">
+            <span class="admin-user-pos">${i+1}</span>
+            ${avatarHTML(u, 'sm')}
+            <div class="admin-user-info">
+                <div class="admin-user-name">${escapeHTML(u.display_name)} <span class="admin-user-uname">@${escapeHTML(u.username)}</span></div>
+                <div class="admin-user-meta">${u.total_posts} posts · ${u.current_streak}🔥 · ativo ${lastActive}</div>
+            </div>
+            <div class="admin-user-score">${Math.round(u.score)}</div>
+        </div>`;
+    }).join('') || '<div class="log-empty">Nenhum usuário ainda.</div>';
+
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back-profile">←</button>
+                <div class="topbar-title">Painel Admin</div>
+                <div style="width:28px"></div>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-card"><div class="num">${o.total_usuarios||0}</div><div class="lbl">Total de usuários</div></div>
+                <div class="stat-card"><div class="num">${o.novos_7d||0}</div><div class="lbl">Novos (7 dias)</div></div>
+                <div class="stat-card"><div class="num">${o.ativos_hoje||0}</div><div class="lbl">Ativos hoje</div></div>
+                <div class="stat-card"><div class="num">${o.ativos_7d||0}</div><div class="lbl">Ativos (7 dias)</div></div>
+            </div>
+            <div class="stat-grid" style="margin-top:10px">
+                <div class="stat-card"><div class="num">${o.total_treinos||0}</div><div class="lbl">Treinos totais</div></div>
+                <div class="stat-card"><div class="num">${o.total_refeicoes||0}</div><div class="lbl">Refeições totais</div></div>
+                <div class="stat-card"><div class="num">${o.nota_media_refeicoes||'—'}</div><div class="lbl">Nota média pratos</div></div>
+                <div class="stat-card"><div class="num">${o.maior_streak_atual||0}🔥</div><div class="lbl">Maior streak ativo</div></div>
+            </div>
+            <div class="health-card" style="text-align:center">
+                <span class="hc-title">⚡ Pontos distribuídos (todo o histórico)</span>
+                <div style="font-family:var(--ff-display); font-size:28px; font-weight:700; color:var(--vital); margin-top:8px">
+                    ${Math.round(o.pontos_distribuidos_total||0)}
+                </div>
+            </div>
+
+            <h3 class="edit-section-title" style="margin-top:20px">Usuários por score</h3>
+            <div class="admin-user-list">${usersHTML}</div>
+        </div>
+    `;
+}
+
+// ============================================================
 // COACH PULSO (IA)
 // ============================================================
 const COACH_PERSONA = `Você é o Coach Pulso, treinador virtual de um app brasileiro de vida saudável e atividade física.
@@ -2012,15 +2098,46 @@ async function renderProgress() {
     `;
 }
 
-function renderChallenges() {
-    $('#viewContainer').innerHTML = `
+async function renderChallenges() {
+    const c = $('#viewContainer');
+    c.innerHTML = '<div class="view"><h1 class="screen-title">Comunidade</h1><div class="spinner"></div></div>';
+
+    const [{ data: summaryData }, { data: top }] = await Promise.all([
+        sb.rpc('community_weekly_summary'),
+        sb.rpc('community_weekly_top', { lim: 5 }),
+    ]);
+    const s = summaryData?.[0] || {};
+
+    const podium = (top || []).map((u, i) => {
+        const medal = ['🥇','🥈','🥉','4º','5º'][i] || (i+1)+'º';
+        const isMe = u.user_id === state.session.user.id;
+        return `<div class="cw-rank-item${isMe?' me':''}" data-act="view-user" data-uid="${u.user_id}">
+            <span class="cw-rank-medal">${medal}</span>
+            ${avatarHTML(u, 'sm')}
+            <span class="cw-rank-name">${isMe?'Você':escapeHTML(u.display_name)}</span>
+            <span class="cw-rank-pts">${Math.round(u.points)} pts</span>
+        </div>`;
+    }).join('') || '<div class="log-empty">Ninguém pontuou essa semana ainda.</div>';
+
+    c.innerHTML = `
         <div class="view">
-            <h1 class="screen-title">Desafios</h1>
-            <p class="screen-sub">Compare seu progresso com um grupo por um período.</p>
-            <div class="feed-empty">
-                <span class="emo">🏆</span>
-                <h3>Nenhum desafio ativo</h3>
-                <p>Só admins podem criar desafios por enquanto. Fica ligado no feed!</p>
+            <h1 class="screen-title">Comunidade</h1>
+            <p class="screen-sub">O pulso de todo mundo essa semana.</p>
+
+            <div class="stat-grid">
+                <div class="stat-card"><div class="num">${s.usuarios_ativos||0}</div><div class="lbl">Pessoas ativas</div></div>
+                <div class="stat-card"><div class="num">${s.total_treinos||0}</div><div class="lbl">Treinos</div></div>
+                <div class="stat-card"><div class="num">${s.total_refeicoes||0}</div><div class="lbl">Refeições</div></div>
+                <div class="stat-card"><div class="num">${Math.round(s.pontos_distribuidos||0)}</div><div class="lbl">Pontos distribuídos</div></div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-head"><span class="chart-title">🏆 Pódio da semana</span></div>
+                <div class="cw-rank-list">${podium}</div>
+            </div>
+
+            <div class="health-card" style="text-align:center; color:var(--ink-dim); font-size:13px;">
+                🎯 Desafios personalizados chegam em breve. Por enquanto, aproveite o ranking geral da semana acima.
             </div>
         </div>
     `;
@@ -2101,7 +2218,8 @@ async function renderProfile() {
                 <button class="shortcut-btn" data-act="quick-post" data-kind="weight"><span class="emo">⚖️</span><span>Pesar</span></button>
                 <button class="shortcut-btn" data-act="go-health"><span class="emo">❤️</span><span>Saúde</span></button>
                 <button class="shortcut-btn" data-act="go-activity-log"><span class="emo">📊</span><span>Histórico</span></button>
-                <button class="shortcut-btn" data-act="go-challenges"><span class="emo">🏆</span><span>Desafios</span></button>
+                <button class="shortcut-btn" data-act="go-challenges"><span class="emo">🏆</span><span>Comunidade</span></button>
+                ${p.is_admin ? '<button class="shortcut-btn admin" data-act="go-admin"><span class="emo">🛠️</span><span>Admin</span></button>' : ''}
             </div>
             <div class="stat-grid" style="margin-top:14px">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
@@ -2129,6 +2247,8 @@ async function renderProfile() {
     $('[data-act="go-activity-log"]').addEventListener('click', () => switchView('activity-log'));
     $('[data-act="go-health"]').addEventListener('click', () => switchView('health'));
     $('[data-act="go-challenges"]').addEventListener('click', () => switchView('challenges'));
+    const adminBtn = $('[data-act="go-admin"]');
+    if (adminBtn) adminBtn.addEventListener('click', () => switchView('admin'));
 }
 
 // ============================================================
@@ -3045,6 +3165,7 @@ async function switchView(v, params = {}) {
     else if (v === 'activity-log') await renderActivityLog();
     else if (v === 'health') await renderHealth();
     else if (v === 'coach') await renderCoach();
+    else if (v === 'admin') await renderAdmin();
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
