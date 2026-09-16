@@ -434,6 +434,67 @@ select:-webkit-autofill{
 .cond-btn.on{ background:var(--vital-dim); border-color:var(--vital); color:var(--vital); }
 .cond-emo{ font-size:16px; flex-shrink:0; }
 
+/* ============ COACH: CARD NO FEED ============ */
+.coach-card{ background:linear-gradient(135deg, rgba(95,176,255,.10), var(--bg-card) 60%); border:1px solid rgba(95,176,255,.28); border-radius:var(--radius-lg); padding:16px; margin-bottom:14px; animation:slideIn .3s ease both; }
+.coach-card-head{ display:flex; align-items:center; gap:11px; margin-bottom:10px; }
+.coach-avatar{ width:38px; height:38px; border-radius:12px; background:rgba(95,176,255,.16); display:grid; place-items:center; font-size:19px; flex-shrink:0; }
+.coach-card-meta{ flex:1; min-width:0; }
+.coach-name{ font-family:var(--ff-display); font-size:14px; font-weight:600; color:var(--info); }
+.coach-sub{ font-size:11.5px; color:var(--ink-dim); }
+.coach-dismiss{ background:none; border:none; color:var(--ink-faint); font-size:22px; line-height:1; cursor:pointer; padding:0 4px; flex-shrink:0; }
+.coach-dismiss:hover{ color:var(--ink); }
+.coach-body{ font-size:14px; line-height:1.55; color:var(--ink); white-space:pre-wrap; }
+.coach-cta{ margin-top:12px; background:rgba(95,176,255,.14); border:1px solid rgba(95,176,255,.35); color:var(--info); padding:9px 16px; border-radius:20px; font-size:12.5px; font-weight:600; cursor:pointer; transition:all .12s; }
+.coach-cta:hover{ background:var(--info); color:#08110C; }
+.coach-skeleton{ height:44px; border-radius:8px; background:linear-gradient(90deg, var(--bg-elev) 25%, rgba(95,176,255,.1) 50%, var(--bg-elev) 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; }
+@keyframes shimmer{ from{background-position:200% 0} to{background-position:-200% 0} }
+
+/* ============ COACH: TELA DE CHAT ============ */
+.coach-view{ display:flex; flex-direction:column; min-height:calc(100vh - 170px); }
+.coach-hero{ display:flex; align-items:center; gap:14px; padding:6px 2px 16px; border-bottom:1px solid var(--line); margin-bottom:12px; }
+.coach-hero-avatar{ width:52px; height:52px; border-radius:16px; background:rgba(95,176,255,.16); display:grid; place-items:center; font-size:26px; flex-shrink:0; }
+.coach-hero-title{ font-family:var(--ff-display); font-size:20px; font-weight:600; color:var(--ink); }
+.coach-hero-sub{ font-size:12.5px; color:var(--ink-dim); margin-top:2px; }
+.coach-chat{ flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; padding:4px 0 12px; min-height:200px; max-height:calc(100vh - 340px); }
+.coach-empty{ text-align:center; padding:36px 20px; color:var(--ink-dim); }
+.ce-emo{ font-size:38px; display:block; margin-bottom:12px; }
+.coach-empty p{ font-size:14px; line-height:1.5; margin-bottom:6px; color:var(--ink); }
+.ce-hint{ font-size:12.5px !important; color:var(--ink-dim) !important; }
+.cmsg{ display:flex; gap:8px; align-items:flex-end; }
+.cmsg.user{ justify-content:flex-end; }
+.cmsg-avatar{ width:28px; height:28px; border-radius:9px; background:rgba(95,176,255,.16); display:grid; place-items:center; font-size:14px; flex-shrink:0; }
+.cmsg-bubble{ max-width:78%; padding:11px 14px; border-radius:16px; font-size:14px; line-height:1.5; }
+.cmsg.coach .cmsg-bubble{ background:var(--bg-card); border:1px solid var(--line); border-bottom-left-radius:5px; color:var(--ink); }
+.cmsg.user .cmsg-bubble{ background:var(--vital); color:#08110C; border-bottom-right-radius:5px; font-weight:500; }
+.cmsg-bubble.typing{ display:flex; gap:4px; padding:14px; }
+.cmsg-bubble.typing span{ width:6px; height:6px; border-radius:50%; background:var(--ink-faint); animation:bounce 1.2s infinite; }
+.cmsg-bubble.typing span:nth-child(2){ animation-delay:.18s; }
+.cmsg-bubble.typing span:nth-child(3){ animation-delay:.36s; }
+@keyframes bounce{ 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-5px);opacity:1} }
+.coach-suggestions{ display:flex; gap:7px; overflow-x:auto; padding:2px 2px 10px; scrollbar-width:none; }
+.coach-suggestions::-webkit-scrollbar{ display:none; }
+.sug-chip{ flex-shrink:0; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink-dim); padding:8px 14px; border-radius:20px; font-size:12.5px; white-space:nowrap; cursor:pointer; transition:all .12s; }
+.sug-chip:hover{ border-color:var(--info); color:var(--info); }
+.coach-composer{ display:flex; gap:8px; align-items:flex-end; padding-top:10px; border-top:1px solid var(--line); }
+.coach-composer textarea{ flex:1; background:var(--bg-input); border:1px solid var(--line); color:var(--ink); padding:11px 14px; border-radius:20px; font-size:14px; font-family:inherit; resize:none; min-height:44px; max-height:120px; line-height:1.4; }
+.coach-composer textarea:focus{ outline:none; border-color:var(--info); box-shadow:0 0 0 3px rgba(95,176,255,.18); }
+.coach-send{ width:44px; height:44px; border-radius:50%; background:var(--info); border:none; color:#08110C; display:grid; place-items:center; flex-shrink:0; cursor:pointer; }
+.coach-send:disabled{ opacity:.5; cursor:not-allowed; }
+.coach-send svg{ width:19px; height:19px; }
+
+/* ============ ANÁLISE DO PRATO ============ */
+.post-ai-note{ display:flex; gap:8px; align-items:flex-start; background:rgba(95,176,255,.08); border:1px solid rgba(95,176,255,.2); border-radius:12px; padding:10px 12px; margin-top:10px; font-size:12.5px; line-height:1.45; color:var(--ink); }
+.pan-emo{ flex-shrink:0; font-size:14px; }
+.meal-result-card{ text-align:center; padding-bottom:28px; }
+.mr-score-ring{ width:120px; height:120px; border-radius:50%; margin:10px auto 18px; display:grid; place-items:center; background:conic-gradient(var(--c) calc(var(--pct,70) * 1%), var(--bg-elev) 0); position:relative; }
+.mr-score-ring::after{ content:''; position:absolute; inset:7px; border-radius:50%; background:var(--bg-card); }
+.mr-score{ font-family:var(--ff-display); font-size:40px; font-weight:700; line-height:1; z-index:1; }
+.mr-max{ font-size:13px; color:var(--ink-dim); z-index:1; margin-top:2px; }
+.mr-analysis{ font-size:14.5px; line-height:1.55; color:var(--ink); margin-bottom:14px; padding:0 6px; }
+.mr-items{ display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:16px; }
+.mr-item{ background:var(--bg-elev); border:1px solid var(--line); padding:5px 11px; border-radius:16px; font-size:12px; color:var(--ink-dim); }
+.mr-points{ font-family:var(--ff-display); font-size:17px; font-weight:600; color:var(--vital); margin-bottom:18px; }
+
 /* ============ CARD PULSO DA SEMANA ============ */.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
 .weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
 .weekly-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
@@ -669,7 +730,7 @@ select:-webkit-autofill{
         <button class="nav-btn on" data-view="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg><span>Feed</span></button>
         <button class="nav-btn" data-view="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15l5-5 4 3 7-8M16 5h5v5"/></svg><span>Evolução</span></button>
         <button class="nav-fab" id="postFab" aria-label="Postar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-        <button class="nav-btn" data-view="challenges"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/></svg><span>Desafios</span></button>
+        <button class="nav-btn" data-view="coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 7V4M9 13h.01M15 13h.01M9.5 17h5"/></svg><span>Coach</span></button>
         <button class="nav-btn" data-view="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Perfil</span></button>
     </nav>
 </div>
@@ -842,6 +903,8 @@ const state = {
     storyIdx: 0,
     storyItemIdx: 0,
     storyTimer: null,
+    coachContext: null,
+    coachHistory: [],
 };
 
 // ============================================================
@@ -1303,6 +1366,251 @@ $('#acResendBtn').addEventListener('click', async () => {
 });
 
 // ============================================================
+// COACH PULSO (IA)
+// ============================================================
+const COACH_PERSONA = `Você é o Coach Pulso, treinador virtual de um app brasileiro de vida saudável e atividade física.
+
+COMO VOCÊ FALA:
+- Português do Brasil, tom de amigo que entende do assunto. Nada de formalidade ou de discurso motivacional vazio.
+- Frases curtas, direto ao ponto.
+- SEMPRE cite os números reais da pessoa que estão no dossiê abaixo. É isso que te diferencia de um conselho genérico de internet.
+- No máximo 3 itens quando listar algo.
+- Máximo 110 palavras, a não ser que a pessoa peça detalhe.
+- Não use emoji em excesso, no máximo um.
+
+LIMITES QUE VOCÊ NÃO ULTRAPASSA:
+- Você não é médico nem nutricionista. Não diagnostica, não prescreve medicação, não manda mudar tratamento.
+- Se aparecer sintoma preocupante, dor persistente ou condição séria, recomende procurar um profissional, com calma, sem alarmar.
+- Nunca sugira restrição calórica agressiva, jejum prolongado, detox, ou cortar grupos alimentares inteiros.
+- Nunca comente o corpo da pessoa de forma julgadora. Fale de hábito e constância, não de aparência.
+- Se a pessoa demonstrar sofrimento com comida, com o peso ou com o corpo, acolha e sugira apoio profissional em vez de dar meta ou número.
+- Se o dossiê tiver condição de saúde ou medicação, leve em conta ao sugerir esforço, mas não opine sobre o tratamento.`;
+
+function formatCoachContext(ctx) {
+    if (!ctx) return 'Sem dados ainda.';
+    const L = [];
+    const add = (label, val, suffix = '') => {
+        if (val === null || val === undefined || val === '' ) return;
+        if (Array.isArray(val) && val.length === 0) return;
+        L.push(`- ${label}: ${Array.isArray(val) ? val.join(', ') : val}${suffix}`);
+    };
+
+    add('Nome', ctx.nome);
+    add('Idade', ctx.idade, ' anos');
+    add('Sexo', ctx.sexo === 'M' ? 'masculino' : ctx.sexo === 'F' ? 'feminino' : null);
+    add('Altura', ctx.altura_m, ' m');
+    add('Peso atual', ctx.peso_atual_kg, ' kg');
+    add('Peso inicial', ctx.peso_inicial_kg, ' kg');
+    add('Peso 4 semanas atrás', ctx.peso_4_semanas_atras_kg, ' kg');
+    add('Meta de peso', ctx.meta_peso_kg, ' kg');
+    add('IMC', ctx.imc);
+    add('Meta de treinos por semana', ctx.meta_treinos_semana);
+    add('Dias treinados esta semana', ctx.dias_treinados_esta_semana);
+    add('Dias treinados semana passada', ctx.dias_treinados_semana_passada);
+    add('Dias desde o último treino', ctx.dias_desde_ultimo_treino);
+    add('Total de treinos registrados', ctx.total_treinos_registrados);
+    add('Atividades que mais pratica', ctx.atividades_favoritas);
+    add('Duração média do treino', ctx.duracao_media_min, ' min');
+    add('Dias seguidos treinando agora', ctx.streak_atual_dias);
+    add('Recorde de dias seguidos', ctx.streak_recorde_dias);
+    add('Cintura', ctx.cintura_cm, ' cm');
+    add('Cintura na medição anterior', ctx.cintura_anterior_cm, ' cm');
+    add('Gordura corporal', ctx.gordura_pct, '%');
+    add('Refeições registradas nos últimos 7 dias', ctx.refeicoes_registradas_7d);
+    add('Nota média das refeições', ctx.nota_media_refeicoes, '/10');
+    add('Pontos ativos no app', ctx.pontos_ativos);
+    add('Histórico de saúde na família', ctx.historico_familiar);
+    add('Condições de saúde próprias', ctx.condicoes_proprias);
+    add('Alergias', ctx.alergias);
+    add('Medicações em uso', ctx.medicacoes);
+
+    return L.join('\n') || 'Pessoa ainda não preencheu dados.';
+}
+
+async function getCoachContext(force = false) {
+    if (state.coachContext && !force) return state.coachContext;
+    const { data, error } = await sb.rpc('ai_context', { uid: state.session.user.id });
+    if (error) { console.error('ai_context', error); return null; }
+    state.coachContext = data;
+    return data;
+}
+
+async function callAI(prompt) {
+    const { data, error } = await sb.functions.invoke('get-ai-tip', { body: { prompt } });
+    if (error) throw error;
+    if (!data || !data.tip) throw new Error('Resposta da IA vazia');
+    return data.tip;
+}
+
+async function askCoach(question, history = []) {
+    const ctx = await getCoachContext();
+    const brief = formatCoachContext(ctx);
+
+    const historyText = history.length
+        ? '\n\nCONVERSA ATÉ AGORA:\n' + history.slice(-8).map(m =>
+            `${m.role === 'user' ? 'Pessoa' : 'Você'}: ${m.body}`).join('\n')
+        : '';
+
+    const prompt = `${COACH_PERSONA}
+
+DOSSIÊ DA PESSOA (dados reais do app, use-os na resposta):
+${brief}${historyText}
+
+PERGUNTA DA PESSOA:
+${question}
+
+Responda como o Coach Pulso.`;
+
+    return await callAI(prompt);
+}
+
+// ---- INSIGHTS: o coach que aparece no feed ----
+const INSIGHT_SPECS = {
+    weekly_plan: {
+        title: 'Plano da semana',
+        cta: 'Conversar com o coach',
+        ask: (ctx) => `Hoje é ${new Date().toLocaleDateString('pt-BR', { weekday:'long' })}, começo de semana. Olhe a semana passada da pessoa e monte um plano curto e realista para esta semana. Cite o que ela fez na semana passada e o que dá pra ajustar. Termine com uma ação concreta para os próximos 2 dias.`
+    },
+    celebration: {
+        title: 'Meta batida',
+        cta: 'Ver minha evolução',
+        ask: () => `A pessoa acabou de bater a meta de treinos da semana. Comemore de forma específica citando os números reais dela (quantos dias, qual atividade, streak). Nada de frase de efeito genérica. Termine sugerindo como manter o ritmo sem exagerar.`
+    },
+    nudge: {
+        title: 'Faz uns dias...',
+        cta: 'Registrar treino',
+        ask: (ctx) => `A pessoa está há ${ctx.dias_desde_ultimo_treino} dias sem registrar treino. Escreva um convite gentil de volta, sem cobrança e sem culpa. Cite o que ela costumava fazer e proponha algo bem pequeno e fácil para hoje ou amanhã, do tipo que leva 15 minutos.`
+    },
+    plateau: {
+        title: 'Sobre o peso parado',
+        cta: 'Conversar com o coach',
+        ask: () => `O peso da pessoa está praticamente igual nas últimas 4 semanas, mesmo ela treinando. Explique em linguagem simples por que isso acontece e o que costuma destravar, citando os números reais dela. Seja tranquilizador: platô é normal, não é fracasso. Sugira olhar medida de cintura além da balança.`
+    },
+    weekly_review: {
+        title: 'Retrospectiva da semana',
+        cta: 'Ver minha evolução',
+        ask: () => `Faça a retrospectiva da semana que está acabando: o que a pessoa fez, o que foi bem, e UM ajuste concreto para a próxima semana. Use os números reais. Seja honesto, se a semana foi fraca diga isso sem dureza.`
+    },
+};
+
+async function loadActiveInsight() {
+    const { data } = await sb.from('ai_insights')
+        .select('*')
+        .eq('user_id', state.session.user.id)
+        .eq('dismissed', false)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+    return data?.[0] || null;
+}
+
+function decideInsightKind(ctx) {
+    if (!ctx) return null;
+    const hoje = new Date().getDay(); // 0 dom, 1 seg
+    const meta = ctx.meta_treinos_semana || 3;
+    const dias = ctx.dias_treinados_esta_semana || 0;
+    const semTreinar = ctx.dias_desde_ultimo_treino;
+
+    // Prioridade: sumiu > bateu meta > platô > segunda > domingo
+    if (semTreinar != null && semTreinar >= 4) return 'nudge';
+    if (dias >= meta) return 'celebration';
+
+    const p0 = Number(ctx.peso_4_semanas_atras_kg);
+    const p1 = Number(ctx.peso_atual_kg);
+    if (p0 && p1 && Math.abs(p0 - p1) < 0.6 && (ctx.total_treinos_registrados || 0) >= 6) return 'plateau';
+
+    if (hoje === 1) return 'weekly_plan';
+    if (hoje === 0) return 'weekly_review';
+    return null;
+}
+
+async function generateInsight(kind, ctx) {
+    const spec = INSIGHT_SPECS[kind];
+    if (!spec) return null;
+
+    const brief = formatCoachContext(ctx);
+    const prompt = `${COACH_PERSONA}
+
+DOSSIÊ DA PESSOA (dados reais do app, use-os na resposta):
+${brief}
+
+TAREFA:
+${spec.ask(ctx)}
+
+Escreva apenas o texto da mensagem, sem título e sem saudação formal. Máximo 90 palavras.`;
+
+    const body = await callAI(prompt);
+
+    const { data } = await sb.from('ai_insights').insert({
+        user_id: state.session.user.id,
+        kind,
+        title: spec.title,
+        body: body.trim(),
+        cta_label: spec.cta,
+        cta_action: kind === 'nudge' ? 'register' : kind === 'celebration' || kind === 'weekly_review' ? 'progress' : 'chat',
+    }).select().single();
+
+    return data;
+}
+
+function insightCardHTML(ins) {
+    const emo = { weekly_plan:'🗓️', celebration:'🎉', nudge:'👋', plateau:'📊', weekly_review:'📋', tip:'💡' }[ins.kind] || '💡';
+    return `<div class="coach-card" data-insight-id="${ins.id}">
+        <div class="coach-card-head">
+            <span class="coach-avatar">${emo}</span>
+            <div class="coach-card-meta">
+                <div class="coach-name">Coach Pulso</div>
+                <div class="coach-sub">${escapeHTML(ins.title)}</div>
+            </div>
+            <button class="coach-dismiss" data-act="dismiss-insight" data-id="${ins.id}" aria-label="Dispensar">×</button>
+        </div>
+        <p class="coach-body">${escapeHTML(ins.body)}</p>
+        ${ins.cta_label ? `<button class="coach-cta" data-act="insight-cta" data-target="${ins.cta_action}">${escapeHTML(ins.cta_label)}</button>` : ''}
+    </div>`;
+}
+
+// Roda depois do feed aparecer, sem travar a tela
+async function hydrateCoachCard() {
+    const slot = document.getElementById('coachSlot');
+    if (!slot) return;
+
+    try {
+        let ins = await loadActiveInsight();
+
+        if (!ins) {
+            const ctx = await getCoachContext(true);
+            const kind = decideInsightKind(ctx);
+            if (!kind) return;
+
+            // Não gera o mesmo tipo duas vezes no mesmo dia
+            const hoje = new Date(); hoje.setHours(0,0,0,0);
+            const { count } = await sb.from('ai_insights')
+                .select('*', { count:'exact', head:true })
+                .eq('user_id', state.session.user.id)
+                .eq('kind', kind)
+                .gte('created_at', hoje.toISOString());
+            if (count && count > 0) return;
+
+            slot.innerHTML = `<div class="coach-card loading">
+                <div class="coach-card-head">
+                    <span class="coach-avatar">🤖</span>
+                    <div class="coach-card-meta"><div class="coach-name">Coach Pulso</div>
+                    <div class="coach-sub">analisando sua semana...</div></div>
+                </div>
+                <div class="coach-skeleton"></div>
+            </div>`;
+
+            ins = await generateInsight(kind, ctx);
+        }
+
+        slot.innerHTML = ins ? insightCardHTML(ins) : '';
+    } catch (err) {
+        console.error('coach card', err);
+        slot.innerHTML = '';
+    }
+}
+
+// ============================================================
 // VIEWS
 // ============================================================
 async function renderFeed() {
@@ -1319,7 +1627,7 @@ async function renderFeed() {
     const postsPromise = sb
         .from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility,
+            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis,
             user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -1410,6 +1718,7 @@ async function renderFeed() {
         </div>
     </div>`;
 
+    html += `<div id="coachSlot"></div>`;
     html += storiesHTML;
 
     // Sugestões de seguir (só aparece se você não segue ninguém ainda ou poucas pessoas)
@@ -1435,6 +1744,9 @@ async function renderFeed() {
     }
     html += '</div>';
     c.innerHTML = html;
+
+    // Coach aparece depois, sem travar o feed
+    hydrateCoachCard();
 }
 
 function renderPost(p) {
@@ -1452,7 +1764,13 @@ function renderPost(p) {
         badge = `<div class="post-badge"><span class="emo">💪</span>${escapeHTML(p.activity_type||'Treino')} · <b>${p.duration_min||0} min</b></div>`;
     } else if (p.kind === 'meal') {
         const slotName = {cafe:'Café da manhã',almoco:'Almoço',jantar:'Jantar',lanche:'Lanche'}[p.meal_slot] || 'Refeição';
-        badge = `<div class="post-badge"><span class="emo">🍽️</span>${slotName}</div>`;
+        const scoreTag = p.meal_score != null
+            ? ` · <b style="color:${p.meal_score >= 8 ? 'var(--vital)' : p.meal_score >= 5 ? 'var(--gold)' : 'var(--effort)'}">${Number(p.meal_score).toFixed(1)}/10</b>`
+            : '';
+        badge = `<div class="post-badge"><span class="emo">🍽️</span>${slotName}${scoreTag}</div>`;
+        if (p.meal_analysis) {
+            body += `<div class="post-ai-note"><span class="pan-emo">🤖</span>${escapeHTML(p.meal_analysis)}</div>`;
+        }
     } else if (p.kind === 'weight') {
         badge = `<div class="post-badge"><span class="emo">⚖️</span>Pesagem · <b>${p.weight_kg} kg</b></div>`;
     }
@@ -1779,9 +2097,9 @@ async function renderProfile() {
             </div>
             <div class="profile-shortcuts">
                 <button class="shortcut-btn" data-act="quick-post" data-kind="weight"><span class="emo">⚖️</span><span>Pesar</span></button>
-                <button class="shortcut-btn" data-act="quick-post" data-kind="workout"><span class="emo">💪</span><span>Treino</span></button>
                 <button class="shortcut-btn" data-act="go-health"><span class="emo">❤️</span><span>Saúde</span></button>
                 <button class="shortcut-btn" data-act="go-activity-log"><span class="emo">📊</span><span>Histórico</span></button>
+                <button class="shortcut-btn" data-act="go-challenges"><span class="emo">🏆</span><span>Desafios</span></button>
             </div>
             <div class="stat-grid" style="margin-top:14px">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
@@ -1808,6 +2126,133 @@ async function renderProfile() {
     }));
     $('[data-act="go-activity-log"]').addEventListener('click', () => switchView('activity-log'));
     $('[data-act="go-health"]').addEventListener('click', () => switchView('health'));
+    $('[data-act="go-challenges"]').addEventListener('click', () => switchView('challenges'));
+}
+
+// ============================================================
+// CHAT COM O COACH
+// ============================================================
+const COACH_SUGGESTIONS = [
+    'Como está minha evolução?',
+    'Por que meu peso não muda?',
+    'Monta um treino pra hoje',
+    'O que comer depois do treino?',
+    'Tô sem motivação, me ajuda',
+];
+
+async function renderCoach() {
+    const c = $('#viewContainer');
+    c.innerHTML = `
+        <div class="view coach-view">
+            <div class="coach-hero">
+                <span class="coach-hero-avatar">🤖</span>
+                <div>
+                    <h1 class="coach-hero-title">Coach Pulso</h1>
+                    <p class="coach-hero-sub">Conhece seus treinos, seu peso e sua rotina.</p>
+                </div>
+            </div>
+            <div id="coachChat" class="coach-chat"><div class="spinner"></div></div>
+            <div id="coachSuggestions" class="coach-suggestions"></div>
+            <div class="coach-composer">
+                <textarea id="coachInput" placeholder="Pergunta o que quiser..." maxlength="500" rows="1"></textarea>
+                <button class="coach-send" id="coachSend" aria-label="Enviar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                </button>
+            </div>
+        </div>
+    `;
+
+    const { data: msgs } = await sb.from('ai_messages')
+        .select('*')
+        .eq('user_id', state.session.user.id)
+        .order('created_at', { ascending: true })
+        .limit(60);
+
+    state.coachHistory = msgs || [];
+    paintCoachChat();
+
+    const input = $('#coachInput');
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(120, input.scrollHeight) + 'px';
+    });
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendCoachMessage(); }
+    });
+    $('#coachSend').addEventListener('click', sendCoachMessage);
+}
+
+function paintCoachChat() {
+    const chat = $('#coachChat');
+    if (!chat) return;
+
+    if (state.coachHistory.length === 0) {
+        chat.innerHTML = `<div class="coach-empty">
+            <span class="ce-emo">👋</span>
+            <p>Oi! Eu acompanho seus treinos, seu peso e suas medidas aqui no app.</p>
+            <p class="ce-hint">Pergunta o que quiser, eu respondo olhando os seus números de verdade.</p>
+        </div>`;
+    } else {
+        chat.innerHTML = state.coachHistory.map(m => `
+            <div class="cmsg ${m.role}">
+                ${m.role === 'coach' ? '<span class="cmsg-avatar">🤖</span>' : ''}
+                <div class="cmsg-bubble">${escapeHTML(m.body).replace(/\n/g, '<br>')}</div>
+            </div>
+        `).join('');
+    }
+
+    // Sugestões só quando a conversa está curta
+    const sug = $('#coachSuggestions');
+    if (sug) {
+        sug.innerHTML = state.coachHistory.length < 2
+            ? COACH_SUGGESTIONS.map(s => `<button class="sug-chip" data-act="coach-suggest" data-q="${escapeHTML(s)}">${escapeHTML(s)}</button>`).join('')
+            : '';
+    }
+
+    chat.scrollTop = chat.scrollHeight;
+}
+
+async function sendCoachMessage(forced) {
+    const input = $('#coachInput');
+    const text = (forced || input.value).trim();
+    if (!text) return;
+
+    const btn = $('#coachSend');
+    btn.disabled = true;
+    if (!forced) { input.value = ''; input.style.height = 'auto'; }
+
+    // Mostra a mensagem da pessoa na hora
+    state.coachHistory.push({ role:'user', body:text });
+    paintCoachChat();
+
+    // Bolha de "digitando"
+    const chat = $('#coachChat');
+    const typing = document.createElement('div');
+    typing.className = 'cmsg coach';
+    typing.innerHTML = '<span class="cmsg-avatar">🤖</span><div class="cmsg-bubble typing"><span></span><span></span><span></span></div>';
+    chat.appendChild(typing);
+    chat.scrollTop = chat.scrollHeight;
+
+    try {
+        const reply = await askCoach(text, state.coachHistory);
+        typing.remove();
+
+        state.coachHistory.push({ role:'coach', body:reply });
+        paintCoachChat();
+
+        // Persiste as duas mensagens
+        await sb.from('ai_messages').insert([
+            { user_id: state.session.user.id, role:'user', body:text },
+            { user_id: state.session.user.id, role:'coach', body:reply },
+        ]);
+    } catch (err) {
+        typing.remove();
+        console.error(err);
+        state.coachHistory.push({ role:'coach', body:'Não consegui responder agora. Tenta de novo daqui a pouco.' });
+        paintCoachChat();
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 // ============================================================
@@ -2231,6 +2676,36 @@ function closeMeasureSheet() {
     document.body.style.overflow = '';
 }
 
+// Resultado da análise do prato pela IA
+function showMealResult(an, pts) {
+    const cor = an.score >= 8 ? 'var(--vital)' : an.score >= 5 ? 'var(--gold)' : 'var(--effort)';
+    let overlay = document.getElementById('mealResult');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.id = 'mealResult';
+    overlay.className = 'sheet on';
+    overlay.innerHTML = `
+        <div class="sheet-card meal-result-card">
+            <div class="sheet-handle"></div>
+            <div class="mr-score-ring" style="--c:${cor}; --pct:${Number(an.score) * 10}">
+                <span class="mr-score" style="color:${cor}">${Number(an.score).toFixed(1)}</span>
+                <span class="mr-max">/10</span>
+            </div>
+            <p class="mr-analysis">${escapeHTML(an.analysis || '')}</p>
+            ${an.items && an.items.length ? `<div class="mr-items">${an.items.map(i => `<span class="mr-item">${escapeHTML(i)}</span>`).join('')}</div>` : ''}
+            <div class="mr-points">+${pts} pontos</div>
+            <button class="btn-primary" id="mealResultClose">Fechar</button>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+
+    const close = () => { overlay.remove(); document.body.style.overflow = ''; };
+    overlay.onclick = e => { if (e.target === overlay) close(); };
+    document.getElementById('mealResultClose').onclick = close;
+}
+
 // ============================================================
 // HISTÓRICO DE ATIVIDADES
 // ============================================================
@@ -2564,6 +3039,7 @@ async function switchView(v, params = {}) {
     else if (v === 'edit-profile') await renderEditProfile();
     else if (v === 'activity-log') await renderActivityLog();
     else if (v === 'health') await renderHealth();
+    else if (v === 'coach') await renderCoach();
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -2639,6 +3115,21 @@ document.addEventListener('click', async e => {
         openMeasureSheet();
     } else if (act === 'open-family') {
         openFamilySheet();
+    } else if (act === 'dismiss-insight') {
+        const card = btn.closest('.coach-card');
+        if (card) card.style.display = 'none';
+        await sb.from('ai_insights').update({ dismissed: true }).eq('id', btn.dataset.id);
+    } else if (act === 'insight-cta') {
+        const target = btn.dataset.target;
+        if (target === 'chat') switchView('coach');
+        else if (target === 'progress') switchView('progress');
+        else if (target === 'register') {
+            $('#composerSheet').classList.add('on');
+            document.body.style.overflow = 'hidden';
+            document.querySelector('.kind-btn[data-kind="workout"]').click();
+        }
+    } else if (act === 'coach-suggest') {
+        sendCoachMessage(btn.dataset.q);
     } else if (act === 'delete-measurement') {
         if (!confirm('Apagar esta medição?')) return;
         await sb.from('body_measurements').delete().eq('id', btn.dataset.id);
@@ -3052,6 +3543,7 @@ $('#composerSubmit').addEventListener('click', async () => {
             is_public: state.composerPrivacy === 'public',
         };
         let ptsToCredit = 0, ptsReason = '';
+        let mealFeedback = null;
         const today = new Date().toISOString().split('T')[0];
 
         if (state.composerKind === 'workout') {
@@ -3063,10 +3555,28 @@ $('#composerSubmit').addEventListener('click', async () => {
             post.meal_slot = $('#mSlot').value;
             const mealsToday = await countTodayByReason('meal_photo') + await countTodayByReason('meal_text');
             if (mealsToday >= 3) {
-                toast('Limite de 3 refeições/dia atingido', 'err');
+                toast('Limite de 3 refeições com pontos por dia', 'err');
+            } else if (imageUrl) {
+                // IA analisa o prato e a nota vira ponto
+                btn.textContent = 'Analisando o prato...';
+                try {
+                    const { data: an, error: anErr } = await sb.functions.invoke('analyze-meal', {
+                        body: { imageUrl }
+                    });
+                    if (anErr || !an || typeof an.score !== 'number') throw (anErr || new Error('sem nota'));
+                    post.meal_score = an.score;
+                    post.meal_analysis = an.analysis || null;
+                    ptsToCredit = Math.round(an.score * 10) / 10;
+                    ptsReason = 'meal_photo';
+                    mealFeedback = an;
+                } catch (e) {
+                    console.warn('analyze-meal indisponível, usando pontuação padrão', e);
+                    ptsToCredit = 5;
+                    ptsReason = 'meal_photo';
+                }
             } else {
-                ptsToCredit = imageUrl ? 5 : 2;
-                ptsReason = imageUrl ? 'meal_photo' : 'meal_text';
+                ptsToCredit = 2;
+                ptsReason = 'meal_text';
             }
         } else if (state.composerKind === 'weight') {
             const kg = parseFloat($('#wKg').value);
@@ -3109,7 +3619,12 @@ $('#composerSubmit').addEventListener('click', async () => {
         let msg = `+${ptsToCredit} pontos!`;
         if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus streak 🔥`;
         if (weeklyBonus > 0) msg += ` · +${weeklyBonus} semana válida ✅`;
-        toast(msg, 'ok');
+
+        if (mealFeedback) {
+            showMealResult(mealFeedback, ptsToCredit);
+        } else {
+            toast(msg, 'ok');
+        }
 
         if (state.view === 'feed') await renderFeed();
 
