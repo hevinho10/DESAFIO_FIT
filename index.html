@@ -294,6 +294,7 @@ select:-webkit-autofill{
 .post-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink); padding:10px 14px; border-radius:8px; font-size:13.5px; cursor:pointer; }
 .post-menu-item:hover{ background:var(--bg-elev); }
 .post-menu-item.danger{ color:#FF9E8F; }
+.post-menu-item.active-vis{ color:var(--vital); }
 
 /* ============ COMENTÁRIOS ============ */
 .comments-list{ max-height:50vh; overflow-y:auto; padding-right:4px; margin-bottom:14px; }
@@ -1786,12 +1787,12 @@ function renderPost(p) {
         : '';
 
     return `
-        <article class="post" data-post-id="${p.id}">
+        <article class="post" data-post-id="${p.id}" data-visibility="${p.visibility || 'public'}">
             <div class="post-head">
                 <span data-act="view-user" data-uid="${p.user_id}" class="post-head-link">${avatarHTML(user, 'sm')}</span>
                 <div class="post-meta" data-act="view-user" data-uid="${p.user_id}">
                     <div class="post-name">${escapeHTML(user.display_name)}</div>
-                    <div class="post-time">@${escapeHTML(user.username)} · ${timeAgo(p.created_at)} ${privacyBadge}</div>
+                    <div class="post-time">@${escapeHTML(user.username)} · ${timeAgo(p.created_at)} <span class="post-privacy-badge" data-privacy-badge>${privacyIcon} ${privacyLabel}</span></div>
                 </div>
                 ${menuBtn}
             </div>
@@ -3114,6 +3115,28 @@ document.addEventListener('click', async e => {
         switchView('profile');
     } else if (act === 'open-measure') {
         openMeasureSheet();
+    } else if (act === 'open-privacy-edit') {
+        showPrivacyEditMenu(btn.dataset.id, btn);
+    } else if (act === 'set-post-privacy') {
+        const postId = btn.dataset.id;
+        const newVis = btn.dataset.vis;
+        const { error } = await sb.from('posts').update({
+            visibility: newVis,
+            is_public: newVis === 'public',
+        }).eq('id', postId);
+        if (error) { toast('Erro ao mudar privacidade', 'err'); return; }
+
+        const meta = { public:{emo:'🌍',label:'Público'}, followers:{emo:'👥',label:'Seguidores'}, private:{emo:'🔒',label:'Só eu'} }[newVis];
+        const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
+        if (postEl) {
+            postEl.dataset.visibility = newVis;
+            const badge = postEl.querySelector('[data-privacy-badge]');
+            if (badge) badge.textContent = `${meta.emo} ${meta.label}`;
+        }
+        toast('Privacidade atualizada', 'ok');
+        hidePostMenu();
+        const pm = document.getElementById('floatingPrivacyMenu');
+        if (pm) pm.remove();
     } else if (act === 'open-family') {
         openFamilySheet();
     } else if (act === 'dismiss-insight') {
@@ -3156,10 +3179,16 @@ document.addEventListener('click', async e => {
 // ============================================================
 function showPostMenu(postId, anchor) {
     hidePostMenu();
+    const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
+    const currentVis = postEl?.dataset.visibility || 'public';
+
     const menu = document.createElement('div');
     menu.id = 'floatingPostMenu';
     menu.className = 'post-menu';
-    menu.innerHTML = `<button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">🗑️ Apagar post</button>`;
+    menu.innerHTML = `
+        <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">👁️ Quem pode ver</button>
+        <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">🗑️ Apagar post</button>
+    `;
     const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
     menu.style.right = (window.innerWidth - rect.right) + 'px';
@@ -3173,7 +3202,36 @@ function hidePostMenu() {
     if (m) m.remove();
 }
 function hidePostMenuOnce(e) {
-    if (!e.target.closest('#floatingPostMenu')) hidePostMenu();
+    if (!e.target.closest('#floatingPostMenu') && !e.target.closest('#floatingPrivacyMenu')) hidePostMenu();
+}
+
+// Submenu de trocar privacidade de um post já publicado
+function showPrivacyEditMenu(postId, anchor) {
+    const old = document.getElementById('floatingPrivacyMenu');
+    if (old) old.remove();
+    const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
+    const currentVis = postEl?.dataset.visibility || 'public';
+
+    const menu = document.createElement('div');
+    menu.id = 'floatingPrivacyMenu';
+    menu.className = 'post-menu';
+    const opts = [
+        { v:'public', emo:'🌍', label:'Público' },
+        { v:'followers', emo:'👥', label:'Seguidores' },
+        { v:'private', emo:'🔒', label:'Só eu' },
+    ];
+    menu.innerHTML = opts.map(o => `
+        <button class="post-menu-item${o.v===currentVis?' active-vis':''}" data-act="set-post-privacy" data-id="${postId}" data-vis="${o.v}">
+            ${o.emo} ${o.label}${o.v===currentVis?' ✓':''}
+        </button>
+    `).join('');
+    const rect = anchor.getBoundingClientRect();
+    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    document.body.appendChild(menu);
+    setTimeout(() => {
+        document.addEventListener('click', hidePostMenuOnce, { once: true });
+    }, 10);
 }
 
 // ============================================================
@@ -3554,6 +3612,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         };
         let ptsToCredit = 0, ptsReason = '';
         let mealFeedback = null;
+        let mealAnalysisFailed = false;
         const today = new Date().toISOString().split('T')[0];
 
         if (state.composerKind === 'workout') {
@@ -3583,6 +3642,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                     console.warn('analyze-meal indisponível, usando pontuação padrão', e);
                     ptsToCredit = 5;
                     ptsReason = 'meal_photo';
+                    mealAnalysisFailed = true;
                 }
             } else {
                 ptsToCredit = 2;
@@ -3632,6 +3692,8 @@ $('#composerSubmit').addEventListener('click', async () => {
 
         if (mealFeedback) {
             showMealResult(mealFeedback, ptsToCredit);
+        } else if (mealAnalysisFailed) {
+            toast(`Não consegui analisar o prato agora (+${ptsToCredit} pts padrão). Pode tentar de novo em instantes.`, 'err');
         } else {
             toast(msg, 'ok');
         }
