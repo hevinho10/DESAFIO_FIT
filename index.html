@@ -338,7 +338,7 @@ select:-webkit-autofill{
 .stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
 
 /* ============ ATALHOS DO PERFIL ============ */
-.profile-shortcuts{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px; }
+.profile-shortcuts{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
 .shortcut-btn{ background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:12px 8px; display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--ink); font-size:11.5px; font-weight:500; cursor:pointer; transition:border-color .12s; }
 .shortcut-btn:hover{ border-color:var(--vital); }
 .shortcut-btn .emo{ font-size:20px; }
@@ -362,6 +362,47 @@ select:-webkit-autofill{
 .log-del{ background:none; border:none; color:var(--ink-faint); font-size:14px; cursor:pointer; padding:2px 4px; margin-top:2px; }
 .log-del:hover{ color:var(--danger); }
 .log-empty{ text-align:center; padding:40px 20px; color:var(--ink-dim); font-size:13px; }
+
+/* ============ FICHA DE SAÚDE ============ */
+.health-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-lg); padding:18px; margin-bottom:14px; }
+.health-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.hc-title{ font-family:var(--ff-display); font-size:14px; font-weight:600; color:var(--ink); }
+.hc-date{ font-size:11px; color:var(--ink-faint); }
+.btn-mini{ background:var(--vital-dim); color:var(--vital); border:1px solid rgba(53,225,155,.35); padding:6px 12px; border-radius:16px; font-size:12px; font-weight:600; cursor:pointer; }
+.btn-mini:hover{ background:var(--vital); color:#08110C; }
+
+.imc-card{ background:radial-gradient(120% 90% at 50% 0%, rgba(53,225,155,.07), transparent 60%), var(--bg-card); }
+.imc-display{ text-align:center; margin-bottom:16px; }
+.imc-num{ font-family:var(--ff-display); font-size:54px; font-weight:700; line-height:1; letter-spacing:-.03em; display:block; }
+.imc-class{ font-size:13.5px; font-weight:600; margin-top:6px; display:block; }
+.imc-scale{ display:flex; height:8px; border-radius:4px; overflow:hidden; position:relative; margin-bottom:6px; }
+.imc-seg{ flex:1; }
+.imc-marker{ position:absolute; top:-4px; width:4px; height:16px; background:#fff; border-radius:2px; box-shadow:0 0 6px rgba(0,0,0,.6); transform:translateX(-50%); }
+.imc-legend{ display:flex; justify-content:space-between; font-size:10px; color:var(--ink-faint); margin-bottom:14px; }
+.health-meta{ display:flex; gap:20px; justify-content:center; padding-top:14px; border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-dim); }
+.health-meta b{ color:var(--ink); font-family:var(--ff-display); font-weight:600; }
+
+.rcq-display{ display:flex; align-items:baseline; gap:12px; }
+.rcq-num{ font-family:var(--ff-display); font-size:34px; font-weight:700; color:var(--vital); line-height:1; }
+.rcq-hint{ font-size:13px; color:var(--ink-dim); }
+
+.measures-grid{ display:flex; flex-direction:column; gap:1px; }
+.m-row{ display:flex; align-items:center; gap:10px; padding:11px 2px; border-bottom:1px solid var(--line); }
+.m-row:last-child{ border-bottom:none; }
+.m-label{ flex:1; font-size:13.5px; color:var(--ink-dim); }
+.m-value{ font-family:var(--ff-display); font-size:15px; font-weight:600; color:var(--ink); }
+.m-delta{ font-size:11.5px; font-weight:600; min-width:52px; text-align:right; }
+.m-delta.down{ color:var(--vital); }
+.m-delta.up{ color:var(--effort); }
+.m-delta.same{ color:var(--ink-faint); }
+
+.hist-list{ display:flex; flex-direction:column; }
+.hist-row{ display:flex; align-items:center; gap:10px; padding:10px 2px; border-bottom:1px solid var(--line); }
+.hist-row:last-child{ border-bottom:none; }
+.hist-date{ font-family:var(--ff-display); font-size:12.5px; font-weight:600; color:var(--ink); min-width:88px; }
+.hist-detail{ flex:1; font-size:12px; color:var(--ink-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hist-del{ background:none; border:none; color:var(--ink-faint); font-size:13px; cursor:pointer; padding:2px 4px; flex-shrink:0; }
+.hist-del:hover{ color:var(--danger); }
 
 /* ============ CARD PULSO DA SEMANA ============ */.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
 .weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
@@ -1548,6 +1589,7 @@ async function renderProfile() {
             <div class="profile-shortcuts">
                 <button class="shortcut-btn" data-act="quick-post" data-kind="weight"><span class="emo">⚖️</span><span>Pesar</span></button>
                 <button class="shortcut-btn" data-act="quick-post" data-kind="workout"><span class="emo">💪</span><span>Treino</span></button>
+                <button class="shortcut-btn" data-act="go-health"><span class="emo">❤️</span><span>Saúde</span></button>
                 <button class="shortcut-btn" data-act="go-activity-log"><span class="emo">📊</span><span>Histórico</span></button>
             </div>
             <div class="stat-grid" style="margin-top:14px">
@@ -1574,6 +1616,268 @@ async function renderProfile() {
         document.querySelector(`.kind-btn[data-kind="${kind}"]`).click();
     }));
     $('[data-act="go-activity-log"]').addEventListener('click', () => switchView('activity-log'));
+    $('[data-act="go-health"]').addEventListener('click', () => switchView('health'));
+}
+
+// ============================================================
+// FICHA DE SAÚDE
+// ============================================================
+async function renderHealth() {
+    const c = $('#viewContainer');
+    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+
+    const [{ data: hs }, { data: measurements }, { data: goalData }] = await Promise.all([
+        sb.rpc('health_summary', { uid: state.session.user.id }),
+        sb.from('body_measurements').select('*').eq('user_id', state.session.user.id)
+            .order('measured_at', { ascending: false }).limit(20),
+        sb.rpc('weight_progress', { uid: state.session.user.id }),
+    ]);
+
+    const h = hs?.[0] || {};
+    const goal = goalData?.[0] || {};
+    const last = measurements?.[0];
+    const prev = measurements?.[1];
+
+    // Cor do IMC
+    const imcColor = !h.imc ? 'var(--ink-dim)'
+        : h.imc < 18.5 ? 'var(--info)'
+        : h.imc < 25 ? 'var(--vital)'
+        : h.imc < 30 ? 'var(--gold)'
+        : 'var(--effort)';
+
+    // Delta de medidas
+    function delta(field) {
+        if (!last || !prev || last[field] == null || prev[field] == null) return '';
+        const d = Number(last[field]) - Number(prev[field]);
+        if (Math.abs(d) < 0.05) return '<span class="m-delta same">—</span>';
+        const cls = d < 0 ? 'down' : 'up';
+        return `<span class="m-delta ${cls}">${d < 0 ? '▼' : '▲'} ${Math.abs(d).toFixed(1)}</span>`;
+    }
+    function mRow(label, field, unit = 'cm') {
+        const v = last?.[field];
+        return `<div class="m-row">
+            <span class="m-label">${label}</span>
+            <span class="m-value">${v != null ? Number(v).toFixed(1) + ' ' + unit : '—'}</span>
+            ${delta(field)}
+        </div>`;
+    }
+
+    const histHTML = (measurements || []).length > 1
+        ? measurements.slice(0, 10).map(m => {
+            const d = new Date(m.measured_at + 'T12:00:00').toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' });
+            const parts = [];
+            if (m.cintura) parts.push(`cintura ${m.cintura}`);
+            if (m.quadril) parts.push(`quadril ${m.quadril}`);
+            if (m.braco) parts.push(`braço ${m.braco}`);
+            if (m.coxa) parts.push(`coxa ${m.coxa}`);
+            return `<div class="hist-row">
+                <span class="hist-date">${d}</span>
+                <span class="hist-detail">${parts.join(' · ') || 'sem dados'}</span>
+                <button class="hist-del" data-act="delete-measurement" data-id="${m.id}">🗑</button>
+            </div>`;
+        }).join('')
+        : '<div class="log-empty" style="padding:24px">Registre suas medidas para acompanhar a evolução.</div>';
+
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back-profile">←</button>
+                <div class="topbar-title">Ficha de Saúde</div>
+                <div style="width:28px"></div>
+            </div>
+
+            <!-- IMC -->
+            <div class="health-card imc-card">
+                <div class="health-card-head"><span class="hc-title">IMC</span>
+                    ${h.ultima_medida_em ? `<span class="hc-date">Medido em ${new Date(h.ultima_medida_em + 'T12:00:00').toLocaleDateString('pt-BR')}</span>` : ''}
+                </div>
+                <div class="imc-display">
+                    <span class="imc-num" style="color:${imcColor}">${h.imc ? Number(h.imc).toFixed(1) : '—'}</span>
+                    <span class="imc-class" style="color:${imcColor}">${h.imc_classe || 'Preencha altura e peso'}</span>
+                </div>
+                <div class="imc-scale">
+                    <div class="imc-seg" style="background:var(--info)" title="Abaixo"></div>
+                    <div class="imc-seg" style="background:var(--vital)" title="Normal"></div>
+                    <div class="imc-seg" style="background:var(--gold)" title="Sobrepeso"></div>
+                    <div class="imc-seg" style="background:var(--effort)" title="Obesidade"></div>
+                    ${h.imc ? `<div class="imc-marker" style="left:${Math.min(97, Math.max(1, ((Number(h.imc) - 15) / 25) * 100))}%"></div>` : ''}
+                </div>
+                <div class="imc-legend"><span>&lt;18,5</span><span>18,5–25</span><span>25–30</span><span>30+</span></div>
+                <div class="health-meta">
+                    <span>Altura: <b>${h.altura ? Number(h.altura).toFixed(2) + ' m' : '—'}</b></span>
+                    <span>Peso: <b>${h.peso_atual ? Number(h.peso_atual).toFixed(1) + ' kg' : '—'}</b></span>
+                </div>
+            </div>
+
+            <!-- RCQ (relação cintura-quadril) -->
+            ${h.rcq ? `<div class="health-card">
+                <div class="health-card-head"><span class="hc-title">Relação Cintura-Quadril</span></div>
+                <div class="rcq-display">
+                    <span class="rcq-num">${Number(h.rcq).toFixed(2)}</span>
+                    <span class="rcq-hint">${Number(h.rcq) < 0.85 ? 'Risco baixo' : Number(h.rcq) < 0.95 ? 'Risco moderado' : 'Risco elevado'}</span>
+                </div>
+            </div>` : ''}
+
+            <!-- Medidas atuais -->
+            <div class="health-card">
+                <div class="health-card-head">
+                    <span class="hc-title">Medidas corporais</span>
+                    <button class="btn-mini" data-act="open-measure">+ Registrar</button>
+                </div>
+                ${last ? `
+                    <div class="measures-grid">
+                        ${mRow('Cintura', 'cintura')}
+                        ${mRow('Quadril', 'quadril')}
+                        ${mRow('Peito', 'peito')}
+                        ${mRow('Braço', 'braco')}
+                        ${mRow('Coxa', 'coxa')}
+                        ${mRow('Panturrilha', 'panturrilha')}
+                        ${mRow('Gordura', 'gordura_pct', '%')}
+                    </div>
+                ` : '<div class="log-empty" style="padding:20px">Nenhuma medida registrada ainda.</div>'}
+            </div>
+
+            <!-- Histórico -->
+            <div class="health-card">
+                <div class="health-card-head"><span class="hc-title">Histórico de medidas</span></div>
+                <div class="hist-list">${histHTML}</div>
+            </div>
+        </div>
+    `;
+}
+
+// Sheet de registrar medidas
+function openMeasureSheet() {
+    let sheet = document.getElementById('measureSheet');
+    if (!sheet) {
+        sheet = document.createElement('div');
+        sheet.id = 'measureSheet';
+        sheet.className = 'sheet';
+        sheet.innerHTML = `
+            <div class="sheet-card">
+                <div class="sheet-handle"></div>
+                <h3 class="sheet-title">Registrar medidas</h3>
+                <p class="sheet-sub">Preencha só o que quiser. Todos os campos são opcionais.</p>
+
+                <div class="field">
+                    <label>Data da medição</label>
+                    <input type="date" id="msDate">
+                </div>
+
+                <div class="field-row">
+                    <div class="field"><label>Cintura (cm)</label>
+                        <div class="stepper" data-target="msCintura" data-min="40" data-max="200" data-step="0.5" data-default="85">
+                            <button type="button" class="step-btn" data-dir="-">−</button>
+                            <input type="number" id="msCintura" step="0.5" inputmode="decimal">
+                            <button type="button" class="step-btn" data-dir="+">+</button>
+                        </div>
+                    </div>
+                    <div class="field"><label>Quadril (cm)</label>
+                        <div class="stepper" data-target="msQuadril" data-min="40" data-max="200" data-step="0.5" data-default="98">
+                            <button type="button" class="step-btn" data-dir="-">−</button>
+                            <input type="number" id="msQuadril" step="0.5" inputmode="decimal">
+                            <button type="button" class="step-btn" data-dir="+">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field-row">
+                    <div class="field"><label>Peito (cm)</label>
+                        <div class="stepper" data-target="msPeito" data-min="40" data-max="200" data-step="0.5" data-default="95">
+                            <button type="button" class="step-btn" data-dir="-">−</button>
+                            <input type="number" id="msPeito" step="0.5" inputmode="decimal">
+                            <button type="button" class="step-btn" data-dir="+">+</button>
+                        </div>
+                    </div>
+                    <div class="field"><label>Braço (cm)</label>
+                        <div class="stepper" data-target="msBraco" data-min="15" data-max="80" data-step="0.5" data-default="32">
+                            <button type="button" class="step-btn" data-dir="-">−</button>
+                            <input type="number" id="msBraco" step="0.5" inputmode="decimal">
+                            <button type="button" class="step-btn" data-dir="+">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field-row">
+                    <div class="field"><label>Coxa (cm)</label>
+                        <div class="stepper" data-target="msCoxa" data-min="25" data-max="100" data-step="0.5" data-default="55">
+                            <button type="button" class="step-btn" data-dir="-">−</button>
+                            <input type="number" id="msCoxa" step="0.5" inputmode="decimal">
+                            <button type="button" class="step-btn" data-dir="+">+</button>
+                        </div>
+                    </div>
+                    <div class="field"><label>Panturrilha (cm)</label>
+                        <div class="stepper" data-target="msPantu" data-min="20" data-max="70" data-step="0.5" data-default="37">
+                            <button type="button" class="step-btn" data-dir="-">−</button>
+                            <input type="number" id="msPantu" step="0.5" inputmode="decimal">
+                            <button type="button" class="step-btn" data-dir="+">+</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>Gordura corporal (%) — opcional</label>
+                    <div class="stepper" data-target="msGordura" data-min="3" data-max="60" data-step="0.5" data-default="20">
+                        <button type="button" class="step-btn" data-dir="-">−</button>
+                        <input type="number" id="msGordura" step="0.5" inputmode="decimal">
+                        <button type="button" class="step-btn" data-dir="+">+</button>
+                    </div>
+                </div>
+
+                <div class="sheet-footer">
+                    <button class="btn-ghost" id="measureCancel">Cancelar</button>
+                    <button class="btn-primary" id="measureSave">Salvar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(sheet);
+    }
+
+    sheet.classList.add('on');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('msDate').value = new Date().toISOString().split('T')[0];
+
+    sheet.onclick = e => { if (e.target === sheet) closeMeasureSheet(); };
+    document.getElementById('measureCancel').onclick = closeMeasureSheet;
+
+    document.getElementById('measureSave').onclick = async () => {
+        const btn = document.getElementById('measureSave');
+        btn.disabled = true; btn.textContent = 'Salvando...';
+
+        const num = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
+        const row = {
+            user_id: state.session.user.id,
+            measured_at: document.getElementById('msDate').value || new Date().toISOString().split('T')[0],
+            cintura: num('msCintura'),
+            quadril: num('msQuadril'),
+            peito: num('msPeito'),
+            braco: num('msBraco'),
+            coxa: num('msCoxa'),
+            panturrilha: num('msPantu'),
+            gordura_pct: num('msGordura'),
+        };
+
+        const hasAny = ['cintura','quadril','peito','braco','coxa','panturrilha','gordura_pct'].some(k => row[k] != null);
+        if (!hasAny) {
+            toast('Preencha pelo menos uma medida', 'err');
+            btn.disabled = false; btn.textContent = 'Salvar';
+            return;
+        }
+
+        const { error } = await sb.from('body_measurements').upsert(row, { onConflict: 'user_id,measured_at' });
+        btn.disabled = false; btn.textContent = 'Salvar';
+        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+
+        closeMeasureSheet();
+        toast('Medidas registradas!', 'ok');
+        if (state.view === 'health') await renderHealth();
+    };
+}
+
+function closeMeasureSheet() {
+    const s = document.getElementById('measureSheet');
+    if (s) s.classList.remove('on');
+    document.body.style.overflow = '';
 }
 
 // ============================================================
@@ -1908,6 +2212,7 @@ async function switchView(v, params = {}) {
     else if (v === 'user-profile') await renderUserProfile(params.uid);
     else if (v === 'edit-profile') await renderEditProfile();
     else if (v === 'activity-log') await renderActivityLog();
+    else if (v === 'health') await renderHealth();
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1979,6 +2284,13 @@ document.addEventListener('click', async e => {
         switchView('feed');
     } else if (act === 'back-profile') {
         switchView('profile');
+    } else if (act === 'open-measure') {
+        openMeasureSheet();
+    } else if (act === 'delete-measurement') {
+        if (!confirm('Apagar esta medição?')) return;
+        await sb.from('body_measurements').delete().eq('id', btn.dataset.id);
+        toast('Medição apagada', 'ok');
+        await renderHealth();
     } else if (act === 'delete-post') {
         if (!confirm('Apagar este post? Essa ação não pode ser desfeita.')) return;
         const postId = btn.dataset.id;
