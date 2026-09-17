@@ -123,6 +123,10 @@ select:-webkit-autofill{
 .topbar-brand .accent{ color:var(--vital); }
 .topbar-score{ display:flex; align-items:center; gap:6px; background:var(--vital-dim); border:1px solid rgba(53,225,155,.28); padding:6px 12px; border-radius:20px; font-family:var(--ff-display); font-weight:600; font-size:13px; color:var(--vital); }
 .topbar-score .lbl{ font-size:10px; color:var(--vital); opacity:.7; font-weight:500; }
+.topbar-right{ display:flex; align-items:center; gap:10px; }
+.topbar-msg-btn{ position:relative; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink); width:36px; height:36px; border-radius:11px; display:grid; place-items:center; cursor:pointer; }
+.topbar-msg-btn svg{ width:17px; height:17px; }
+.unread-dot{ position:absolute; top:-3px; right:-3px; width:10px; height:10px; border-radius:50%; background:var(--effort); border:2px solid var(--bg); }
 
 .view{ padding:16px; max-width:600px; margin:0 auto; }
 .screen-title{ font-family:var(--ff-display); font-size:24px; font-weight:600; letter-spacing:-.02em; margin:6px 0 4px; }
@@ -255,6 +259,9 @@ select:-webkit-autofill{
 .ig-profile-actions{ display:flex; gap:8px; padding:0 4px; }
 .flex-1{ flex:1; }
 .btn-primary-sm{ background:var(--vital); color:#08110C; border:none; padding:9px 14px; border-radius:10px; font-size:13.5px; font-weight:700; }
+.hamburger-btn{ background:var(--bg-elev); border:1px solid var(--line); color:var(--ink); width:42px; height:42px; border-radius:12px; display:grid; place-items:center; flex-shrink:0; cursor:pointer; }
+.hamburger-btn svg{ width:19px; height:19px; }
+.post-menu-item.admin-item{ color:var(--gold); }
 
 .ig-tabs{ display:flex; gap:0; margin-top:20px; border-top:1px solid var(--line); }
 .ig-tab{ flex:1; background:none; border:none; color:var(--ink-dim); padding:12px; font-size:13px; font-weight:500; border-top:2px solid transparent; margin-top:-1px; cursor:pointer; }
@@ -518,6 +525,17 @@ select:-webkit-autofill{
 .admin-user-meta{ font-size:11px; color:var(--ink-dim); margin-top:1px; }
 .admin-user-score{ font-family:var(--ff-display); font-weight:700; font-size:15px; color:var(--vital); flex-shrink:0; }
 
+/* ============ MENSAGENS (DM) ============ */
+.conv-item{ display:flex; align-items:center; gap:12px; padding:12px 4px; border-bottom:1px solid var(--line); cursor:pointer; }
+.conv-item:hover{ background:var(--bg-elev); }
+.conv-info{ flex:1; min-width:0; }
+.conv-name{ font-size:14px; font-weight:600; color:var(--ink); }
+.conv-unread{ display:inline-block; background:var(--vital); color:#08110C; font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; margin-left:4px; }
+.conv-preview{ font-size:12.5px; color:var(--ink-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
+.conv-time{ font-size:11px; color:var(--ink-faint); flex-shrink:0; }
+.chat-header-user{ display:flex; align-items:center; gap:9px; }
+.chat-header-name{ font-family:var(--ff-display); font-size:14.5px; font-weight:600; color:var(--ink); }
+
 /* ============ CARD PULSO DA SEMANA ============ */.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
 .weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
 .weekly-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
@@ -740,10 +758,16 @@ select:-webkit-autofill{
 <div id="app" class="app">
     <div class="topbar">
         <div class="topbar-brand">Pulso<span class="accent">.</span></div>
-        <div class="topbar-score">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
-            <span id="topScore">0</span>
-            <span class="lbl">pts</span>
+        <div class="topbar-right">
+            <button class="topbar-msg-btn" data-act="go-messages" aria-label="Mensagens">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span id="unreadDot" class="unread-dot hidden"></span>
+            </button>
+            <div class="topbar-score">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
+                <span id="topScore">0</span>
+                <span class="lbl">pts</span>
+            </div>
         </div>
     </div>
 
@@ -768,8 +792,6 @@ select:-webkit-autofill{
         <div class="kind-picker">
             <button class="kind-btn on" data-kind="workout"><span class="emo">💪</span><span>Treino</span></button>
             <button class="kind-btn" data-kind="meal"><span class="emo">🍽️</span><span>Refeição</span></button>
-            <button class="kind-btn" data-kind="weight"><span class="emo">⚖️</span><span>Pesagem</span></button>
-            <button class="kind-btn" data-kind="text"><span class="emo">✍️</span><span>Texto</span></button>
             <button class="kind-btn" data-kind="story"><span class="emo">⚡</span><span>Story 24h</span></button>
         </div>
 
@@ -802,17 +824,6 @@ select:-webkit-autofill{
                     <option value="jantar">Jantar</option>
                     <option value="lanche">Lanche</option>
                 </select>
-            </div>
-        </div>
-
-        <div id="weightFields" class="hidden">
-            <div class="field">
-                <label>Peso (kg)</label>
-                <div class="stepper" data-target="wKg" data-min="30" data-max="250" data-step="0.1" data-default="70">
-                    <button type="button" class="step-btn" data-dir="-">−</button>
-                    <input type="number" id="wKg" step="0.1" min="30" max="250" placeholder="ex: 78.5" inputmode="decimal">
-                    <button type="button" class="step-btn" data-dir="+">+</button>
-                </div>
             </div>
         </div>
 
@@ -928,6 +939,7 @@ const state = {
     storyTimer: null,
     coachContext: null,
     coachHistory: [],
+    chatMessages: [],
 };
 
 // ============================================================
@@ -1388,6 +1400,23 @@ $('#acResendBtn').addEventListener('click', async () => {
     }
 });
 
+function showProfileMenu(anchor, isAdmin) {
+    hidePostMenu();
+    const menu = document.createElement('div');
+    menu.id = 'floatingPostMenu';
+    menu.className = 'post-menu';
+    menu.innerHTML = `
+        <button class="post-menu-item" data-act="go-challenges">🏆 Comunidade</button>
+        ${isAdmin ? '<button class="post-menu-item admin-item" data-act="go-admin">🛠️ Painel Admin</button>' : ''}
+        <button class="post-menu-item danger" data-act="do-logout">🚪 Sair</button>
+    `;
+    const rect = anchor.getBoundingClientRect();
+    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+}
+
 // ============================================================
 // PAINEL ADMIN
 // ============================================================
@@ -1451,6 +1480,149 @@ async function renderAdmin() {
             <div class="admin-user-list">${usersHTML}</div>
         </div>
     `;
+}
+
+// ============================================================
+// MENSAGENS (DM)
+// ============================================================
+async function renderMessages() {
+    const c = $('#viewContainer');
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back">←</button>
+                <div class="topbar-title">Mensagens</div>
+                <div style="width:28px"></div>
+            </div>
+            <div id="convList"><div class="spinner"></div></div>
+        </div>
+    `;
+
+    const { data: convs, error } = await sb.rpc('list_conversations');
+    const list = $('#convList');
+    if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+
+    if (!convs || convs.length === 0) {
+        list.innerHTML = `<div class="feed-empty"><span class="emo">💬</span><h3>Nenhuma conversa ainda</h3><p>Vai no perfil de alguém e toca no 💬 pra começar a falar.</p></div>`;
+        return;
+    }
+
+    list.innerHTML = convs.map(cv => {
+        const other = { id: cv.other_id, display_name: cv.other_name, username: cv.other_username, avatar_url: cv.other_avatar };
+        return `<div class="conv-item" data-act="open-chat-item" data-conv-id="${cv.conversation_id}" data-uid="${cv.other_id}" data-name="${escapeHTML(cv.other_name)}" data-username="${escapeHTML(cv.other_username)}" data-avatar="${cv.other_avatar||''}">
+            ${avatarHTML(other, 'md')}
+            <div class="conv-info">
+                <div class="conv-name">${escapeHTML(cv.other_name)}${cv.unread_count>0?` <span class="conv-unread">${cv.unread_count}</span>`:''}</div>
+                <div class="conv-preview">${escapeHTML((cv.last_message||'Diga oi 👋').slice(0,50))}</div>
+            </div>
+            <div class="conv-time">${cv.last_message_at ? timeAgo(cv.last_message_at) : ''}</div>
+        </div>`;
+    }).join('');
+
+    updateUnreadBadge();
+}
+
+async function updateUnreadBadge() {
+    const { data } = await sb.rpc('total_unread_messages');
+    const dot = $('#unreadDot');
+    if (dot) dot.classList.toggle('hidden', !(data > 0));
+}
+
+let chatChannel = null;
+
+async function renderChat(conversationId, otherUser) {
+    if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }
+
+    const c = $('#viewContainer');
+    c.innerHTML = `
+        <div class="view coach-view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back-messages">←</button>
+                <div class="chat-header-user">
+                    ${avatarHTML(otherUser, 'sm')}
+                    <span class="chat-header-name">${escapeHTML(otherUser.display_name)}</span>
+                </div>
+                <div style="width:28px"></div>
+            </div>
+            <div id="chatMessages" class="coach-chat"><div class="spinner"></div></div>
+            <div class="coach-composer">
+                <textarea id="chatInput" placeholder="Escreva uma mensagem..." maxlength="2000" rows="1"></textarea>
+                <button class="coach-send" id="chatSend" aria-label="Enviar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                </button>
+            </div>
+        </div>
+    `;
+
+    const { data: msgs, error } = await sb.from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+        .limit(100);
+
+    if (error) { $('#chatMessages').innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+
+    state.chatMessages = msgs || [];
+    paintChatMessages();
+    await sb.rpc('mark_conversation_read', { conv_id: conversationId });
+    updateUnreadBadge();
+
+    const input = $('#chatInput');
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(120, input.scrollHeight) + 'px';
+    });
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(conversationId); }
+    });
+    $('#chatSend').addEventListener('click', () => sendChatMessage(conversationId));
+
+    chatChannel = sb.channel(`chat-${conversationId}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, payload => {
+            const msg = payload.new;
+            if (state.chatMessages.some(m => m.id === msg.id)) return;
+            state.chatMessages.push(msg);
+            paintChatMessages();
+            if (msg.sender_id !== state.session.user.id) {
+                sb.rpc('mark_conversation_read', { conv_id: conversationId });
+            }
+        })
+        .subscribe();
+}
+
+function paintChatMessages() {
+    const box = $('#chatMessages');
+    if (!box) return;
+    if (state.chatMessages.length === 0) {
+        box.innerHTML = `<div class="coach-empty"><span class="ce-emo">👋</span><p>Comece a conversa!</p></div>`;
+    } else {
+        box.innerHTML = state.chatMessages.map(m => {
+            const mine = m.sender_id === state.session.user.id;
+            return `<div class="cmsg ${mine?'user':'coach'}">
+                <div class="cmsg-bubble">${escapeHTML(m.body).replace(/\n/g,'<br>')}</div>
+            </div>`;
+        }).join('');
+    }
+    box.scrollTop = box.scrollHeight;
+}
+
+async function sendChatMessage(conversationId) {
+    const input = $('#chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = ''; input.style.height = 'auto';
+
+    const { data, error } = await sb.from('messages').insert({
+        conversation_id: conversationId,
+        sender_id: state.session.user.id,
+        body: text,
+    }).select().single();
+
+    if (error) { toast('Erro ao enviar: ' + error.message, 'err'); return; }
+    if (!state.chatMessages.some(m => m.id === data.id)) {
+        state.chatMessages.push(data);
+        paintChatMessages();
+    }
 }
 
 // ============================================================
@@ -1721,6 +1893,7 @@ async function renderFeed() {
             comments (id)
         `)
         .neq('kind', 'story')  // stories vão pra barra separada
+        .neq('kind', 'weight')  // peso é sempre privado, nunca aparece em feed nem mural
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -2156,6 +2329,7 @@ async function renderProfile() {
     const { data: myPosts } = await sb.from('posts')
         .select('id, image_url, kind, caption, created_at')
         .eq('user_id', state.session.user.id)
+        .neq('kind', 'weight')
         .order('created_at', { ascending: false })
         .limit(30);
 
@@ -2212,14 +2386,15 @@ async function renderProfile() {
             </div>
             <div class="ig-profile-actions">
                 <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
-                <button class="btn-danger" id="logoutBtn">Sair</button>
+                <button class="hamburger-btn" data-act="open-profile-menu" aria-label="Menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
             </div>
             <div class="profile-shortcuts">
-                <button class="shortcut-btn" data-act="quick-post" data-kind="weight"><span class="emo">⚖️</span><span>Pesar</span></button>
+                <button class="shortcut-btn" data-act="open-weight-log"><span class="emo">⚖️</span><span>Pesar</span></button>
                 <button class="shortcut-btn" data-act="go-health"><span class="emo">❤️</span><span>Saúde</span></button>
                 <button class="shortcut-btn" data-act="go-activity-log"><span class="emo">📊</span><span>Histórico</span></button>
                 <button class="shortcut-btn" data-act="go-challenges"><span class="emo">🏆</span><span>Comunidade</span></button>
-                ${p.is_admin ? '<button class="shortcut-btn admin" data-act="go-admin"><span class="emo">🛠️</span><span>Admin</span></button>' : ''}
             </div>
             <div class="stat-grid" style="margin-top:14px">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
@@ -2231,10 +2406,9 @@ async function renderProfile() {
         </div>
     `;
 
-    $('#logoutBtn').addEventListener('click', async () => {
-        if (!confirm('Tem certeza que quer sair?')) return;
-        await sb.auth.signOut();
-        location.reload();
+    $('[data-act="open-profile-menu"]').addEventListener('click', e => {
+        e.stopPropagation();
+        showProfileMenu(e.currentTarget, p.is_admin);
     });
     $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
     $$('[data-act="quick-post"]').forEach(b => b.addEventListener('click', e => {
@@ -2244,6 +2418,8 @@ async function renderProfile() {
         // Simula clique no botão do tipo correspondente
         document.querySelector(`.kind-btn[data-kind="${kind}"]`).click();
     }));
+    const pesarBtn = $('[data-act="open-weight-log"]');
+    if (pesarBtn) pesarBtn.addEventListener('click', openWeightLogSheet);
     $('[data-act="go-activity-log"]').addEventListener('click', () => switchView('activity-log'));
     $('[data-act="go-health"]').addEventListener('click', () => switchView('health'));
     $('[data-act="go-challenges"]').addEventListener('click', () => switchView('challenges'));
@@ -2665,7 +2841,108 @@ function closeFamilySheet() {
     document.body.style.overflow = '';
 }
 
-// Sheet de registrar medidas
+// Sheet dedicado para registrar peso — sempre privado, nunca vai pro feed
+function openWeightLogSheet() {
+    let sheet = document.getElementById('weightLogSheet');
+    if (sheet) sheet.remove();
+
+    sheet = document.createElement('div');
+    sheet.id = 'weightLogSheet';
+    sheet.className = 'sheet';
+    sheet.innerHTML = `
+        <div class="sheet-card">
+            <div class="sheet-handle"></div>
+            <h3 class="sheet-title">⚖️ Registrar peso</h3>
+            <p class="sheet-sub">🔒 Só você vê isso. Nunca aparece no feed nem no seu mural.</p>
+
+            <div class="field">
+                <label>Peso (kg)</label>
+                <div class="stepper" data-target="wlKg" data-min="30" data-max="250" data-step="0.1" data-default="70">
+                    <button type="button" class="step-btn" data-dir="-">−</button>
+                    <input type="number" id="wlKg" step="0.1" min="30" max="250" placeholder="ex: 78.5" inputmode="decimal">
+                    <button type="button" class="step-btn" data-dir="+">+</button>
+                </div>
+            </div>
+
+            <div class="file-drop">
+                <label>📷 Foto da balança <span style="color:var(--ink-faint);font-size:11px;display:block;margin-top:2px">(opcional, só pra seu controle)</span></label>
+                <div class="photo-btn-row">
+                    <label class="photo-btn-choice">
+                        <span class="emo">📸</span><span>Câmera</span>
+                        <input type="file" id="wlPhotoCam" accept="image/*" capture="environment" style="display:none">
+                    </label>
+                    <label class="photo-btn-choice">
+                        <span class="emo">🖼️</span><span>Galeria</span>
+                        <input type="file" id="wlPhotoGal" accept="image/*" style="display:none">
+                    </label>
+                </div>
+                <img id="wlPhotoPreview" class="file-preview">
+            </div>
+
+            <div class="sheet-footer">
+                <button class="btn-ghost" id="weightLogCancel">Cancelar</button>
+                <button class="btn-primary" id="weightLogSave">Salvar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(sheet);
+    sheet.classList.add('on');
+    document.body.style.overflow = 'hidden';
+
+    let photoFile = null;
+    function handlePick(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        photoFile = file;
+        document.getElementById('wlPhotoPreview').src = URL.createObjectURL(file);
+        document.getElementById('wlPhotoPreview').classList.add('on');
+    }
+    document.getElementById('wlPhotoCam').addEventListener('change', handlePick);
+    document.getElementById('wlPhotoGal').addEventListener('change', handlePick);
+
+    const close = () => { sheet.classList.remove('on'); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+    document.getElementById('weightLogCancel').onclick = close;
+
+    document.getElementById('weightLogSave').onclick = async () => {
+        const btn = document.getElementById('weightLogSave');
+        const kg = parseFloat(document.getElementById('wlKg').value);
+        if (!kg || kg < 30 || kg > 250) { toast('Informe um peso válido', 'err'); return; }
+
+        btn.disabled = true; btn.textContent = 'Salvando...';
+        try {
+            let imageUrl = null;
+            if (photoFile) {
+                const ext = photoFile.name.split('.').pop();
+                const path = `${state.session.user.id}/${Date.now()}.${ext}`;
+                const { error: upErr } = await sb.storage.from('post-images').upload(path, photoFile);
+                if (!upErr) imageUrl = sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
+            }
+
+            const { data: created, error } = await sb.from('posts').insert({
+                user_id: state.session.user.id,
+                kind: 'weight',
+                weight_kg: kg,
+                image_url: imageUrl,
+                visibility: 'private',
+                is_public: false,
+            }).select().single();
+            if (error) throw error;
+
+            await creditPoints(3, 'weight_check', created.id);
+            await loadScore();
+
+            close();
+            toast('+3 pontos! Peso registrado', 'ok');
+            if (state.view === 'health') await renderHealth();
+            if (state.view === 'progress') await renderProgress();
+        } catch (err) {
+            toast('Erro: ' + err.message, 'err');
+        } finally {
+            btn.disabled = false; btn.textContent = 'Salvar';
+        }
+    };
+}
 function openMeasureSheet() {
     let sheet = document.getElementById('measureSheet');
     if (!sheet) {
@@ -2943,7 +3220,7 @@ async function renderUserProfile(uid) {
         sb.rpc('am_i_following', { target_id: uid }),
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
         sb.from('posts').select('id, image_url, kind, caption, created_at')
-            .eq('user_id', uid).order('created_at', { ascending: false }).limit(30),
+            .eq('user_id', uid).neq('kind', 'weight').order('created_at', { ascending: false }).limit(30),
     ]);
     const iFollow = !!iFollowRes.data;
     const streak = streakRes.data;
@@ -2980,6 +3257,7 @@ async function renderUserProfile(uid) {
                 <button class="${iFollow?'btn-secondary':'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${iFollow?'1':'0'}">
                     ${iFollow ? 'Seguindo' : 'Seguir'}
                 </button>
+                <button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>
             </div>
             ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}🔥</div><div class="lbl">Streak atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor streak</div></div></div>` : ''}
             <div class="ig-tabs"><button class="ig-tab on">▦ Posts</button></div>
@@ -3166,6 +3444,8 @@ async function switchView(v, params = {}) {
     else if (v === 'health') await renderHealth();
     else if (v === 'coach') await renderCoach();
     else if (v === 'admin') await renderAdmin();
+    else if (v === 'messages') await renderMessages();
+    else if (v === 'chat') await renderChat(params.conversationId, params.otherUser);
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -3239,6 +3519,36 @@ document.addEventListener('click', async e => {
         switchView('profile');
     } else if (act === 'open-measure') {
         openMeasureSheet();
+    } else if (act === 'go-messages') {
+        switchView('messages');
+    } else if (act === 'start-chat') {
+        const otherUid = btn.dataset.uid;
+        const otherName = btn.dataset.name;
+        const otherUsername = btn.dataset.username;
+        const otherAvatar = btn.dataset.avatar || '';
+        btn.disabled = true;
+        const { data: convId, error } = await sb.rpc('get_or_create_conversation', { other_id: otherUid });
+        btn.disabled = false;
+        if (error) { toast('Erro ao abrir conversa: ' + error.message, 'err'); return; }
+        switchView('chat', { conversationId: convId, otherUser: { id: otherUid, display_name: otherName, username: otherUsername, avatar_url: otherAvatar } });
+    } else if (act === 'back-messages') {
+        switchView('messages');
+    } else if (act === 'open-chat-item') {
+        switchView('chat', {
+            conversationId: btn.dataset.convId,
+            otherUser: { id: btn.dataset.uid, display_name: btn.dataset.name, username: btn.dataset.username, avatar_url: btn.dataset.avatar || '' }
+        });
+    } else if (act === 'do-logout') {
+        hidePostMenu();
+        if (!confirm('Tem certeza que quer sair?')) return;
+        await sb.auth.signOut();
+        location.reload();
+    } else if (act === 'go-challenges' && btn.closest('#floatingPostMenu')) {
+        hidePostMenu();
+        switchView('challenges');
+    } else if (act === 'go-admin' && btn.closest('#floatingPostMenu')) {
+        hidePostMenu();
+        switchView('admin');
     } else if (act === 'open-privacy-edit') {
         showPrivacyEditMenu(btn.dataset.id, btn);
     } else if (act === 'set-post-privacy') {
@@ -3598,13 +3908,10 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     $$('.kind-btn').forEach(x => x.classList.toggle('on', x === e.currentTarget));
     $('#workoutFields').classList.toggle('hidden', state.composerKind !== 'workout');
     $('#mealFields').classList.toggle('hidden', state.composerKind !== 'meal');
-    $('#weightFields').classList.toggle('hidden', state.composerKind !== 'weight');
     $('#storyFields').classList.toggle('hidden', state.composerKind !== 'story');
-    // Story sempre "público" pra seguidores (padrão Instagram), então some o seletor
     $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
 
     // Refeição é dado pessoal: por padrão só a própria pessoa vê.
-    // Os outros tipos usam o padrão geral (baseado em ter seguidores ou não).
     if (state.composerKind === 'meal') {
         state.composerPrivacy = 'private';
     } else {
@@ -3615,9 +3922,7 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     const hint = $('#photoHint');
     if (state.composerKind === 'workout') hint.textContent = '(opcional, +3 pts se anexar)';
     else if (state.composerKind === 'meal') hint.textContent = '(a IA analisa a foto e dá a pontuação)';
-    else if (state.composerKind === 'weight') hint.textContent = '(foto da balança, opcional)';
     else if (state.composerKind === 'story') hint.textContent = '(opcional — pode ser só texto)';
-    else hint.textContent = '(opcional)';
 
     $('#composerSubmit').textContent = state.composerKind === 'story' ? 'Publicar Story' : 'Publicar';
 }));
@@ -3781,23 +4086,6 @@ $('#composerSubmit').addEventListener('click', async () => {
             } else {
                 toast('Limite de 3 refeições com pontos por dia — post salvo sem pontos', 'err');
             }
-        } else if (state.composerKind === 'weight') {
-            const kg = parseFloat($('#wKg').value);
-            if (!kg || kg < 20 || kg > 300) {
-                toast('Informe um peso válido', 'err');
-                btn.disabled = false; btn.textContent = 'Publicar';
-                return;
-            }
-            post.weight_kg = kg;
-            ptsToCredit = 3;
-            ptsReason = 'weight_check';
-        } else if (state.composerKind === 'text') {
-            if (!caption && !imageUrl) { toast('Escreva algo ou anexe foto', 'err'); btn.disabled=false; btn.textContent='Publicar'; return; }
-            const freePostsToday = await countTodayByReason('free_post');
-            if (freePostsToday < 3) {
-                ptsToCredit = 2;
-                ptsReason = 'free_post';
-            }
         }
 
         const { data: created, error: postErr } = await sb.from('posts').insert(post).select().single();
@@ -3893,6 +4181,7 @@ async function boot() {
 
     await loadScore();
     await switchView('feed');
+    updateUnreadBadge();
 }
 
 sb.auth.onAuthStateChange((event, session) => {
