@@ -123,10 +123,11 @@ select:-webkit-autofill{
 .topbar-brand .accent{ color:var(--vital); }
 .topbar-score{ display:flex; align-items:center; gap:6px; background:var(--vital-dim); border:1px solid rgba(53,225,155,.28); padding:6px 12px; border-radius:20px; font-family:var(--ff-display); font-weight:600; font-size:13px; color:var(--vital); }
 .topbar-score .lbl{ font-size:10px; color:var(--vital); opacity:.7; font-weight:500; }
-.topbar-right{ display:flex; align-items:center; gap:10px; }
-.topbar-msg-btn{ position:relative; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink); width:36px; height:36px; border-radius:11px; display:grid; place-items:center; cursor:pointer; }
-.topbar-msg-btn svg{ width:17px; height:17px; }
-.unread-dot{ position:absolute; top:-3px; right:-3px; width:10px; height:10px; border-radius:50%; background:var(--effort); border:2px solid var(--bg); }
+.topbar-right{ display:flex; align-items:center; gap:8px; }
+.topbar-msg-btn{ position:relative; background:none; border:none; color:var(--ink-dim); width:34px; height:34px; border-radius:50%; display:grid; place-items:center; cursor:pointer; transition:background .15s, color .15s; }
+.topbar-msg-btn:hover, .topbar-msg-btn:active{ background:var(--bg-elev); color:var(--ink); }
+.topbar-msg-btn svg{ width:20px; height:20px; }
+.unread-dot{ position:absolute; top:4px; right:4px; width:8px; height:8px; border-radius:50%; background:var(--effort); border:2px solid var(--bg); }
 
 .view{ padding:16px; max-width:600px; margin:0 auto; }
 .screen-title{ font-family:var(--ff-display); font-size:24px; font-weight:600; letter-spacing:-.02em; margin:6px 0 4px; }
@@ -1974,7 +1975,7 @@ async function renderFeed() {
                 : `Falta${falta === 1 ? '' : 'm'} <b style="color:var(--vital)">${falta}</b> ${falta === 1 ? 'dia' : 'dias'} pra bater sua meta.`}
         </div>
         <div class="weekly-stats">
-            <span>🔥 <b>${currentStreak}</b> dias seguidos</span>
+            <span>🔥 <b>${currentStreak}</b> dias de ofensiva</span>
             <span>✅ <b>${totalValid}</b> semanas com meta batida</span>
         </div>
     </div>`;
@@ -2146,10 +2147,20 @@ function lineChart(points, opts = {}) {
 
 function barChart(bars, opts = {}) {
     // bars: [{label, value, highlight?}]
-    const W = opts.width || 320, H = opts.height || 130;
-    const pad = { t: 12, r: 8, b: 22, l: 8 };
     if (!bars || bars.length === 0) return `<div class="chart-empty">Sem dados ainda.</div>`;
 
+    // Com pouco histórico, uma barra sozinha fica feia — mostra número grande em vez de gráfico
+    if (bars.length <= 1) {
+        const b = bars[0];
+        const hit = opts.goal != null && b.value >= opts.goal;
+        return `<div class="chart-single">
+            <span class="cs-val" style="color:${hit ? 'var(--vital)' : 'var(--ink)'}">${b.value}</span>
+            <span class="cs-hint">${b.label}${opts.goal != null ? ` — meta: ${opts.goal}` : ''}</span>
+        </div>`;
+    }
+
+    const W = opts.width || 320, H = opts.height || 130;
+    const pad = { t: 12, r: 8, b: 22, l: 8 };
     const maxV = Math.max(...bars.map(b => b.value), opts.goal || 0, 1);
     const bw = (W - pad.l - pad.r) / bars.length;
     const barW = Math.min(bw * 0.62, 28);
@@ -2233,7 +2244,7 @@ async function renderProgress() {
 
             <div class="stat-grid">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
-                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Streak</div><div class="sub">Recorde: ${streak?.longest_streak || 0}</div></div>
+                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Ofensiva</div><div class="sub">Recorde: ${streak?.longest_streak || 0}</div></div>
                 <div class="stat-card"><div class="num">${Number(validWeeks || 0)}</div><div class="lbl">Semanas na meta</div></div>
                 <div class="stat-card"><div class="num">${horas}h</div><div class="lbl">Treinados (12 sem)</div><div class="sub">${totalDays} dias</div></div>
             </div>
@@ -2398,7 +2409,7 @@ async function renderProfile() {
             </div>
             <div class="stat-grid" style="margin-top:14px">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
-                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Streak</div></div>
+                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Ofensiva</div></div>
             </div>
             ${goalHTML}
             <div class="ig-tabs"><button class="ig-tab on">▦ Posts</button></div>
@@ -2930,10 +2941,14 @@ function openWeightLogSheet() {
             if (error) throw error;
 
             await creditPoints(3, 'weight_check', created.id);
+            const today = new Date().toISOString().split('T')[0];
+            const streakInfo = await updateStreak(today);
             await loadScore();
 
             close();
-            toast('+3 pontos! Peso registrado', 'ok');
+            let msg = '+3 pontos! Peso registrado';
+            if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
+            toast(msg, 'ok');
             if (state.view === 'health') await renderHealth();
             if (state.view === 'progress') await renderProgress();
         } catch (err) {
@@ -3259,7 +3274,7 @@ async function renderUserProfile(uid) {
                 </button>
                 <button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>
             </div>
-            ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}🔥</div><div class="lbl">Streak atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor streak</div></div></div>` : ''}
+            ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}🔥</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
             <div class="ig-tabs"><button class="ig-tab on">▦ Posts</button></div>
             <div class="ig-grid">${gridHTML}</div>
         </div>
@@ -4097,8 +4112,9 @@ $('#composerSubmit').addEventListener('click', async () => {
 
         let streakInfo = null;
         let weeklyBonus = 0;
+        // Ofensiva estilo Duolingo: qualquer atividade do dia mantém a chama acesa
+        streakInfo = await updateStreak(today);
         if (state.composerKind === 'workout') {
-            streakInfo = await updateStreak(today);
             // Bônus de semana válida (só credita se atingiu 3 dias essa semana e ainda não creditou)
             const { data: bonusData } = await sb.rpc('check_and_credit_weekly_bonus', { uid: state.session.user.id });
             weeklyBonus = Number(bonusData || 0);
@@ -4108,7 +4124,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         closeComposer();
 
         let msg = `+${ptsToCredit} pontos!`;
-        if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus streak 🔥`;
+        if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
         if (weeklyBonus > 0) msg += ` · +${weeklyBonus} semana válida ✅`;
 
         if (mealFeedback) {
