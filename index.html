@@ -536,6 +536,14 @@ select:-webkit-autofill{
 .conv-time{ font-size:11px; color:var(--ink-faint); flex-shrink:0; }
 .chat-header-user{ display:flex; align-items:center; gap:9px; }
 .chat-header-name{ font-family:var(--ff-display); font-size:14.5px; font-weight:600; color:var(--ink); }
+.conv-coach{ background:linear-gradient(115deg, rgba(95,176,255,.10), var(--bg-card)); border:1px solid rgba(95,176,255,.25); border-radius:14px; padding:14px 12px; margin-bottom:6px; border-bottom:1px solid rgba(95,176,255,.25); }
+.conv-coach-avatar{ width:46px; height:46px; border-radius:14px; background:rgba(95,176,255,.16); display:grid; place-items:center; font-size:22px; flex-shrink:0; }
+.conv-tag{ display:inline-block; background:rgba(95,176,255,.18); color:var(--info); font-size:9.5px; font-weight:700; padding:1px 6px; border-radius:8px; margin-left:4px; letter-spacing:.04em; }
+.conv-chevron{ color:var(--ink-faint); font-size:22px; flex-shrink:0; }
+.conv-section-label{ font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin:18px 4px 6px; }
+.menu-divider{ height:1px; background:var(--line); margin:4px 8px; }
+.nav-unread-dot{ position:absolute; top:12px; right:calc(50% - 16px); width:8px; height:8px; border-radius:50%; background:var(--effort); }
+.nav-btn{ position:relative; }
 
 /* ============ CARD PULSO DA SEMANA ============ */.weekly-card{ background:linear-gradient(135deg, rgba(53,225,155,.12), var(--bg-card)); border:1px solid var(--line); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:14px; }
 .weekly-card.valid{ background:linear-gradient(135deg, rgba(53,225,155,.22), var(--bg-card)); border-color:rgba(53,225,155,.4); }
@@ -760,10 +768,6 @@ select:-webkit-autofill{
     <div class="topbar">
         <div class="topbar-brand">Pulso<span class="accent">.</span></div>
         <div class="topbar-right">
-            <button class="topbar-msg-btn" data-act="go-messages" aria-label="Mensagens">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                <span id="unreadDot" class="unread-dot hidden"></span>
-            </button>
             <div class="topbar-score">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
                 <span id="topScore">0</span>
@@ -778,7 +782,7 @@ select:-webkit-autofill{
         <button class="nav-btn on" data-view="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg><span>Feed</span></button>
         <button class="nav-btn" data-view="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15l5-5 4 3 7-8M16 5h5v5"/></svg><span>Evolução</span></button>
         <button class="nav-fab" id="postFab" aria-label="Postar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-        <button class="nav-btn" data-view="coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="7" width="16" height="13" rx="3"/><path d="M12 7V4M9 13h.01M15 13h.01M9.5 17h5"/></svg><span>Coach</span></button>
+        <button class="nav-btn" data-view="messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Chat</span><span id="navUnreadDot" class="nav-unread-dot hidden"></span></button>
         <button class="nav-btn" data-view="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Perfil</span></button>
     </nav>
 </div>
@@ -1402,13 +1406,25 @@ $('#acResendBtn').addEventListener('click', async () => {
 });
 
 function showProfileMenu(anchor, isAdmin) {
+    // Toggle: se já está aberto, fecha
+    const existing = document.getElementById('floatingPostMenu');
+    if (existing && existing.dataset.menuType === 'profile') {
+        existing.remove();
+        return;
+    }
     hidePostMenu();
+
     const menu = document.createElement('div');
     menu.id = 'floatingPostMenu';
+    menu.dataset.menuType = 'profile';
     menu.className = 'post-menu';
     menu.innerHTML = `
+        <button class="post-menu-item" data-act="open-weight-log">⚖️ Registrar peso</button>
+        <button class="post-menu-item" data-act="go-health">❤️ Ficha de saúde</button>
+        <button class="post-menu-item" data-act="go-activity-log">📊 Histórico</button>
         <button class="post-menu-item" data-act="go-challenges">🏆 Comunidade</button>
-        ${isAdmin ? '<button class="post-menu-item admin-item" data-act="go-admin">🛠️ Painel Admin</button>' : ''}
+        ${isAdmin ? '<div class="menu-divider"></div><button class="post-menu-item admin-item" data-act="go-admin">🛠️ Painel Admin</button>' : ''}
+        <div class="menu-divider"></div>
         <button class="post-menu-item danger" data-act="do-logout">🚪 Sair</button>
     `;
     const rect = anchor.getBoundingClientRect();
@@ -1490,42 +1506,56 @@ async function renderMessages() {
     const c = $('#viewContainer');
     c.innerHTML = `
         <div class="view">
-            <div class="user-topbar">
-                <button class="topbar-back" data-act="back">←</button>
-                <div class="topbar-title">Mensagens</div>
-                <div style="width:28px"></div>
-            </div>
+            <h1 class="screen-title">Chat</h1>
+            <p class="screen-sub">Converse com o coach ou com a comunidade.</p>
             <div id="convList"><div class="spinner"></div></div>
         </div>
     `;
 
     const { data: convs, error } = await sb.rpc('list_conversations');
     const list = $('#convList');
-    if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
 
-    if (!convs || convs.length === 0) {
-        list.innerHTML = `<div class="feed-empty"><span class="emo">💬</span><h3>Nenhuma conversa ainda</h3><p>Vai no perfil de alguém e toca no 💬 pra começar a falar.</p></div>`;
-        return;
+    // Coach sempre fixo no topo
+    let html = `<div class="conv-item conv-coach" data-act="go-coach">
+        <span class="conv-coach-avatar">🤖</span>
+        <div class="conv-info">
+            <div class="conv-name">Coach Pulso <span class="conv-tag">IA</span></div>
+            <div class="conv-preview">Tire dúvidas sobre treino, peso e rotina</div>
+        </div>
+        <div class="conv-chevron">›</div>
+    </div>`;
+
+    if (error) {
+        html += `<p style="color:var(--danger); padding:12px 4px">Erro ao carregar conversas: ${error.message}</p>`;
+    } else if (!convs || convs.length === 0) {
+        html += `<div class="conv-section-label">Pessoas</div>
+            <div class="feed-empty" style="margin-top:0">
+                <span class="emo">💬</span>
+                <h3>Nenhuma conversa ainda</h3>
+                <p>Vai no perfil de alguém e toca no 💬 pra começar a falar.</p>
+            </div>`;
+    } else {
+        html += `<div class="conv-section-label">Pessoas</div>`;
+        html += convs.map(cv => {
+            const other = { id: cv.other_id, display_name: cv.other_name, username: cv.other_username, avatar_url: cv.other_avatar };
+            return `<div class="conv-item" data-act="open-chat-item" data-conv-id="${cv.conversation_id}" data-uid="${cv.other_id}" data-name="${escapeHTML(cv.other_name)}" data-username="${escapeHTML(cv.other_username)}" data-avatar="${cv.other_avatar||''}">
+                ${avatarHTML(other, 'md')}
+                <div class="conv-info">
+                    <div class="conv-name">${escapeHTML(cv.other_name)}${cv.unread_count>0?` <span class="conv-unread">${cv.unread_count}</span>`:''}</div>
+                    <div class="conv-preview">${escapeHTML((cv.last_message||'Diga oi 👋').slice(0,50))}</div>
+                </div>
+                <div class="conv-time">${cv.last_message_at ? timeAgo(cv.last_message_at) : ''}</div>
+            </div>`;
+        }).join('');
     }
 
-    list.innerHTML = convs.map(cv => {
-        const other = { id: cv.other_id, display_name: cv.other_name, username: cv.other_username, avatar_url: cv.other_avatar };
-        return `<div class="conv-item" data-act="open-chat-item" data-conv-id="${cv.conversation_id}" data-uid="${cv.other_id}" data-name="${escapeHTML(cv.other_name)}" data-username="${escapeHTML(cv.other_username)}" data-avatar="${cv.other_avatar||''}">
-            ${avatarHTML(other, 'md')}
-            <div class="conv-info">
-                <div class="conv-name">${escapeHTML(cv.other_name)}${cv.unread_count>0?` <span class="conv-unread">${cv.unread_count}</span>`:''}</div>
-                <div class="conv-preview">${escapeHTML((cv.last_message||'Diga oi 👋').slice(0,50))}</div>
-            </div>
-            <div class="conv-time">${cv.last_message_at ? timeAgo(cv.last_message_at) : ''}</div>
-        </div>`;
-    }).join('');
-
+    list.innerHTML = html;
     updateUnreadBadge();
 }
 
 async function updateUnreadBadge() {
     const { data } = await sb.rpc('total_unread_messages');
-    const dot = $('#unreadDot');
+    const dot = $('#navUnreadDot');
     if (dot) dot.classList.toggle('hidden', !(data > 0));
 }
 
@@ -1945,41 +1975,6 @@ async function renderFeed() {
 
     let html = '<div class="view"><h1 class="screen-title">Feed</h1><p class="screen-sub">O que a comunidade está fazendo agora.</p>';
 
-    // Card "Pulso da Semana"
-    const [{ data: daysThisWeek }, { data: validWeeks }, { data: streak }] = await Promise.all([
-        sb.rpc('count_days_current_week', { uid: state.session.user.id }),
-        sb.rpc('count_valid_weeks', { uid: state.session.user.id }),
-        sb.from('daily_streaks').select('current_streak').eq('user_id', state.session.user.id).maybeSingle(),
-    ]);
-    const goal = state.profile.weekly_goal || 3;
-    const days = Number(daysThisWeek || 0);
-    const isValid = days >= goal;
-    const pct = Math.min(100, Math.round((days / goal) * 100));
-    const currentStreak = streak?.current_streak || 0;
-    const totalValid = Number(validWeeks || 0);
-    const falta = goal - days;
-
-    html += `<div class="weekly-card ${isValid ? 'valid' : ''}">
-        <div class="weekly-head">
-            <span class="weekly-title">Sua semana</span>
-            ${isValid ? '<span class="weekly-badge">✓ Meta batida</span>' : ''}
-        </div>
-        <div class="weekly-body">
-            <span class="weekly-days">${days}</span>
-            <span class="weekly-days-total">/ ${goal} ${goal === 1 ? 'dia' : 'dias'} treinados</span>
-        </div>
-        <div class="weekly-track"><div class="weekly-fill" style="width:${pct}%"></div></div>
-        <div class="weekly-hint">
-            ${isValid
-                ? 'Meta atingida — +10 pts creditados essa semana.'
-                : `Falta${falta === 1 ? '' : 'm'} <b style="color:var(--vital)">${falta}</b> ${falta === 1 ? 'dia' : 'dias'} pra bater sua meta.`}
-        </div>
-        <div class="weekly-stats">
-            <span>🔥 <b>${currentStreak}</b> dias de ofensiva</span>
-            <span>✅ <b>${totalValid}</b> semanas com meta batida</span>
-        </div>
-    </div>`;
-
     html += `<div id="coachSlot"></div>`;
     html += storiesHTML;
 
@@ -2209,6 +2204,36 @@ async function renderProgress() {
     const goal = goalData?.[0] || {};
     const weeklyGoal = state.profile.weekly_goal || 3;
 
+    // Card "Sua semana" (movido do feed pra cá)
+    const { data: daysThisWeek } = await sb.rpc('count_days_current_week', { uid });
+    const days = Number(daysThisWeek || 0);
+    const isValid = days >= weeklyGoal;
+    const pctWeek = Math.min(100, Math.round((days / weeklyGoal) * 100));
+    const falta = weeklyGoal - days;
+    const currentStreak = streak?.current_streak || 0;
+    const totalValid = Number(validWeeks || 0);
+
+    const weeklyCardHTML = `<div class="weekly-card ${isValid ? 'valid' : ''}">
+        <div class="weekly-head">
+            <span class="weekly-title">Sua semana</span>
+            ${isValid ? '<span class="weekly-badge">✓ Meta batida</span>' : ''}
+        </div>
+        <div class="weekly-body">
+            <span class="weekly-days">${days}</span>
+            <span class="weekly-days-total">/ ${weeklyGoal} ${weeklyGoal === 1 ? 'dia' : 'dias'} treinados</span>
+        </div>
+        <div class="weekly-track"><div class="weekly-fill" style="width:${pctWeek}%"></div></div>
+        <div class="weekly-hint">
+            ${isValid
+                ? 'Meta atingida — +10 pts creditados essa semana.'
+                : `Falta${falta === 1 ? '' : 'm'} <b style="color:var(--vital)">${falta}</b> ${falta === 1 ? 'dia' : 'dias'} pra bater sua meta.`}
+        </div>
+        <div class="weekly-stats">
+            <span>🔥 <b>${currentStreak}</b> dias de ofensiva</span>
+            <span>✅ <b>${totalValid}</b> semanas com meta batida</span>
+        </div>
+    </div>`;
+
     // Gráfico de peso
     const weightPoints = (wSeries || []).map(r => ({ x: new Date(r.d + 'T12:00:00'), y: Number(r.kg) }));
     const weightChart = lineChart(weightPoints, { id:'w', goal: goal.meta ? Number(goal.meta) : null, unit:'kg', decimals:1 });
@@ -2241,6 +2266,8 @@ async function renderProgress() {
         <div class="view">
             <h1 class="screen-title">Evolução</h1>
             <p class="screen-sub">Seu progresso ao longo do tempo.</p>
+
+            ${weeklyCardHTML}
 
             <div class="stat-grid">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
@@ -2401,12 +2428,6 @@ async function renderProfile() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
             </div>
-            <div class="profile-shortcuts">
-                <button class="shortcut-btn" data-act="open-weight-log"><span class="emo">⚖️</span><span>Pesar</span></button>
-                <button class="shortcut-btn" data-act="go-health"><span class="emo">❤️</span><span>Saúde</span></button>
-                <button class="shortcut-btn" data-act="go-activity-log"><span class="emo">📊</span><span>Histórico</span></button>
-                <button class="shortcut-btn" data-act="go-challenges"><span class="emo">🏆</span><span>Comunidade</span></button>
-            </div>
             <div class="stat-grid" style="margin-top:14px">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
                 <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Ofensiva</div></div>
@@ -2417,25 +2438,11 @@ async function renderProfile() {
         </div>
     `;
 
+    $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
     $('[data-act="open-profile-menu"]').addEventListener('click', e => {
         e.stopPropagation();
         showProfileMenu(e.currentTarget, p.is_admin);
     });
-    $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
-    $$('[data-act="quick-post"]').forEach(b => b.addEventListener('click', e => {
-        const kind = e.currentTarget.dataset.kind;
-        $('#composerSheet').classList.add('on');
-        document.body.style.overflow = 'hidden';
-        // Simula clique no botão do tipo correspondente
-        document.querySelector(`.kind-btn[data-kind="${kind}"]`).click();
-    }));
-    const pesarBtn = $('[data-act="open-weight-log"]');
-    if (pesarBtn) pesarBtn.addEventListener('click', openWeightLogSheet);
-    $('[data-act="go-activity-log"]').addEventListener('click', () => switchView('activity-log'));
-    $('[data-act="go-health"]').addEventListener('click', () => switchView('health'));
-    $('[data-act="go-challenges"]').addEventListener('click', () => switchView('challenges'));
-    const adminBtn = $('[data-act="go-admin"]');
-    if (adminBtn) adminBtn.addEventListener('click', () => switchView('admin'));
 }
 
 // ============================================================
@@ -2453,12 +2460,13 @@ async function renderCoach() {
     const c = $('#viewContainer');
     c.innerHTML = `
         <div class="view coach-view">
-            <div class="coach-hero">
-                <span class="coach-hero-avatar">🤖</span>
-                <div>
-                    <h1 class="coach-hero-title">Coach Pulso</h1>
-                    <p class="coach-hero-sub">Conhece seus treinos, seu peso e sua rotina.</p>
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back-messages">←</button>
+                <div class="chat-header-user">
+                    <span class="conv-coach-avatar" style="width:32px;height:32px;font-size:16px">🤖</span>
+                    <span class="chat-header-name">Coach Pulso</span>
                 </div>
+                <div style="width:28px"></div>
             </div>
             <div id="coachChat" class="coach-chat"><div class="spinner"></div></div>
             <div id="coachSuggestions" class="coach-suggestions"></div>
@@ -3448,7 +3456,9 @@ async function renderEditProfile() {
 async function switchView(v, params = {}) {
     state.view = v;
     state.viewParams = params;
-    $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === v));
+    // Coach e conversas ficam sob a aba Chat na navegação
+    const navView = (v === 'coach' || v === 'chat') ? 'messages' : v;
+    $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === navView));
     if (v === 'feed') await renderFeed();
     else if (v === 'progress') await renderProgress();
     else if (v === 'challenges') renderChallenges();
@@ -3546,6 +3556,8 @@ document.addEventListener('click', async e => {
         btn.disabled = false;
         if (error) { toast('Erro ao abrir conversa: ' + error.message, 'err'); return; }
         switchView('chat', { conversationId: convId, otherUser: { id: otherUid, display_name: otherName, username: otherUsername, avatar_url: otherAvatar } });
+    } else if (act === 'go-coach') {
+        switchView('coach');
     } else if (act === 'back-messages') {
         switchView('messages');
     } else if (act === 'open-chat-item') {
@@ -3564,6 +3576,15 @@ document.addEventListener('click', async e => {
     } else if (act === 'go-admin' && btn.closest('#floatingPostMenu')) {
         hidePostMenu();
         switchView('admin');
+    } else if (act === 'go-health' && btn.closest('#floatingPostMenu')) {
+        hidePostMenu();
+        switchView('health');
+    } else if (act === 'go-activity-log' && btn.closest('#floatingPostMenu')) {
+        hidePostMenu();
+        switchView('activity-log');
+    } else if (act === 'open-weight-log' && btn.closest('#floatingPostMenu')) {
+        hidePostMenu();
+        openWeightLogSheet();
     } else if (act === 'open-privacy-edit') {
         showPrivacyEditMenu(btn.dataset.id, btn);
     } else if (act === 'set-post-privacy') {
