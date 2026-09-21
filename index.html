@@ -298,7 +298,7 @@ select:-webkit-autofill{
 /* ============ MENU DE POST (3 pontinhos) ============ */
 .post-menu-btn{ background:none; border:none; color:var(--ink-dim); padding:6px; cursor:pointer; }
 .post-menu-btn svg{ width:20px; height:20px; }
-.post-menu{ position:absolute; z-index:50; background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,.5); min-width:180px; animation:popIn .15s ease; }
+.post-menu{ position:absolute; z-index:95; background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,.5); min-width:180px; animation:popIn .15s ease; }
 .post-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink); padding:10px 14px; border-radius:8px; font-size:13.5px; cursor:pointer; }
 .post-menu-item:hover{ background:var(--bg-elev); }
 .post-menu-item.danger{ color:#FF9E8F; }
@@ -648,6 +648,36 @@ select:-webkit-autofill{
     .view{ max-width:640px; }
     .stat-grid{ grid-template-columns:repeat(4,1fr); }
 }
+
+/* ============ ONDA 5b ============ */
+.ig-avatar-btn{ background:none; border:none; padding:0; cursor:pointer; border-radius:50%; flex-shrink:0; }
+.ig-avatar-btn.has-story{ padding:3px; background:conic-gradient(from 180deg, var(--vital), var(--vital-2), var(--effort), var(--vital)); }
+.ig-avatar-btn.has-story .avatar-lg{ border:3px solid var(--bg); box-shadow:none; }
+.ig-stat.tappable{ cursor:pointer; border-radius:10px; padding:4px 6px; }
+.ig-stat.tappable:active{ background:var(--bg-elev); }
+.follow-list{ display:flex; flex-direction:column; gap:2px; max-height:60vh; overflow-y:auto; }
+.follow-row{ display:flex; align-items:center; gap:11px; padding:10px 4px; border-radius:10px; cursor:pointer; }
+.follow-row:hover{ background:var(--bg-elev); }
+.follow-name{ font-size:14px; font-weight:600; color:var(--ink); }
+.follow-uname{ font-size:12px; color:var(--ink-dim); }
+.chat-header-user{ cursor:pointer; }
+.chat-menu-btn{ background:none; border:none; color:var(--ink-dim); width:32px; height:32px; display:grid; place-items:center; cursor:pointer; border-radius:50%; }
+.chat-menu-btn svg{ width:20px; height:20px; }
+.cmsg.user .cmsg-bubble{ cursor:pointer; }
+.sv-del-btn{ background:rgba(0,0,0,.35); border:none; color:#fff; font-size:15px; width:34px; height:34px; border-radius:50%; cursor:pointer; margin-right:4px; }
+.grid-text-thumb{ display:flex !important; flex-direction:column; align-items:center; justify-content:center; gap:6px; text-align:center; }
+.grid-text-thumb .gt-emo{ font-size:26px; display:block; overflow:visible; }
+.grid-text-thumb .gt-line{ font-size:11.5px; color:var(--ink); line-height:1.35; }
+.grid-text-thumb .gt-line b{ color:var(--vital); font-family:var(--ff-display); }
+.post-view-card{ padding:14px 12px 22px; }
+.post-view-card .post{ margin-bottom:0; }
+.weekly-pill{ display:flex; align-items:center; gap:6px; background:var(--bg-elev); border:1px solid var(--line); border-radius:20px; padding:4px 10px 4px 5px; color:var(--ink); font-family:var(--ff-display); font-weight:600; font-size:12.5px; cursor:pointer; }
+.wp-ring{ width:22px; height:22px; transform:rotate(-90deg); }
+.wp-track{ fill:none; stroke:var(--line); stroke-width:3.5; }
+.wp-fill{ fill:none; stroke:var(--gold); stroke-width:3.5; stroke-linecap:round; transition:stroke-dasharray .4s; }
+.wp-fill.done{ stroke:var(--vital); }
+.wp-flame{ font-size:12px; color:var(--ink-dim); }
+.wp-flame b{ color:var(--ink); margin-left:1px; }
 </style>
 </head>
 <body>
@@ -768,6 +798,11 @@ select:-webkit-autofill{
     <div class="topbar">
         <div class="topbar-brand">Pulso<span class="accent">.</span></div>
         <div class="topbar-right">
+            <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
+                <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill" id="wpFill" stroke-dasharray="0 56.55"/></svg>
+                <span id="wpDays">0/3</span>
+                <span class="wp-flame">🔥<b id="wpStreak">0</b></span>
+            </button>
             <div class="topbar-score">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
                 <span id="topScore">0</span>
@@ -905,6 +940,7 @@ select:-webkit-autofill{
             <div class="name" id="svName"></div>
             <div class="time" id="svTime"></div>
         </div>
+        <button class="sv-del-btn hidden" id="svDelete" aria-label="Apagar story">🗑</button>
         <button class="close-btn" id="svClose">×</button>
     </div>
     <div class="story-content" id="svContent">
@@ -1020,6 +1056,7 @@ async function loadScore() {
         state.score = Number(data || 0);
         $('#topScore').textContent = Math.round(state.score);
     }
+    refreshWeeklyPill();
 }
 
 async function countTodayByReason(reason) {
@@ -1500,6 +1537,124 @@ async function renderAdmin() {
 }
 
 // ============================================================
+// AJUDANTES: thumb do grid, listas de seguidores, ver post, menu do chat
+// ============================================================
+function gridThumb(p) {
+    if (p.image_url) {
+        return `<div class="grid-item" data-act="view-post" data-id="${p.id}"><img src="${p.image_url}" loading="lazy"></div>`;
+    }
+    let emo = '📝', line = '';
+    if (p.kind === 'workout') {
+        emo = '💪';
+        line = `${escapeHTML(p.activity_type || 'Treino')}<br><b>${p.duration_min || 0} min</b>`;
+    } else if (p.kind === 'meal') {
+        emo = '🍽️';
+        line = { cafe:'Café da manhã', almoco:'Almoço', jantar:'Jantar', lanche:'Lanche' }[p.meal_slot] || 'Refeição';
+    } else {
+        line = escapeHTML((p.caption || '').slice(0, 50));
+    }
+    return `<div class="grid-item" data-act="view-post" data-id="${p.id}"><div class="grid-text-thumb"><span class="gt-emo">${emo}</span><span class="gt-line">${line}</span></div></div>`;
+}
+
+function closeDynamicSheets() {
+    ['followListSheet', 'postViewSheet'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+    hidePostMenu();
+    const pm = document.getElementById('floatingPrivacyMenu');
+    if (pm) pm.remove();
+    document.body.style.overflow = '';
+}
+
+async function openFollowList(uid, type) {
+    const old = document.getElementById('followListSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'followListSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">${type === 'followers' ? 'Seguidores' : 'Seguindo'}</h3>
+        <div id="followListBody" class="follow-list"><div class="spinner"></div></div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    sheet.onclick = e => { if (e.target === sheet) { sheet.remove(); document.body.style.overflow = ''; } };
+
+    const { data, error } = await sb.rpc(type === 'followers' ? 'list_followers' : 'list_following', { target: uid });
+    const body = document.getElementById('followListBody');
+    if (!body) return;
+    if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+    if (!data || data.length === 0) {
+        body.innerHTML = `<div class="log-empty">${type === 'followers' ? 'Ninguém segue ainda.' : 'Não segue ninguém ainda.'}</div>`;
+        return;
+    }
+    body.innerHTML = data.map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
+        ${avatarHTML(u, 'sm')}
+        <div><div class="follow-name">${escapeHTML(u.display_name)}</div><div class="follow-uname">@${escapeHTML(u.username)}</div></div>
+    </div>`).join('');
+}
+
+async function openPostSheet(id) {
+    const old = document.getElementById('postViewSheet');
+    if (old) old.remove();
+    const { data: p, error } = await sb.from('posts')
+        .select(`id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis,
+            user:profiles!inner (id, username, display_name, avatar_url),
+            reactions (id, user_id),
+            comments (id)`)
+        .eq('id', id).maybeSingle();
+    if (error || !p) { toast('Não consegui abrir esse post', 'err'); return; }
+
+    const sheet = document.createElement('div');
+    sheet.id = 'postViewSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card post-view-card"><div class="sheet-handle"></div>${renderPost(p)}</div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    sheet.onclick = e => { if (e.target === sheet) { sheet.remove(); document.body.style.overflow = ''; } };
+}
+
+function showChatMenu(anchor) {
+    const existing = document.getElementById('floatingPostMenu');
+    if (existing && existing.dataset.menuType === 'chat') { existing.remove(); return; }
+    hidePostMenu();
+    const menu = document.createElement('div');
+    menu.id = 'floatingPostMenu';
+    menu.dataset.menuType = 'chat';
+    menu.className = 'post-menu';
+    menu.innerHTML = `
+        <button class="post-menu-item" data-act="view-user" data-uid="${anchor.dataset.uid}">👤 Ver perfil</button>
+        <button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">🗑️ Apagar conversa</button>
+    `;
+    const rect = anchor.getBoundingClientRect();
+    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+}
+
+// Pílula no topo: progresso da semana e ofensiva num relance
+async function refreshWeeklyPill() {
+    const uid = state.session && state.session.user && state.session.user.id;
+    if (!uid) return;
+    const [{ data: days }, { data: st }] = await Promise.all([
+        sb.rpc('count_days_current_week', { uid }),
+        sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle(),
+    ]);
+    const goal = (state.profile && state.profile.weekly_goal) || 3;
+    const d = Number(days || 0);
+    const C = 56.55;
+    const fill = document.getElementById('wpFill');
+    if (fill) {
+        fill.setAttribute('stroke-dasharray', `${(Math.min(1, d / goal) * C).toFixed(2)} ${C}`);
+        fill.classList.toggle('done', d >= goal);
+    }
+    const dEl = document.getElementById('wpDays');
+    if (dEl) dEl.textContent = `${d}/${goal}`;
+    const sEl = document.getElementById('wpStreak');
+    if (sEl) sEl.textContent = (st && st.current_streak) || 0;
+}
+
+// ============================================================
 // MENSAGENS (DM)
 // ============================================================
 async function renderMessages() {
@@ -1561,19 +1716,33 @@ async function updateUnreadBadge() {
 
 let chatChannel = null;
 
-async function renderChat(conversationId, otherUser) {
+function stopChatSync() {
     if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }
+    if (state.chatPoll) { clearInterval(state.chatPoll); state.chatPoll = null; }
+}
+
+async function loadChatMessages(conversationId) {
+    const { data, error } = await sb.rpc('get_conversation_messages', { conv_id: conversationId });
+    if (error) throw error;
+    return data || [];
+}
+
+async function renderChat(conversationId, otherUser) {
+    stopChatSync();
+    state.chatConversationId = conversationId;
 
     const c = $('#viewContainer');
     c.innerHTML = `
         <div class="view coach-view">
             <div class="user-topbar">
                 <button class="topbar-back" data-act="back-messages">←</button>
-                <div class="chat-header-user">
+                <div class="chat-header-user" data-act="view-user" data-uid="${otherUser.id}">
                     ${avatarHTML(otherUser, 'sm')}
                     <span class="chat-header-name">${escapeHTML(otherUser.display_name)}</span>
                 </div>
-                <div style="width:28px"></div>
+                <button class="chat-menu-btn" data-act="chat-menu" data-id="${conversationId}" data-uid="${otherUser.id}" aria-label="Opções">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
+                </button>
             </div>
             <div id="chatMessages" class="coach-chat"><div class="spinner"></div></div>
             <div class="coach-composer">
@@ -1585,15 +1754,12 @@ async function renderChat(conversationId, otherUser) {
         </div>
     `;
 
-    const { data: msgs, error } = await sb.from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true })
-        .limit(100);
-
-    if (error) { $('#chatMessages').innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
-
-    state.chatMessages = msgs || [];
+    try {
+        state.chatMessages = await loadChatMessages(conversationId);
+    } catch (error) {
+        $('#chatMessages').innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`;
+        return;
+    }
     paintChatMessages();
     await sb.rpc('mark_conversation_read', { conv_id: conversationId });
     updateUnreadBadge();
@@ -1608,17 +1774,37 @@ async function renderChat(conversationId, otherUser) {
     });
     $('#chatSend').addEventListener('click', () => sendChatMessage(conversationId));
 
+    // Tempo real (mensagens novas e apagadas)
+    const me = state.session.user.id;
     chatChannel = sb.channel(`chat-${conversationId}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, payload => {
             const msg = payload.new;
             if (state.chatMessages.some(m => m.id === msg.id)) return;
             state.chatMessages.push(msg);
             paintChatMessages();
-            if (msg.sender_id !== state.session.user.id) {
-                sb.rpc('mark_conversation_read', { conv_id: conversationId });
-            }
+            if (msg.sender_id !== me) sb.rpc('mark_conversation_read', { conv_id: conversationId });
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, payload => {
+            const gone = payload.old && payload.old.id;
+            if (!gone) return;
+            state.chatMessages = state.chatMessages.filter(m => m.id !== gone);
+            paintChatMessages();
         })
         .subscribe();
+
+    // Plano B: se o tempo real falhar por qualquer motivo, sincroniza a cada 4s
+    const sig = arr => arr.map(m => m.id).join(',');
+    state.chatPoll = setInterval(async () => {
+        if (state.view !== 'chat' || state.chatConversationId !== conversationId) { stopChatSync(); return; }
+        try {
+            const fresh = await loadChatMessages(conversationId);
+            if (sig(fresh) === sig(state.chatMessages)) return;
+            const newFromOther = fresh.some(m => m.sender_id !== me && !state.chatMessages.some(x => x.id === m.id));
+            state.chatMessages = fresh;
+            paintChatMessages();
+            if (newFromOther) sb.rpc('mark_conversation_read', { conv_id: conversationId });
+        } catch (_) {}
+    }, 4000);
 }
 
 function paintChatMessages() {
@@ -1629,8 +1815,9 @@ function paintChatMessages() {
     } else {
         box.innerHTML = state.chatMessages.map(m => {
             const mine = m.sender_id === state.session.user.id;
+            const del = mine ? ` data-act="delete-message" data-id="${m.id}" title="Toque para apagar"` : '';
             return `<div class="cmsg ${mine?'user':'coach'}">
-                <div class="cmsg-bubble">${escapeHTML(m.body).replace(/\n/g,'<br>')}</div>
+                <div class="cmsg-bubble"${del}>${escapeHTML(m.body).replace(/\n/g,'<br>')}</div>
             </div>`;
         }).join('');
     }
@@ -2365,7 +2552,7 @@ async function renderProfile() {
     ]);
 
     const { data: myPosts } = await sb.from('posts')
-        .select('id, image_url, kind, caption, created_at')
+        .select('id, image_url, kind, caption, created_at, activity_type, duration_min, meal_slot')
         .eq('user_id', state.session.user.id)
         .neq('kind', 'weight')
         .order('created_at', { ascending: false })
@@ -2399,21 +2586,21 @@ async function renderProfile() {
         </div>`;
     }
 
-    const gridHTML = (myPosts || []).map(p => {
-        const thumb = p.image_url
-            ? `<img src="${p.image_url}" loading="lazy">`
-            : `<div class="grid-text-thumb"><span>${escapeHTML((p.caption||'').slice(0,60))}</span></div>`;
-        return `<div class="grid-item" data-act="view-post" data-id="${p.id}">${thumb}</div>`;
-    }).join('') || '<div class="grid-empty">Nada postado ainda.</div>';
+    const gridHTML = (myPosts || []).map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nada postado ainda.</div>';
+
+    const { count: myStoryCount } = await sb.from('stories')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', state.session.user.id)
+        .gt('expires_at', new Date().toISOString());
 
     c.innerHTML = `
         <div class="view">
             <div class="ig-profile-head">
-                ${avatarHTML(p, 'lg')}
+                <button class="ig-avatar-btn${myStoryCount ? ' has-story' : ''}" data-act="open-user-stories" data-uid="${state.session.user.id}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
                 <div class="ig-profile-stats">
                     <div class="ig-stat"><span class="v">${postCount || 0}</span><span class="l">Posts</span></div>
-                    <div class="ig-stat"><span class="v">${followersCount || 0}</span><span class="l">Seguidores</span></div>
-                    <div class="ig-stat"><span class="v">${followingCount || 0}</span><span class="l">Seguindo</span></div>
+                    <div class="ig-stat tappable" data-act="open-follow-list" data-type="followers" data-uid="${state.session.user.id}"><span class="v">${followersCount || 0}</span><span class="l">Seguidores</span></div>
+                    <div class="ig-stat tappable" data-act="open-follow-list" data-type="following" data-uid="${state.session.user.id}"><span class="v">${followingCount || 0}</span><span class="l">Seguindo</span></div>
                 </div>
             </div>
             <div class="ig-profile-info">
@@ -3242,19 +3429,19 @@ async function renderUserProfile(uid) {
         sb.from('follows').select('*', {count:'exact', head:true}).eq('follower_id', uid),
         sb.rpc('am_i_following', { target_id: uid }),
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
-        sb.from('posts').select('id, image_url, kind, caption, created_at')
+        sb.from('posts').select('id, image_url, kind, caption, created_at, activity_type, duration_min, meal_slot')
             .eq('user_id', uid).neq('kind', 'weight').order('created_at', { ascending: false }).limit(30),
     ]);
     const iFollow = !!iFollowRes.data;
     const streak = streakRes.data;
     const posts = postsRes.data || [];
 
-    const gridHTML = posts.map(pp => {
-        const thumb = pp.image_url
-            ? `<img src="${pp.image_url}" loading="lazy">`
-            : `<div class="grid-text-thumb"><span>${escapeHTML((pp.caption||'').slice(0,60))}</span></div>`;
-        return `<div class="grid-item" data-act="view-post" data-id="${pp.id}">${thumb}</div>`;
-    }).join('') || '<div class="grid-empty">Nenhum post visível.</div>';
+    const gridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhum post visível.</div>';
+
+    const { count: theirStoryCount } = await sb.from('stories')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', uid)
+        .gt('expires_at', new Date().toISOString());
 
     c.innerHTML = `
         <div class="view">
@@ -3264,11 +3451,11 @@ async function renderUserProfile(uid) {
                 <div style="width:28px"></div>
             </div>
             <div class="ig-profile-head">
-                ${avatarHTML(p, 'lg')}
+                <button class="ig-avatar-btn${theirStoryCount ? ' has-story' : ''}" data-act="open-user-stories" data-uid="${uid}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
                 <div class="ig-profile-stats">
                     <div class="ig-stat"><span class="v">${postCount || 0}</span><span class="l">Posts</span></div>
-                    <div class="ig-stat"><span class="v">${followersRes.count || 0}</span><span class="l">Seguidores</span></div>
-                    <div class="ig-stat"><span class="v">${followingRes.count || 0}</span><span class="l">Seguindo</span></div>
+                    <div class="ig-stat tappable" data-act="open-follow-list" data-type="followers" data-uid="${uid}"><span class="v">${followersRes.count || 0}</span><span class="l">Seguidores</span></div>
+                    <div class="ig-stat tappable" data-act="open-follow-list" data-type="following" data-uid="${uid}"><span class="v">${followingRes.count || 0}</span><span class="l">Seguindo</span></div>
                 </div>
             </div>
             <div class="ig-profile-info">
@@ -3454,6 +3641,8 @@ async function renderEditProfile() {
 }
 
 async function switchView(v, params = {}) {
+    closeDynamicSheets();
+    if (v !== 'chat') stopChatSync();
     state.view = v;
     state.viewParams = params;
     // Coach e conversas ficam sob a aba Chat na navegação
@@ -3556,6 +3745,41 @@ document.addEventListener('click', async e => {
         btn.disabled = false;
         if (error) { toast('Erro ao abrir conversa: ' + error.message, 'err'); return; }
         switchView('chat', { conversationId: convId, otherUser: { id: otherUid, display_name: otherName, username: otherUsername, avatar_url: otherAvatar } });
+    } else if (act === 'go-progress') {
+        switchView('progress');
+    } else if (act === 'open-user-stories') {
+        const suid = btn.dataset.uid;
+        const { data: items } = await sb.from('stories')
+            .select('id, user_id, caption, image_url, background_color, created_at, user:profiles!inner (id, username, display_name, avatar_url)')
+            .eq('user_id', suid)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: true });
+        if (!items || items.length === 0) {
+            toast(suid === state.session.user.id ? 'Você não tem story ativo. Toque no + pra criar.' : 'Nenhum story ativo agora.', 'ok');
+            return;
+        }
+        state.storiesData = [{ user: items[0].user, items }];
+        openStoryViewer(0);
+    } else if (act === 'open-follow-list') {
+        openFollowList(btn.dataset.uid, btn.dataset.type);
+    } else if (act === 'view-post') {
+        openPostSheet(btn.dataset.id);
+    } else if (act === 'chat-menu') {
+        showChatMenu(btn);
+    } else if (act === 'clear-chat') {
+        hidePostMenu();
+        if (!confirm('Apagar esta conversa? Ela some só pra você, a outra pessoa continua vendo.')) return;
+        const { error } = await sb.rpc('clear_conversation', { conv_id: btn.dataset.id });
+        if (error) { toast('Erro ao apagar conversa', 'err'); return; }
+        toast('Conversa apagada', 'ok');
+        switchView('messages');
+    } else if (act === 'delete-message') {
+        if (!confirm('Apagar esta mensagem? Ela some pros dois.')) return;
+        const mid = btn.dataset.id;
+        const { error } = await sb.from('messages').delete().eq('id', mid);
+        if (error) { toast('Erro ao apagar mensagem', 'err'); return; }
+        state.chatMessages = state.chatMessages.filter(m => m.id !== mid);
+        paintChatMessages();
     } else if (act === 'go-coach') {
         switchView('coach');
     } else if (act === 'back-messages') {
@@ -3641,6 +3865,13 @@ document.addEventListener('click', async e => {
         const logEl = btn.closest('.log-item');
         if (logEl) logEl.remove();
         hidePostMenu();
+        const pvs = document.getElementById('postViewSheet');
+        if (pvs) {
+            pvs.remove();
+            document.body.style.overflow = '';
+            if (state.view === 'profile') renderProfile();
+            else if (state.view === 'user-profile') renderUserProfile(state.viewParams.uid);
+        }
     }
 });
 
@@ -3865,6 +4096,29 @@ function showCurrentStory() {
     $('#svAvatar').outerHTML = avatarHTML(group.user, 'sm').replace('class="avatar avatar-sm"', 'class="avatar" id="svAvatar"');
     $('#svName').textContent = group.user.display_name || group.user.username;
     $('#svTime').textContent = timeAgo(item.created_at);
+
+    // Apagar o próprio story
+    const delBtn = document.getElementById('svDelete');
+    const isMineStory = group.user.id === state.session.user.id;
+    delBtn.classList.toggle('hidden', !isMineStory);
+    delBtn.onclick = async (ev) => {
+        ev.stopPropagation();
+        clearTimeout(state.storyTimer);
+        if (!confirm('Apagar este story?')) { state.storyTimer = setTimeout(() => advanceStory(1), 6000); return; }
+        const { error } = await sb.from('stories').delete().eq('id', item.id);
+        if (error) { toast('Erro ao apagar story', 'err'); return; }
+        toast('Story apagado', 'ok');
+        group.items.splice(state.storyItemIdx, 1);
+        if (group.items.length === 0) {
+            state.storiesData.splice(state.storyIdx, 1);
+            closeStoryViewer();
+            if (state.view === 'feed') renderFeed();
+            else if (state.view === 'profile') renderProfile();
+            return;
+        }
+        if (state.storyItemIdx >= group.items.length) state.storyItemIdx = group.items.length - 1;
+        showCurrentStory();
+    };
 
     // Content
     const content = $('#svContent');
