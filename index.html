@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<script>try{if(localStorage.getItem('pulso-theme')==='light'){document.documentElement.setAttribute('data-theme','light');}}catch(e){}</script>
 <meta name="theme-color" content="#0A0C0B">
 <title>Pulso · Vida saudável em rede</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -706,6 +707,67 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
 .wk-photo{ font-size:11px; opacity:.7; }
 .wk-sub{ font-size:12px; color:var(--ink-dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .wk-date{ font-size:11.5px; color:var(--ink-faint); font-family:var(--ff-display); flex-shrink:0; }
+
+/* ============ ONDA 7 ============ */
+/* Aba refeições */
+.ml-thumb{ width:44px; height:44px; border-radius:10px; object-fit:cover; flex-shrink:0; }
+.ml-thumb-empty{ display:grid; place-items:center; background:var(--bg-elev); font-size:20px; }
+.ml-side{ display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0; }
+.ml-score{ font-family:var(--ff-display); font-weight:700; font-size:15px; }
+.ml-private{ font-size:11px; opacity:.7; }
+.ig-tab{ font-size:12.5px; padding:12px 4px; }
+
+/* Configurações */
+.theme-options{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.theme-opt{ display:flex; flex-direction:column; align-items:center; gap:10px; background:var(--bg-card); border:1.5px solid var(--line); border-radius:16px; padding:16px 10px; cursor:pointer; color:var(--ink); }
+.theme-opt.on{ border-color:var(--vital); background:var(--vital-dim); }
+.theme-name{ font-size:13.5px; font-weight:600; }
+.theme-swatch{ display:flex; flex-direction:column; gap:4px; width:100%; max-width:110px; padding:8px; border-radius:10px; }
+.theme-swatch i{ display:block; height:8px; border-radius:4px; }
+.theme-swatch.dark{ background:#0A0C0B; }
+.theme-swatch.dark i{ background:#262E29; } .theme-swatch.dark i:first-child{ background:#35E19B; width:60%; }
+.theme-swatch.light{ background:#F4F6F4; border:1px solid #DDE3DE; }
+.theme-swatch.light i{ background:#DDE3DE; } .theme-swatch.light i:first-child{ background:#1FB87A; width:60%; }
+.settings-list{ display:flex; flex-direction:column; gap:6px; }
+.settings-item{ display:flex; align-items:center; justify-content:space-between; background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:14px 14px; font-size:14px; color:var(--ink); cursor:pointer; text-align:left; }
+.settings-item span{ color:var(--ink-faint); font-size:18px; }
+.settings-item.danger{ color:var(--effort); }
+
+/* Chat e coach: composer sempre visível no celular */
+.view.coach-view{
+    height:calc(var(--app-h, 100vh) - var(--topbar-h, 64px) - var(--nav-pad, 90px));
+    min-height:0; display:flex; flex-direction:column; overflow:hidden; padding-bottom:10px;
+}
+.coach-view .coach-chat{ flex:1; min-height:0; max-height:none; }
+
+/* Topo mais compacto */
+.topbar{ padding:10px 14px; padding-top:calc(10px + env(safe-area-inset-top, 0px)); }
+@media (max-width:480px){
+    .view{ padding-top:10px; }
+    .topbar-brand{ font-size:19px; }
+    .weekly-pill{ padding:3px 8px 3px 4px; gap:5px; font-size:12px; }
+    .wp-ring{ width:20px; height:20px; }
+    .topbar-score{ padding:5px 9px; gap:5px; font-size:12.5px; }
+    .topbar-right{ gap:6px; }
+    .user-topbar{ padding-bottom:8px; margin-bottom:8px; }
+}
+
+/* Tema claro */
+:root[data-theme="light"]{
+    --bg:#F4F6F4; --bg-card:#FFFFFF; --bg-elev:#EEF1EE; --bg-input:#F1F4F1;
+    --ink:#101512; --ink-dim:#5A645D; --ink-faint:#8A938C;
+    --line:#DDE3DE;
+    --vital:#1FB87A; --vital-2:#18B8A0; --vital-dim:rgba(31,184,122,.12);
+    --effort:#E8622E; --danger:#D93F3F; --info:#2F86D9; --gold:#D98E00;
+    --ring:0 0 0 3px rgba(31,184,122,.2);
+}
+:root[data-theme="light"] .topbar{ background:rgba(255,255,255,.9); }
+:root[data-theme="light"] .bottomnav{ background:rgba(255,255,255,.94); }
+:root[data-theme="light"] .imc-marker{ background:var(--ink); }
+:root[data-theme="light"] .sheet{ background:rgba(16,21,18,.35); }
+:root[data-theme="light"] .post, :root[data-theme="light"] .stat-card,
+:root[data-theme="light"] .chart-card, :root[data-theme="light"] .health-card,
+:root[data-theme="light"] .goal-card, :root[data-theme="light"] .weekly-card{ box-shadow:0 1px 3px rgba(16,21,18,.06); }
 </style>
 </head>
 <body>
@@ -869,7 +931,7 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
                 <div class="field">
                     <label>Atividade</label>
                     <select id="wType">
-                        <option>Musculação</option><option>Corrida</option><option>Ciclismo</option><option>Natação</option><option>HIIT</option>
+                        <option>Musculação</option><option>Corrida</option><option>Ciclismo</option><option>Natação</option>
                         <option>Caminhada</option><option>Yoga</option><option>Dança</option><option>Alongamento</option><option>Futebol</option><option>Outro</option>
                     </select>
                 </div>
@@ -1033,7 +1095,7 @@ const avatarHTML = (p, size='md') => {
     if (p?.avatar_url) return `<span class="avatar ${cls}" style="background:${bg}"><img src="${p.avatar_url}" onerror="this.remove()"></span>`;
     return `<span class="avatar ${cls}" style="background:${bg}">${initials(p?.display_name || p?.username || '?')}</span>`;
 };
-const escapeHTML = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const escapeHTML = s => String(s||'').replace(/[\u2014\u2013]/g, '-').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const timeAgo = iso => {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
     if (diff < 60) return 'agora';
@@ -1496,6 +1558,7 @@ function showProfileMenu(anchor, isAdmin) {
         <button class="post-menu-item" data-act="go-health">❤️ Ficha de saúde</button>
         <button class="post-menu-item" data-act="go-activity-log">📊 Histórico</button>
         <button class="post-menu-item" data-act="go-challenges">🏆 Comunidade</button>
+        <button class="post-menu-item" data-act="go-settings">⚙️ Configurações</button>
         ${isAdmin ? '<div class="menu-divider"></div><button class="post-menu-item admin-item" data-act="go-admin">🛠️ Painel Admin</button>' : ''}
         <div class="menu-divider"></div>
         <button class="post-menu-item danger" data-act="do-logout">🚪 Sair</button>
@@ -1556,7 +1619,7 @@ async function renderAdmin() {
             <div class="stat-grid" style="margin-top:10px">
                 <div class="stat-card"><div class="num">${o.total_treinos||0}</div><div class="lbl">Treinos totais</div></div>
                 <div class="stat-card"><div class="num">${o.total_refeicoes||0}</div><div class="lbl">Refeições totais</div></div>
-                <div class="stat-card"><div class="num">${o.nota_media_refeicoes||'—'}</div><div class="lbl">Nota média pratos</div></div>
+                <div class="stat-card"><div class="num">${o.nota_media_refeicoes||'-'}</div><div class="lbl">Nota média pratos</div></div>
                 <div class="stat-card"><div class="num">${o.maior_streak_atual||0}🔥</div><div class="lbl">Maior streak ativo</div></div>
             </div>
             <div class="health-card" style="text-align:center">
@@ -1570,6 +1633,98 @@ async function renderAdmin() {
             <div class="admin-user-list">${usersHTML}</div>
         </div>
     `;
+}
+
+// ---- Tema e configurações ----
+function applyTheme(theme) {
+    const light = theme === 'light';
+    if (light) document.documentElement.setAttribute('data-theme', 'light');
+    else document.documentElement.removeAttribute('data-theme');
+    try { localStorage.setItem('pulso-theme', light ? 'light' : 'dark'); } catch (e) {}
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', light ? '#F4F6F4' : '#0A0C0B');
+}
+
+function renderSettings() {
+    const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    $('#viewContainer').innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back-profile">←</button>
+                <div class="topbar-title">Configurações</div>
+                <div style="width:28px"></div>
+            </div>
+
+            <h3 class="edit-section-title">Aparência</h3>
+            <div class="theme-options">
+                <button class="theme-opt${cur === 'dark' ? ' on' : ''}" data-act="set-theme" data-theme="dark">
+                    <span class="theme-swatch dark"><i></i><i></i><i></i></span>
+                    <span class="theme-name">Escuro</span>
+                </button>
+                <button class="theme-opt${cur === 'light' ? ' on' : ''}" data-act="set-theme" data-theme="light">
+                    <span class="theme-swatch light"><i></i><i></i><i></i></span>
+                    <span class="theme-name">Claro</span>
+                </button>
+            </div>
+
+            <h3 class="edit-section-title">Conta</h3>
+            <div class="settings-list">
+                <button class="settings-item" data-act="open-edit-profile">✏️ Editar perfil<span>›</span></button>
+                <button class="settings-item danger" data-act="do-logout">🚪 Sair<span>›</span></button>
+            </div>
+        </div>
+    `;
+}
+
+// ---- Histórico de refeições no perfil ----
+// Suas: todas (inclusive as só registradas). De outra pessoa: só as que ela publicou.
+const MEAL_SLOT_NAME = { cafe:'Café da manhã', almoco:'Almoço', jantar:'Jantar', lanche:'Lanche' };
+
+async function renderMealHistory(uid) {
+    const body = $('#profileTabBody');
+    if (!body) return;
+    body.innerHTML = '<div class="spinner"></div>';
+    const isMe = uid === state.session.user.id;
+
+    const { data, error } = await sb.from('posts')
+        .select('id, meal_slot, meal_score, meal_analysis, image_url, created_at, in_feed')
+        .eq('user_id', uid).eq('kind', 'meal')
+        .order('created_at', { ascending: false })
+        .limit(60);
+
+    if (!$('#profileTabBody')) return;
+    if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+    if (!data || data.length === 0) {
+        body.innerHTML = `<div class="grid-empty">${isMe ? 'Nenhuma refeição registrada ainda.' : 'Nenhuma refeição compartilhada.'}</div>`;
+        return;
+    }
+
+    const notas = data.filter(m => m.meal_score != null).map(m => Number(m.meal_score));
+    const media = notas.length ? (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(1) : null;
+
+    const rows = data.map(m => {
+        const dia = new Date(m.created_at).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+        const sc = m.meal_score != null ? Number(m.meal_score) : null;
+        const cor = sc == null ? 'var(--ink-faint)' : sc >= 8 ? 'var(--vital)' : sc >= 5 ? 'var(--gold)' : 'var(--effort)';
+        const thumb = m.image_url
+            ? `<img class="ml-thumb" src="${m.image_url}" loading="lazy">`
+            : `<span class="ml-thumb ml-thumb-empty">🍽️</span>`;
+        const act = m.image_url ? ` data-act="view-post" data-id="${m.id}"` : '';
+        return `<div class="wk-row${m.image_url ? ' tappable' : ''}"${act}>
+            ${thumb}
+            <div class="wk-body">
+                <div class="wk-title">${MEAL_SLOT_NAME[m.meal_slot] || 'Refeição'}${!m.in_feed && isMe ? ' <span class="ml-private">🔒</span>' : ''}</div>
+                ${m.meal_analysis ? `<div class="wk-sub">${escapeHTML(m.meal_analysis.slice(0, 80))}</div>` : ''}
+            </div>
+            <div class="ml-side">
+                ${sc != null ? `<span class="ml-score" style="color:${cor}">${sc.toFixed(1)}</span>` : ''}
+                <span class="wk-date">${dia}</span>
+            </div>
+        </div>`;
+    }).join('');
+
+    body.innerHTML = `<div class="wk-summary"><b>${data.length}</b> refeições${media ? ` · nota média <b>${media}</b>` : ''}</div>
+        <div class="wk-list">${rows}</div>`;
 }
 
 // ---- Histórico de treinos no perfil (visível pra quem visita) ----
@@ -1946,6 +2101,7 @@ COMO VOCÊ FALA:
 - No máximo 3 itens quando listar algo.
 - Máximo 110 palavras, a não ser que a pessoa peça detalhe.
 - Não use emoji em excesso, no máximo um.
+- Nunca use o travessão longo. Use vírgula, ponto, dois pontos ou parênteses.
 
 LIMITES QUE VOCÊ NÃO ULTRAPASSA:
 - Você não é médico nem nutricionista. Não diagnostica, não prescreve medicação, não manda mudar tratamento.
@@ -2360,7 +2516,7 @@ function lineChart(points, opts = {}) {
     if (points.length === 1) {
         return `<div class="chart-single">
             <span class="cs-val">${points[0].y.toFixed(1)}</span>
-            <span class="cs-hint">${opts.unit || ''} — registre mais para ver a curva</span>
+            <span class="cs-hint">${opts.unit || ''} - registre mais para ver a curva</span>
         </div>`;
     }
 
@@ -2423,13 +2579,13 @@ function barChart(bars, opts = {}) {
     // bars: [{label, value, highlight?}]
     if (!bars || bars.length === 0) return `<div class="chart-empty">Sem dados ainda.</div>`;
 
-    // Com pouco histórico, uma barra sozinha fica feia — mostra número grande em vez de gráfico
+    // Com pouco histórico, uma barra sozinha fica feia - mostra número grande em vez de gráfico
     if (bars.length <= 1) {
         const b = bars[0];
         const hit = opts.goal != null && b.value >= opts.goal;
         return `<div class="chart-single">
             <span class="cs-val" style="color:${hit ? 'var(--vital)' : 'var(--ink)'}">${b.value}</span>
-            <span class="cs-hint">${b.label}${opts.goal != null ? ` — meta: ${opts.goal}` : ''}</span>
+            <span class="cs-hint">${b.label}${opts.goal != null ? ` - meta: ${opts.goal}` : ''}</span>
         </div>`;
     }
 
@@ -2504,7 +2660,7 @@ async function renderProgress() {
         <div class="weekly-track"><div class="weekly-fill" style="width:${pctWeek}%"></div></div>
         <div class="weekly-hint">
             ${isValid
-                ? 'Meta atingida — +10 pts creditados essa semana.'
+                ? 'Meta atingida - +10 pts creditados essa semana.'
                 : `Falta${falta === 1 ? '' : 'm'} <b style="color:var(--vital)">${falta}</b> ${falta === 1 ? 'dia' : 'dias'} pra bater sua meta.`}
         </div>
         <div class="weekly-stats">
@@ -2721,6 +2877,7 @@ async function renderProfile() {
             <div class="ig-tabs">
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">▦ Posts</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}">💪 Treinos</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${state.session.user.id}">🍽️ Refeições</button>
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
@@ -2891,7 +3048,7 @@ async function renderHealth() {
     function delta(field) {
         if (!last || !prev || last[field] == null || prev[field] == null) return '';
         const d = Number(last[field]) - Number(prev[field]);
-        if (Math.abs(d) < 0.05) return '<span class="m-delta same">—</span>';
+        if (Math.abs(d) < 0.05) return '<span class="m-delta same">-</span>';
         const cls = d < 0 ? 'down' : 'up';
         return `<span class="m-delta ${cls}">${d < 0 ? '▼' : '▲'} ${Math.abs(d).toFixed(1)}</span>`;
     }
@@ -2899,7 +3056,7 @@ async function renderHealth() {
         const v = last?.[field];
         return `<div class="m-row">
             <span class="m-label">${label}</span>
-            <span class="m-value">${v != null ? Number(v).toFixed(1) + ' ' + unit : '—'}</span>
+            <span class="m-value">${v != null ? Number(v).toFixed(1) + ' ' + unit : '-'}</span>
             ${delta(field)}
         </div>`;
     }
@@ -2934,7 +3091,7 @@ async function renderHealth() {
                     ${h.ultima_medida_em ? `<span class="hc-date">Medido em ${new Date(h.ultima_medida_em + 'T12:00:00').toLocaleDateString('pt-BR')}</span>` : ''}
                 </div>
                 <div class="imc-display">
-                    <span class="imc-num" style="color:${imcColor}">${h.imc ? Number(h.imc).toFixed(1) : '—'}</span>
+                    <span class="imc-num" style="color:${imcColor}">${h.imc ? Number(h.imc).toFixed(1) : '-'}</span>
                     <span class="imc-class" style="color:${imcColor}">${h.imc_classe || 'Preencha altura e peso'}</span>
                 </div>
                 <div class="imc-scale">
@@ -2944,10 +3101,10 @@ async function renderHealth() {
                     <div class="imc-seg" style="background:var(--effort)" title="Obesidade"></div>
                     ${h.imc ? `<div class="imc-marker" style="left:${Math.min(97, Math.max(1, ((Number(h.imc) - 15) / 25) * 100))}%"></div>` : ''}
                 </div>
-                <div class="imc-legend"><span>&lt;18,5</span><span>18,5–25</span><span>25–30</span><span>30+</span></div>
+                <div class="imc-legend"><span>&lt;18,5</span><span>18,5-25</span><span>25-30</span><span>30+</span></div>
                 <div class="health-meta">
-                    <span>Altura: <b>${h.altura ? Number(h.altura).toFixed(2) + ' m' : '—'}</b></span>
-                    <span>Peso: <b>${h.peso_atual ? Number(h.peso_atual).toFixed(1) + ' kg' : '—'}</b></span>
+                    <span>Altura: <b>${h.altura ? Number(h.altura).toFixed(2) + ' m' : '-'}</b></span>
+                    <span>Peso: <b>${h.peso_atual ? Number(h.peso_atual).toFixed(1) + ' kg' : '-'}</b></span>
                 </div>
             </div>
 
@@ -3079,7 +3236,7 @@ function openFamilySheet() {
             <div class="field">
                 <label>Tipo sanguíneo</label>
                 <select id="hsBlood">
-                    <option value="">—</option>
+                    <option value="">-</option>
                     ${['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(b => `<option value="${b}" ${p.blood_type===b?'selected':''}>${b}</option>`).join('')}
                 </select>
             </div>
@@ -3148,7 +3305,7 @@ function closeFamilySheet() {
     document.body.style.overflow = '';
 }
 
-// Sheet dedicado para registrar peso — sempre privado, nunca vai pro feed
+// Sheet dedicado para registrar peso - sempre privado, nunca vai pro feed
 function openWeightLogSheet() {
     let sheet = document.getElementById('weightLogSheet');
     if (sheet) sheet.remove();
@@ -3239,10 +3396,13 @@ function openWeightLogSheet() {
             await creditPoints(3, 'weight_check', created.id);
             const today = new Date().toISOString().split('T')[0];
             const streakInfo = await updateStreak(today);
+            const { data: wl } = await sb.rpc('credit_weight_loss');
+            const wlPts = Number((wl && wl[0] && wl[0].pts) || 0);
             await loadScore();
 
             close();
             let msg = '+3 pontos! Peso registrado';
+            if (wlPts > 0) msg = `+${3 + wlPts} pontos! Você chegou a ${wl[0].pct}% do peso inicial perdido 🎉`;
             if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
             toast(msg, 'ok');
             if (state.view === 'health') await renderHealth();
@@ -3323,7 +3483,7 @@ function openMeasureSheet() {
                 </div>
 
                 <div class="field">
-                    <label>Gordura corporal (%) — opcional</label>
+                    <label>Gordura corporal (%) - opcional</label>
                     <div class="stepper" data-target="msGordura" data-min="3" data-max="60" data-step="0.5" data-default="20">
                         <button type="button" class="step-btn" data-dir="-">−</button>
                         <input type="number" id="msGordura" step="0.5" inputmode="decimal">
@@ -3406,7 +3566,7 @@ function showMealResult(an, pts, limitReached) {
             <p class="mr-analysis">${escapeHTML(an.analysis || '')}</p>
             ${an.items && an.items.length ? `<div class="mr-items">${an.items.map(i => `<span class="mr-item">${escapeHTML(i)}</span>`).join('')}</div>` : ''}
             ${limitReached
-                ? `<div class="mr-limit-note">Limite diário de pontos por refeição atingido — essa não somou pontos, mas a análise é sua de qualquer forma.</div>`
+                ? `<div class="mr-limit-note">Limite diário de pontos por refeição atingido - essa não somou pontos, mas a análise é sua de qualquer forma.</div>`
                 : `<div class="mr-points">+${pts} pontos</div>`}
             <button class="btn-primary" id="mealResultClose">Fechar</button>
         </div>
@@ -3574,6 +3734,7 @@ async function renderUserProfile(uid) {
             <div class="ig-tabs">
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">▦ Posts</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}">💪 Treinos</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}">🍽️ Refeições</button>
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
@@ -3654,7 +3815,7 @@ async function renderEditProfile() {
                 <div class="field">
                     <label>Sexo</label>
                     <select id="edSexo">
-                        <option value="">—</option>
+                        <option value="" disabled hidden ${!p.sexo ? 'selected' : ''}>Selecione</option>
                         <option value="M" ${p.sexo==='M'?'selected':''}>Masculino</option>
                         <option value="F" ${p.sexo==='F'?'selected':''}>Feminino</option>
                     </select>
@@ -3744,8 +3905,22 @@ async function renderEditProfile() {
     });
 }
 
+function syncLayoutVars() {
+    const root = document.documentElement.style;
+    const vv = window.visualViewport;
+    root.setProperty('--app-h', Math.round(vv ? vv.height : window.innerHeight) + 'px');
+    const tb = document.querySelector('.topbar');
+    const app = document.getElementById('app');
+    if (tb && tb.offsetHeight) root.setProperty('--topbar-h', tb.offsetHeight + 'px');
+    if (app) root.setProperty('--nav-pad', (parseFloat(getComputedStyle(app).paddingBottom) || 90) + 'px');
+}
+window.addEventListener('resize', syncLayoutVars);
+window.addEventListener('orientationchange', syncLayoutVars);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', syncLayoutVars);
+
 async function switchView(v, params = {}) {
     closeDynamicSheets();
+    requestAnimationFrame(syncLayoutVars);
     if (v !== 'chat') stopChatSync();
     state.view = v;
     state.viewParams = params;
@@ -3763,6 +3938,7 @@ async function switchView(v, params = {}) {
     else if (v === 'coach') await renderCoach();
     else if (v === 'admin') await renderAdmin();
     else if (v === 'messages') await renderMessages();
+    else if (v === 'settings') renderSettings();
     else if (v === 'chat') await renderChat(params.conversationId, params.otherUser);
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -3852,7 +4028,16 @@ document.addEventListener('click', async e => {
     } else if (act === 'profile-tab') {
         $$('.ig-tab').forEach(t => t.classList.toggle('on', t === btn));
         if (btn.dataset.tab === 'workouts') renderWorkoutHistory(btn.dataset.uid);
+        else if (btn.dataset.tab === 'meals') renderMealHistory(btn.dataset.uid);
         else $('#profileTabBody').innerHTML = `<div class="ig-grid">${state.profileGridHTML || ''}</div>`;
+    } else if (act === 'go-settings') {
+        hidePostMenu();
+        switchView('settings');
+    } else if (act === 'set-theme') {
+        applyTheme(btn.dataset.theme);
+        renderSettings();
+    } else if (act === 'open-edit-profile') {
+        switchView('edit-profile');
     } else if (act === 'go-community') {
         switchView('challenges');
     } else if (act === 'go-progress') {
@@ -3878,8 +4063,8 @@ document.addEventListener('click', async e => {
         showChatMenu(btn);
     } else if (act === 'clear-chat') {
         hidePostMenu();
-        if (!confirm('Apagar esta conversa? Ela some só pra você, a outra pessoa continua vendo.')) return;
-        const { error } = await sb.rpc('clear_conversation', { conv_id: btn.dataset.id });
+        if (!confirm('Apagar esta conversa? Ela some pros dois e não dá pra desfazer.')) return;
+        const { error } = await sb.from('conversations').delete().eq('id', btn.dataset.id);
         if (error) { toast('Erro ao apagar conversa', 'err'); return; }
         toast('Conversa apagada', 'ok');
         switchView('messages');
@@ -4324,7 +4509,7 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     const hint = $('#photoHint');
     if (state.composerKind === 'workout') hint.textContent = '(opcional, +3 pts se anexar)';
     else if (state.composerKind === 'meal') hint.textContent = '(a IA analisa a foto e dá a pontuação)';
-    else if (state.composerKind === 'story') hint.textContent = '(opcional — pode ser só texto)';
+    else if (state.composerKind === 'story') hint.textContent = '(opcional - pode ser só texto)';
 
     // Treino com foto sugere o feed; o resto começa como registro
     state.composerDest = (state.composerKind === 'workout' && state.composerPhoto) ? 'feed' : 'log';
@@ -4541,7 +4726,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                 ptsToCredit = 2;
                 ptsReason = 'meal_text';
             } else {
-                toast('Limite de 3 refeições com pontos por dia — post salvo sem pontos', 'err');
+                toast('Limite de 3 refeições com pontos por dia - post salvo sem pontos', 'err');
             }
         }
 
@@ -4600,7 +4785,7 @@ async function boot() {
     const { data: { session } } = await sb.auth.getSession();
 
     if (isRecovery && session) {
-        // Chegou pelo link do email — mostra tela de nova senha
+        // Chegou pelo link do email - mostra tela de nova senha
         $('#authScreen').style.display = 'flex';
         $('#app').classList.remove('on');
         showAuthScreen('reset-password');
@@ -4641,11 +4826,17 @@ async function boot() {
     await loadScore();
     await switchView('feed');
     updateUnreadBadge();
+
+    // Credita perda de peso que ainda não virou ponto (ex.: pesagens antigas)
+    sb.rpc('credit_weight_loss').then(({ data }) => {
+        const p = Number((data && data[0] && data[0].pts) || 0);
+        if (p > 0) { toast(`+${p} pontos pela sua perda de peso até aqui 🎉`, 'ok'); loadScore(); }
+    });
 }
 
 sb.auth.onAuthStateChange((event, session) => {
     if (event === 'PASSWORD_RECOVERY') {
-        // Usuário clicou no link de recuperação — mostra tela de nova senha
+        // Usuário clicou no link de recuperação - mostra tela de nova senha
         state.session = session;
         $('#authScreen').style.display = 'flex';
         $('#app').classList.remove('on');
