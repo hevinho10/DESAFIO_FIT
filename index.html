@@ -685,6 +685,27 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
 .top-rank b{ color:var(--gold); }
 .cw-my-rank{ font-size:13px; color:var(--ink-dim); background:var(--bg-elev); border-radius:10px; padding:9px 12px; margin-bottom:10px; }
 .cw-my-rank b{ color:var(--vital); font-family:var(--ff-display); }
+
+/* ============ ONDA 6: registrar x publicar ============ */
+.dest-picker{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:12px 0 4px; }
+.dest-btn{ display:flex; align-items:center; justify-content:center; gap:7px; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink-dim); padding:11px 8px; border-radius:12px; font-size:13px; font-weight:600; cursor:pointer; transition:all .12s; }
+.dest-btn .emo{ font-size:16px; }
+.dest-btn.on{ background:var(--vital-dim); border-color:var(--vital); color:var(--vital); }
+.dest-btn:disabled{ opacity:.45; cursor:not-allowed; }
+.dest-hint{ font-size:11.5px; color:var(--ink-faint); margin:4px 2px 10px; line-height:1.4; }
+.wk-summary{ font-size:13px; color:var(--ink-dim); padding:12px 4px 8px; }
+.wk-summary b{ color:var(--vital); font-family:var(--ff-display); }
+.wk-list{ display:flex; flex-direction:column; gap:6px; }
+.wk-row{ display:flex; align-items:center; gap:12px; background:var(--bg-card); border:1px solid var(--line); border-radius:12px; padding:11px 13px; }
+.wk-row.tappable{ cursor:pointer; }
+.wk-row.tappable:hover{ border-color:var(--vital); }
+.wk-emo{ font-size:22px; flex-shrink:0; }
+.wk-body{ flex:1; min-width:0; }
+.wk-title{ font-size:14px; font-weight:600; color:var(--ink); }
+.wk-title b{ color:var(--vital); font-family:var(--ff-display); font-weight:600; margin-left:3px; }
+.wk-photo{ font-size:11px; opacity:.7; }
+.wk-sub{ font-size:12px; color:var(--ink-dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.wk-date{ font-size:11.5px; color:var(--ink-faint); font-family:var(--ff-display); flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -849,7 +870,7 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
                     <label>Atividade</label>
                     <select id="wType">
                         <option>Musculação</option><option>Corrida</option><option>Ciclismo</option><option>Natação</option><option>HIIT</option>
-                        <option>Caminhada</option><option>Yoga</option><option>Dança</option><option>Alongamento</option><option>Outro</option>
+                        <option>Caminhada</option><option>Yoga</option><option>Dança</option><option>Alongamento</option><option>Futebol</option><option>Outro</option>
                     </select>
                 </div>
                 <div class="field">
@@ -908,6 +929,12 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
             </div>
             <img id="pPhotoPreview" class="file-preview">
         </div>
+
+        <div id="destSection" class="dest-picker">
+            <button type="button" class="dest-btn on" data-dest="log"><span class="emo">📝</span><span>Só registrar</span></button>
+            <button type="button" class="dest-btn" data-dest="feed"><span class="emo">📢</span><span>Publicar no feed</span></button>
+        </div>
+        <p id="destHint" class="dest-hint"></p>
 
         <div id="privacySection">
             <button type="button" id="privacyChip" class="privacy-chip" aria-haspopup="menu" aria-expanded="false">
@@ -1029,6 +1056,7 @@ const toast = (msg, kind='ok') => {
 const INTENSITY = {
     'Musculação':1.0,'Corrida':1.0,'Natação':1.0,'Ciclismo':1.0,'HIIT':1.0,
     'Caminhada':0.7,'Yoga':0.7,'Dança':0.7,'Alongamento':0.7,
+    'Futebol':1.0,
     'Outro':0.8
 };
 
@@ -1542,6 +1570,49 @@ async function renderAdmin() {
             <div class="admin-user-list">${usersHTML}</div>
         </div>
     `;
+}
+
+// ---- Histórico de treinos no perfil (visível pra quem visita) ----
+const WORKOUT_EMOJI = {
+    'Musculação':'🏋️', 'Corrida':'🏃', 'Caminhada':'🚶', 'Natação':'🏊', 'Ciclismo':'🚴',
+    'Yoga':'🧘', 'Dança':'💃', 'HIIT':'⚡', 'Alongamento':'🤸', 'Futebol':'⚽', 'Outro':'💪'
+};
+
+async function renderWorkoutHistory(uid) {
+    const body = $('#profileTabBody');
+    if (!body) return;
+    body.innerHTML = '<div class="spinner"></div>';
+
+    const { data, error } = await sb.from('posts')
+        .select('id, activity_type, duration_min, caption, created_at, image_url, in_feed')
+        .eq('user_id', uid).eq('kind', 'workout')
+        .order('created_at', { ascending: false })
+        .limit(60);
+
+    if (!$('#profileTabBody')) return;
+    if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+    if (!data || data.length === 0) { body.innerHTML = '<div class="grid-empty">Nenhum treino registrado ainda.</div>'; return; }
+
+    const totalMin = data.reduce((s, w) => s + (w.duration_min || 0), 0);
+    const horas = Math.floor(totalMin / 60), mins = totalMin % 60;
+
+    const rows = data.map(w => {
+        const d = new Date(w.created_at);
+        const dia = d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+        const tipo = w.activity_type || 'Treino';
+        const act = w.in_feed ? ` data-act="view-post" data-id="${w.id}"` : '';
+        return `<div class="wk-row${w.in_feed ? ' tappable' : ''}"${act}>
+            <span class="wk-emo">${WORKOUT_EMOJI[tipo] || '💪'}</span>
+            <div class="wk-body">
+                <div class="wk-title">${escapeHTML(tipo)} <b>${w.duration_min || 0} min</b>${w.image_url ? ' <span class="wk-photo">📷</span>' : ''}</div>
+                ${w.caption ? `<div class="wk-sub">${escapeHTML(w.caption.slice(0, 70))}</div>` : ''}
+            </div>
+            <span class="wk-date">${dia}</span>
+        </div>`;
+    }).join('');
+
+    body.innerHTML = `<div class="wk-summary"><b>${data.length}</b> treinos · <b>${horas}h${mins ? String(mins).padStart(2,'0') : ''}</b> de atividade</div>
+        <div class="wk-list">${rows}</div>`;
 }
 
 // ============================================================
@@ -2132,6 +2203,7 @@ async function renderFeed() {
         `)
         .neq('kind', 'story')  // stories vão pra barra separada
         .neq('kind', 'weight')  // peso é sempre privado, nunca aparece em feed nem mural
+        .eq('in_feed', true)    // só o que a pessoa escolheu publicar
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -2570,7 +2642,7 @@ async function renderProfile() {
     const c = $('#viewContainer');
     const p = state.profile;
     const [{ count: postCount }, { data: streak }, { data: followersCount }, { data: followingCount }] = await Promise.all([
-        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', state.session.user.id).neq('kind', 'weight').not('image_url', 'is', null),
+        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', state.session.user.id).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true),
         sb.from('daily_streaks').select('*').eq('user_id', state.session.user.id).maybeSingle(),
         sb.rpc('my_followers_count'),
         sb.rpc('my_following_count'),
@@ -2580,7 +2652,7 @@ async function renderProfile() {
         .select('id, image_url, kind, caption, created_at, activity_type, duration_min, meal_slot')
         .eq('user_id', state.session.user.id)
         .neq('kind', 'weight')
-        .not('image_url', 'is', null)
+        .not('image_url', 'is', null).eq('in_feed', true)
         .order('created_at', { ascending: false })
         .limit(30);
 
@@ -2612,7 +2684,7 @@ async function renderProfile() {
         </div>`;
     }
 
-    const gridHTML = (myPosts || []).map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto postada ainda. Seus treinos e refeições sem foto ficam no Histórico.</div>';
+    const gridHTML = state.profileGridHTML = (myPosts || []).map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto postada ainda. Seus treinos e refeições sem foto ficam no Histórico.</div>';
 
     const { count: myStoryCount } = await sb.from('stories')
         .select('id', { count: 'exact', head: true })
@@ -2646,8 +2718,11 @@ async function renderProfile() {
                 <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Ofensiva</div></div>
             </div>
             ${goalHTML}
-            <div class="ig-tabs"><button class="ig-tab on">▦ Posts</button></div>
-            <div class="ig-grid">${gridHTML}</div>
+            <div class="ig-tabs">
+                <button class="ig-tab on" data-act="profile-tab" data-tab="posts">▦ Posts</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}">💪 Treinos</button>
+            </div>
+            <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
     `;
 
@@ -3450,19 +3525,19 @@ async function renderUserProfile(uid) {
     if (isMe) { switchView('profile'); return; }
 
     const [{ count: postCount }, followersRes, followingRes, iFollowRes, streakRes, postsRes] = await Promise.all([
-        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uid).neq('kind', 'weight').not('image_url', 'is', null),
+        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uid).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true),
         sb.from('follows').select('*', {count:'exact', head:true}).eq('following_id', uid),
         sb.from('follows').select('*', {count:'exact', head:true}).eq('follower_id', uid),
         sb.rpc('am_i_following', { target_id: uid }),
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
         sb.from('posts').select('id, image_url, kind, caption, created_at, activity_type, duration_min, meal_slot')
-            .eq('user_id', uid).neq('kind', 'weight').not('image_url', 'is', null).order('created_at', { ascending: false }).limit(30),
+            .eq('user_id', uid).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true).order('created_at', { ascending: false }).limit(30),
     ]);
     const iFollow = !!iFollowRes.data;
     const streak = streakRes.data;
     const posts = postsRes.data || [];
 
-    const gridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
+    const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
 
     const { count: theirStoryCount } = await sb.from('stories')
         .select('id', { count: 'exact', head: true })
@@ -3496,8 +3571,11 @@ async function renderUserProfile(uid) {
                 <button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>
             </div>
             ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}🔥</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
-            <div class="ig-tabs"><button class="ig-tab on">▦ Posts</button></div>
-            <div class="ig-grid">${gridHTML}</div>
+            <div class="ig-tabs">
+                <button class="ig-tab on" data-act="profile-tab" data-tab="posts">▦ Posts</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}">💪 Treinos</button>
+            </div>
+            <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
     `;
 }
@@ -3771,6 +3849,10 @@ document.addEventListener('click', async e => {
         btn.disabled = false;
         if (error) { toast('Erro ao abrir conversa: ' + error.message, 'err'); return; }
         switchView('chat', { conversationId: convId, otherUser: { id: otherUid, display_name: otherName, username: otherUsername, avatar_url: otherAvatar } });
+    } else if (act === 'profile-tab') {
+        $$('.ig-tab').forEach(t => t.classList.toggle('on', t === btn));
+        if (btn.dataset.tab === 'workouts') renderWorkoutHistory(btn.dataset.uid);
+        else $('#profileTabBody').innerHTML = `<div class="ig-grid">${state.profileGridHTML || ''}</div>`;
     } else if (act === 'go-community') {
         switchView('challenges');
     } else if (act === 'go-progress') {
@@ -4219,6 +4301,8 @@ function closeComposer() {
     $('#pPhotoGal').value = '';
     $('#pPhotoPreview').classList.remove('on');
     state.composerPhoto = null;
+    state.composerDest = 'log';
+    updateDestUI();
 }
 
 $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
@@ -4242,7 +4326,9 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     else if (state.composerKind === 'meal') hint.textContent = '(a IA analisa a foto e dá a pontuação)';
     else if (state.composerKind === 'story') hint.textContent = '(opcional — pode ser só texto)';
 
-    $('#composerSubmit').textContent = state.composerKind === 'story' ? 'Publicar Story' : 'Publicar';
+    // Treino com foto sugere o feed; o resto começa como registro
+    state.composerDest = (state.composerKind === 'workout' && state.composerPhoto) ? 'feed' : 'log';
+    updateDestUI();
 }));
 
 // Privacy chip: abre/fecha popover
@@ -4274,6 +4360,51 @@ document.addEventListener('click', e => {
     }
 });
 
+// ---- Registrar x Publicar no feed ----
+function updateDestUI() {
+    const sec = $('#destSection');
+    if (!sec) return;
+    const kind = state.composerKind;
+    const hasPhoto = !!state.composerPhoto;
+    const isStory = kind === 'story';
+    if (!state.composerDest) state.composerDest = 'log';
+    if (!hasPhoto && state.composerDest === 'feed') state.composerDest = 'log';
+
+    sec.classList.toggle('hidden', isStory);
+    $('#destHint').classList.toggle('hidden', isStory);
+    const feedBtn = sec.querySelector('[data-dest="feed"]');
+    feedBtn.disabled = !hasPhoto;
+    sec.querySelectorAll('.dest-btn').forEach(b => b.classList.toggle('on', b.dataset.dest === state.composerDest));
+
+    let hint = '';
+    if (!isStory) {
+        if (state.composerDest === 'feed') hint = 'Vai aparecer no feed e nas fotos do seu perfil.';
+        else if (kind === 'meal') hint = 'Fica só pra você no histórico. A IA analisa a foto do mesmo jeito.';
+        else hint = 'Fica no seu histórico de treinos, que aparece no seu perfil.';
+        if (!hasPhoto) hint += ' Pra publicar no feed, adicione uma foto.';
+    }
+    $('#destHint').textContent = hint;
+
+    $('#privacySection').classList.toggle('hidden', isStory || state.composerDest !== 'feed');
+
+    const btn = $('#composerSubmit');
+    if (btn && !btn.disabled) {
+        btn.textContent = isStory ? 'Publicar Story' : (state.composerDest === 'feed' ? 'Publicar no feed' : 'Registrar');
+    }
+}
+
+$$('.dest-btn').forEach(b => b.addEventListener('click', e => {
+    const el = e.currentTarget;
+    if (el.disabled) { toast('Adicione uma foto pra publicar no feed', 'err'); return; }
+    state.composerDest = el.dataset.dest;
+    // Refeição nasce privada; se for pro feed, abre pro padrão
+    if (state.composerDest === 'feed' && state.composerPrivacy === 'private') {
+        state.composerPrivacy = state.defaultPrivacy || 'public';
+        updatePrivacyChip();
+    }
+    updateDestUI();
+}));
+
 function updatePrivacyChip() {
     const meta = {
         public:    { emo:'🌍', label:'Público' },
@@ -4298,6 +4429,8 @@ function handlePhotoPick(e) {
     const url = URL.createObjectURL(file);
     $('#pPhotoPreview').src = url;
     $('#pPhotoPreview').classList.add('on');
+    if (state.composerKind === 'workout') state.composerDest = 'feed';
+    updateDestUI();
 }
 $('#pPhotoCam').addEventListener('change', handlePhotoPick);
 $('#pPhotoGal').addEventListener('change', handlePhotoPick);
@@ -4349,13 +4482,19 @@ $('#composerSubmit').addEventListener('click', async () => {
         }
 
         // ============ POST (tabela posts, permanente) ============
+        const toFeed = state.composerDest === 'feed' && !!imageUrl;
+        const postVisibility = toFeed
+            ? state.composerPrivacy
+            : (state.composerKind === 'meal' ? 'private' : 'public');
         const post = {
             user_id: state.session.user.id,
             kind: state.composerKind,
             caption: caption || null,
             image_url: imageUrl,
-            visibility: state.composerPrivacy,
-            is_public: state.composerPrivacy === 'public',
+            // Registro: treino fica visível no histórico do perfil; refeição fica privada
+            visibility: postVisibility,
+            is_public: postVisibility === 'public',
+            in_feed: toFeed,
         };
         let ptsToCredit = 0, ptsReason = '';
         let mealFeedback = null;
@@ -4439,13 +4578,14 @@ $('#composerSubmit').addEventListener('click', async () => {
         }
 
         if (state.view === 'feed') await renderFeed();
+        else if (state.view === 'profile') await renderProfile();
 
     } catch (err) {
         console.error(err);
         toast('Erro: ' + (err.message || 'não foi possível publicar'), 'err');
     } finally {
         btn.disabled = false;
-        btn.textContent = state.composerKind === 'story' ? 'Publicar Story' : 'Publicar';
+        updateDestUI();
     }
 });
 
