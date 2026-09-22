@@ -866,7 +866,7 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
         <!-- SIGN IN -->
         <form id="signinForm" class="auth-form">
             <label>Email ou usuário</label>
-            <input type="text" id="siLogin" required autocomplete="username" placeholder="voce@email.com ou hevinho">
+            <input type="text" id="siLogin" required autocomplete="username" placeholder="voce@email.com ou seu usuário">
             <label>Senha</label>
             <div class="pw-wrap">
                 <input type="password" id="siPassword" required autocomplete="current-password">
@@ -885,7 +885,7 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
             <input type="text" id="suName" required maxlength="60" placeholder="Como quer aparecer no feed">
 
             <label>Usuário (único) <span id="suUsernameStatus" class="uname-status"></span></label>
-            <input type="text" id="suUsername" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+" placeholder="ex: hevinho" autocomplete="username">
+            <input type="text" id="suUsername" required minlength="3" maxlength="30" pattern="[a-zA-Z0-9_]+" placeholder="ex: joao_silva" autocomplete="username">
 
             <label>Email</label>
             <input type="email" id="suEmail" required autocomplete="email">
@@ -3507,7 +3507,7 @@ function openInviteSheet(cid) {
         <div class="sheet-handle"></div>
         <h3 class="sheet-title">Convidar pro desafio</h3>
         <p class="sheet-sub">Digite o usuário da pessoa (aparece no perfil dela como @usuario).</p>
-        <div class="field"><label>Usuário</label><input type="text" id="invUser" placeholder="ex: hevinho" autocapitalize="off"></div>
+        <div class="field"><label>Usuário</label><input type="text" id="invUser" placeholder="ex: joao_silva" autocapitalize="off"></div>
         <div id="invMsg"></div>
         <div class="sheet-footer">
             <button class="btn-ghost" id="invCancel">Fechar</button>
