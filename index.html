@@ -822,6 +822,26 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
     .topbar{ padding:12px 14px; padding-top:calc(12px + env(safe-area-inset-top, 0px)); }
     .view{ padding-top:14px; }
 }
+
+/* ============ ONDA 10 ============ */
+.topbar-icon{ position:relative; background:none; border:none; color:var(--ink-dim); width:32px; height:32px; border-radius:50%; display:grid; place-items:center; cursor:pointer; transition:background .15s, color .15s; }
+.topbar-icon:hover, .topbar-icon:active{ background:var(--bg-elev); color:var(--ink); }
+.topbar-icon svg{ width:19px; height:19px; }
+.search-box{ display:flex; align-items:center; gap:10px; background:var(--bg-input); border:1px solid var(--line); border-radius:24px; padding:10px 16px; margin-bottom:14px; }
+.search-box svg{ width:18px; height:18px; color:var(--ink-faint); flex-shrink:0; }
+.search-box input{ flex:1; background:none; border:none; color:var(--ink); font-size:15px; font-family:inherit; outline:none; }
+.notif-row{ display:flex; gap:12px; align-items:flex-start; padding:13px 10px; border-bottom:1px solid var(--line); cursor:pointer; border-radius:10px; }
+.notif-row:hover{ background:var(--bg-elev); }
+.notif-row.nova{ background:var(--vital-dim); }
+.notif-emo{ font-size:20px; flex-shrink:0; }
+.notif-body{ flex:1; min-width:0; }
+.notif-text{ font-size:13.5px; color:var(--ink); line-height:1.4; }
+.notif-text b{ font-weight:600; }
+.notif-quote{ font-size:12.5px; color:var(--ink-dim); background:var(--bg-elev); border-radius:8px; padding:7px 10px; margin-top:6px; }
+.notif-time{ font-size:11px; color:var(--ink-faint); margin-top:4px; }
+.priv-text{ font-size:13.5px; color:var(--ink-dim); line-height:1.6; margin-bottom:8px; }
+.priv-text b{ color:var(--ink); }
+.priv-text:last-child{ margin-bottom:0; }
 </style>
 </head>
 <body>
@@ -942,6 +962,13 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
     <div class="topbar">
         <div class="topbar-brand">Pulso<span class="accent">.</span></div>
         <div class="topbar-right">
+            <button class="topbar-icon" data-act="go-search" aria-label="Buscar pessoas">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            </button>
+            <button class="topbar-icon" data-act="go-notifications" aria-label="Notificações">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                <span id="notifDot" class="unread-dot hidden"></span>
+            </button>
             <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
                 <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill" id="wpFill" stroke-dasharray="0 56.55"/></svg>
                 <span id="wpDays">0/3</span>
@@ -1736,6 +1763,332 @@ async function renderAdmin() {
     `;
 }
 
+// ---- Boas-vindas: completa o perfil no primeiro acesso ----
+function openOnboarding() {
+    const old = document.getElementById('onboardingSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'onboardingSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Bem-vindo ao Pulso 👋</h3>
+        <p class="sheet-sub">Três informações rápidas pro app calcular sua evolução e o coach te conhecer. Dá pra mudar depois.</p>
+
+        <div class="field-row">
+            <div class="field"><label>Altura (m)</label>
+                <div class="stepper" data-target="obAltura" data-min="1.20" data-max="2.30" data-step="0.01" data-default="1.70">
+                    <button type="button" class="step-btn" data-dir="-">−</button>
+                    <input type="number" id="obAltura" step="0.01" inputmode="decimal">
+                    <button type="button" class="step-btn" data-dir="+">+</button>
+                </div>
+            </div>
+            <div class="field"><label>Peso hoje (kg)</label>
+                <div class="stepper" data-target="obPeso" data-min="30" data-max="250" data-step="0.5" data-default="75">
+                    <button type="button" class="step-btn" data-dir="-">−</button>
+                    <input type="number" id="obPeso" step="0.5" inputmode="decimal">
+                    <button type="button" class="step-btn" data-dir="+">+</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="field"><label>Meta de peso (kg)</label>
+            <div class="stepper" data-target="obMeta" data-min="30" data-max="250" data-step="0.5" data-default="70">
+                <button type="button" class="step-btn" data-dir="-">−</button>
+                <input type="number" id="obMeta" step="0.5" inputmode="decimal">
+                <button type="button" class="step-btn" data-dir="+">+</button>
+            </div>
+        </div>
+
+        <div class="field"><label>Quantos treinos por semana você quer fazer?</label>
+            <div class="weekly-goal-picker">
+                <button type="button" class="wg-btn on" data-ob-goal="2"><span class="wg-emo">🌱</span><span><span class="wg-title">Iniciante</span><span class="wg-sub">1 a 3 dias</span></span></button>
+                <button type="button" class="wg-btn" data-ob-goal="4"><span class="wg-emo">🔥</span><span><span class="wg-title">Intermediário</span><span class="wg-sub">4 ou 5 dias</span></span></button>
+                <button type="button" class="wg-btn" data-ob-goal="6"><span class="wg-emo">⚡</span><span><span class="wg-title">Avançado</span><span class="wg-sub">6 ou 7 dias</span></span></button>
+            </div>
+        </div>
+
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="obSkip">Agora não</button>
+            <button class="btn-primary" id="obSave">Começar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+
+    let meta = 2;
+    sheet.querySelectorAll('[data-ob-goal]').forEach(b => b.addEventListener('click', e => {
+        meta = parseInt(e.currentTarget.dataset.obGoal);
+        sheet.querySelectorAll('[data-ob-goal]').forEach(x => x.classList.toggle('on', x === e.currentTarget));
+    }));
+
+    const close = () => { sheet.remove(); document.body.style.overflow = ''; };
+    document.getElementById('obSkip').onclick = close;
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+
+    document.getElementById('obSave').onclick = async () => {
+        const btn = document.getElementById('obSave');
+        const altura = parseFloat(document.getElementById('obAltura').value) || null;
+        const peso = parseFloat(document.getElementById('obPeso').value) || null;
+        const alvo = parseFloat(document.getElementById('obMeta').value) || null;
+
+        btn.disabled = true; btn.textContent = 'Salvando...';
+        const { error } = await sb.from('profiles').update({
+            altura, peso_inicial: peso, target_weight: alvo, weekly_goal: meta,
+        }).eq('id', state.session.user.id);
+        btn.disabled = false; btn.textContent = 'Começar';
+        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+
+        Object.assign(state.profile, { altura, peso_inicial: peso, target_weight: alvo, weekly_goal: meta });
+        if (peso) {
+            await sb.from('posts').insert({
+                user_id: state.session.user.id, kind: 'weight', weight_kg: peso,
+                visibility: 'private', is_public: false,
+            });
+        }
+        close();
+        toast('Tudo pronto! Bora começar 💪', 'ok');
+        await loadScore();
+        switchView('feed');
+    };
+}
+
+// ---- Editar um registro ----
+async function openEditPostSheet(id) {
+    const { data: p, error } = await sb.from('posts')
+        .select('id, kind, caption, activity_type, duration_min, meal_slot, weight_kg')
+        .eq('id', id).maybeSingle();
+    if (error || !p) { toast('Não consegui abrir esse registro', 'err'); return; }
+
+    const old = document.getElementById('editPostSheet');
+    if (old) old.remove();
+
+    let campos = '';
+    if (p.kind === 'workout') {
+        const tipos = ['Musculação','Corrida','Ciclismo','Natação','Caminhada','Yoga','Dança','Alongamento','Futebol','Outro'];
+        campos = `
+            <div class="field-row">
+                <div class="field"><label>Atividade</label>
+                    <select id="epType">${tipos.map(t => `<option ${p.activity_type === t ? 'selected' : ''}>${t}</option>`).join('')}</select>
+                </div>
+                <div class="field"><label>Duração (min)</label>
+                    <div class="stepper" data-target="epDur" data-min="5" data-max="240" data-step="5" data-default="45">
+                        <button type="button" class="step-btn" data-dir="-">−</button>
+                        <input type="number" id="epDur" value="${p.duration_min || 45}" inputmode="numeric">
+                        <button type="button" class="step-btn" data-dir="+">+</button>
+                    </div>
+                </div>
+            </div>`;
+    } else if (p.kind === 'meal') {
+        const slots = { cafe:'Café da manhã', almoco:'Almoço', jantar:'Jantar', lanche:'Lanche' };
+        campos = `<div class="field"><label>Refeição</label>
+            <select id="epSlot">${Object.entries(slots).map(([v, n]) => `<option value="${v}" ${p.meal_slot === v ? 'selected' : ''}>${n}</option>`).join('')}</select>
+        </div>`;
+    } else if (p.kind === 'weight') {
+        campos = `<div class="field"><label>Peso (kg)</label>
+            <div class="stepper" data-target="epKg" data-min="30" data-max="250" data-step="0.1" data-default="70">
+                <button type="button" class="step-btn" data-dir="-">−</button>
+                <input type="number" id="epKg" step="0.1" value="${p.weight_kg || ''}" inputmode="decimal">
+                <button type="button" class="step-btn" data-dir="+">+</button>
+            </div>
+        </div>`;
+    }
+
+    const sheet = document.createElement('div');
+    sheet.id = 'editPostSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Editar registro</h3>
+        <p class="sheet-sub">Os pontos já creditados não mudam.</p>
+        ${campos}
+        <div class="field"><label>Legenda</label><textarea id="epCaption" maxlength="500">${escapeHTML(p.caption || '')}</textarea></div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="epCancel">Cancelar</button>
+            <button class="btn-primary" id="epSave">Salvar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    const close = () => { sheet.remove(); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+    document.getElementById('epCancel').onclick = close;
+
+    document.getElementById('epSave').onclick = async () => {
+        const btn = document.getElementById('epSave');
+        btn.disabled = true; btn.textContent = 'Salvando...';
+        const up = { caption: document.getElementById('epCaption').value.trim() || null };
+        if (p.kind === 'workout') {
+            up.activity_type = document.getElementById('epType').value;
+            up.duration_min = parseInt(document.getElementById('epDur').value) || p.duration_min;
+        } else if (p.kind === 'meal') {
+            up.meal_slot = document.getElementById('epSlot').value;
+        } else if (p.kind === 'weight') {
+            up.weight_kg = parseFloat(document.getElementById('epKg').value) || p.weight_kg;
+        }
+        const { error: upErr } = await sb.from('posts').update(up).eq('id', id);
+        btn.disabled = false; btn.textContent = 'Salvar';
+        if (upErr) { toast('Erro: ' + upErr.message, 'err'); return; }
+        close();
+        toast('Registro atualizado', 'ok');
+        if (state.view === 'feed') renderFeed();
+        else if (state.view === 'profile') renderProfile();
+        else if (state.view === 'activity-log') renderActivityLog();
+    };
+}
+
+// ---- Refeições já registradas hoje ficam bloqueadas no seletor ----
+async function refreshMealSlots() {
+    const sel = $('#mSlot');
+    if (!sel) return;
+    const { data } = await sb.rpc('meals_today');
+    const usados = new Set((data || []).map(r => r.slot));
+    let primeiroLivre = null;
+    [...sel.options].forEach(op => {
+        const bloqueado = op.value !== 'lanche' && usados.has(op.value);
+        op.disabled = bloqueado;
+        const base = op.textContent.replace(' (já registrado hoje)', '');
+        op.textContent = bloqueado ? base + ' (já registrado hoje)' : base;
+        if (!bloqueado && primeiroLivre === null) primeiroLivre = op.value;
+    });
+    if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled && primeiroLivre) sel.value = primeiroLivre;
+}
+
+// ---- Buscar pessoas ----
+function renderSearch() {
+    $('#viewContainer').innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back">←</button>
+                <div class="topbar-title">Buscar pessoas</div>
+                <div style="width:28px"></div>
+            </div>
+            <div class="search-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input type="text" id="searchInput" placeholder="Nome ou @usuario" autocapitalize="off" autocomplete="off">
+            </div>
+            <div id="searchResults"><div class="log-empty">Digite pra encontrar gente no Pulso.</div></div>
+        </div>
+    `;
+    const input = $('#searchInput');
+    input.focus();
+    let timer = null;
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = input.value.trim();
+        const box = $('#searchResults');
+        if (q.length < 2) { box.innerHTML = '<div class="log-empty">Digite pelo menos 2 letras.</div>'; return; }
+        box.innerHTML = '<div class="spinner"></div>';
+        timer = setTimeout(async () => {
+            const { data, error } = await sb.rpc('search_profiles', { q });
+            if (!$('#searchResults')) return;
+            if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+            if (!data || data.length === 0) { box.innerHTML = '<div class="log-empty">Ninguém encontrado com esse nome.</div>'; return; }
+            box.innerHTML = data.map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
+                ${avatarHTML(u, 'sm')}
+                <div style="flex:1;min-width:0">
+                    <div class="follow-name">${escapeHTML(u.display_name)}</div>
+                    <div class="follow-uname">@${escapeHTML(u.username)}${u.bio ? ' · ' + escapeHTML(u.bio.slice(0, 40)) : ''}</div>
+                </div>
+            </div>`).join('');
+        }, 350);
+    });
+}
+
+// ---- Notificações ----
+async function updateNotifBadge() {
+    const { data } = await sb.rpc('unread_notifications');
+    const dot = $('#notifDot');
+    if (dot) dot.classList.toggle('hidden', !(data > 0));
+}
+
+async function renderNotifications() {
+    const c = $('#viewContainer');
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back">←</button>
+                <div class="topbar-title">Notificações</div>
+                <div style="width:28px"></div>
+            </div>
+            <div id="notifList"><div class="spinner"></div></div>
+        </div>
+    `;
+    const { data, error } = await sb.rpc('list_notifications');
+    const box = $('#notifList');
+    if (!box) return;
+    if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+    if (!data || data.length === 0) {
+        box.innerHTML = `<div class="feed-empty"><span class="emo">🔔</span><h3>Nada por aqui</h3><p>Curtidas, comentários e convites aparecem nesta tela.</p></div>`;
+        await sb.rpc('mark_notifications_read');
+        updateNotifBadge();
+        return;
+    }
+
+    box.innerHTML = data.map(n => {
+        const quem = escapeHTML(n.actor_name || 'Alguém');
+        let texto, emo, act = '', extra = '';
+        if (n.kind === 'comment') {
+            emo = '💬'; texto = `<b>${quem}</b> comentou no seu post`;
+            extra = n.body ? `<div class="notif-quote">${escapeHTML(n.body)}</div>` : '';
+            act = ` data-act="view-post" data-id="${n.post_id}"`;
+        } else if (n.kind === 'reaction') {
+            emo = '❤️'; texto = `<b>${quem}</b> curtiu seu post`;
+            act = ` data-act="view-post" data-id="${n.post_id}"`;
+        } else if (n.kind === 'follow') {
+            emo = '👤'; texto = `<b>${quem}</b> começou a te seguir`;
+            act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else {
+            emo = '🏆'; texto = `<b>${quem}</b> te adicionou no desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
+            act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
+        }
+        return `<div class="notif-row${n.read_at ? '' : ' nova'}"${act}>
+            <span class="notif-emo">${emo}</span>
+            <div class="notif-body">
+                <div class="notif-text">${texto}</div>
+                ${extra}
+                <div class="notif-time">${timeAgo(n.created_at)}</div>
+            </div>
+        </div>`;
+    }).join('');
+
+    await sb.rpc('mark_notifications_read');
+    updateNotifBadge();
+}
+
+// ---- Política de privacidade ----
+function renderPrivacy() {
+    $('#viewContainer').innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="go-settings-back">←</button>
+                <div class="topbar-title">Privacidade</div>
+                <div style="width:28px"></div>
+            </div>
+            <div class="install-card">
+                <h4>O que o Pulso guarda</h4>
+                <p class="priv-text">Seu nome, usuário, email e foto. E o que você registra: treinos, refeições, pesagens, medidas corporais e o histórico de saúde que você preencher.</p>
+            </div>
+            <div class="install-card">
+                <h4>Quem vê o quê</h4>
+                <p class="priv-text">Peso, medidas e histórico de saúde são <b>só seus</b>. Ninguém mais vê, nem o administrador pelo app.</p>
+                <p class="priv-text">Refeições ficam privadas por padrão. Só vão pro feed se você escolher publicar.</p>
+                <p class="priv-text">Dentro de um desafio, e só enquanto ele durar, os participantes veem o peso atual, a cintura e o percentual perdido uns dos outros. Quando o desafio acaba ou você sai, esse acesso some.</p>
+                <p class="priv-text">Treinos aparecem no seu perfil pra quem visitar. Posts seguem a privacidade que você escolher em cada um.</p>
+            </div>
+            <div class="install-card">
+                <h4>Inteligência artificial</h4>
+                <p class="priv-text">A foto do prato é enviada ao Google Gemini para análise nutricional. Suas conversas com o Coach levam um resumo dos seus números para a resposta fazer sentido. Nada disso é usado para publicidade.</p>
+                <p class="priv-text">O Coach não é médico nem nutricionista. As sugestões são orientação geral, não substituem profissional de saúde.</p>
+            </div>
+            <div class="install-card">
+                <h4>Seus direitos</h4>
+                <p class="priv-text">Você pode editar ou apagar qualquer registro quando quiser, e pode excluir sua conta a qualquer momento em Configurações. Excluindo a conta, todo o seu conteúdo é apagado junto e não tem como recuperar.</p>
+            </div>
+        </div>
+    `;
+}
+
 // ---- Instalar na tela inicial ----
 window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
@@ -1833,6 +2186,8 @@ function renderSettings() {
             <div class="settings-list">
                 <button class="settings-item" data-act="open-edit-profile">✏️ Editar perfil<span>›</span></button>
                 <button class="settings-item" data-act="go-install">📲 Instalar na tela inicial<span>›</span></button>
+                <button class="settings-item" data-act="go-privacy">🔒 Privacidade<span>›</span></button>
+                <button class="settings-item danger" data-act="delete-account">⚠️ Excluir minha conta<span>›</span></button>
                 <button class="settings-item danger" data-act="do-logout">🚪 Sair<span>›</span></button>
             </div>
         </div>
@@ -4340,6 +4695,9 @@ async function switchView(v, params = {}) {
     else if (v === 'settings') renderSettings();
     else if (v === 'challenge') await renderChallengeDetail(params.id);
     else if (v === 'install') renderInstall();
+    else if (v === 'search') renderSearch();
+    else if (v === 'notifications') await renderNotifications();
+    else if (v === 'privacy') renderPrivacy();
     else if (v === 'chat') await renderChat(params.conversationId, params.otherUser);
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -4454,6 +4812,24 @@ document.addEventListener('click', async e => {
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
         toast('Desafio apagado', 'ok');
         switchView('challenges');
+    } else if (act === 'go-search') {
+        switchView('search');
+    } else if (act === 'go-notifications') {
+        switchView('notifications');
+    } else if (act === 'go-privacy') {
+        hidePostMenu();
+        switchView('privacy');
+    } else if (act === 'edit-post') {
+        hidePostMenu();
+        openEditPostSheet(btn.dataset.id);
+    } else if (act === 'delete-account') {
+        if (!confirm('Excluir sua conta? Todo o seu conteúdo some e não tem como recuperar.')) return;
+        const txt = prompt('Pra confirmar, escreva EXCLUIR em maiúsculas:');
+        if (txt !== 'EXCLUIR') { toast('Exclusão cancelada', 'ok'); return; }
+        const { error } = await sb.rpc('delete_my_account');
+        if (error) { toast('Erro ao excluir: ' + error.message, 'err'); return; }
+        await sb.auth.signOut();
+        location.reload();
     } else if (act === 'go-install') {
         hidePostMenu();
         switchView('install');
@@ -4624,6 +5000,7 @@ function showPostMenu(postId, anchor) {
     menu.id = 'floatingPostMenu';
     menu.className = 'post-menu';
     menu.innerHTML = `
+        <button class="post-menu-item" data-act="edit-post" data-id="${postId}">✏️ Editar</button>
         <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">👁️ Quem pode ver</button>
         <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">🗑️ Apagar post</button>
     `;
@@ -4938,6 +5315,7 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     $('#workoutFields').classList.toggle('hidden', state.composerKind !== 'workout');
     $('#mealFields').classList.toggle('hidden', state.composerKind !== 'meal');
     $('#storyFields').classList.toggle('hidden', state.composerKind !== 'story');
+    if (state.composerKind === 'meal') refreshMealSlots();
     $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
 
     // Refeição é dado pessoal: por padrão só a própria pessoa vê.
@@ -5064,6 +5442,8 @@ $('#pPhotoGal').addEventListener('change', handlePhotoPick);
 
 $('#composerSubmit').addEventListener('click', async () => {
     const btn = $('#composerSubmit');
+    if (state.publishing) return;
+    state.publishing = true;
     btn.disabled = true; btn.textContent = 'Publicando...';
 
     try {
@@ -5150,7 +5530,14 @@ $('#composerSubmit').addEventListener('click', async () => {
         }
 
         const { data: created, error: postErr } = await sb.from('posts').insert(post).select().single();
-        if (postErr) throw postErr;
+        if (postErr) {
+            if (String(postErr.message || '').includes('refeicao_duplicada')) {
+                const nome = { cafe:'o café da manhã', almoco:'o almoço', jantar:'o jantar' }[post.meal_slot] || 'essa refeição';
+                toast(`Você já registrou ${nome} de hoje. Lanche você pode registrar mais de um.`, 'err');
+                return;
+            }
+            throw postErr;
+        }
 
         // A pontuação é calculada no servidor, o app só lê o resultado
         const { data: servidorPts } = await sb.rpc('points_for_reference', { ref: created.id });
@@ -5193,6 +5580,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         console.error(err);
         toast('Erro: ' + (err.message || 'não foi possível publicar'), 'err');
     } finally {
+        state.publishing = false;
         btn.disabled = false;
         updateDestUI();
     }
@@ -5250,6 +5638,12 @@ async function boot() {
     await loadScore();
     await switchView('feed');
     updateUnreadBadge();
+    updateNotifBadge();
+
+    // Primeiro acesso: pede os dados que alimentam evolução e coach
+    if (!state.profile.altura && !state.profile.peso_inicial) {
+        setTimeout(openOnboarding, 600);
+    }
 
     // Credita perda de peso que ainda não virou ponto (ex.: pesagens antigas)
     sb.rpc('credit_weight_loss').then(({ data }) => {
@@ -5275,6 +5669,13 @@ sb.auth.onAuthStateChange((event, session) => {
 });
 
 boot();
+
+// Service worker: app instalável e resistente a conexão ruim
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+}
 </script>
 </body>
 </html>
