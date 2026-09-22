@@ -768,6 +768,34 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
 :root[data-theme="light"] .post, :root[data-theme="light"] .stat-card,
 :root[data-theme="light"] .chart-card, :root[data-theme="light"] .health-card,
 :root[data-theme="light"] .goal-card, :root[data-theme="light"] .weekly-card{ box-shadow:0 1px 3px rgba(16,21,18,.06); }
+
+/* ============ ONDA 8: desafios ============ */
+.ch-title-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.ch-list{ display:flex; flex-direction:column; gap:10px; }
+.ch-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:16px; padding:14px 15px; cursor:pointer; transition:border-color .12s; }
+.ch-card:hover{ border-color:var(--vital); }
+.ch-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.ch-name{ font-family:var(--ff-display); font-size:15px; font-weight:600; color:var(--ink); }
+.ch-status{ font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:12px; white-space:nowrap; }
+.ch-status.ativo{ background:var(--vital-dim); color:var(--vital); }
+.ch-status.futuro{ background:rgba(95,176,255,.14); color:var(--info); }
+.ch-status.fim{ background:var(--bg-elev); color:var(--ink-faint); }
+.ch-desc{ font-size:12.5px; color:var(--ink-dim); margin-top:6px; line-height:1.4; }
+.ch-meta{ display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; font-size:11.5px; color:var(--ink-faint); }
+.ch-in{ color:var(--vital); font-weight:600; }
+.ch-hero{ background:radial-gradient(120% 90% at 0% 0%, rgba(53,225,155,.10), transparent 55%), var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-lg); padding:18px; margin-bottom:14px; }
+.ch-hero-name{ font-family:var(--ff-display); font-size:22px; font-weight:600; color:var(--ink); margin:8px 0 0; letter-spacing:-.02em; }
+.ch-hero-desc{ font-size:13.5px; color:var(--ink-dim); margin-top:6px; line-height:1.5; }
+.ch-hero-meta{ display:flex; flex-wrap:wrap; gap:14px; margin-top:12px; font-size:12px; color:var(--ink-dim); }
+.ch-actions{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+.ch-health-list{ display:flex; flex-direction:column; gap:6px; }
+.ch-health-row{ display:flex; align-items:center; gap:11px; padding:10px 8px; border-radius:10px; cursor:pointer; }
+.ch-health-row:hover{ background:var(--bg-elev); }
+.ch-health-row.me{ background:var(--vital-dim); }
+.ch-health-info{ flex:1; min-width:0; }
+.ch-health-name{ font-size:13.5px; font-weight:600; color:var(--ink); }
+.ch-health-sub{ font-size:11.5px; color:var(--ink-dim); margin-top:1px; }
+.ch-health-pct{ font-family:var(--ff-display); font-weight:700; font-size:15px; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -1127,6 +1155,53 @@ function workoutPoints(type, duration, hasPhoto) {
     let pts = Math.min(15, (duration / 6) * factor);  // teto de 15 por sessão
     if (hasPhoto) pts += 3;
     return Math.round(pts * 10) / 10;
+}
+
+// Reduz a foto antes de subir: economiza dados e deixa o feed leve
+function compressImage(file, maxSide = 1200, quality = 0.8) {
+    return new Promise((resolve) => {
+        if (!file || !file.type || !file.type.startsWith('image/')) return resolve(file);
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            let { width, height } = img;
+            const maior = Math.max(width, height);
+            if (maior > maxSide) {
+                const f = maxSide / maior;
+                width = Math.round(width * f);
+                height = Math.round(height * f);
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+            canvas.toBlob(blob => resolve(blob && blob.size < file.size ? blob : file), 'image/jpeg', quality);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+        img.src = url;
+    });
+}
+
+async function uploadImage(bucket, file, opts = {}) {
+    const blob = await compressImage(file, opts.maxSide || 1200, opts.quality || 0.8);
+    const ext = (blob.type === 'image/jpeg' || blob !== file) ? 'jpg' : (file.name.split('.').pop() || 'jpg');
+    const path = opts.fixedName
+        ? `${state.session.user.id}/${opts.fixedName}.${ext}`
+        : `${state.session.user.id}/${Date.now()}.${ext}`;
+    if (opts.fixedName) await sb.storage.from(bucket).remove([path]);
+    const { error } = await sb.storage.from(bucket).upload(path, blob, { upsert: !!opts.fixedName, contentType: blob.type || 'image/jpeg' });
+    if (error) throw error;
+    return sb.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+}
+
+// Apaga do storage a imagem de um post que foi removido
+async function removeStoredImage(url) {
+    if (!url) return;
+    const marcador = '/post-images/';
+    const i = url.indexOf(marcador);
+    if (i === -1) return;
+    const path = decodeURIComponent(url.slice(i + marcador.length).split('?')[0]);
+    try { await sb.storage.from('post-images').remove([path]); } catch (e) {}
 }
 
 async function creditPoints(amount, reason, referenceId=null) {
@@ -2746,17 +2821,41 @@ async function renderProgress() {
 
 async function renderChallenges() {
     const c = $('#viewContainer');
-    c.innerHTML = '<div class="view"><h1 class="screen-title">Comunidade</h1><div class="spinner"></div></div>';
+    c.innerHTML = '<div class="view"><h1 class="screen-title">Desafios</h1><div class="spinner"></div></div>';
 
-    const [{ data: summaryData }, { data: top }] = await Promise.all([
+    const [{ data: challenges }, { data: summaryData }, { data: top }, { data: myRk }] = await Promise.all([
+        sb.rpc('list_challenges'),
         sb.rpc('community_weekly_summary'),
-        sb.rpc('community_weekly_top', { lim: 20 }),
+        sb.rpc('community_weekly_top', { lim: 10 }),
+        sb.rpc('my_weekly_rank'),
     ]);
-    const { data: myRk } = await sb.rpc('my_weekly_rank');
     const mine = myRk && myRk[0];
-    const s = summaryData?.[0] || {};
+    const s = (summaryData && summaryData[0]) || {};
 
-    const podium = (top || []).map((u, i) => {
+    const STATUS = {
+        ativo:     { label: 'Rolando agora', cls: 'ativo' },
+        futuro:    { label: 'Em breve',      cls: 'futuro' },
+        encerrado: { label: 'Encerrado',     cls: 'fim' },
+    };
+    const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+
+    const cards = (challenges || []).map(ch => {
+        const st = STATUS[ch.status] || STATUS.futuro;
+        return `<div class="ch-card" data-act="open-challenge" data-id="${ch.id}">
+            <div class="ch-head">
+                <span class="ch-name">${escapeHTML(ch.name)}</span>
+                <span class="ch-status ${st.cls}">${st.label}</span>
+            </div>
+            ${ch.description ? `<p class="ch-desc">${escapeHTML(ch.description.slice(0,90))}</p>` : ''}
+            <div class="ch-meta">
+                <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
+                <span>👥 ${ch.members}</span>
+                ${ch.im_member ? '<span class="ch-in">✓ Você participa</span>' : ''}
+            </div>
+        </div>`;
+    }).join('') || `<div class="feed-empty"><span class="emo">🏆</span><h3>Nenhum desafio ainda</h3><p>${state.profile.is_admin ? 'Crie o primeiro no botão acima.' : 'Fique de olho, logo aparece um por aqui.'}</p></div>`;
+
+    const rankRows = (top || []).map((u, i) => {
         const medal = ['🥇','🥈','🥉'][i] || (i+1)+'º';
         const isMe = u.user_id === state.session.user.id;
         return `<div class="cw-rank-item${isMe?' me':''}" data-act="view-user" data-uid="${u.user_id}">
@@ -2769,29 +2868,218 @@ async function renderChallenges() {
 
     c.innerHTML = `
         <div class="view">
-            <h1 class="screen-title">Comunidade</h1>
-            <p class="screen-sub">O pulso de todo mundo essa semana.</p>
+            <div class="ch-title-row">
+                <h1 class="screen-title" style="margin:0">Desafios</h1>
+                ${state.profile.is_admin ? '<button class="btn-mini" data-act="new-challenge">+ Criar</button>' : ''}
+            </div>
+            <p class="screen-sub">Compare seu progresso com um grupo por um período.</p>
+            <div class="ch-list">${cards}</div>
 
+            <h3 class="edit-section-title" style="margin-top:24px">Comunidade essa semana</h3>
             <div class="stat-grid">
                 <div class="stat-card"><div class="num">${s.usuarios_ativos||0}</div><div class="lbl">Pessoas ativas</div></div>
                 <div class="stat-card"><div class="num">${s.total_treinos||0}</div><div class="lbl">Treinos</div></div>
-                <div class="stat-card"><div class="num">${s.total_refeicoes||0}</div><div class="lbl">Refeições</div></div>
-                <div class="stat-card"><div class="num">${Math.round(s.pontos_distribuidos||0)}</div><div class="lbl">Pontos distribuídos</div></div>
             </div>
-
-            <div class="chart-card">
-                <div class="chart-head"><span class="chart-title">🏆 Ranking da semana</span></div>
+            <div class="chart-card" style="margin-top:12px">
+                <div class="chart-head"><span class="chart-title">🏆 Ranking geral da semana</span></div>
                 ${mine && mine.rank
                     ? `<div class="cw-my-rank">Você está em <b>${mine.rank}º</b> de ${mine.total}</div>`
                     : `<div class="cw-my-rank">Você ainda não pontuou essa semana. Registre um treino pra entrar no ranking!</div>`}
-                <div class="cw-rank-list">${podium}</div>
-            </div>
-
-            <div class="health-card" style="text-align:center; color:var(--ink-dim); font-size:13px;">
-                🎯 Desafios personalizados chegam em breve. Por enquanto, aproveite o ranking geral da semana acima.
+                <div class="cw-rank-list">${rankRows}</div>
             </div>
         </div>
     `;
+}
+
+// ---- Detalhe do desafio ----
+async function renderChallengeDetail(cid) {
+    const c = $('#viewContainer');
+    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+
+    const [{ data: all }, { data: ranking }, { data: saude }] = await Promise.all([
+        sb.rpc('list_challenges'),
+        sb.rpc('challenge_ranking', { cid }),
+        sb.rpc('challenge_health', { cid }),
+    ]);
+    const ch = (all || []).find(x => x.id === cid);
+    if (!ch) { c.innerHTML = '<div class="view"><p style="color:var(--danger)">Desafio não encontrado.</p></div>'; return; }
+
+    const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    const souDono = ch.created_by === state.session.user.id || state.profile.is_admin;
+    const podeEntrar = !ch.im_member && ch.is_open && ch.status !== 'encerrado';
+
+    const rankRows = (ranking || []).map((u, i) => {
+        const medal = ['🥇','🥈','🥉'][i] || (i+1)+'º';
+        const isMe = u.user_id === state.session.user.id;
+        return `<div class="cw-rank-item${isMe?' me':''}" data-act="view-user" data-uid="${u.user_id}">
+            <span class="cw-rank-medal">${medal}</span>
+            ${avatarHTML(u, 'sm')}
+            <span class="cw-rank-name">${isMe?'Você':escapeHTML(u.display_name)}</span>
+            <span class="cw-rank-pts">${Math.round(u.points)} pts</span>
+        </div>`;
+    }).join('') || '<div class="log-empty">Ninguém pontuou nesse período ainda.</div>';
+
+    let saudeHTML;
+    if (!ch.im_member) {
+        saudeHTML = '<div class="log-empty">Entre no desafio pra acompanhar o progresso do grupo.</div>';
+    } else if (ch.status !== 'ativo') {
+        saudeHTML = `<div class="log-empty">Os dados de saúde do grupo aparecem só enquanto o desafio está rolando.</div>`;
+    } else {
+        saudeHTML = (saude || []).map(m => {
+            const isMe = m.user_id === state.session.user.id;
+            const pct = Number(m.pct || 0);
+            const cor = pct > 0 ? 'var(--vital)' : pct < 0 ? 'var(--effort)' : 'var(--ink-faint)';
+            return `<div class="ch-health-row${isMe?' me':''}" data-act="view-user" data-uid="${m.user_id}">
+                ${avatarHTML(m, 'sm')}
+                <div class="ch-health-info">
+                    <div class="ch-health-name">${isMe?'Você':escapeHTML(m.display_name)}</div>
+                    <div class="ch-health-sub">${m.peso_atual ? Number(m.peso_atual).toFixed(1)+' kg' : 'sem pesagem'}${m.cintura ? ' · cintura '+Number(m.cintura).toFixed(0)+' cm' : ''} · ${m.dias_treinados} dias treinados</div>
+                </div>
+                <span class="ch-health-pct" style="color:${cor}">${pct > 0 ? '-' : ''}${Math.abs(pct).toFixed(1)}%</span>
+            </div>`;
+        }).join('') || '<div class="log-empty">Ninguém registrou peso ainda.</div>';
+    }
+
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="go-community">←</button>
+                <div class="topbar-title">Desafio</div>
+                <div style="width:28px"></div>
+            </div>
+
+            <div class="ch-hero">
+                <span class="ch-status ${ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim'}">
+                    ${ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado'}
+                </span>
+                <h1 class="ch-hero-name">${escapeHTML(ch.name)}</h1>
+                ${ch.description ? `<p class="ch-hero-desc">${escapeHTML(ch.description)}</p>` : ''}
+                <div class="ch-hero-meta">
+                    <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
+                    <span>👥 ${ch.members} participantes</span>
+                </div>
+                <div class="ch-actions">
+                    ${podeEntrar ? `<button class="btn-primary-sm" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
+                    ${ch.im_member ? `<button class="btn-secondary" data-act="leave-challenge" data-id="${cid}">Sair</button>` : ''}
+                    ${souDono ? `<button class="btn-secondary" data-act="invite-challenge" data-id="${cid}">Convidar</button>` : ''}
+                    ${souDono ? `<button class="btn-danger" data-act="delete-challenge" data-id="${cid}">Apagar</button>` : ''}
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-head"><span class="chart-title">🏆 Ranking do desafio</span></div>
+                <div class="cw-rank-list">${rankRows}</div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-head"><span class="chart-title">⚖️ Progresso do grupo</span></div>
+                <div class="ch-health-list">${saudeHTML}</div>
+                ${ch.im_member && ch.status === 'ativo' ? '<p class="dest-hint" style="margin-top:10px">Esses dados ficam visíveis só entre participantes e só enquanto o desafio dura.</p>' : ''}
+            </div>
+        </div>
+    `;
+}
+
+function openNewChallengeSheet() {
+    const old = document.getElementById('newChallengeSheet');
+    if (old) old.remove();
+    const hoje = new Date().toISOString().split('T')[0];
+    const em30 = new Date(Date.now() + 30*86400000).toISOString().split('T')[0];
+
+    const sheet = document.createElement('div');
+    sheet.id = 'newChallengeSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Criar desafio</h3>
+        <p class="sheet-sub">O ranking usa os pontos que cada um ganhar no período.</p>
+        <div class="field"><label>Nome</label><input type="text" id="ncName" maxlength="60" placeholder="ex: Setembro Ativo"></div>
+        <div class="field"><label>Descrição (opcional)</label><textarea id="ncDesc" maxlength="200" placeholder="Qual é a regra ou o objetivo?"></textarea></div>
+        <div class="field-row">
+            <div class="field"><label>Começa</label><input type="date" id="ncStart" value="${hoje}"></div>
+            <div class="field"><label>Termina</label><input type="date" id="ncEnd" value="${em30}"></div>
+        </div>
+        <div class="field">
+            <label>Quem pode entrar</label>
+            <select id="ncOpen">
+                <option value="1">Qualquer pessoa do app</option>
+                <option value="0">Só quem eu convidar</option>
+            </select>
+        </div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="ncCancel">Cancelar</button>
+            <button class="btn-primary" id="ncSave">Criar desafio</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    const close = () => { sheet.remove(); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+    document.getElementById('ncCancel').onclick = close;
+
+    document.getElementById('ncSave').onclick = async () => {
+        const btn = document.getElementById('ncSave');
+        const nome = document.getElementById('ncName').value.trim();
+        const ini = document.getElementById('ncStart').value;
+        const fim = document.getElementById('ncEnd').value;
+        if (!nome) { toast('Dê um nome ao desafio', 'err'); return; }
+        if (!ini || !fim || new Date(fim) <= new Date(ini)) { toast('A data final precisa ser depois da inicial', 'err'); return; }
+
+        btn.disabled = true; btn.textContent = 'Criando...';
+        const { data, error } = await sb.from('challenges').insert({
+            name: nome,
+            description: document.getElementById('ncDesc').value.trim() || null,
+            starts_at: new Date(ini + 'T00:00:00').toISOString(),
+            ends_at: new Date(fim + 'T23:59:59').toISOString(),
+            created_by: state.session.user.id,
+            is_open: document.getElementById('ncOpen').value === '1',
+        }).select().single();
+        btn.disabled = false; btn.textContent = 'Criar desafio';
+        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+
+        await sb.from('challenge_members').insert({ challenge_id: data.id, user_id: state.session.user.id });
+        close();
+        toast('Desafio criado!', 'ok');
+        switchView('challenge', { id: data.id });
+    };
+}
+
+function openInviteSheet(cid) {
+    const old = document.getElementById('inviteSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'inviteSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Convidar pro desafio</h3>
+        <p class="sheet-sub">Digite o usuário da pessoa (aparece no perfil dela como @usuario).</p>
+        <div class="field"><label>Usuário</label><input type="text" id="invUser" placeholder="ex: hevinho" autocapitalize="off"></div>
+        <div id="invMsg"></div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="invCancel">Fechar</button>
+            <button class="btn-primary" id="invAdd">Adicionar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    const close = () => { sheet.remove(); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+    document.getElementById('invCancel').onclick = close;
+
+    document.getElementById('invAdd').onclick = async () => {
+        const btn = document.getElementById('invAdd');
+        const uname = document.getElementById('invUser').value.trim().replace('@', '');
+        const msg = document.getElementById('invMsg');
+        if (!uname) return;
+        btn.disabled = true; btn.textContent = 'Adicionando...';
+        const { data, error } = await sb.rpc('add_challenge_member', { cid, uname });
+        btn.disabled = false; btn.textContent = 'Adicionar';
+        if (error) { msg.innerHTML = `<div class="auth-msg err">${error.message}</div>`; return; }
+        if (data === 'nao_encontrado') { msg.innerHTML = '<div class="auth-msg err">Usuário não encontrado.</div>'; return; }
+        msg.innerHTML = `<div class="auth-msg ok">@${escapeHTML(uname)} entrou no desafio!</div>`;
+        document.getElementById('invUser').value = '';
+    };
 }
 
 async function renderProfile() {
@@ -3377,10 +3665,7 @@ function openWeightLogSheet() {
         try {
             let imageUrl = null;
             if (photoFile) {
-                const ext = photoFile.name.split('.').pop();
-                const path = `${state.session.user.id}/${Date.now()}.${ext}`;
-                const { error: upErr } = await sb.storage.from('post-images').upload(path, photoFile);
-                if (!upErr) imageUrl = sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
+                try { imageUrl = await uploadImage('post-images', photoFile); } catch (e) { console.warn(e); }
             }
 
             const { data: created, error } = await sb.from('posts').insert({
@@ -3393,15 +3678,15 @@ function openWeightLogSheet() {
             }).select().single();
             if (error) throw error;
 
-            await creditPoints(3, 'weight_check', created.id);
             const today = new Date().toISOString().split('T')[0];
             const streakInfo = await updateStreak(today);
             const { data: wl } = await sb.rpc('credit_weight_loss');
             const wlPts = Number((wl && wl[0] && wl[0].pts) || 0);
+            const { data: basePts } = await sb.rpc('points_for_reference', { ref: created.id });
             await loadScore();
 
             close();
-            let msg = '+3 pontos! Peso registrado';
+            let msg = `+${Number(basePts || 0)} pontos! Peso registrado`;
             if (wlPts > 0) msg = `+${3 + wlPts} pontos! Você chegou a ${wl[0].pct}% do peso inicial perdido 🎉`;
             if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
             toast(msg, 'ok');
@@ -3870,13 +4155,7 @@ async function renderEditProfile() {
         try {
             let avatarUrl = state.profile.avatar_url;
             if (newAvatarFile) {
-                const ext = newAvatarFile.name.split('.').pop();
-                const path = `${state.session.user.id}/avatar.${ext}?t=${Date.now()}`;
-                const cleanPath = path.split('?')[0];
-                await sb.storage.from('avatars').remove([cleanPath]);
-                const { error: upErr } = await sb.storage.from('avatars').upload(cleanPath, newAvatarFile, { upsert: true });
-                if (upErr) throw upErr;
-                avatarUrl = sb.storage.from('avatars').getPublicUrl(cleanPath).data.publicUrl + '?t=' + Date.now();
+                avatarUrl = await uploadImage('avatars', newAvatarFile, { maxSide: 600, fixedName: 'avatar' }) + '?t=' + Date.now();
             }
 
             const updates = {
@@ -3939,6 +4218,7 @@ async function switchView(v, params = {}) {
     else if (v === 'admin') await renderAdmin();
     else if (v === 'messages') await renderMessages();
     else if (v === 'settings') renderSettings();
+    else if (v === 'challenge') await renderChallengeDetail(params.id);
     else if (v === 'chat') await renderChat(params.conversationId, params.otherUser);
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -4030,6 +4310,29 @@ document.addEventListener('click', async e => {
         if (btn.dataset.tab === 'workouts') renderWorkoutHistory(btn.dataset.uid);
         else if (btn.dataset.tab === 'meals') renderMealHistory(btn.dataset.uid);
         else $('#profileTabBody').innerHTML = `<div class="ig-grid">${state.profileGridHTML || ''}</div>`;
+    } else if (act === 'open-challenge') {
+        switchView('challenge', { id: btn.dataset.id });
+    } else if (act === 'new-challenge') {
+        openNewChallengeSheet();
+    } else if (act === 'invite-challenge') {
+        openInviteSheet(btn.dataset.id);
+    } else if (act === 'join-challenge') {
+        btn.disabled = true;
+        const { error } = await sb.from('challenge_members').insert({ challenge_id: btn.dataset.id, user_id: state.session.user.id });
+        if (error) { toast('Erro ao entrar: ' + error.message, 'err'); btn.disabled = false; return; }
+        toast('Você entrou no desafio!', 'ok');
+        renderChallengeDetail(btn.dataset.id);
+    } else if (act === 'leave-challenge') {
+        if (!confirm('Sair do desafio? Você perde acesso ao progresso do grupo.')) return;
+        await sb.from('challenge_members').delete().match({ challenge_id: btn.dataset.id, user_id: state.session.user.id });
+        toast('Você saiu do desafio', 'ok');
+        renderChallengeDetail(btn.dataset.id);
+    } else if (act === 'delete-challenge') {
+        if (!confirm('Apagar este desafio? O ranking e os participantes somem junto.')) return;
+        const { error } = await sb.from('challenges').delete().eq('id', btn.dataset.id);
+        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+        toast('Desafio apagado', 'ok');
+        switchView('challenges');
     } else if (act === 'go-settings') {
         hidePostMenu();
         switchView('settings');
@@ -4151,7 +4454,9 @@ document.addEventListener('click', async e => {
     } else if (act === 'delete-post') {
         if (!confirm('Apagar este post? Essa ação não pode ser desfeita.')) return;
         const postId = btn.dataset.id;
+        const { data: velho } = await sb.from('posts').select('image_url').eq('id', postId).maybeSingle();
         await sb.from('posts').delete().eq('id', postId);
+        if (velho && velho.image_url) removeStoredImage(velho.image_url);
         toast('Post apagado', 'ok');
         // remove do DOM se estiver no feed
         const postEl = document.querySelector(`[data-post-id="${postId}"]`);
@@ -4630,11 +4935,8 @@ $('#composerSubmit').addEventListener('click', async () => {
 
         // upload da foto se houver
         if (state.composerPhoto) {
-            const ext = state.composerPhoto.name.split('.').pop();
-            const path = `${state.session.user.id}/${Date.now()}.${ext}`;
-            const { error: upErr } = await sb.storage.from('post-images').upload(path, state.composerPhoto);
-            if (upErr) throw upErr;
-            imageUrl = sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
+            btn.textContent = 'Enviando foto...';
+            imageUrl = await uploadImage('post-images', state.composerPhoto);
         }
 
         // ============ STORY (tabela separada, expira em 24h) ============
@@ -4653,15 +4955,13 @@ $('#composerSubmit').addEventListener('click', async () => {
             }).select().single();
             if (storyErr) throw storyErr;
 
-            // Ponto por story (máx 3/dia)
-            const storiesToday = await countTodayByReason('story');
-            if (storiesToday < 3) {
-                await creditPoints(3, 'story', story.id);
-                await loadScore();
-            }
+            // Os pontos vêm do servidor (máx 3 stories por dia)
+            const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id });
+            const ganhos = Number(stPts || 0);
+            await loadScore();
 
             closeComposer();
-            toast(storiesToday < 3 ? '+3 pontos! Story publicado' : 'Story publicado (limite diário de pontos atingido)', 'ok');
+            toast(ganhos > 0 ? `+${ganhos} pontos! Story publicado` : 'Story publicado (limite diário de pontos atingido)', 'ok');
             if (state.view === 'feed') await renderFeed();
             return;
         }
@@ -4733,9 +5033,9 @@ $('#composerSubmit').addEventListener('click', async () => {
         const { data: created, error: postErr } = await sb.from('posts').insert(post).select().single();
         if (postErr) throw postErr;
 
-        if (ptsToCredit > 0) {
-            await creditPoints(ptsToCredit, ptsReason, created.id);
-        }
+        // A pontuação é calculada no servidor, o app só lê o resultado
+        const { data: servidorPts } = await sb.rpc('points_for_reference', { ref: created.id });
+        ptsToCredit = Number(servidorPts || 0);
 
         let streakInfo = null;
         let weeklyBonus = 0;
