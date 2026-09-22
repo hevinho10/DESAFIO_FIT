@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <script>try{if(localStorage.getItem('pulso-theme')==='light'){document.documentElement.setAttribute('data-theme','light');}}catch(e){}</script>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pulso">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0A0C0B">
 <title>Pulso · Vida saudável em rede</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -796,6 +803,25 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
 .ch-health-name{ font-size:13.5px; font-weight:600; color:var(--ink); }
 .ch-health-sub{ font-size:11.5px; color:var(--ink-dim); margin-top:1px; }
 .ch-health-pct{ font-family:var(--ff-display); font-weight:700; font-size:15px; flex-shrink:0; }
+
+/* ============ ONDA 9 ============ */
+.stat-card.tappable-card{ cursor:pointer; transition:border-color .12s; }
+.stat-card.tappable-card:hover{ border-color:var(--vital); }
+.stat-card .sub{ font-size:10.5px; color:var(--vital); margin-top:3px; }
+.install-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:12px; }
+.install-card.destaque{ border-color:var(--vital); background:linear-gradient(135deg, var(--vital-dim), var(--bg-card) 60%); }
+.install-card h4{ font-family:var(--ff-display); font-size:15px; font-weight:600; color:var(--ink); margin:0 0 6px; }
+.install-note{ font-size:12px; color:var(--ink-dim); margin-bottom:10px; line-height:1.45; }
+.install-steps{ margin:0; padding-left:20px; display:flex; flex-direction:column; gap:8px; }
+.install-steps li{ font-size:13.5px; color:var(--ink); line-height:1.5; }
+.install-steps b{ color:var(--vital); font-weight:600; }
+.install-ok{ background:var(--vital-dim); border:1px solid rgba(53,225,155,.3); color:var(--vital); border-radius:14px; padding:14px; font-size:14px; text-align:center; margin-bottom:16px; }
+/* 2) topo com um pouco mais de ar no celular */
+.topbar{ padding:13px 15px; padding-top:calc(13px + env(safe-area-inset-top, 0px)); }
+@media (max-width:480px){
+    .topbar{ padding:12px 14px; padding-top:calc(12px + env(safe-area-inset-top, 0px)); }
+    .view{ padding-top:14px; }
+}
 </style>
 </head>
 <body>
@@ -1710,6 +1736,67 @@ async function renderAdmin() {
     `;
 }
 
+// ---- Instalar na tela inicial ----
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    state.deferredPrompt = e;
+    const bt = document.getElementById('installNowBtn');
+    if (bt) bt.classList.remove('hidden');
+});
+
+function renderInstall() {
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const jaInstalado = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+    $('#viewContainer').innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="go-settings-back">←</button>
+                <div class="topbar-title">Instalar o Pulso</div>
+                <div style="width:28px"></div>
+            </div>
+
+            ${jaInstalado
+                ? '<div class="install-ok">✅ Você já está usando o Pulso instalado. Boa!</div>'
+                : `<p class="screen-sub">Colocando o Pulso na tela inicial, ele abre como um aplicativo: em tela cheia, sem a barra do navegador, e com ícone próprio.</p>
+                   <button class="btn-primary ${state.deferredPrompt ? '' : 'hidden'}" id="installNowBtn" data-act="do-install" style="margin-bottom:18px">📲 Instalar agora</button>`}
+
+            <div class="install-card${ios ? ' destaque' : ''}">
+                <h4>🍎 iPhone e iPad</h4>
+                <p class="install-note">Precisa ser pelo navegador <b>Safari</b>. Pelo Chrome do iPhone não funciona.</p>
+                <ol class="install-steps">
+                    <li>Abra o Pulso no <b>Safari</b>.</li>
+                    <li>Toque no botão <b>Compartilhar</b>, o quadrado com a seta pra cima, na barra de baixo.</li>
+                    <li>Role as opções e toque em <b>Adicionar à Tela de Início</b>.</li>
+                    <li>Se quiser, mude o nome que vai aparecer embaixo do ícone.</li>
+                    <li>Toque em <b>Adicionar</b>, no canto superior direito.</li>
+                </ol>
+            </div>
+
+            <div class="install-card${ios ? '' : ' destaque'}">
+                <h4>🤖 Android</h4>
+                <p class="install-note">Pelo navegador <b>Google Chrome</b>.</p>
+                <ol class="install-steps">
+                    <li>Abra o Pulso no <b>Chrome</b>.</li>
+                    <li>Toque nos <b>três pontinhos</b> no canto superior direito.</li>
+                    <li>Toque em <b>Instalar aplicativo</b> (ou <b>Adicionar à tela inicial</b>).</li>
+                    <li>Se quiser, ajuste o nome do atalho.</li>
+                    <li>Confirme em <b>Instalar</b> ou <b>Adicionar</b>.</li>
+                </ol>
+            </div>
+
+            <div class="install-card">
+                <h4>💻 Computador</h4>
+                <ol class="install-steps">
+                    <li>No Chrome ou Edge, olhe a barra de endereço.</li>
+                    <li>Clique no ícone de <b>instalar</b> (uma telinha com uma seta), à direita do endereço.</li>
+                    <li>Confirme em <b>Instalar</b>.</li>
+                </ol>
+            </div>
+        </div>
+    `;
+}
+
 // ---- Tema e configurações ----
 function applyTheme(theme) {
     const light = theme === 'light';
@@ -1745,6 +1832,7 @@ function renderSettings() {
             <h3 class="edit-section-title">Conta</h3>
             <div class="settings-list">
                 <button class="settings-item" data-act="open-edit-profile">✏️ Editar perfil<span>›</span></button>
+                <button class="settings-item" data-act="go-install">📲 Instalar na tela inicial<span>›</span></button>
                 <button class="settings-item danger" data-act="do-logout">🚪 Sair<span>›</span></button>
             </div>
         </div>
@@ -2419,7 +2507,7 @@ async function renderFeed() {
 
     // Carrega stories em paralelo com posts
     const storiesPromise = sb.from('stories')
-        .select(`id, user_id, caption, image_url, background_color, created_at, user:profiles!inner (id, username, display_name, avatar_url)`)
+        .select('id, user_id, caption, image_url, background_color, created_at')
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
 
@@ -2442,11 +2530,21 @@ async function renderFeed() {
 
     if (error) { c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro ao carregar: ${error.message}</p></div>`; return; }
 
+    // Busca os perfis dos autores dos stories numa consulta separada
+    const storyUids = [...new Set((stories || []).map(s => s.user_id))];
+    let perfisStory = {};
+    if (storyUids.length) {
+        const { data: ps } = await sb.from('profiles')
+            .select('id, username, display_name, avatar_url').in('id', storyUids);
+        (ps || []).forEach(p => { perfisStory[p.id] = p; });
+    }
+
     // Agrupa stories por autor
     const storiesByUser = {};
     (stories || []).forEach(s => {
         const uid = s.user_id;
-        if (!storiesByUser[uid]) storiesByUser[uid] = { user: s.user, items: [] };
+        const autor = perfisStory[uid] || { id: uid, username: '?', display_name: '?' };
+        if (!storiesByUser[uid]) storiesByUser[uid] = { user: autor, items: [] };
         storiesByUser[uid].items.push(s);
     });
     // Ordena: meus primeiro, resto por mais recente
@@ -3130,6 +3228,13 @@ async function renderProfile() {
 
     const gridHTML = state.profileGridHTML = (myPosts || []).map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto postada ainda. Seus treinos e refeições sem foto ficam no Histórico.</div>';
 
+    const [{ data: diasSem }, { data: rkProf }] = await Promise.all([
+        sb.rpc('count_days_current_week', { uid: state.session.user.id }),
+        sb.rpc('my_weekly_rank'),
+    ]);
+    const diasSemana = Number(diasSem || 0);
+    const rankTxt = (rkProf && rkProf[0] && rkProf[0].rank) ? rkProf[0].rank + 'º' : '-';
+
     const { count: myStoryCount } = await sb.from('stories')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', state.session.user.id)
@@ -3160,6 +3265,8 @@ async function renderProfile() {
             <div class="stat-grid" style="margin-top:14px">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
                 <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Ofensiva</div></div>
+                <div class="stat-card tappable-card" data-act="go-progress"><div class="num">${diasSemana}/${state.profile.weekly_goal || 3}</div><div class="lbl">Semana</div><div class="sub">Ver evolução ›</div></div>
+                <div class="stat-card tappable-card" data-act="go-community"><div class="num">${rankTxt}</div><div class="lbl">No ranking</div><div class="sub">Ver desafios ›</div></div>
             </div>
             ${goalHTML}
             <div class="ig-tabs">
@@ -3851,8 +3958,8 @@ function showMealResult(an, pts, limitReached) {
             <p class="mr-analysis">${escapeHTML(an.analysis || '')}</p>
             ${an.items && an.items.length ? `<div class="mr-items">${an.items.map(i => `<span class="mr-item">${escapeHTML(i)}</span>`).join('')}</div>` : ''}
             ${limitReached
-                ? `<div class="mr-limit-note">Limite diário de pontos por refeição atingido - essa não somou pontos, mas a análise é sua de qualquer forma.</div>`
-                : `<div class="mr-points">+${pts} pontos</div>`}
+                ? `<div class="mr-limit-note">Você já registrou essa refeição hoje, então essa não somou pontos. A análise continua sendo sua.</div>`
+                : `<div class="mr-points">+${pts} ${pts === 1 ? 'ponto' : 'pontos'}</div>`}
             <button class="btn-primary" id="mealResultClose">Fechar</button>
         </div>
     `;
@@ -4108,7 +4215,7 @@ async function renderEditProfile() {
             </div>
             <div class="field-row">
                 <div class="field">
-                    <label>Peso inicial (kg)</label>
+                    <label>Peso inicial (kg) <span id="pesoLockTag" class="hidden" style="font-size:10px;color:var(--gold)">🔒 travado no desafio</span></label>
                     <div class="stepper" data-target="edPesoInicial" data-min="30" data-max="250" data-step="0.5" data-default="70">
                         <button type="button" class="step-btn" data-dir="-">−</button>
                         <input type="number" id="edPesoInicial" value="${p.peso_inicial || ''}" step="0.5" min="30" max="250" inputmode="decimal">
@@ -4129,6 +4236,19 @@ async function renderEditProfile() {
             <div id="edMsg" style="margin-top:10px"></div>
         </div>
     `;
+
+    // Peso inicial trava enquanto a pessoa estiver em um desafio ativo
+    const { data: emDesafio } = await sb.rpc('in_active_challenge');
+    if (emDesafio) {
+        const pi = $('#edPesoInicial');
+        if (pi) {
+            pi.readOnly = true;
+            const st = pi.closest('.stepper');
+            if (st) st.querySelectorAll('.step-btn').forEach(b => b.disabled = true);
+        }
+        const tag = $('#pesoLockTag');
+        if (tag) tag.classList.remove('hidden');
+    }
 
     // Preview do avatar novo
     let newAvatarFile = null;
@@ -4164,7 +4284,7 @@ async function renderEditProfile() {
                 city: $('#edCity').value.trim() || null,
                 altura: parseFloat($('#edAltura').value) || null,
                 sexo: $('#edSexo').value || null,
-                peso_inicial: parseFloat($('#edPesoInicial').value) || null,
+                peso_inicial: emDesafio ? undefined : (parseFloat($('#edPesoInicial').value) || null),
                 target_weight: parseFloat($('#edMeta').value) || null,
                 weekly_goal: selectedWeeklyGoal,
                 avatar_url: avatarUrl,
@@ -4219,6 +4339,7 @@ async function switchView(v, params = {}) {
     else if (v === 'messages') await renderMessages();
     else if (v === 'settings') renderSettings();
     else if (v === 'challenge') await renderChallengeDetail(params.id);
+    else if (v === 'install') renderInstall();
     else if (v === 'chat') await renderChat(params.conversationId, params.otherUser);
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -4333,6 +4454,17 @@ document.addEventListener('click', async e => {
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
         toast('Desafio apagado', 'ok');
         switchView('challenges');
+    } else if (act === 'go-install') {
+        hidePostMenu();
+        switchView('install');
+    } else if (act === 'do-install') {
+        if (state.deferredPrompt) {
+            state.deferredPrompt.prompt();
+            const r = await state.deferredPrompt.userChoice;
+            state.deferredPrompt = null;
+            if (r && r.outcome === 'accepted') toast('Pronto! O Pulso foi pro seu celular 🎉', 'ok');
+            renderInstall();
+        }
     } else if (act === 'go-settings') {
         hidePostMenu();
         switchView('settings');
@@ -4341,22 +4473,27 @@ document.addEventListener('click', async e => {
         renderSettings();
     } else if (act === 'open-edit-profile') {
         switchView('edit-profile');
+    } else if (act === 'go-settings-back') {
+        switchView('settings');
     } else if (act === 'go-community') {
         switchView('challenges');
     } else if (act === 'go-progress') {
         switchView('progress');
     } else if (act === 'open-user-stories') {
         const suid = btn.dataset.uid;
-        const { data: items } = await sb.from('stories')
-            .select('id, user_id, caption, image_url, background_color, created_at, user:profiles!inner (id, username, display_name, avatar_url)')
+        const { data: items, error: stErr } = await sb.from('stories')
+            .select('id, user_id, caption, image_url, background_color, created_at')
             .eq('user_id', suid)
             .gt('expires_at', new Date().toISOString())
             .order('created_at', { ascending: true });
+        if (stErr) { toast('Erro ao abrir story: ' + stErr.message, 'err'); return; }
         if (!items || items.length === 0) {
             toast(suid === state.session.user.id ? 'Você não tem story ativo. Toque no + pra criar.' : 'Nenhum story ativo agora.', 'ok');
             return;
         }
-        state.storiesData = [{ user: items[0].user, items }];
+        const { data: autor } = await sb.from('profiles')
+            .select('id, username, display_name, avatar_url').eq('id', suid).maybeSingle();
+        state.storiesData = [{ user: autor || { id: suid, display_name: '?', username: '?' }, items }];
         openStoryViewer(0);
     } else if (act === 'open-follow-list') {
         openFollowList(btn.dataset.uid, btn.dataset.type);
@@ -4813,7 +4950,7 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
 
     const hint = $('#photoHint');
     if (state.composerKind === 'workout') hint.textContent = '(opcional, +3 pts se anexar)';
-    else if (state.composerKind === 'meal') hint.textContent = '(a IA analisa a foto e dá a pontuação)';
+    else if (state.composerKind === 'meal') hint.textContent = '(só com foto a IA analisa e vale 1 ponto)';
     else if (state.composerKind === 'story') hint.textContent = '(opcional - pode ser só texto)';
 
     // Treino com foto sugere o feed; o resto começa como registro
@@ -4994,12 +5131,8 @@ $('#composerSubmit').addEventListener('click', async () => {
             ptsReason = 'workout';
         } else if (state.composerKind === 'meal') {
             post.meal_slot = $('#mSlot').value;
-            const mealsToday = await countTodayByReason('meal_photo') + await countTodayByReason('meal_text');
-            const hitDailyLimit = mealsToday >= 3;
-
+            // Só pontua o que a IA analisar. Sem foto, fica registrado sem ponto.
             if (imageUrl) {
-                // IA analisa o prato mesmo que o limite diário já tenha sido batido
-                // (assim a pessoa ainda vê a nota, só não ganha pontos extras)
                 btn.textContent = 'Analisando o prato...';
                 try {
                     const { data: an, error: anErr } = await sb.functions.invoke('analyze-meal', {
@@ -5008,25 +5141,11 @@ $('#composerSubmit').addEventListener('click', async () => {
                     if (anErr || !an || typeof an.score !== 'number') throw (anErr || new Error('sem nota'));
                     post.meal_score = an.score;
                     post.meal_analysis = an.analysis || null;
-                    if (!hitDailyLimit) {
-                        ptsToCredit = Math.round(an.score * 10) / 10;
-                        ptsReason = 'meal_photo';
-                    }
                     mealFeedback = an;
-                    mealLimitReached = hitDailyLimit;
                 } catch (e) {
-                    console.warn('analyze-meal indisponível, usando pontuação padrão', e);
-                    if (!hitDailyLimit) {
-                        ptsToCredit = 5;
-                        ptsReason = 'meal_photo';
-                    }
+                    console.warn('analyze-meal indisponível', e);
                     mealAnalysisFailed = true;
                 }
-            } else if (!hitDailyLimit) {
-                ptsToCredit = 2;
-                ptsReason = 'meal_text';
-            } else {
-                toast('Limite de 3 refeições com pontos por dia - post salvo sem pontos', 'err');
             }
         }
 
@@ -5055,9 +5174,14 @@ $('#composerSubmit').addEventListener('click', async () => {
         if (weeklyBonus > 0) msg += ` · +${weeklyBonus} semana válida ✅`;
 
         if (mealFeedback) {
-            showMealResult(mealFeedback, ptsToCredit, mealLimitReached);
+            showMealResult(mealFeedback, ptsToCredit, ptsToCredit === 0);
         } else if (mealAnalysisFailed) {
-            toast(`Não consegui analisar o prato agora (+${ptsToCredit} pts padrão). Pode tentar de novo em instantes.`, 'err');
+            toast('Não consegui analisar o prato agora. Ficou registrado, mas sem pontos. Tente de novo em instantes.', 'err');
+        } else if (ptsToCredit === 0) {
+            const semFoto = state.composerKind === 'meal'
+                ? 'Refeição registrada. Só as com foto analisada pela IA valem ponto.'
+                : 'Registrado! Hoje um treino seu já valeu mais pontos que esse.';
+            toast(semFoto, 'ok');
         } else {
             toast(msg, 'ok');
         }
