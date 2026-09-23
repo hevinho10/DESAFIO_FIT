@@ -874,11 +874,11 @@ html.chat-mode .topbar{ position:static; flex-shrink:0; }
 html.chat-mode #viewContainer{ flex:1; min-height:0; display:flex; flex-direction:column; }
 html.chat-mode .view.coach-view{
     flex:1; min-height:0; height:auto; max-width:600px; width:100%;
-    margin:0 auto; overflow:hidden;
-    padding-bottom:calc(var(--nav-pad, 90px) - 10px);
+    margin:0 auto; overflow:hidden; padding-bottom:10px;
 }
+html.chat-mode #viewContainer{ padding-bottom:var(--nav-pad, 74px); }
 html.chat-mode.kb-open .bottomnav{ display:none; }
-html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
+html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 
 /* Regras */
 .rule-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:12px; }
@@ -1258,6 +1258,20 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
 .cq-nome{ font-family:var(--ff-display); font-size:17px; font-weight:600; color:var(--ink); margin-top:3px; }
 .cq-desc{ font-size:12.5px; color:var(--ink-dim); margin-top:2px; }
 .badge-share.feito{ color:var(--ink-faint); }
+
+/* ============ ONDA 17 ============ */
+.unread-count{ position:absolute; top:0; right:0; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--effort); color:#fff; font-size:9.5px; font-weight:700; display:grid; place-items:center; border:2px solid var(--bg); font-family:var(--ff-display); }
+.mic-btn{ width:40px; height:40px; border-radius:50%; background:transparent; border:1px solid var(--line); color:var(--ink-dim); display:grid; place-items:center; flex-shrink:0; cursor:pointer; }
+.mic-btn svg{ width:18px; height:18px; }
+.mic-btn.gravando{ border-color:var(--effort); color:var(--effort); animation:pulseRec 1.2s ease infinite; }
+@keyframes pulseRec{ 0%,100%{ opacity:1 } 50%{ opacity:.45 } }
+.goal-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; }
+.goal-btn{ background:transparent; border:1px solid var(--line); border-radius:12px; padding:12px 10px; text-align:left; cursor:pointer; color:var(--ink); }
+.goal-btn.on{ border-color:var(--vital); background:var(--vital-dim); }
+.goal-nome{ display:block; font-size:13px; font-weight:600; }
+.goal-btn.on .goal-nome{ color:var(--vital); }
+.goal-desc{ display:block; font-size:11px; color:var(--ink-dim); margin-top:2px; }
+.report-body{ font-size:14px; line-height:1.65; color:var(--ink); white-space:pre-wrap; }
 </style>
 </head>
 <body>
@@ -1383,7 +1397,7 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
             </button>
             <button class="topbar-icon" data-act="go-notifications" aria-label="Notificações">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-                <span id="notifDot" class="unread-dot hidden"></span>
+                <span id="notifDot" class="unread-count hidden"></span>
             </button>
             <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
                 <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill" id="wpFill" stroke-dasharray="0 56.55"/></svg>
@@ -1506,6 +1520,7 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
                 </label>
             </div>
             <img id="pPhotoPreview" class="file-preview">
+            <button type="button" class="btn-mini hidden" id="lerPrintBtn" style="margin-top:10px">Preencher pelo print</button>
         </div>
 
         <div class="composer-actions">
@@ -1638,6 +1653,14 @@ const ICO = {
 };
 const icon = (nome) => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICO[nome] || ''}</svg>`;
 
+const OBJETIVOS = [
+    ['massa', 'Ganhar massa', 'músculo e força'],
+    ['gordura', 'Perder gordura', 'emagrecer com saúde'],
+    ['energia', 'Mais energia', 'disposição no dia a dia'],
+    ['rotina', 'Criar constância', 'não largar no meio'],
+    ['saude', 'Cuidar da saúde', 'exames e bem-estar'],
+    ['performance', 'Performance', 'melhorar no esporte'],
+];
 const plural = (n, sing, plur) => `${n} ${Number(n) === 1 ? sing : plur}`;
 const escapeHTML = s => String(s||'').replace(/[\u2014\u2013]/g, '-').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const timeAgo = iso => {
@@ -2296,6 +2319,14 @@ function openOnboarding() {
             </div>
         </div>
 
+        <div class="field"><label>Qual é o seu objetivo?</label>
+            <div class="goal-grid">
+                ${OBJETIVOS.map(([v, nome, desc]) => `<button type="button" class="goal-btn" data-ob-goal-tipo="${v}">
+                    <span class="goal-nome">${nome}</span><span class="goal-desc">${desc}</span>
+                </button>`).join('')}
+            </div>
+        </div>
+
         <div class="field"><label>Quantos treinos por semana você quer fazer?</label>
             <div class="weekly-goal-picker">
                 <button type="button" class="wg-btn on" data-ob-goal="2"><span class="wg-emo">🌱</span><span><span class="wg-title">Iniciante</span><span class="wg-sub">1 a 3 dias</span></span></button>
@@ -2311,6 +2342,12 @@ function openOnboarding() {
     </div>`;
     document.body.appendChild(sheet);
     document.body.style.overflow = 'hidden';
+
+    let objetivo = null;
+    sheet.querySelectorAll('[data-ob-goal-tipo]').forEach(b => b.addEventListener('click', e => {
+        objetivo = e.currentTarget.dataset.obGoalTipo;
+        sheet.querySelectorAll('[data-ob-goal-tipo]').forEach(x => x.classList.toggle('on', x === e.currentTarget));
+    }));
 
     let meta = 2;
     sheet.querySelectorAll('[data-ob-goal]').forEach(b => b.addEventListener('click', e => {
@@ -2330,12 +2367,12 @@ function openOnboarding() {
 
         btn.disabled = true; btn.textContent = 'Salvando...';
         const { error } = await sb.from('profiles').update({
-            altura, peso_inicial: peso, target_weight: alvo, weekly_goal: meta,
+            altura, peso_inicial: peso, target_weight: alvo, weekly_goal: meta, goal: objetivo,
         }).eq('id', state.session.user.id);
         btn.disabled = false; btn.textContent = 'Começar';
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
 
-        Object.assign(state.profile, { altura, peso_inicial: peso, target_weight: alvo, weekly_goal: meta });
+        Object.assign(state.profile, { altura, peso_inicial: peso, target_weight: alvo, weekly_goal: meta, goal: objetivo });
         if (peso) {
             await sb.from('posts').insert({
                 user_id: state.session.user.id, kind: 'weight', weight_kg: peso,
@@ -2734,6 +2771,175 @@ window.addEventListener('scroll', () => {
     }
 }, { passive: true });
 
+// ---- Ler print de treino ----
+function fileParaBase64(file) {
+    return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).split(',')[1]);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+    });
+}
+
+async function lerPrintDeTreino() {
+    const btn = $('#lerPrintBtn');
+    if (!state.composerPhoto) { toast('Escolha a foto do print primeiro', 'err'); return; }
+    btn.disabled = true; btn.textContent = 'Lendo o print...';
+    try {
+        const menor = await compressImage(state.composerPhoto, 1000, 0.8);
+        const b64 = await fileParaBase64(menor);
+        const { data, error } = await sb.functions.invoke('vision-tools', {
+            body: { task: 'workout', imageBase64: b64, mimeType: 'image/jpeg' },
+        });
+        if (error || !data || !data.activity_type) throw (error || new Error('sem leitura'));
+
+        const sel = $('#wType');
+        if ([...sel.options].some(o => o.value === data.activity_type || o.text === data.activity_type)) {
+            sel.value = data.activity_type;
+        }
+        if (data.duration_min) $('#wDuration').value = data.duration_min;
+        if (data.distance_km && !$('#pCaption').value) {
+            $('#pCaption').value = `${String(data.distance_km).replace('.', ',')} km`;
+        }
+        toast(`Li do print: ${data.activity_type}${data.duration_min ? ', ' + data.duration_min + ' min' : ''}`, 'ok');
+    } catch (e) {
+        toast('Não consegui ler esse print. Preencha na mão mesmo.', 'err');
+    } finally {
+        btn.disabled = false; btn.textContent = 'Preencher pelo print';
+    }
+}
+
+// ---- Relatório de padrões (IA) ----
+async function refreshReportCard() {
+    const box = $('#reportCard');
+    if (!box) return;
+    const [{ data: atual }, { data: semanas }] = await Promise.all([
+        sb.rpc('current_report'),
+        sb.rpc('report_readiness'),
+    ]);
+    const relatorio = atual && atual[0];
+    const prontas = Number(semanas || 0);
+
+    if (relatorio) {
+        const quando = new Date(relatorio.created_at).toLocaleDateString('pt-BR');
+        box.innerHTML = `
+            <div class="chart-head"><span class="chart-title">Seus padrões</span><span class="chart-legend">gerado em ${quando}</span></div>
+            <div class="report-body">${escapeHTML(relatorio.body).replace(/\n/g, '<br>')}</div>`;
+        return;
+    }
+
+    if (prontas < 3) {
+        box.innerHTML = `
+            <div class="chart-head"><span class="chart-title">Seus padrões</span></div>
+            <p class="chart-foot" style="text-align:left">Com algumas semanas de registro, a IA cruza seu sono, sua água e seus treinos e te mostra o que puxa o seu resultado pra cima. Faltam ${plural(3 - prontas, 'semana', 'semanas')}.</p>`;
+        return;
+    }
+
+    box.innerHTML = `
+        <div class="chart-head"><span class="chart-title">Seus padrões</span></div>
+        <p class="chart-foot" style="text-align:left">A IA cruza seu sono, sua água, seus treinos e sua alimentação pra achar o que funciona pra você. Uma vez por mês.</p>
+        <button class="btn-mini" data-act="gerar-relatorio" style="margin-top:12px">Gerar relatório do mês</button>`;
+}
+
+async function gerarRelatorio(btn) {
+    btn.disabled = true; btn.textContent = 'Analisando seus dados...';
+    try {
+        const { data: linhas, error } = await sb.rpc('weekly_patterns', { weeks_back: 10 });
+        if (error) throw error;
+        const comDados = (linhas || []).filter(l => l.dias_treino || l.agua_media_ml || l.sono_medio || l.peso);
+        if (comDados.length < 3) { toast('Ainda faltam semanas com registro', 'err'); return; }
+
+        const tabela = comDados.map(l => {
+            const p = [];
+            p.push(`Semana de ${new Date(l.semana + 'T12:00:00').toLocaleDateString('pt-BR')}`);
+            p.push(`treinos: ${l.dias_treino} dias (${l.minutos} min)`);
+            if (l.agua_media_ml) p.push(`água: ${(l.agua_media_ml / 1000).toFixed(1)} L/dia`);
+            if (l.sono_medio) p.push(`sono: ${l.sono_medio}h/noite`);
+            if (l.peso) p.push(`peso: ${l.peso} kg`);
+            if (l.nota_refeicao) p.push(`nota das refeições: ${l.nota_refeicao}/10`);
+            p.push(`pontos: ${Math.round(l.pontos)}`);
+            return '- ' + p.join(' | ');
+        }).join('\n');
+
+        const ctx = await getCoachContext(true);
+        const brief = formatCoachContext(ctx);
+
+        const prompt = `${COACH_PERSONA}
+
+DOSSIÊ DA PESSOA:
+${brief}
+
+HISTÓRICO SEMANA A SEMANA:
+${tabela}
+
+TAREFA:
+Analise as semanas acima e escreva um retrato curto dos padrões dessa pessoa. Procure relações entre as colunas, por exemplo: semanas com mais sono tiveram mais treino? a água acompanha os dias de treino? o peso ou a nota das refeições mudou junto com alguma coisa?
+
+REGRAS DA RESPOSTA:
+- No máximo 150 palavras, em português do Brasil.
+- Comece pelo padrão mais forte que você encontrou, citando os números reais das semanas.
+- Se não houver relação clara, diga isso com honestidade em vez de inventar.
+- Termine com UMA sugestão prática pra este mês, ligada ao objetivo da pessoa.
+- Nada de bullet point numerado, escreva em dois ou três parágrafos curtos.
+- Não fale de emagrecer se o objetivo dela não for esse.`;
+
+        const texto = await callAI(prompt);
+        const inicioMes = new Date();
+        inicioMes.setDate(1);
+        const periodo = inicioMes.toISOString().split('T')[0];
+
+        const { error: erroSalvar } = await sb.from('ai_reports').insert({
+            user_id: state.session.user.id,
+            period_start: periodo,
+            body: texto.trim(),
+        });
+        if (erroSalvar && erroSalvar.code !== '23505') throw erroSalvar;
+
+        toast('Relatório pronto', 'ok');
+        refreshReportCard();
+    } catch (e) {
+        console.error(e);
+        toast('Não consegui gerar agora. Tente de novo em instantes.', 'err');
+        btn.disabled = false; btn.textContent = 'Gerar relatório do mês';
+    }
+}
+
+// ---- Ditar em vez de digitar ----
+function ditar(alvoId) {
+    const Rec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!Rec) { toast('Seu navegador não suporta ditado por voz', 'err'); return; }
+    const campo = document.getElementById(alvoId);
+    if (!campo) return;
+
+    if (state.rec) { state.rec.stop(); state.rec = null; return; }
+
+    const rec = new Rec();
+    state.rec = rec;
+    rec.lang = 'pt-BR';
+    rec.interimResults = true;
+    rec.continuous = false;
+
+    const btn = document.querySelector(alvoId === 'coachInput' ? '#coachMic' : '#chatMic');
+    if (btn) btn.classList.add('gravando');
+    const inicial = campo.value;
+
+    rec.onresult = (e) => {
+        let texto = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) texto += e.results[i][0].transcript;
+        campo.value = (inicial ? inicial + ' ' : '') + texto;
+        campo.style.height = 'auto';
+        campo.style.height = Math.min(120, campo.scrollHeight) + 'px';
+    };
+    rec.onerror = () => { toast('Não consegui ouvir. Tente de novo.', 'err'); };
+    rec.onend = () => {
+        if (btn) btn.classList.remove('gravando');
+        state.rec = null;
+        campo.focus();
+    };
+    rec.start();
+    toast('Pode falar', 'ok');
+}
+
 // ---- Sono ----
 async function refreshSleepCard() {
     const box = $('#sleepCard');
@@ -2900,8 +3106,11 @@ function renderSearch() {
 // ---- Notificações ----
 async function updateNotifBadge() {
     const { data } = await sb.rpc('unread_notifications');
+    const n = Number(data || 0);
     const dot = $('#notifDot');
-    if (dot) dot.classList.toggle('hidden', !(data > 0));
+    if (!dot) return;
+    dot.textContent = n > 9 ? '9+' : String(n);
+    dot.classList.toggle('hidden', n === 0);
 }
 
 async function renderNotifications() {
@@ -3485,6 +3694,9 @@ async function renderChat(conversationId, otherUser) {
             <div id="chatMessages" class="coach-chat"><div class="spinner"></div></div>
             <div class="coach-composer">
                 <textarea id="chatInput" placeholder="Escreva uma mensagem..." maxlength="2000" rows="1"></textarea>
+                <button class="mic-btn" id="chatMic" aria-label="Ditar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+                </button>
                 <button class="coach-send" id="chatSend" aria-label="Enviar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                 </button>
@@ -3503,18 +3715,29 @@ async function renderChat(conversationId, otherUser) {
     updateUnreadBadge();
 
     const input = $('#chatInput');
+    let ultimoAviso = 0;
     input.addEventListener('input', () => {
         input.style.height = 'auto';
         input.style.height = Math.min(120, input.scrollHeight) + 'px';
+        const agora = Date.now();
+        if (chatChannel && agora - ultimoAviso > 2000) {
+            ultimoAviso = agora;
+            chatChannel.send({ type: 'broadcast', event: 'typing', payload: { uid: me } });
+        }
     });
     input.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(conversationId); }
     });
     $('#chatSend').addEventListener('click', () => sendChatMessage(conversationId));
+    $('#chatMic').addEventListener('click', () => ditar('chatInput'));
 
     // Tempo real (mensagens novas e apagadas)
     const me = state.session.user.id;
     chatChannel = sb.channel(`chat-${conversationId}`)
+        .on('broadcast', { event: 'typing' }, ({ payload }) => {
+            if (!payload || payload.uid === me) return;
+            mostrarDigitando();
+        })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, payload => {
             const msg = payload.new;
             if (state.chatMessages.some(m => m.id === msg.id)) return;
@@ -3545,9 +3768,29 @@ async function renderChat(conversationId, otherUser) {
     }, 4000);
 }
 
+function mostrarDigitando() {
+    const box = $('#chatMessages');
+    if (!box) return;
+    let el = document.getElementById('typingBubble');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'typingBubble';
+        el.className = 'cmsg coach';
+        el.innerHTML = '<div class="cmsg-bubble typing"><span></span><span></span><span></span></div>';
+        box.appendChild(el);
+        box.scrollTop = box.scrollHeight;
+    }
+    clearTimeout(state.typingTimer);
+    state.typingTimer = setTimeout(() => {
+        const t = document.getElementById('typingBubble');
+        if (t) t.remove();
+    }, 3500);
+}
+
 function paintChatMessages() {
     const box = $('#chatMessages');
     if (!box) return;
+    const digitando = document.getElementById('typingBubble');
     if (state.chatMessages.length === 0) {
         box.innerHTML = `<div class="coach-empty"><span class="ce-emo">👋</span><p>Comece a conversa!</p></div>`;
     } else {
@@ -3558,6 +3801,7 @@ function paintChatMessages() {
                 <div class="cmsg-bubble"${del}>${escapeHTML(m.body).replace(/\n/g,'<br>')}</div>
             </div>`;
         }).join('');
+        if (digitando) box.appendChild(digitando);
     }
     box.scrollTop = box.scrollHeight;
 }
@@ -4253,6 +4497,8 @@ async function renderProgress() {
 
             <div class="chart-card" id="sleepCard"></div>
 
+            <div class="chart-card" id="reportCard"></div>
+
             ${weightPoints.length >= 2 ? `
             <div class="chart-card">
                 <div class="chart-head">
@@ -4287,6 +4533,7 @@ async function renderProgress() {
     `;
     hydrateLembretes();
     refreshSleepCard();
+    refreshReportCard();
 }
 
 async function renderChallenges() {
@@ -4720,6 +4967,9 @@ async function renderCoach() {
             <div id="coachSuggestions" class="coach-suggestions"></div>
             <div class="coach-composer">
                 <textarea id="coachInput" placeholder="Pergunta o que quiser..." maxlength="500" rows="1"></textarea>
+                <button class="mic-btn" id="coachMic" aria-label="Ditar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+                </button>
                 <button class="coach-send" id="coachSend" aria-label="Enviar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                 </button>
@@ -4745,6 +4995,7 @@ async function renderCoach() {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendCoachMessage(); }
     });
     $('#coachSend').addEventListener('click', () => sendCoachMessage());
+    $('#coachMic').addEventListener('click', () => ditar('coachInput'));
 }
 
 function paintCoachChat() {
@@ -5593,6 +5844,16 @@ async function renderEditProfile() {
                 <p class="field-hint">Não aparece pra ninguém. Usamos só para deixar as análises da IA mais precisas.</p>
             </div>
 
+            <h3 class="edit-section-title">Seu objetivo</h3>
+            <div class="field">
+                <div class="goal-grid">
+                    ${OBJETIVOS.map(([v, nome, desc]) => `<button type="button" class="goal-btn${p.goal === v ? ' on' : ''}" data-goal="${v}">
+                        <span class="goal-nome">${nome}</span><span class="goal-desc">${desc}</span>
+                    </button>`).join('')}
+                </div>
+                <p class="field-hint">É isso que faz o coach falar a sua língua, em vez de dar conselho genérico.</p>
+            </div>
+
             <h3 class="edit-section-title">Meta de treinos</h3>
             <div class="field">
                 <label>Quantos treinos por semana você quer fazer?</label>
@@ -5685,6 +5946,11 @@ async function renderEditProfile() {
     // Preview do avatar novo
     let newAvatarFile = null;
     let selectedWeeklyGoal = p.weekly_goal || 3;
+    let objetivoSel = p.goal || null;
+    document.querySelectorAll('[data-goal]').forEach(b => b.addEventListener('click', e => {
+        objetivoSel = e.currentTarget.dataset.goal;
+        document.querySelectorAll('[data-goal]').forEach(x => x.classList.toggle('on', x === e.currentTarget));
+    }));
 
     // Weekly goal picker
     document.querySelectorAll('.wg-btn').forEach(b => b.addEventListener('click', e => {
@@ -5720,6 +5986,7 @@ async function renderEditProfile() {
                 peso_inicial: emDesafio ? undefined : (parseFloat($('#edPesoInicial').value) || null),
                 target_weight: parseFloat($('#edMeta').value) || null,
                 weekly_goal: selectedWeeklyGoal,
+                goal: objetivoSel,
                 avatar_url: avatarUrl,
             };
             const { error } = await sb.from('profiles').update(updates).eq('id', state.session.user.id);
@@ -5758,7 +6025,9 @@ function syncLayoutVars() {
     const tb = document.querySelector('.topbar');
     const app = document.getElementById('app');
     if (tb && tb.offsetHeight) root.setProperty('--topbar-h', tb.offsetHeight + 'px');
-    if (app) root.setProperty('--nav-pad', (parseFloat(getComputedStyle(app).paddingBottom) || 90) + 'px');
+    const nav = document.querySelector('.bottomnav');
+    const navH = nav && nav.offsetHeight ? nav.offsetHeight : 74;
+    root.setProperty('--nav-pad', navH + 'px');
 }
 window.addEventListener('resize', syncLayoutVars);
 window.addEventListener('orientationchange', syncLayoutVars);
@@ -5981,6 +6250,8 @@ document.addEventListener('click', async e => {
         switchView('feed');
     } else if (act === 'load-more-feed') {
         loadMoreFeed();
+    } else if (act === 'gerar-relatorio') {
+        gerarRelatorio(btn);
     } else if (act === 'open-sleep') {
         openSleepSheet();
     } else if (act === 'toggle-badges-public') {
@@ -6428,17 +6699,21 @@ function showCurrentStory() {
         viewsBtn.dataset.id = item.id;
         // Já busca a lista aqui, pra abrir na hora quando tocar
         state.storyViewers = state.storyViewers || {};
-        sb.rpc('story_viewers', { sid: item.id }).then(({ data }) => {
-            state.storyViewers[item.id] = data || [];
+        state.storyViewersReq = state.storyViewersReq || {};
+        if (!state.storyViewersReq[item.id]) {
+            state.storyViewersReq[item.id] = sb.rpc('story_viewers', { sid: item.id })
+                .then(r => { state.storyViewers[item.id] = r.data || []; return r; });
+        }
+        state.storyViewersReq[item.id].then(r => {
             const n = document.getElementById('svViewsN');
-            if (n) n.textContent = (data || []).length;
+            if (n) n.textContent = (r.data || []).length;
         });
         viewsBtn.onclick = (ev) => {
             ev.stopPropagation();
             clearTimeout(state.storyTimer);
-            const cache = state.storyViewers && state.storyViewers[item.id];
+            const pronto = state.storyViewers[item.id];
             openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.',
-                () => cache ? Promise.resolve({ data: cache }) : sb.rpc('story_viewers', { sid: item.id }));
+                () => pronto ? Promise.resolve({ data: pronto }) : state.storyViewersReq[item.id]);
         };
     }
 
@@ -6674,9 +6949,12 @@ function handlePhotoPick(e) {
     $('#pPhotoPreview').src = url;
     $('#pPhotoPreview').classList.add('on');
     if (state.composerKind === 'workout') state.composerDest = 'feed';
+    const lerBtn = $('#lerPrintBtn');
+    if (lerBtn) lerBtn.classList.toggle('hidden', state.composerKind !== 'workout');
     updateDestUI();
 }
 $('#pPhotoCam').addEventListener('change', handlePhotoPick);
+$('#lerPrintBtn').addEventListener('click', lerPrintDeTreino);
 $('#pPhotoGal').addEventListener('change', handlePhotoPick);
 
 $('#composerSubmit').addEventListener('click', async () => {
@@ -6693,6 +6971,23 @@ $('#composerSubmit').addEventListener('click', async () => {
         if (state.composerPhoto) {
             btn.textContent = 'Enviando foto...';
             imageUrl = await uploadImage('post-images', state.composerPhoto);
+
+            // Foto que vai pro feed passa por uma checagem rápida
+            if (state.composerDest === 'feed' || state.composerKind === 'story') {
+                btn.textContent = 'Verificando a foto...';
+                try {
+                    const { data: mod } = await sb.functions.invoke('vision-tools', {
+                        body: { task: 'moderate', imageUrl },
+                    });
+                    if (mod && mod.safe === false) {
+                        await removeStoredImage(imageUrl);
+                        toast(mod.reason || 'Essa foto não pode ir pro feed.', 'err');
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('moderação indisponível', e);
+                }
+            }
         }
 
         // ============ STORY (tabela separada, expira em 24h) ============
