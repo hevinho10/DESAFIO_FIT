@@ -921,6 +921,31 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
 .water-card{ cursor:pointer; }
 .water-card:hover{ border-color:var(--info); }
 .inv-add{ font-size:11.5px; color:var(--vital); font-weight:600; flex-shrink:0; }
+
+/* ============ ONDA 14 ============ */
+.feed-more-btn{ width:100%; padding:13px; margin:8px 0 4px; }
+.feed-end{ text-align:center; font-size:12.5px; color:var(--ink-faint); padding:16px 0 4px; }
+.lembrete-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:14px; }
+.lembrete-card.tudo-ok{ background:var(--vital-dim); border-color:rgba(53,225,155,.3); color:var(--vital); font-size:13.5px; text-align:center; }
+.lembrete-titulo{ font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:8px; }
+.lembrete-item{ display:flex; align-items:center; gap:10px; width:100%; background:none; border:none; border-radius:10px; padding:9px 6px; color:var(--ink); font-size:13.5px; text-align:left; cursor:pointer; }
+.lembrete-item:hover{ background:var(--bg-elev); }
+.lembrete-item > span:nth-child(2){ flex:1; }
+.lembrete-emo{ font-size:17px; }
+.lembrete-seta{ color:var(--ink-faint); font-size:18px; }
+.badge-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px; }
+.badge-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:14px; padding:14px 12px; text-align:center; opacity:.55; }
+.badge-card.ok{ opacity:1; border-color:rgba(53,225,155,.35); background:linear-gradient(160deg, var(--vital-dim), var(--bg-card) 60%); }
+.badge-emo{ font-size:28px; display:block; margin-bottom:6px; }
+.badge-name{ font-family:var(--ff-display); font-size:13px; font-weight:600; color:var(--ink); }
+.badge-desc{ font-size:11px; color:var(--ink-dim); margin-top:3px; line-height:1.35; }
+.badge-prog{ height:4px; background:var(--bg-elev); border-radius:2px; margin-top:8px; overflow:hidden; }
+.badge-prog-fill{ height:100%; background:var(--vital); border-radius:2px; }
+.badge-prog-txt{ font-size:10px; color:var(--ink-faint); display:block; margin-top:3px; }
+.report-list{ display:flex; flex-direction:column; gap:6px; }
+.report-opt{ background:var(--bg-elev); border:1px solid var(--line); color:var(--ink); border-radius:11px; padding:12px 14px; font-size:13.5px; text-align:left; cursor:pointer; }
+.report-opt.on{ background:var(--vital-dim); border-color:var(--vital); color:var(--vital); }
+.terms-block{ background:var(--bg-elev); border-radius:12px; padding:14px; margin-bottom:6px; }
 </style>
 </head>
 <body>
@@ -2071,6 +2096,248 @@ async function openEditPostSheet(id) {
     };
 }
 
+// ---- Termos de uso ----
+function openTermsSheet() {
+    const old = document.getElementById('termsSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'termsSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Antes de começar</h3>
+        <p class="sheet-sub">Duas coisas rápidas e importantes.</p>
+        <div class="terms-block">
+            <p class="priv-text"><b>Seus dados de saúde são privados.</b> Peso, medidas e histórico de saúde só você vê. Em um desafio, os participantes veem apenas o seu percentual de evolução, nunca o peso.</p>
+            <p class="priv-text"><b>O coach não é médico.</b> As orientações da IA são gerais e não substituem profissional de saúde. Se tiver condição de saúde, converse com seu médico antes de mudar rotina de treino ou alimentação.</p>
+            <p class="priv-text">Ao continuar, você concorda em usar o app de forma respeitosa com as outras pessoas.</p>
+        </div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" data-act="go-privacy" id="termsRead">Ler mais</button>
+            <button class="btn-primary" id="termsOk">Concordo, vamos lá</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+
+    document.getElementById('termsOk').onclick = async () => {
+        const btn = document.getElementById('termsOk');
+        btn.disabled = true;
+        await sb.from('profiles').update({ terms_accepted_at: new Date().toISOString() }).eq('id', state.session.user.id);
+        state.profile.terms_accepted_at = new Date().toISOString();
+        sheet.remove();
+        document.body.style.overflow = '';
+    };
+}
+
+// ---- Lembretes do dia ----
+async function hydrateLembretes() {
+    const slot = document.getElementById('lembretesSlot');
+    if (!slot) return;
+    try {
+        const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+        const iso = hoje.toISOString();
+        const uid = state.session.user.id;
+
+        const [{ data: agua }, { count: treinos }, { count: refeicoes }] = await Promise.all([
+            sb.rpc('water_today'),
+            sb.from('posts').select('*', { count: 'exact', head: true })
+                .eq('user_id', uid).eq('kind', 'workout').gte('created_at', iso),
+            sb.from('posts').select('*', { count: 'exact', head: true })
+                .eq('user_id', uid).eq('kind', 'meal').gte('created_at', iso),
+        ]);
+
+        const w = (agua && agua[0]) || { total_ml: 0, goal_ml: 2000, pct: 0 };
+        const faltas = [];
+        if ((w.pct || 0) < 100) {
+            faltas.push({ emo: '💧', txt: `Beber água: ${formatLitros(w.total_ml)} de ${formatLitros(w.goal_ml)}`, kind: 'water' });
+        }
+        if (!treinos) faltas.push({ emo: '💪', txt: 'Você ainda não registrou treino hoje', kind: 'workout' });
+        if (!refeicoes) faltas.push({ emo: '🍽️', txt: 'Que tal registrar uma refeição?', kind: 'meal' });
+
+        if (faltas.length === 0) {
+            slot.innerHTML = `<div class="lembrete-card tudo-ok">✅ Dia completo: água, treino e refeição registrados. Boa!</div>`;
+            return;
+        }
+
+        slot.innerHTML = `<div class="lembrete-card">
+            <div class="lembrete-titulo">Hoje ainda falta</div>
+            ${faltas.map(f => `<button class="lembrete-item" data-act="quick-kind" data-kind="${f.kind}">
+                <span class="lembrete-emo">${f.emo}</span><span>${f.txt}</span><span class="lembrete-seta">›</span>
+            </button>`).join('')}
+        </div>`;
+    } catch (e) {
+        slot.innerHTML = '';
+    }
+}
+
+// ---- Conquistas ----
+async function renderAchievements() {
+    const body = $('#profileTabBody');
+    if (!body) return;
+    body.innerHTML = '<div class="spinner"></div>';
+    const { data, error } = await sb.rpc('my_achievements');
+    if (!$('#profileTabBody')) return;
+    if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+
+    const lista = data || [];
+    const feitas = lista.filter(a => a.ok).length;
+    body.innerHTML = `
+        <div class="wk-summary"><b>${feitas}</b> de ${lista.length} conquistas</div>
+        <div class="badge-grid">
+            ${lista.map(a => {
+                const prog = (!a.ok && a.meta) ? `<div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (a.prog / a.meta) * 100)}%"></div></div><span class="badge-prog-txt">${a.prog}/${a.meta}</span>` : '';
+                return `<div class="badge-card${a.ok ? ' ok' : ''}">
+                    <span class="badge-emo">${a.emo}</span>
+                    <div class="badge-name">${escapeHTML(a.nome)}</div>
+                    <div class="badge-desc">${escapeHTML(a.desc)}</div>
+                    ${prog}
+                </div>`;
+            }).join('')}
+        </div>`;
+}
+
+// ---- Bloquear e denunciar ----
+function showUserMenu(anchor) {
+    const existing = document.getElementById('floatingPostMenu');
+    if (existing && existing.dataset.menuType === 'user') { existing.remove(); return; }
+    hidePostMenu();
+    const uid = anchor.dataset.uid;
+    const nome = anchor.dataset.name || 'essa pessoa';
+    const bloqueado = state.blockedIds && state.blockedIds.has(uid);
+
+    const menu = document.createElement('div');
+    menu.id = 'floatingPostMenu';
+    menu.dataset.menuType = 'user';
+    menu.className = 'post-menu';
+    menu.innerHTML = `
+        <button class="post-menu-item" data-act="report-user" data-uid="${uid}" data-name="${escapeHTML(nome)}">🚩 Denunciar</button>
+        <button class="post-menu-item danger" data-act="toggle-block" data-uid="${uid}" data-name="${escapeHTML(nome)}" data-blocked="${bloqueado ? '1' : '0'}">
+            ${bloqueado ? '✅ Desbloquear' : '🚫 Bloquear'}
+        </button>
+    `;
+    const rect = anchor.getBoundingClientRect();
+    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+}
+
+function openReportSheet(uid, nome, postId) {
+    const old = document.getElementById('reportSheet');
+    if (old) old.remove();
+    const motivos = [
+        ['spam', '📢 Spam ou propaganda'],
+        ['ofensivo', '😡 Conteúdo ofensivo'],
+        ['assedio', '🚷 Assédio ou perseguição'],
+        ['perigoso', '⚠️ Conteúdo perigoso à saúde'],
+        ['falso', '🎭 Perfil falso'],
+        ['outro', '❓ Outro motivo'],
+    ];
+    const sheet = document.createElement('div');
+    sheet.id = 'reportSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Denunciar</h3>
+        <p class="sheet-sub">A denúncia vai só pra administração do app. ${escapeHTML(nome || '')} não fica sabendo.</p>
+        <div class="report-list">
+            ${motivos.map(([v, t]) => `<button type="button" class="report-opt" data-reason="${v}">${t}</button>`).join('')}
+        </div>
+        <div class="field" style="margin-top:12px"><label>Quer contar mais? (opcional)</label>
+            <textarea id="repDetails" maxlength="300" placeholder="O que aconteceu"></textarea>
+        </div>
+        <div id="repMsg"></div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="repCancel">Cancelar</button>
+            <button class="btn-primary" id="repSend">Enviar denúncia</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    const close = () => { sheet.remove(); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+    document.getElementById('repCancel').onclick = close;
+
+    let motivo = null;
+    sheet.querySelectorAll('.report-opt').forEach(b => b.addEventListener('click', e => {
+        motivo = e.currentTarget.dataset.reason;
+        sheet.querySelectorAll('.report-opt').forEach(x => x.classList.toggle('on', x === e.currentTarget));
+    }));
+
+    document.getElementById('repSend').onclick = async () => {
+        if (!motivo) { document.getElementById('repMsg').innerHTML = '<div class="auth-msg err">Escolha um motivo.</div>'; return; }
+        const btn = document.getElementById('repSend');
+        btn.disabled = true; btn.textContent = 'Enviando...';
+        const { error } = await sb.from('reports').insert({
+            reporter_id: state.session.user.id,
+            target_user: uid || null,
+            post_id: postId || null,
+            reason: motivo,
+            details: document.getElementById('repDetails').value.trim() || null,
+        });
+        btn.disabled = false; btn.textContent = 'Enviar denúncia';
+        if (error) { document.getElementById('repMsg').innerHTML = `<div class="auth-msg err">${error.message}</div>`; return; }
+        close();
+        toast('Denúncia enviada. Obrigado por avisar.', 'ok');
+    };
+}
+
+// ---- Feed em pedaços ----
+const FEED_PAGE = 10;
+
+function filtrarBloqueados(lista) {
+    if (!lista) return [];
+    const bloq = state.blockedIds || new Set();
+    return lista.filter(p => !bloq.has(p.user_id));
+}
+
+async function carregarBlocked() {
+    const { data } = await sb.rpc('blocked_ids');
+    state.blockedIds = new Set((data || []).map(r => r.id));
+}
+
+async function loadMoreFeed() {
+    const box = $('#feedPosts');
+    const maisBox = $('#feedMore');
+    if (!box || !maisBox) return;
+    const btn = maisBox.querySelector('button');
+    if (btn) { btn.disabled = true; btn.textContent = 'Carregando...'; }
+
+    const de = state.feedOffset || 0;
+    const { data: posts, error } = await sb.from('posts')
+        .select(`
+            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis,
+            user:profiles!inner (id, username, display_name, avatar_url),
+            reactions (id, user_id),
+            comments (id)
+        `)
+        .neq('kind', 'story').neq('kind', 'weight').eq('in_feed', true)
+        .order('created_at', { ascending: false })
+        .range(de, de + FEED_PAGE - 1);
+
+    if (error) { if (btn) { btn.disabled = false; btn.textContent = 'Tentar de novo'; } return; }
+
+    state.feedOffset = de + (posts || []).length;
+    const novos = filtrarBloqueados(posts);
+    if (novos.length) box.insertAdjacentHTML('beforeend', novos.map(p => renderPost(p)).join(''));
+    maisBox.innerHTML = (posts || []).length >= FEED_PAGE
+        ? '<button class="btn-secondary feed-more-btn" data-act="load-more-feed">Carregar mais</button>'
+        : '<div class="feed-end">Você chegou ao fim 🌿</div>';
+}
+
+// Carrega sozinho quando chega perto do fim
+window.addEventListener('scroll', () => {
+    if (state.view !== 'feed' || state.loadingMore) return;
+    const maisBox = document.getElementById('feedMore');
+    if (!maisBox || !maisBox.querySelector('button')) return;
+    const perto = window.innerHeight + window.scrollY >= document.body.offsetHeight - 500;
+    if (perto) {
+        state.loadingMore = true;
+        loadMoreFeed().finally(() => { state.loadingMore = false; });
+    }
+}, { passive: true });
+
 // ---- Água ----
 function formatLitros(ml) {
     return (ml / 1000).toFixed(ml % 1000 === 0 ? 1 : 2).replace('.', ',') + ' L';
@@ -2420,6 +2687,8 @@ function renderSettings() {
                 <button class="settings-item" data-act="go-install">📲 Instalar na tela inicial<span>›</span></button>
                 <button class="settings-item" data-act="go-rules">🏅 Como ganhar pontos<span>›</span></button>
                 <button class="settings-item" data-act="go-privacy">🔒 Privacidade<span>›</span></button>
+                <button class="settings-item" data-act="export-data">📥 Baixar meus dados<span>›</span></button>
+                <button class="settings-item" data-act="go-blocked">🚫 Pessoas bloqueadas<span>›</span></button>
                 <button class="settings-item danger" data-act="delete-account">⚠️ Excluir minha conta<span>›</span></button>
                 <button class="settings-item danger" data-act="do-logout">🚪 Sair<span>›</span></button>
             </div>
@@ -3112,9 +3381,10 @@ async function renderFeed() {
         .neq('kind', 'weight')  // peso é sempre privado, nunca aparece em feed nem mural
         .eq('in_feed', true)    // só o que a pessoa escolheu publicar
         .order('created_at', { ascending: false })
-        .limit(50);
+        .range(0, FEED_PAGE - 1);
 
     const [{ data: stories }, { data: posts, error }] = await Promise.all([storiesPromise, postsPromise]);
+    state.feedOffset = (posts || []).length;
 
     if (error) { c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro ao carregar: ${error.message}</p></div>`; return; }
 
@@ -3171,6 +3441,7 @@ async function renderFeed() {
 
     let html = '<div class="view"><h1 class="screen-title">Feed</h1><p class="screen-sub">O que a comunidade está fazendo agora.</p>';
 
+    html += `<div id="lembretesSlot"></div>`;
     html += `<div id="coachSlot"></div>`;
     html += storiesHTML;
 
@@ -3190,16 +3461,19 @@ async function renderFeed() {
         html += sugHTML;
     }
 
-    if (!posts || posts.length === 0) {
+    const visiveis = filtrarBloqueados(posts);
+    if (!visiveis || visiveis.length === 0) {
         html += `<div class="feed-empty"><span class="emo">🌱</span><h3>Nada por aqui ainda</h3><p>Seja o primeiro a postar. Toque no + abaixo.</p></div>`;
     } else {
-        html += posts.map(p => renderPost(p)).join('');
+        html += `<div id="feedPosts">${visiveis.map(p => renderPost(p)).join('')}</div>`;
+        html += `<div id="feedMore">${(posts || []).length >= FEED_PAGE ? '<button class="btn-secondary feed-more-btn" data-act="load-more-feed">Carregar mais</button>' : ''}</div>`;
     }
     html += '</div>';
     c.innerHTML = html;
 
-    // Coach aparece depois, sem travar o feed
+    // Coach e lembretes aparecem depois, sem travar o feed
     hydrateCoachCard();
+    hydrateLembretes();
 }
 
 function renderPost(p) {
@@ -3232,11 +3506,13 @@ function renderPost(p) {
     if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy">`;
 
     const isMine = p.user_id === state.session.user.id;
-    const menuBtn = isMine
-        ? `<button class="post-menu-btn" data-act="post-menu" data-id="${p.id}" aria-label="Opções">
+    const menuBtn = !isMine
+        ? `<button class="post-menu-btn" data-act="report-post" data-id="${p.id}" data-uid="${p.user_id}" data-name="${escapeHTML(user.display_name)}" aria-label="Denunciar">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
            </button>`
-        : '';
+        : `<button class="post-menu-btn" data-act="post-menu" data-id="${p.id}" aria-label="Opções">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
+           </button>`;
 
     return `
         <article class="post" data-post-id="${p.id}" data-visibility="${p.visibility || 'public'}">
@@ -3635,7 +3911,7 @@ async function renderChallengeDetail(cid) {
                 ${avatarHTML(m, 'sm')}
                 <div class="ch-health-info">
                     <div class="ch-health-name">${isMe?'Você':escapeHTML(m.display_name)}</div>
-                    <div class="ch-health-sub">${m.peso_atual ? Number(m.peso_atual).toFixed(1)+' kg' : 'sem pesagem'}${m.cintura ? ' · cintura '+Number(m.cintura).toFixed(0)+' cm' : ''} · ${m.dias_treinados} dias treinados</div>
+                    <div class="ch-health-sub">${isMe && m.peso_atual ? Number(m.peso_atual).toFixed(1)+' kg · ' : ''}${m.dias_treinados} dias treinados</div>
                 </div>
                 <span class="ch-health-pct" style="color:${cor}">${pct > 0 ? '-' : ''}${Math.abs(pct).toFixed(1)}%</span>
             </div>`;
@@ -3676,7 +3952,7 @@ async function renderChallengeDetail(cid) {
             <div class="chart-card">
                 <div class="chart-head"><span class="chart-title">⚖️ Progresso do grupo</span></div>
                 <div class="ch-health-list">${saudeHTML}</div>
-                ${ch.im_member && ch.status === 'ativo' ? '<p class="dest-hint" style="margin-top:10px">Esses dados ficam visíveis só entre participantes e só enquanto o desafio dura.</p>' : ''}
+                ${ch.im_member && ch.status === 'ativo' ? '<p class="dest-hint" style="margin-top:10px">Cada um vê só o percentual de evolução dos outros. Peso e medidas continuam privados.</p>' : ''}
             </div>
         </div>
     `;
@@ -3905,6 +4181,7 @@ async function renderProfile() {
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">▦ Posts</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}">💪 Treinos</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${state.session.user.id}">🍽️ Refeições</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${state.session.user.id}">🏅 Conquistas</button>
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
@@ -4002,6 +4279,13 @@ function paintCoachChat() {
 }
 
 async function sendCoachMessage(forced) {
+    const { data: quota } = await sb.rpc('ai_quota');
+    const q = (quota && quota[0]) || { usadas: 0, limite: 30 };
+    if (q.usadas >= q.limite) {
+        state.coachHistory.push({ role:'coach', body:`Por hoje chegamos no limite de ${q.limite} mensagens. Amanhã cedo eu tô aqui de novo. Enquanto isso, que tal registrar um treino?` });
+        paintCoachChat();
+        return;
+    }
     const input = $('#coachInput');
     const source = (typeof forced === 'string' && forced) ? forced : input.value;
     const text = String(source || '').trim();
@@ -4756,6 +5040,7 @@ async function renderUserProfile(uid) {
                     ${iFollow ? 'Seguindo' : 'Seguir'}
                 </button>
                 <button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>
+                <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções">⋯</button>
             </div>
             ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}🔥</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
             <div class="ig-tabs">
@@ -4798,6 +5083,11 @@ async function renderEditProfile() {
             <div class="field">
                 <label>Cidade</label>
                 <input type="text" id="edCity" value="${escapeHTML(p.city || '')}" maxlength="60">
+            </div>
+            <div class="field">
+                <label>Data de nascimento</label>
+                <input type="date" id="edBirth" value="${p.birth_date ? String(p.birth_date).split('T')[0] : ''}" max="${new Date().toISOString().split('T')[0]}">
+                <p class="field-hint">Ajuda a calcular sua meta de água e deixa o coach mais preciso.</p>
             </div>
 
             <h3 class="edit-section-title">Meta de treinos</h3>
@@ -4917,6 +5207,7 @@ async function renderEditProfile() {
                 display_name: $('#edName').value.trim(),
                 bio: $('#edBio').value.trim() || null,
                 city: $('#edCity').value.trim() || null,
+                birth_date: $('#edBirth').value || null,
                 altura: parseFloat($('#edAltura').value) || null,
                 sexo: $('#edSexo').value || null,
                 peso_inicial: emDesafio ? undefined : (parseFloat($('#edPesoInicial').value) || null),
@@ -5089,6 +5380,7 @@ document.addEventListener('click', async e => {
         $$('.ig-tab').forEach(t => t.classList.toggle('on', t === btn));
         if (btn.dataset.tab === 'workouts') renderWorkoutHistory(btn.dataset.uid);
         else if (btn.dataset.tab === 'meals') renderMealHistory(btn.dataset.uid);
+        else if (btn.dataset.tab === 'badges') renderAchievements();
         else $('#profileTabBody').innerHTML = `<div class="ig-grid">${state.profileGridHTML || ''}</div>`;
     } else if (act === 'open-challenge') {
         switchView('challenge', { id: btn.dataset.id });
@@ -5117,6 +5409,58 @@ document.addEventListener('click', async e => {
         openPeopleSheet('Quem curtiu', 'Só você vê essa lista.', () => sb.rpc('post_likers', { pid: btn.dataset.id }));
     } else if (act === 'see-story-viewers') {
         openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.', () => sb.rpc('story_viewers', { sid: btn.dataset.id }));
+    } else if (act === 'export-data') {
+        toast('Preparando seus dados...', 'ok');
+        const { data, error } = await sb.rpc('export_my_data');
+        if (error) { toast('Erro ao exportar: ' + error.message, 'err'); return; }
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pulso-meus-dados-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+        toast('Arquivo baixado', 'ok');
+    } else if (act === 'go-blocked') {
+        hidePostMenu();
+        openPeopleSheet('Pessoas bloqueadas', 'Toque pra desbloquear.', async () => {
+            const { data, error } = await sb.from('blocks')
+                .select('blocked_id, profiles!blocks_blocked_id_fkey (id, username, display_name, avatar_url)')
+                .eq('blocker_id', state.session.user.id);
+            if (error) return { error };
+            return { data: (data || []).map(r => r.profiles).filter(Boolean) };
+        });
+    } else if (act === 'quick-kind') {
+        $('#composerSheet').classList.add('on');
+        document.body.style.overflow = 'hidden';
+        document.querySelector(`.kind-btn[data-kind="${btn.dataset.kind}"]`).click();
+    } else if (act === 'user-menu') {
+        showUserMenu(btn);
+    } else if (act === 'report-user') {
+        hidePostMenu();
+        openReportSheet(btn.dataset.uid, btn.dataset.name, null);
+    } else if (act === 'report-post') {
+        hidePostMenu();
+        openReportSheet(btn.dataset.uid, btn.dataset.name, btn.dataset.id);
+    } else if (act === 'toggle-block') {
+        hidePostMenu();
+        const uid = btn.dataset.uid;
+        const nome = btn.dataset.name || 'essa pessoa';
+        const bloqueado = btn.dataset.blocked === '1';
+        if (!bloqueado && !confirm(`Bloquear ${nome}? Vocês param de se ver no app.`)) return;
+        if (bloqueado) {
+            await sb.from('blocks').delete().match({ blocker_id: state.session.user.id, blocked_id: uid });
+            toast('Desbloqueado', 'ok');
+        } else {
+            await sb.from('blocks').insert({ blocker_id: state.session.user.id, blocked_id: uid });
+            await sb.from('follows').delete().match({ follower_id: state.session.user.id, following_id: uid });
+            await sb.from('follows').delete().match({ follower_id: uid, following_id: state.session.user.id });
+            toast(`${nome} foi bloqueado`, 'ok');
+        }
+        await carregarBlocked();
+        switchView('feed');
+    } else if (act === 'load-more-feed') {
+        loadMoreFeed();
     } else if (act === 'quick-water') {
         $('#composerSheet').classList.add('on');
         document.body.style.overflow = 'hidden';
@@ -6015,6 +6359,13 @@ async function boot() {
     await switchView('feed');
     updateUnreadBadge();
     updateNotifBadge();
+
+    await carregarBlocked();
+
+    // Aceite dos termos (uma vez por pessoa)
+    if (!state.profile.terms_accepted_at) {
+        setTimeout(openTermsSheet, 300);
+    }
 
     // Primeiro acesso: pede os dados que alimentam evolução e coach
     if (!state.profile.altura && !state.profile.peso_inicial) {
