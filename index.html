@@ -1235,6 +1235,21 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
 .post-name{ font-weight:600; }
 .post-badge{ color:var(--ink-dim); }
 .post-btn{ color:var(--ink-dim); }
+
+/* ============ ONDA 15 ============ */
+.page-head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+.page-head .screen-title{ margin:0; }
+.page-sub{ font-size:12.5px; color:var(--ink-faint); }
+.notif-av{ position:relative; flex-shrink:0; }
+.notif-mark{ position:absolute; bottom:-3px; right:-4px; font-size:12px; background:var(--bg); border-radius:50%; width:17px; height:17px; display:grid; place-items:center; }
+.link-btn{ background:none; border:none; color:var(--vital); font-size:12px; cursor:pointer; padding:0; text-decoration:underline; }
+.badge-card[data-act]{ cursor:pointer; position:relative; }
+.badge-share{ display:block; font-size:10px; color:var(--vital); margin-top:6px; opacity:.85; }
+.post-badge.conquista{ color:var(--gold); font-weight:500; }
+.sleep-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.sleep-now{ display:flex; align-items:baseline; gap:8px; }
+.sleep-val{ font-family:var(--ff-display); font-size:26px; font-weight:600; color:var(--ink); }
+.sleep-lbl{ font-size:12px; color:var(--ink-dim); }
 </style>
 </head>
 <body>
@@ -2451,9 +2466,16 @@ async function checkDailyReminder() {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
     const agora = new Date();
-    if (agora.getHours() < 18) return;
+    const hora = agora.getHours();
     const hoje = agora.toISOString().split('T')[0];
-    if (localStorage.getItem('pulso-reminder-last') === hoje) return;
+
+    // Três momentos do dia, cada um avisa uma vez só
+    let janela = null;
+    if (hora >= 21) janela = 'noite';
+    else if (hora >= 18) janela = 'tarde';
+    else if (hora >= 12) janela = 'meiodia';
+    if (!janela) return;
+    if (localStorage.getItem('pulso-reminder-' + janela) === hoje) return;
 
     try {
         const iso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
@@ -2463,18 +2485,24 @@ async function checkDailyReminder() {
             sb.from('posts').select('*', { count: 'exact', head: true })
                 .eq('user_id', uid).eq('kind', 'workout').gte('created_at', iso),
         ]);
-        const w = (agua && agua[0]) || { pct: 100 };
-        const faltas = [];
-        if ((w.pct || 0) < 100) faltas.push('beber água');
-        if (!treinos) faltas.push('registrar treino');
-        if (faltas.length === 0) return;
+        const w = (agua && agua[0]) || { total_ml: 0, pct: 100 };
+        let corpo = null;
 
-        new Notification('Pulso', {
-            body: `Ainda dá tempo de ${faltas.join(' e ')} hoje.`,
-            icon: 'icon-192.png',
-            badge: 'icon-192.png',
-        });
-        localStorage.setItem('pulso-reminder-last', hoje);
+        if (janela === 'meiodia') {
+            if ((w.total_ml || 0) === 0) corpo = 'Nenhuma água registrada até agora. Bora começar o dia hidratado?';
+            else if ((w.pct || 0) < 50) corpo = `Você está em ${formatLitros(w.total_ml)}. Que tal mais um copo?`;
+        } else if (janela === 'tarde') {
+            if ((w.total_ml || 0) === 0) corpo = 'Registre quanto de água você bebeu hoje, leva 5 segundos.';
+            else if ((w.pct || 0) < 100) corpo = `Faltam ${formatLitros(Math.max(0, w.goal_ml - w.total_ml))} pra sua meta de água.`;
+            else if (!treinos) corpo = 'Água em dia. Ainda dá tempo de registrar um treino.';
+        } else {
+            if (!treinos && (w.pct || 0) >= 100) corpo = 'Água batida. Registrou tudo do seu dia?';
+            else if (!treinos) corpo = 'Fechando o dia: registre o que você fez hoje.';
+        }
+
+        if (!corpo) return;
+        new Notification('Pulso', { body: corpo, icon: 'icon-192.png', badge: 'icon-192.png' });
+        localStorage.setItem('pulso-reminder-' + janela, hoje);
     } catch (e) {}
 }
 
@@ -2520,26 +2548,33 @@ async function hydrateLembretes() {
 }
 
 // ---- Conquistas ----
-async function renderAchievements() {
+async function renderAchievements(uid) {
+    const alvo = uid || state.session.user.id;
+    const ehMeu = alvo === state.session.user.id;
     const body = $('#profileTabBody');
     if (!body) return;
     body.innerHTML = '<div class="spinner"></div>';
-    const { data, error } = await sb.rpc('my_achievements');
+    const { data, error } = await sb.rpc('user_achievements', { alvo });
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
 
     const lista = data || [];
+    if (!ehMeu && lista.length === 0) {
+        body.innerHTML = '<div class="grid-empty">Essa pessoa prefere manter as conquistas dela em particular.</div>';
+        return;
+    }
     const feitas = lista.filter(a => a.ok).length;
     body.innerHTML = `
-        <div class="wk-summary"><b>${feitas}</b> de ${lista.length} conquistas</div>
+        <div class="wk-summary"><b>${feitas}</b> de ${lista.length} conquistas${ehMeu ? ` · <button class="link-btn" data-act="toggle-badges-public">${state.profile.show_badges ? 'visíveis no seu perfil' : 'só você vê'}</button>` : ''}</div>
         <div class="badge-grid">
             ${lista.map(a => {
                 const prog = (!a.ok && a.meta) ? `<div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (a.prog / a.meta) * 100)}%"></div></div><span class="badge-prog-txt">${a.prog}/${a.meta}</span>` : '';
-                return `<div class="badge-card${a.ok ? ' ok' : ''}">
+                return `<div class="badge-card${a.ok ? ' ok' : ''}"${a.ok && ehMeu ? ` data-act="share-badge" data-code="${a.code}"` : ''}>
                     <span class="badge-emo">${a.emo}</span>
                     <div class="badge-name">${escapeHTML(a.nome)}</div>
                     <div class="badge-desc">${escapeHTML(a.desc)}</div>
                     ${prog}
+                    ${a.ok && ehMeu ? '<span class="badge-share">compartilhar</span>' : ''}
                 </div>`;
             }).join('')}
         </div>`;
@@ -2686,6 +2721,81 @@ window.addEventListener('scroll', () => {
     }
 }, { passive: true });
 
+// ---- Sono ----
+async function refreshSleepCard() {
+    const box = $('#sleepCard');
+    if (!box) return;
+    const { data } = await sb.rpc('sleep_summary');
+    const s = (data && data[0]) || {};
+    state.sleep = s;
+    const hoje = s.hoje != null ? Number(s.hoje) : null;
+    const media = s.media7 != null ? Number(s.media7) : null;
+    box.innerHTML = `
+        <div class="chart-head">
+            <span class="chart-title">Sono</span>
+            ${media != null ? `<span class="chart-legend">média ${media.toString().replace('.', ',')}h na semana</span>` : ''}
+        </div>
+        <div class="sleep-row">
+            <div class="sleep-now">
+                <span class="sleep-val">${hoje != null ? hoje.toString().replace('.', ',') + 'h' : '--'}</span>
+                <span class="sleep-lbl">esta noite</span>
+            </div>
+            <button class="btn-mini" data-act="open-sleep">${hoje != null ? 'Editar' : 'Registrar'}</button>
+        </div>
+    `;
+}
+
+function openSleepSheet() {
+    const old = document.getElementById('sleepSheet');
+    if (old) old.remove();
+    const atual = (state.sleep && state.sleep.hoje != null) ? Number(state.sleep.hoje) : 7.5;
+    const sheet = document.createElement('div');
+    sheet.id = 'sleepSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Quanto você dormiu?</h3>
+        <p class="sheet-sub">Só você vê. Dá pra ajustar depois quando quiser.</p>
+        <div class="field">
+            <label>Horas de sono</label>
+            <div class="stepper" data-target="slHours" data-min="0" data-max="16" data-step="0.5" data-default="7.5">
+                <button type="button" class="step-btn" data-dir="-">−</button>
+                <input type="number" id="slHours" step="0.5" value="${atual}" inputmode="decimal">
+                <button type="button" class="step-btn" data-dir="+">+</button>
+            </div>
+        </div>
+        <div class="field">
+            <label>Dia</label>
+            <input type="date" id="slDate" value="${new Date().toISOString().split('T')[0]}" max="${new Date().toISOString().split('T')[0]}">
+        </div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="slCancel">Cancelar</button>
+            <button class="btn-primary" id="slSave">Salvar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    const close = () => { sheet.remove(); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+    document.getElementById('slCancel').onclick = close;
+
+    document.getElementById('slSave').onclick = async () => {
+        const btn = document.getElementById('slSave');
+        const horas = parseFloat(document.getElementById('slHours').value);
+        const dia = document.getElementById('slDate').value;
+        if (isNaN(horas) || horas < 0 || horas > 16) { toast('Informe um valor entre 0 e 16 horas', 'err'); return; }
+        btn.disabled = true; btn.textContent = 'Salvando...';
+        const { error } = await sb.from('sleep_logs').upsert({
+            user_id: state.session.user.id, slept_on: dia, hours: horas, updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,slept_on' });
+        btn.disabled = false; btn.textContent = 'Salvar';
+        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+        close();
+        toast('Sono registrado', 'ok');
+        refreshSleepCard();
+    };
+}
+
 // ---- Água ----
 function formatLitros(ml) {
     return (ml / 1000).toFixed(ml % 1000 === 0 ? 1 : 2).replace('.', ',') + ' L';
@@ -2806,6 +2916,7 @@ async function renderNotifications() {
 
     box.innerHTML = data.map(n => {
         const quem = escapeHTML(n.actor_name || 'Alguém');
+        const autor = { id: n.actor_id, display_name: n.actor_name, username: n.actor_username, avatar_url: n.actor_avatar };
         let texto, emo, act = '', extra = '';
         if (n.kind === 'comment') {
             emo = '💬'; texto = `<b>${quem}</b> comentou no seu post`;
@@ -2822,7 +2933,7 @@ async function renderNotifications() {
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         }
         return `<div class="notif-row${n.read_at ? '' : ' nova'}"${act}>
-            <span class="notif-emo">${emo}</span>
+            <span class="notif-av">${avatarHTML(autor, 'sm')}<span class="notif-mark">${emo}</span></span>
             <div class="notif-body">
                 <div class="notif-text">${texto}</div>
                 ${extra}
@@ -3276,8 +3387,7 @@ async function renderMessages() {
     const c = $('#viewContainer');
     c.innerHTML = `
         <div class="view">
-            <h1 class="screen-title">Chat</h1>
-            <p class="screen-sub">Converse com o coach ou com a comunidade.</p>
+            <div class="page-head"><h1 class="screen-title">Chat</h1><span class="page-sub">coach e comunidade</span></div>
             <div id="convList"><div class="spinner"></div></div>
         </div>
     `;
@@ -3471,6 +3581,8 @@ COMO VOCÊ FALA:
 - Máximo 110 palavras, a não ser que a pessoa peça detalhe.
 - Não use emoji em excesso, no máximo um.
 - Nunca use o travessão longo. Use vírgula, ponto, dois pontos ou parênteses.
+- NÃO trate perda de peso como o objetivo padrão de todo mundo. Só fale de peso se a pessoa tiver meta de peso definida ou puxar o assunto.
+- O objetivo pode ser ganhar massa, ter mais energia, dormir melhor, criar constância ou simplesmente se mexer mais. Na dúvida, fale de constância e de como a pessoa se sente.
 
 LIMITES QUE VOCÊ NÃO ULTRAPASSA:
 - Você não é médico nem nutricionista. Não diagnostica, não prescreve medicação, não manda mudar tratamento.
@@ -3846,7 +3958,9 @@ function renderPost(p) {
             body += `<div class="post-ai-note"><span class="pan-emo">🤖</span>${escapeHTML(p.meal_analysis)}</div>`;
         }
     } else if (p.kind === 'weight') {
-        badge = `<div class="post-badge"><span class="emo">⚖️</span>Pesagem · <b>${p.weight_kg} kg</b></div>`;
+        badge = `<div class="post-badge">Pesagem · <b>${p.weight_kg} kg</b></div>`;
+    } else if (p.kind === 'achievement') {
+        badge = `<div class="post-badge conquista">Nova conquista</div>`;
     }
 
     if (p.caption) body += `<p class="post-caption">${escapeHTML(p.caption)}</p>`;
@@ -4086,8 +4200,7 @@ async function renderProgress() {
 
     c.innerHTML = `
         <div class="view">
-            <h1 class="screen-title">Evolução</h1>
-            <p class="screen-sub">Seu progresso ao longo do tempo</p>
+            <div class="page-head"><h1 class="screen-title">Evolução</h1><span class="page-sub">progresso ao longo do tempo</span></div>
 
             <div id="lembretesSlot"></div>
             ${weeklyCardHTML}
@@ -4098,6 +4211,8 @@ async function renderProgress() {
                 <div class="stat-card"><div class="num">${Number(validWeeks || 0)}</div><div class="lbl">Semanas na meta</div></div>
                 <div class="stat-card"><div class="num">${horas > 0 ? horas + 'h' : totalMin + 'min'}</div><div class="lbl">Treinados (12 sem)</div><div class="sub">${plural(totalDays, 'dia', 'dias')}</div></div>
             </div>
+
+            <div class="chart-card" id="sleepCard"></div>
 
             <div class="chart-card water-card" data-act="quick-water">
                 <div class="chart-head">
@@ -4145,6 +4260,7 @@ async function renderProgress() {
         </div>
     `;
     hydrateLembretes();
+    refreshSleepCard();
 }
 
 async function renderChallenges() {
@@ -4197,10 +4313,10 @@ async function renderChallenges() {
     c.innerHTML = `
         <div class="view">
             <div class="ch-title-row">
-                <h1 class="screen-title" style="margin:0">Desafios</h1>
+                <div class="page-head"><h1 class="screen-title" style="margin:0">Desafios</h1><span class="page-sub">compare com um grupo</span></div>
                 ${state.profile.is_admin ? '<button class="btn-mini" data-act="new-challenge">+ Criar</button>' : ''}
             </div>
-            <p class="screen-sub">Compare seu progresso com um grupo por um período.</p>
+
             <div class="ch-list">${cards}</div>
 
             <h3 class="edit-section-title" style="margin-top:24px">Comunidade essa semana</h3>
@@ -5368,6 +5484,8 @@ async function renderUserProfile(uid) {
 
     const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
 
+    const { data: mostraBadges } = await sb.rpc('profile_shows_badges', { alvo: uid });
+
     const { count: theirStoryCount } = await sb.from('stories')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', uid)
@@ -5405,6 +5523,7 @@ async function renderUserProfile(uid) {
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}">Treinos</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}">Refeições</button>
+                ${mostraBadges ? `<button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${uid}">Conquistas</button>` : ''}
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
@@ -5445,7 +5564,7 @@ async function renderEditProfile() {
             <div class="field">
                 <label>Data de nascimento</label>
                 <input type="date" id="edBirth" value="${p.birth_date ? String(p.birth_date).split('T')[0] : ''}" max="${new Date().toISOString().split('T')[0]}">
-                <p class="field-hint">Não aparece pra ninguém. Serve só pro cálculo da sua meta de água e pra deixar a análise do coach mais precisa.</p>
+                <p class="field-hint">Não aparece pra ninguém. Usamos só para deixar as análises da IA mais precisas.</p>
             </div>
 
             <h3 class="edit-section-title">Meta de treinos</h3>
@@ -5498,12 +5617,13 @@ async function renderEditProfile() {
             </div>
             <div class="field-row">
                 <div class="field">
-                    <label>Peso inicial (kg) <span id="pesoLockTag" class="hidden" style="font-size:10px;color:var(--gold)">🔒 travado no desafio</span></label>
+                    <label>Peso inicial (kg)</label>
                     <div class="stepper" data-target="edPesoInicial" data-min="30" data-max="250" data-step="0.5" data-default="70">
                         <button type="button" class="step-btn" data-dir="-">−</button>
                         <input type="number" id="edPesoInicial" value="${p.peso_inicial || ''}" step="0.5" min="30" max="250" inputmode="decimal">
                         <button type="button" class="step-btn" data-dir="+">+</button>
                     </div>
+                    <p id="pesoLockTag" class="field-hint hidden">Travado enquanto você está em um desafio.</p>
                 </div>
                 <div class="field">
                     <label>Meta de peso (kg)</label>
@@ -5738,7 +5858,7 @@ document.addEventListener('click', async e => {
         $$('.ig-tab').forEach(t => t.classList.toggle('on', t === btn));
         if (btn.dataset.tab === 'workouts') renderWorkoutHistory(btn.dataset.uid);
         else if (btn.dataset.tab === 'meals') renderMealHistory(btn.dataset.uid);
-        else if (btn.dataset.tab === 'badges') renderAchievements();
+        else if (btn.dataset.tab === 'badges') renderAchievements(btn.dataset.uid);
         else $('#profileTabBody').innerHTML = `<div class="ig-grid">${state.profileGridHTML || ''}</div>`;
     } else if (act === 'open-challenge') {
         switchView('challenge', { id: btn.dataset.id });
@@ -5832,6 +5952,31 @@ document.addEventListener('click', async e => {
         switchView('feed');
     } else if (act === 'load-more-feed') {
         loadMoreFeed();
+    } else if (act === 'open-sleep') {
+        openSleepSheet();
+    } else if (act === 'toggle-badges-public') {
+        const novo = !state.profile.show_badges;
+        const { error } = await sb.from('profiles').update({ show_badges: novo }).eq('id', state.session.user.id);
+        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+        state.profile.show_badges = novo;
+        toast(novo ? 'Suas conquistas agora aparecem no seu perfil' : 'Suas conquistas voltaram a ser privadas', 'ok');
+        renderAchievements();
+    } else if (act === 'share-badge') {
+        const code = btn.dataset.code;
+        const { data: lista } = await sb.rpc('my_achievements');
+        const conq = (lista || []).find(x => x.code === code);
+        if (!conq) return;
+        if (!confirm(`Compartilhar "${conq.nome}" no feed?`)) return;
+        const { error } = await sb.from('posts').insert({
+            user_id: state.session.user.id,
+            kind: 'achievement',
+            caption: `${conq.emo} ${conq.nome} · ${conq.desc}`,
+            visibility: state.defaultPrivacy || 'public',
+            is_public: (state.defaultPrivacy || 'public') === 'public',
+            in_feed: true,
+        });
+        if (error) { toast('Erro ao compartilhar', 'err'); return; }
+        toast('Conquista compartilhada!', 'ok');
     } else if (act === 'quick-water') {
         $('#composerSheet').classList.add('on');
         document.body.style.overflow = 'hidden';
