@@ -4,6 +4,7 @@
 // Duas tarefas numa função só:
 //   task "workout"  -> lê print de relógio/esteira/app e devolve atividade e duração
 //   task "moderate" -> checa se a imagem pode ir pro feed
+//   task "scale"    -> lê o número no visor de uma balança
 //
 // Entrada: { task, imageUrl }  ou  { task, imageBase64, mimeType }
 //
@@ -48,6 +49,17 @@ Marque safe=false apenas nestes casos:
 É SEGURO e deve receber safe=true: foto de academia, treino, selfie de espelho com roupa de treino, prato de comida, corpo em roupa de treino ou praia em contexto esportivo, print de relógio, paisagem, animal, foto de rosto.
 
 Em reason, quando safe=false, escreva uma frase curta e gentil em português explicando o motivo, sem acusar a pessoa.`;
+
+const PROMPT_SCALE = `Você lê o visor de balanças digitais e analógicas em fotos.
+
+Responda APENAS com JSON válido, sem markdown e sem crases:
+{"weight_kg":78.4,"confidence":0.9}
+
+REGRAS:
+- weight_kg é o peso em quilos, com no máximo uma casa decimal.
+- Se o visor estiver em libras (lb), converta para quilos.
+- confidence de 0 a 1 indicando o quanto o número está legível.
+- Se não houver balança ou o número estiver ilegível, devolva {"weight_kg":null,"confidence":0}.`;
 
 async function fetchWithTimeout(url: string, options: RequestInit, ms: number) {
   const controller = new AbortController();
@@ -107,7 +119,7 @@ Deno.serve(async (req: Request) => {
 
   try {
     const { task, imageUrl, imageBase64, mimeType } = await req.json();
-    if (task !== "workout" && task !== "moderate") throw new Error("task inválida");
+    if (!["workout", "moderate", "scale"].includes(task)) throw new Error("task inválida");
 
     const key = Deno.env.get("GEMINI_API_KEY");
     if (!key) throw new Error("GEMINI_API_KEY não configurada");
@@ -122,10 +134,10 @@ Deno.serve(async (req: Request) => {
       b64 = toBase64(new Uint8Array(await r.arrayBuffer()));
     }
 
-    const raw = await askVision(
-      task === "workout" ? PROMPT_WORKOUT : PROMPT_MODERATE,
-      b64, mime, key,
-    );
+    const prompt = task === "workout" ? PROMPT_WORKOUT
+      : task === "scale" ? PROMPT_SCALE
+      : PROMPT_MODERATE;
+    const raw = await askVision(prompt, b64, mime, key);
     const limpo = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
 
     let parsed;
@@ -136,6 +148,17 @@ Deno.serve(async (req: Request) => {
       parsed = m ? JSON.parse(m[0]) : null;
     }
     if (!parsed) throw new Error("resposta em formato inesperado");
+
+    if (task === "scale") {
+      const kg = parsed.weight_kg != null ? Number(parsed.weight_kg) : null;
+      return new Response(
+        JSON.stringify({
+          weight_kg: kg != null && kg >= 20 && kg <= 320 ? Math.round(kg * 10) / 10 : null,
+          confidence: Number(parsed.confidence || 0),
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     if (task === "moderate") {
       return new Response(
