@@ -1120,6 +1120,121 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
 .ch-health-row{ padding:12px 4px; border-bottom:1px solid var(--line) !important; border-radius:0; }
 
 #remState{ font-size:12px !important; color:var(--ink-faint); }
+
+/* ============================================================
+   AJUSTE FINO: minimalista, mas com contraste e vida
+   ============================================================ */
+:root{
+    --ink:#F2F5F2;
+    --ink-dim:#A2ABA4;      /* rótulos legíveis de novo */
+    --ink-faint:#737C75;
+    --line:rgba(241,244,241,.10);
+    --surface:#121715;      /* superfície sutil pra ancorar blocos */
+    --info:#5FB0FF;
+    --gold:#FFC24B;
+    --effort:#FF7A4D;
+    --danger:#FF5A5A;
+}
+:root[data-theme="light"]{
+    --ink:#0E1411; --ink-dim:#4E574F; --ink-faint:#79817A;
+    --line:rgba(16,21,18,.10); --surface:#FFFFFF;
+    --info:#2F86D9; --gold:#C98200; --effort:#E8622E; --danger:#D93F3F;
+}
+
+/* Blocos importantes voltam a ter superfície, sem borda dura */
+.chart-card, .health-card, .goal-card, .weekly-card, .water-progress,
+.rule-card, .install-card, .ch-hero, .lembrete-card{
+    background:var(--surface) !important;
+    border:none !important;
+    border-radius:18px !important;
+    padding:18px !important;
+    margin-bottom:12px;
+}
+.chart-card, .health-card, .goal-card, .weekly-card, .rule-card, .install-card{
+    border-bottom:none !important;
+}
+.coach-card{
+    background:var(--surface) !important;
+    border-radius:18px !important;
+    padding:16px 18px !important;
+    border-bottom:none !important;
+    margin-bottom:14px;
+}
+.ch-card{
+    background:var(--surface) !important;
+    border-radius:16px !important;
+    padding:16px !important;
+    border-bottom:none !important;
+    margin-bottom:10px;
+}
+.ch-list{ gap:10px; }
+
+/* Grade de números: superfície leve em vez de linhas soltas */
+.stat-grid{ gap:10px; border-top:none; }
+.stat-card{
+    background:var(--surface) !important;
+    border-radius:16px !important;
+    border:none !important;
+    padding:16px !important;
+}
+.stat-card .num{ font-weight:600; color:var(--ink); }
+.stat-card .lbl{ color:var(--ink-dim); font-size:11.5px; }
+.stat-card .sub{ color:var(--vital); font-size:10.5px; }
+
+/* Textos secundários legíveis */
+.screen-sub, .chart-legend, .chart-foot, .wtr-goal, .wtr-hint, .weekly-hint,
+.dest-hint, .post-time, .conv-preview, .wk-sub, .ch-health-sub, .notif-time{
+    color:var(--ink-dim);
+}
+.rule-text, .priv-text, .install-steps li{ color:var(--ink-dim); }
+
+/* Cores de volta onde significam algo */
+.topbar-score{ background:var(--vital-dim) !important; border:1px solid rgba(53,225,155,.28) !important; color:var(--vital) !important; }
+.topbar-score .lbl{ color:var(--vital); opacity:.7; }
+.top-rank{ border-left:1px solid rgba(53,225,155,.3); }
+.top-rank b{ color:var(--gold); }
+.wp-fill{ stroke:var(--gold); }
+.wp-fill.done{ stroke:var(--vital); }
+.wtr-fill{ background:linear-gradient(90deg, #2F86D9, #5FB0FF); }
+.wtr-now{ color:var(--info); font-weight:600; }
+.imc-abaixo{ background:var(--info) !important; color:#08110C !important; }
+.imc-normal{ background:var(--vital) !important; color:#08110C !important; }
+.imc-sobrepeso{ background:var(--gold) !important; color:#08110C !important; }
+.imc-obesidade{ background:var(--danger) !important; color:#fff !important; }
+.imc-badge{ padding:2px 9px; border-radius:12px; font-size:11px; font-weight:600; }
+.ch-status.ativo{ background:var(--vital-dim) !important; color:var(--vital); padding:3px 9px; border-radius:12px; font-size:10.5px; }
+.ch-status.futuro{ background:rgba(95,176,255,.14) !important; color:var(--info); padding:3px 9px; border-radius:12px; font-size:10.5px; }
+.ch-status.fim{ background:rgba(241,244,241,.06) !important; color:var(--ink-faint); padding:3px 9px; border-radius:12px; font-size:10.5px; }
+.mr-limit-note{ color:var(--effort); }
+.post-menu-item.danger, .settings-item.danger{ color:#FF9E8F; }
+.post-menu-item.admin-item{ color:var(--gold); }
+
+/* Nomes na barra de baixo de volta */
+.nav-btn > span:not(.nav-unread-dot){ display:block; }
+.nav-btn{ font-size:10px; gap:3px; }
+.nav-fab{ box-shadow:0 6px 18px -8px rgba(53,225,155,.45) !important; border-radius:16px !important; width:50px !important; height:50px !important; }
+
+/* Ícones nos menus */
+.mi{ width:17px; height:17px; flex-shrink:0; opacity:.8; }
+.post-menu-item{ display:flex; align-items:center; gap:11px; }
+.settings-item{ display:flex; align-items:center; gap:12px; background:var(--surface) !important; border-radius:12px !important; padding:14px 15px !important; border-bottom:none !important; margin-bottom:6px; }
+.si-txt{ flex:1; text-align:left; }
+.si-end{ color:var(--ink-faint); font-size:15px; }
+
+/* Listas com um pouco mais de presença */
+.log-item, .wk-row, .admin-user-row, .notif-row, .conv-item{
+    padding:14px 4px;
+    border-bottom:1px solid var(--line) !important;
+}
+.log-emo, .wk-emo, .lembrete-emo, .rule-emo, .notif-emo{ opacity:.9; font-size:19px; }
+.badge-card{ background:var(--surface) !important; border-radius:14px !important; border-bottom:none !important; padding:16px 12px !important; }
+.badge-card.ok{ background:linear-gradient(160deg, var(--vital-dim), var(--surface) 65%) !important; }
+
+/* Post continua limpo, mas com respiro */
+.post{ padding:20px 0 16px; }
+.post-name{ font-weight:600; }
+.post-badge{ color:var(--ink-dim); }
+.post-btn{ color:var(--ink-dim); }
 </style>
 </head>
 <body>
@@ -1476,6 +1591,30 @@ const avatarHTML = (p, size='md') => {
     if (p?.avatar_url) return `<span class="avatar ${cls}" style="background:${bg}"><img src="${p.avatar_url}" onerror="this.remove()"></span>`;
     return `<span class="avatar ${cls}" style="background:${bg}">${initials(p?.display_name || p?.username || '?')}</span>`;
 };
+// Ícones de traço fino usados nos menus
+const ICO = {
+    peso:'<path d="M12 4v16M7 8h10M6 8l-3 7a3 3 0 0 0 6 0L6 8zM18 8l-3 7a3 3 0 0 0 6 0l-3-7z"/>',
+    saude:'<path d="M20.8 5.6a5.2 5.2 0 0 0-7.4 0L12 7l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 21l8.8-8.1a5.2 5.2 0 0 0 0-7.3z"/>',
+    historico:'<path d="M3 16l5-5 4 3 8-8M15 6h6v6"/>',
+    comunidade:'<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+    config:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.2V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z"/>',
+    admin:'<path d="M14.7 6.3a4 4 0 0 1 5 5l-9.7 9.7a2 2 0 0 1-2.8-2.8l9.7-9.7a1 1 0 0 0-1.4-1.4L5 17.6M3 21l3-1-2-2-1 3z"/>',
+    sair:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+    editar:'<path d="M4 20h16M6 16l9-9 3 3-9 9H6v-3z"/>',
+    olho:'<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+    lixo:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14M10 11v6M14 11v6"/>',
+    bandeira:'<path d="M4 21V4M4 5h11l-1.5 3L15 11H4"/>',
+    bloquear:'<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+    ok:'<path d="M4 12l5 5L20 6"/>',
+    instalar:'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7M9 11l3 3 3-3"/>',
+    medalha:'<circle cx="12" cy="9" r="5"/><path d="M8.5 13.5L7 22l5-3 5 3-1.5-8.5"/>',
+    cadeado:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+    baixar:'<path d="M12 3v12M8 11l4 4 4-4M4 20h16"/>',
+    alerta:'<path d="M12 3l9 17H3l9-17zM12 9v5M12 17h.01"/>',
+    sino:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8M13.7 21a2 2 0 0 1-3.4 0"/>',
+};
+const icon = (nome) => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICO[nome] || ''}</svg>`;
+
 const plural = (n, sing, plur) => `${n} ${Number(n) === 1 ? sing : plur}`;
 const escapeHTML = s => String(s||'').replace(/[\u2014\u2013]/g, '-').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const timeAgo = iso => {
@@ -1983,14 +2122,14 @@ function showProfileMenu(anchor, isAdmin) {
     menu.dataset.menuType = 'profile';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        <button class="post-menu-item" data-act="open-weight-log">Registrar peso</button>
-        <button class="post-menu-item" data-act="go-health">Ficha de saúde</button>
-        <button class="post-menu-item" data-act="go-activity-log">Histórico</button>
-        <button class="post-menu-item" data-act="go-challenges">Comunidade</button>
-        <button class="post-menu-item" data-act="go-settings">Configurações</button>
-        ${isAdmin ? '<div class="menu-divider"></div><button class="post-menu-item admin-item" data-act="go-admin">Painel Admin</button>' : ''}
+        <button class="post-menu-item" data-act="open-weight-log">${icon('peso')}Registrar peso</button>
+        <button class="post-menu-item" data-act="go-health">${icon('saude')}Ficha de saúde</button>
+        <button class="post-menu-item" data-act="go-activity-log">${icon('historico')}Histórico</button>
+        <button class="post-menu-item" data-act="go-challenges">${icon('comunidade')}Comunidade</button>
+        <button class="post-menu-item" data-act="go-settings">${icon('config')}Configurações</button>
+        ${isAdmin ? `<div class="menu-divider"></div><button class="post-menu-item admin-item" data-act="go-admin">${icon('admin')}Painel Admin</button>` : ''}
         <div class="menu-divider"></div>
-        <button class="post-menu-item danger" data-act="do-logout">Sair</button>
+        <button class="post-menu-item danger" data-act="do-logout">${icon('sair')}Sair</button>
     `;
     const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
@@ -2420,9 +2559,9 @@ function showUserMenu(anchor) {
     menu.dataset.menuType = 'user';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        <button class="post-menu-item" data-act="report-user" data-uid="${uid}" data-name="${escapeHTML(nome)}">Denunciar</button>
+        <button class="post-menu-item" data-act="report-user" data-uid="${uid}" data-name="${escapeHTML(nome)}">${icon('bandeira')}Denunciar</button>
         <button class="post-menu-item danger" data-act="toggle-block" data-uid="${uid}" data-name="${escapeHTML(nome)}" data-blocked="${bloqueado ? '1' : '0'}">
-            ${bloqueado ? 'Desbloquear' : 'Bloquear'}
+            ${bloqueado ? icon('ok') + 'Desbloquear' : icon('bloquear') + 'Bloquear'}
         </button>
     `;
     const rect = anchor.getBoundingClientRect();
@@ -2892,14 +3031,14 @@ function renderSettings() {
 
             <h3 class="edit-section-title">Conta</h3>
             <div class="settings-list">
-                <button class="settings-item" data-act="open-edit-profile">Editar perfil<span>›</span></button>
-                <button class="settings-item" data-act="toggle-reminder">Lembrete do fim do dia<span id="remState">${localStorage.getItem('pulso-reminder') === 'on' ? 'ligado' : 'desligado'}</span></button>
-                <button class="settings-item" data-act="go-install">Instalar na tela inicial<span>›</span></button>
-                <button class="settings-item" data-act="go-rules">Como ganhar pontos<span>›</span></button>
-                <button class="settings-item" data-act="go-privacy">Privacidade<span>›</span></button>
-                <button class="settings-item" data-act="export-data">Baixar meus dados<span>›</span></button>
-                <button class="settings-item" data-act="go-blocked">Pessoas bloqueadas<span>›</span></button>
-                <button class="settings-item danger" data-act="delete-account">Excluir minha conta<span>›</span></button>
+                <button class="settings-item" data-act="open-edit-profile">${icon('editar')}<span class="si-txt">Editar perfil</span><span class="si-end">›</span></button>
+                <button class="settings-item" data-act="toggle-reminder">${icon('sino')}<span class="si-txt">Lembrete do fim do dia</span><span class="si-end" id="remState">${localStorage.getItem('pulso-reminder') === 'on' ? 'ligado' : 'desligado'}</span></button>
+                <button class="settings-item" data-act="go-install">${icon('instalar')}<span class="si-txt">Instalar na tela inicial</span><span class="si-end">›</span></button>
+                <button class="settings-item" data-act="go-rules">${icon('medalha')}<span class="si-txt">Como ganhar pontos</span><span class="si-end">›</span></button>
+                <button class="settings-item" data-act="go-privacy">${icon('cadeado')}<span class="si-txt">Privacidade</span><span class="si-end">›</span></button>
+                <button class="settings-item" data-act="export-data">${icon('baixar')}<span class="si-txt">Baixar meus dados</span><span class="si-end">›</span></button>
+                <button class="settings-item" data-act="go-blocked">${icon('bloquear')}<span class="si-txt">Pessoas bloqueadas</span><span class="si-end">›</span></button>
+                <button class="settings-item danger" data-act="delete-account">${icon('alerta')}<span class="si-txt">Excluir minha conta</span><span class="si-end">›</span></button>
                 <button class="settings-item danger" data-act="do-logout">Sair<span>›</span></button>
             </div>
         </div>
@@ -3086,7 +3225,7 @@ function showChatMenu(anchor) {
     menu.dataset.menuType = 'chat';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        <button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">Apagar conversa</button>
+        <button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">${icon('lixo')}Apagar conversa</button>
     `;
     const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
@@ -5306,7 +5445,7 @@ async function renderEditProfile() {
             <div class="field">
                 <label>Data de nascimento</label>
                 <input type="date" id="edBirth" value="${p.birth_date ? String(p.birth_date).split('T')[0] : ''}" max="${new Date().toISOString().split('T')[0]}">
-                <p class="field-hint">Ajuda a calcular sua meta de água e deixa o coach mais preciso.</p>
+                <p class="field-hint">Não aparece pra ninguém. Serve só pro cálculo da sua meta de água e pra deixar a análise do coach mais precisa.</p>
             </div>
 
             <h3 class="edit-section-title">Meta de treinos</h3>
@@ -5888,9 +6027,9 @@ function showPostMenu(postId, anchor) {
     menu.id = 'floatingPostMenu';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        <button class="post-menu-item" data-act="edit-post" data-id="${postId}">Editar</button>
-        <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">Quem pode ver</button>
-        <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">Apagar post</button>
+        <button class="post-menu-item" data-act="edit-post" data-id="${postId}">${icon('editar')}Editar</button>
+        <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">${icon('olho')}Quem pode ver</button>
+        <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">${icon('lixo')}Apagar post</button>
     `;
     const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
