@@ -946,6 +946,180 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
 .report-opt{ background:var(--bg-elev); border:1px solid var(--line); color:var(--ink); border-radius:11px; padding:12px 14px; font-size:13.5px; text-align:left; cursor:pointer; }
 .report-opt.on{ background:var(--vital-dim); border-color:var(--vital); color:var(--vital); }
 .terms-block{ background:var(--bg-elev); border-radius:12px; padding:14px; margin-bottom:6px; }
+
+/* ============ ONDA 15 ============ */
+.feed-view{ padding-top:14px; }
+/* Botão de salvar sempre visível em qualquer painel */
+.sheet-card > .sheet-footer{ position:sticky; bottom:0; background:var(--bg-card); padding-top:10px; padding-bottom:4px; margin-top:8px; }
+.sheet-card > .sheet-footer::before{ content:''; position:absolute; top:-14px; left:0; right:0; height:14px; background:linear-gradient(transparent, var(--bg-card)); pointer-events:none; }
+/* Lembretes mais discretos */
+.lembrete-card{ padding:12px 12px 8px; }
+.lembrete-item{ padding:7px 6px; font-size:13px; }
+
+/* ============================================================
+   MINIMALISMO: menos caixas, menos cor, mais respiro
+   ============================================================ */
+:root{
+    --line:rgba(241,244,241,.07);
+    --ink-dim:#79827B;
+    --ink-faint:#59615A;
+    --info:#8B948C;
+    --gold:#8B948C;
+    --effort:#B08A7E;
+}
+:root[data-theme="light"]{
+    --line:rgba(16,21,18,.08);
+    --info:#6B746D; --gold:#6B746D; --effort:#A86B58;
+}
+
+/* Cards viram seções: sem borda, sem fundo, sem sombra */
+.stat-card, .chart-card, .health-card, .goal-card, .weekly-card, .rule-card,
+.install-card, .ch-card, .ch-hero, .lembrete-card, .coach-card, .post,
+.badge-card, .conv-coach, .water-progress, .wk-row, .ch-health-row,
+.log-item, .admin-user-row, .settings-item, .notif-row, .hist-card, .action-card{
+    background:transparent !important;
+    border:none !important;
+    box-shadow:none !important;
+}
+
+/* Divisórias finíssimas no lugar das bordas */
+.post{ border-bottom:1px solid var(--line) !important; border-radius:0; padding:22px 0 18px; margin-bottom:0; }
+.post:last-child{ border-bottom:none !important; }
+.chart-card, .health-card, .goal-card, .weekly-card, .rule-card, .install-card{
+    padding:22px 0; border-bottom:1px solid var(--line) !important; border-radius:0;
+}
+.ch-card{ padding:18px 0; border-bottom:1px solid var(--line) !important; border-radius:0; }
+.ch-hero{ padding:6px 0 20px; border-bottom:1px solid var(--line) !important; }
+.lembrete-card{ padding:4px 0 18px; border-bottom:1px solid var(--line) !important; }
+.coach-card{ padding:18px 0; border-bottom:1px solid var(--line) !important; }
+.settings-item, .notif-row, .log-item, .wk-row, .admin-user-row{
+    border-bottom:1px solid var(--line) !important; border-radius:0; padding:15px 2px;
+}
+
+/* Grade de números sem caixas */
+.stat-grid{ gap:0; margin:0; border-top:1px solid var(--line); }
+.stat-card{ padding:18px 14px 18px 0; border-bottom:1px solid var(--line) !important; }
+.stat-card .num{ font-weight:500; font-size:27px; letter-spacing:-.02em; }
+.stat-card .lbl{ font-size:11px; color:var(--ink-faint); font-weight:400; letter-spacing:.02em; margin-top:3px; }
+.stat-card .sub{ font-size:10.5px; color:var(--ink-faint); }
+
+/* Tipografia mais leve */
+.screen-title{ font-weight:500; letter-spacing:-.03em; }
+.screen-sub{ font-size:12.5px; color:var(--ink-faint); margin-bottom:22px; }
+.chart-title, .hc-title, .rule-head h4, .ch-name{ font-weight:500; }
+.chart-legend, .chart-foot, .wtr-goal, .wtr-hint, .weekly-hint, .dest-hint{
+    font-size:11.5px; color:var(--ink-faint); font-weight:400;
+}
+
+/* Uma cor de destaque só */
+.wtr-fill{ background:var(--vital); }
+.wtr-now{ color:var(--ink); font-weight:500; }
+.coach-card{ background:transparent !important; }
+.coach-name, .coach-avatar{ color:var(--ink-dim); }
+.coach-avatar{ background:transparent; border:1px solid var(--line); font-size:15px; }
+.coach-cta{ background:transparent; border:1px solid var(--line); color:var(--vital); }
+.coach-cta:hover{ background:var(--vital-dim); color:var(--vital); }
+.conv-coach{ border-bottom:1px solid var(--line) !important; border-radius:0; padding:14px 2px; }
+.conv-coach-avatar{ background:transparent; border:1px solid var(--line); font-size:18px; }
+.conv-tag{ background:transparent; border:1px solid var(--line); color:var(--ink-faint); font-weight:500; }
+.post-badge{ background:transparent; border:none; padding:6px 0 0; color:var(--ink-dim); font-size:12.5px; }
+.post-badge b{ color:var(--ink); font-weight:500; }
+.badge--ok, .ch-status.ativo{ background:transparent; color:var(--vital); border:none; padding:0; font-weight:500; }
+.ch-status{ background:transparent !important; border:none; padding:0; color:var(--ink-faint); font-weight:500; }
+.ch-status.ativo{ color:var(--vital); }
+.imc-abaixo, .imc-sobrepeso, .imc-obesidade, .imc-normal{ background:transparent !important; color:var(--ink-dim) !important; }
+
+/* Fotos ganham a tela */
+.post-photo{ border:none; border-radius:10px; margin-top:12px; background:transparent; }
+.post-head{ margin-bottom:6px; }
+.post-name{ font-weight:500; }
+.post-time{ font-size:11.5px; color:var(--ink-faint); }
+.post-actions{ border-top:none; padding-top:14px; gap:16px; }
+.post-btn{ background:transparent; border:none; padding:0; color:var(--ink-faint); font-size:12.5px; }
+.post-btn.on{ background:transparent; color:var(--vital); }
+.post-privacy-badge{ font-size:10.5px; }
+
+/* Perfil */
+.ig-avatar-btn.has-story{ background:var(--vital); padding:2px; }
+.avatar-lg{ border:none !important; box-shadow:none !important; }
+.ig-profile-head{ padding:10px 0 20px; }
+.ig-stat .v{ font-weight:500; font-size:18px; }
+.ig-stat .l{ font-size:11px; color:var(--ink-faint); }
+.ig-tabs{ border-top:1px solid var(--line); }
+.ig-tab{ font-size:13px; font-weight:400; color:var(--ink-faint); }
+.ig-tab.on{ color:var(--ink); font-weight:500; }
+.profile-shortcuts{ display:none; }
+.btn-secondary, .btn-ghost{ background:transparent; border:1px solid var(--line); font-weight:500; }
+.hamburger-btn{ background:transparent; border:1px solid var(--line); }
+
+/* Menus e listas */
+.post-menu{ background:var(--bg-card); border:1px solid var(--line); border-radius:14px; }
+.post-menu-item{ font-size:13.5px; font-weight:400; }
+.post-menu-item.danger, .post-menu-item.admin-item{ color:var(--ink-dim); }
+.settings-item{ font-size:13.5px; }
+.settings-item.danger{ color:var(--ink-dim); }
+.log-filter, .ig-tab, .pv-tab{ font-weight:400; }
+.log-filter{ background:transparent; border:1px solid var(--line); }
+.log-filter.on{ background:transparent; border-color:var(--vital); color:var(--vital); }
+.log-emo, .wk-emo, .lembrete-emo, .rule-emo, .notif-emo{ opacity:.55; font-size:16px; }
+.log-title, .wk-title{ font-weight:500; font-size:13.5px; }
+
+/* Barra de baixo discreta */
+.bottomnav{ border-top:1px solid var(--line); }
+.nav-btn > span:not(.nav-unread-dot){ display:none; }
+.nav-btn svg{ width:22px; height:22px; stroke-width:1.5; }
+.nav-fab{ background:var(--vital) !important; box-shadow:none !important; border-radius:50% !important; width:48px !important; height:48px !important; margin-top:-10px !important; }
+.nav-fab svg{ width:22px; height:22px; stroke-width:1.8; }
+.topbar{ border-bottom:1px solid var(--line); }
+.topbar-brand{ font-weight:500; }
+.weekly-pill, .topbar-score{ background:transparent; border:1px solid var(--line); font-weight:500; }
+.topbar-score{ color:var(--ink-dim); }
+.topbar-score .lbl, .wp-flame{ color:var(--ink-faint); }
+.top-rank{ border-left:1px solid var(--line); }
+.top-rank b{ color:var(--ink-dim); }
+.wp-fill{ stroke:var(--vital); }
+
+/* Composer */
+.kind-btn, .dest-btn, .water-btn, .privacy-chip{ background:transparent; border:1px solid var(--line); font-weight:400; }
+.kind-btn .emo svg, .dest-btn .emo svg{ width:20px; height:20px; display:block; }
+.kind-btn.on, .dest-btn.on, .water-btn.on{ background:transparent; border-color:var(--vital); color:var(--vital); }
+.water-btn small{ font-size:9.5px; opacity:.6; margin-left:2px; }
+.water-btn{ font-family:var(--ff-display); font-size:14px; }
+.file-drop{ border:1px dashed var(--line); background:transparent; }
+.sheet-card{ border:none; }
+
+/* Conquistas */
+.badge-card{ border-bottom:1px solid var(--line) !important; border-radius:0; padding:16px 8px; }
+.badge-emo{ font-size:22px; opacity:.8; }
+.badge-name{ font-weight:500; }
+
+/* Hover não gruda no celular */
+@media (hover: none){
+    .cond-btn:hover, .kind-btn:hover, .dest-btn:hover, .water-btn:hover, .log-filter:hover,
+    .ch-card:hover, .post-btn:hover, .suggestion-card:hover, .admin-user-row:hover,
+    .wk-row.tappable:hover, .follow-row:hover, .conv-item:hover, .notif-row:hover,
+    .stat-card.tappable-card:hover, .water-card:hover, .privacy-chip:hover{
+        border-color:var(--line);
+        background:transparent;
+        color:inherit;
+    }
+    .cond-btn.on{ border-color:var(--vital) !important; color:var(--vital) !important; background:var(--vital-dim) !important; }
+    .log-filter.on{ border-color:var(--vital) !important; color:var(--vital) !important; }
+    .kind-btn.on, .dest-btn.on, .water-btn.on{ border-color:var(--vital) !important; color:var(--vital) !important; }
+}
+
+/* Respiro geral */
+.view{ padding-left:20px; padding-right:20px; }
+.ch-list{ gap:0; }
+.cw-rank-info{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.cw-rank-sub{ font-size:11px; color:var(--ink-faint); }
+.cw-rank-medal{ font-family:var(--ff-display); color:var(--ink-faint); font-size:12px; }
+.cw-rank-item{ padding:12px 4px; border-bottom:1px solid var(--line); border-radius:0; }
+.cw-rank-item.me, .ch-health-row.me{ background:transparent; }
+.cw-rank-item.me .cw-rank-name, .ch-health-row.me .ch-health-name{ color:var(--vital); }
+.ch-health-row{ padding:12px 4px; border-bottom:1px solid var(--line) !important; border-radius:0; }
+
+#remState{ font-size:12px !important; color:var(--ink-faint); }
 </style>
 </head>
 <body>
@@ -1106,10 +1280,10 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
         <p class="sheet-sub">Cada post gera pontos pro seu score.</p>
 
         <div class="kind-picker">
-            <button class="kind-btn on" data-kind="workout"><span class="emo">💪</span><span>Treino</span></button>
-            <button class="kind-btn" data-kind="meal"><span class="emo">🍽️</span><span>Refeição</span></button>
-            <button class="kind-btn" data-kind="water"><span class="emo">💧</span><span>Água</span></button>
-            <button class="kind-btn" data-kind="story"><span class="emo">⚡</span><span>Story 24h</span></button>
+            <button class="kind-btn on" data-kind="workout"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg></span><span>Treino</span></button>
+            <button class="kind-btn" data-kind="meal"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v7a2 2 0 0 0 4 0V3M7 10v11M15 3c-1.5 1-2 2.5-2 4.5S14 12 15 12v9"/></svg></span><span>Refeição</span></button>
+            <button class="kind-btn" data-kind="water"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/></svg></span><span>Água</span></button>
+            <button class="kind-btn" data-kind="story"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/><path d="M12 8v8M8 12h8"/></svg></span><span>Story 24h</span></button>
         </div>
 
         <div id="workoutFields">
@@ -1147,10 +1321,10 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
         <div id="waterFields" class="hidden">
             <div id="waterProgress" class="water-progress"></div>
             <div class="water-quick">
-                <button type="button" class="water-btn" data-ml="200"><span>🥛</span>200 ml</button>
-                <button type="button" class="water-btn on" data-ml="300"><span>🥤</span>300 ml</button>
-                <button type="button" class="water-btn" data-ml="500"><span>🍶</span>500 ml</button>
-                <button type="button" class="water-btn" data-ml="750"><span>🧴</span>750 ml</button>
+                <button type="button" class="water-btn" data-ml="200">200<small>ml</small></button>
+                <button type="button" class="water-btn on" data-ml="300">300<small>ml</small></button>
+                <button type="button" class="water-btn" data-ml="500">500<small>ml</small></button>
+                <button type="button" class="water-btn" data-ml="750">750<small>ml</small></button>
             </div>
             <div class="field">
                 <label>Ou digite a quantidade (ml)</label>
@@ -1198,8 +1372,8 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
 
         <div class="composer-actions">
         <div id="destSection" class="dest-picker">
-            <button type="button" class="dest-btn on" data-dest="log"><span class="emo">📝</span><span>Só registrar</span></button>
-            <button type="button" class="dest-btn" data-dest="feed"><span class="emo">📢</span><span>Publicar no feed</span></button>
+            <button type="button" class="dest-btn on" data-dest="log"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 16l9-9 3 3-9 9H6v-3z"/></svg></span><span>Só registrar</span></button>
+            <button type="button" class="dest-btn" data-dest="feed"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l16-7-7 16-2-7-7-2z"/></svg></span><span>Publicar no feed</span></button>
         </div>
         <p id="destHint" class="dest-hint"></p>
 
@@ -1302,6 +1476,7 @@ const avatarHTML = (p, size='md') => {
     if (p?.avatar_url) return `<span class="avatar ${cls}" style="background:${bg}"><img src="${p.avatar_url}" onerror="this.remove()"></span>`;
     return `<span class="avatar ${cls}" style="background:${bg}">${initials(p?.display_name || p?.username || '?')}</span>`;
 };
+const plural = (n, sing, plur) => `${n} ${Number(n) === 1 ? sing : plur}`;
 const escapeHTML = s => String(s||'').replace(/[\u2014\u2013]/g, '-').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const timeAgo = iso => {
     const diff = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -1808,14 +1983,14 @@ function showProfileMenu(anchor, isAdmin) {
     menu.dataset.menuType = 'profile';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        <button class="post-menu-item" data-act="open-weight-log">⚖️ Registrar peso</button>
-        <button class="post-menu-item" data-act="go-health">❤️ Ficha de saúde</button>
-        <button class="post-menu-item" data-act="go-activity-log">📊 Histórico</button>
-        <button class="post-menu-item" data-act="go-challenges">🏆 Comunidade</button>
-        <button class="post-menu-item" data-act="go-settings">⚙️ Configurações</button>
-        ${isAdmin ? '<div class="menu-divider"></div><button class="post-menu-item admin-item" data-act="go-admin">🛠️ Painel Admin</button>' : ''}
+        <button class="post-menu-item" data-act="open-weight-log">Registrar peso</button>
+        <button class="post-menu-item" data-act="go-health">Ficha de saúde</button>
+        <button class="post-menu-item" data-act="go-activity-log">Histórico</button>
+        <button class="post-menu-item" data-act="go-challenges">Comunidade</button>
+        <button class="post-menu-item" data-act="go-settings">Configurações</button>
+        ${isAdmin ? '<div class="menu-divider"></div><button class="post-menu-item admin-item" data-act="go-admin">Painel Admin</button>' : ''}
         <div class="menu-divider"></div>
-        <button class="post-menu-item danger" data-act="do-logout">🚪 Sair</button>
+        <button class="post-menu-item danger" data-act="do-logout">Sair</button>
     `;
     const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
@@ -1850,7 +2025,7 @@ async function renderAdmin() {
             ${avatarHTML(u, 'sm')}
             <div class="admin-user-info">
                 <div class="admin-user-name">${escapeHTML(u.display_name)} <span class="admin-user-uname">@${escapeHTML(u.username)}</span></div>
-                <div class="admin-user-meta">${u.total_posts} posts · ${u.current_streak}🔥 · ativo ${lastActive}</div>
+                <div class="admin-user-meta">${u.total_posts} posts · ${u.current_streak} · ativo ${lastActive}</div>
             </div>
             <div class="admin-user-score">${Math.round(u.score)}</div>
         </div>`;
@@ -1874,7 +2049,7 @@ async function renderAdmin() {
                 <div class="stat-card"><div class="num">${o.total_treinos||0}</div><div class="lbl">Treinos totais</div></div>
                 <div class="stat-card"><div class="num">${o.total_refeicoes||0}</div><div class="lbl">Refeições totais</div></div>
                 <div class="stat-card"><div class="num">${o.nota_media_refeicoes||'-'}</div><div class="lbl">Nota média pratos</div></div>
-                <div class="stat-card"><div class="num">${o.maior_streak_atual||0}🔥</div><div class="lbl">Maior streak ativo</div></div>
+                <div class="stat-card"><div class="num">${o.maior_streak_atual||0}</div><div class="lbl">Maior streak ativo</div></div>
             </div>
             <div class="health-card" style="text-align:center">
                 <span class="hc-title">⚡ Pontos distribuídos (todo o histórico)</span>
@@ -2130,6 +2305,40 @@ function openTermsSheet() {
     };
 }
 
+// ---- Aviso do fim do dia ----
+// Só dispara com o app aberto. Aviso com o app fechado exigiria servidor de push.
+async function checkDailyReminder() {
+    if (localStorage.getItem('pulso-reminder') !== 'on') return;
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const agora = new Date();
+    if (agora.getHours() < 18) return;
+    const hoje = agora.toISOString().split('T')[0];
+    if (localStorage.getItem('pulso-reminder-last') === hoje) return;
+
+    try {
+        const iso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+        const uid = state.session.user.id;
+        const [{ data: agua }, { count: treinos }] = await Promise.all([
+            sb.rpc('water_today'),
+            sb.from('posts').select('*', { count: 'exact', head: true })
+                .eq('user_id', uid).eq('kind', 'workout').gte('created_at', iso),
+        ]);
+        const w = (agua && agua[0]) || { pct: 100 };
+        const faltas = [];
+        if ((w.pct || 0) < 100) faltas.push('beber água');
+        if (!treinos) faltas.push('registrar treino');
+        if (faltas.length === 0) return;
+
+        new Notification('Pulso', {
+            body: `Ainda dá tempo de ${faltas.join(' e ')} hoje.`,
+            icon: 'icon-192.png',
+            badge: 'icon-192.png',
+        });
+        localStorage.setItem('pulso-reminder-last', hoje);
+    } catch (e) {}
+}
+
 // ---- Lembretes do dia ----
 async function hydrateLembretes() {
     const slot = document.getElementById('lembretesSlot');
@@ -2211,9 +2420,9 @@ function showUserMenu(anchor) {
     menu.dataset.menuType = 'user';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        <button class="post-menu-item" data-act="report-user" data-uid="${uid}" data-name="${escapeHTML(nome)}">🚩 Denunciar</button>
+        <button class="post-menu-item" data-act="report-user" data-uid="${uid}" data-name="${escapeHTML(nome)}">Denunciar</button>
         <button class="post-menu-item danger" data-act="toggle-block" data-uid="${uid}" data-name="${escapeHTML(nome)}" data-blocked="${bloqueado ? '1' : '0'}">
-            ${bloqueado ? '✅ Desbloquear' : '🚫 Bloquear'}
+            ${bloqueado ? 'Desbloquear' : 'Bloquear'}
         </button>
     `;
     const rect = anchor.getBoundingClientRect();
@@ -2683,14 +2892,15 @@ function renderSettings() {
 
             <h3 class="edit-section-title">Conta</h3>
             <div class="settings-list">
-                <button class="settings-item" data-act="open-edit-profile">✏️ Editar perfil<span>›</span></button>
-                <button class="settings-item" data-act="go-install">📲 Instalar na tela inicial<span>›</span></button>
-                <button class="settings-item" data-act="go-rules">🏅 Como ganhar pontos<span>›</span></button>
-                <button class="settings-item" data-act="go-privacy">🔒 Privacidade<span>›</span></button>
-                <button class="settings-item" data-act="export-data">📥 Baixar meus dados<span>›</span></button>
-                <button class="settings-item" data-act="go-blocked">🚫 Pessoas bloqueadas<span>›</span></button>
-                <button class="settings-item danger" data-act="delete-account">⚠️ Excluir minha conta<span>›</span></button>
-                <button class="settings-item danger" data-act="do-logout">🚪 Sair<span>›</span></button>
+                <button class="settings-item" data-act="open-edit-profile">Editar perfil<span>›</span></button>
+                <button class="settings-item" data-act="toggle-reminder">Lembrete do fim do dia<span id="remState">${localStorage.getItem('pulso-reminder') === 'on' ? 'ligado' : 'desligado'}</span></button>
+                <button class="settings-item" data-act="go-install">Instalar na tela inicial<span>›</span></button>
+                <button class="settings-item" data-act="go-rules">Como ganhar pontos<span>›</span></button>
+                <button class="settings-item" data-act="go-privacy">Privacidade<span>›</span></button>
+                <button class="settings-item" data-act="export-data">Baixar meus dados<span>›</span></button>
+                <button class="settings-item" data-act="go-blocked">Pessoas bloqueadas<span>›</span></button>
+                <button class="settings-item danger" data-act="delete-account">Excluir minha conta<span>›</span></button>
+                <button class="settings-item danger" data-act="do-logout">Sair<span>›</span></button>
             </div>
         </div>
     `;
@@ -2876,7 +3086,7 @@ function showChatMenu(anchor) {
     menu.dataset.menuType = 'chat';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        <button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">🗑️ Apagar conversa</button>
+        <button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">Apagar conversa</button>
     `;
     const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
@@ -3360,7 +3570,7 @@ async function hydrateCoachCard() {
 // ============================================================
 async function renderFeed() {
     const c = $('#viewContainer');
-    c.innerHTML = '<div class="view"><h1 class="screen-title">Feed</h1><p class="screen-sub">O que a comunidade está fazendo agora.</p><div class="spinner"></div></div>';
+    c.innerHTML = '<div class="view feed-view"><div class="spinner"></div></div>';
 
     // Carrega stories em paralelo com posts
     const storiesPromise = sb.from('stories')
@@ -3439,9 +3649,8 @@ async function renderFeed() {
     }
     storiesHTML += '</div>';
 
-    let html = '<div class="view"><h1 class="screen-title">Feed</h1><p class="screen-sub">O que a comunidade está fazendo agora.</p>';
+    let html = '<div class="view feed-view">';
 
-    html += `<div id="lembretesSlot"></div>`;
     html += `<div id="coachSlot"></div>`;
     html += storiesHTML;
 
@@ -3473,7 +3682,6 @@ async function renderFeed() {
 
     // Coach e lembretes aparecem depois, sem travar o feed
     hydrateCoachCard();
-    hydrateLembretes();
 }
 
 function renderPost(p) {
@@ -3691,7 +3899,7 @@ async function renderProgress() {
     const weeklyCardHTML = `<div class="weekly-card ${isValid ? 'valid' : ''}">
         <div class="weekly-head">
             <span class="weekly-title">Sua semana</span>
-            ${isValid ? '<span class="weekly-badge">✓ Meta batida</span>' : ''}
+            ${isValid ? '<span class="weekly-badge">Meta batida</span>' : ''}
         </div>
         <div class="weekly-body">
             <span class="weekly-days">${days}</span>
@@ -3704,8 +3912,8 @@ async function renderProgress() {
                 : `Falta${falta === 1 ? '' : 'm'} <b style="color:var(--vital)">${falta}</b> ${falta === 1 ? 'dia' : 'dias'} pra bater sua meta.`}
         </div>
         <div class="weekly-stats">
-            <span>🔥 <b>${currentStreak}</b> dias de ofensiva</span>
-            <span>✅ <b>${totalValid}</b> semanas com meta batida</span>
+            <span><b>${currentStreak}</b> dias de ofensiva</span>
+            <span><b>${totalValid}</b> semanas com meta batida</span>
         </div>
     </div>`;
 
@@ -3740,20 +3948,21 @@ async function renderProgress() {
     c.innerHTML = `
         <div class="view">
             <h1 class="screen-title">Evolução</h1>
-            <p class="screen-sub">Seu progresso ao longo do tempo.</p>
+            <p class="screen-sub">Seu progresso ao longo do tempo</p>
 
+            <div id="lembretesSlot"></div>
             ${weeklyCardHTML}
 
             <div class="stat-grid">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
-                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Ofensiva</div><div class="sub">Recorde: ${streak?.longest_streak || 0}</div></div>
+                <div class="stat-card"><div class="num">${streak?.current_streak || 0}</div><div class="lbl">Ofensiva</div><div class="sub">Recorde: ${streak?.longest_streak || 0}</div></div>
                 <div class="stat-card"><div class="num">${Number(validWeeks || 0)}</div><div class="lbl">Semanas na meta</div></div>
-                <div class="stat-card"><div class="num">${horas}h</div><div class="lbl">Treinados (12 sem)</div><div class="sub">${totalDays} dias</div></div>
+                <div class="stat-card"><div class="num">${horas > 0 ? horas + 'h' : totalMin + 'min'}</div><div class="lbl">Treinados (12 sem)</div><div class="sub">${plural(totalDays, 'dia', 'dias')}</div></div>
             </div>
 
             <div class="chart-card water-card" data-act="quick-water">
                 <div class="chart-head">
-                    <span class="chart-title">💧 Água hoje</span>
+                    <span class="chart-title">Água hoje</span>
                     <span class="chart-legend">${aguaHoje.pct || 0}% da meta</span>
                 </div>
                 <div class="wtr-top">
@@ -3764,37 +3973,39 @@ async function renderProgress() {
                 <div class="wtr-hint">Toque pra registrar um copo</div>
             </div>
 
+            ${weightPoints.length >= 2 ? `
             <div class="chart-card">
                 <div class="chart-head">
-                    <span class="chart-title">⚖️ Peso</span>
+                    <span class="chart-title">Peso</span>
                     ${goal.delta != null && Number(goal.delta) !== 0
-                        ? `<span class="chart-delta ${Number(goal.delta) > 0 ? 'down' : 'up'}">${Number(goal.delta) > 0 ? '▼' : '▲'} ${Math.abs(Number(goal.delta)).toFixed(1)} kg</span>`
+                        ? `<span class="chart-delta ${Number(goal.delta) > 0 ? 'down' : 'up'}">${Number(goal.delta) > 0 ? '−' : '+'}${Math.abs(Number(goal.delta)).toFixed(1)} kg</span>`
                         : ''}
                 </div>
                 ${weightChart}
-                ${goal.meta ? `<div class="chart-foot">Meta: ${Number(goal.meta).toFixed(1)} kg · ${goal.progresso_pct != null ? Math.max(0, Math.min(100, Number(goal.progresso_pct))) : 0}% alcançado</div>` : ''}
-            </div>
+                ${goal.meta ? `<div class="chart-foot">Meta ${Number(goal.meta).toFixed(1)} kg · ${goal.progresso_pct != null ? Math.max(0, Math.min(100, Number(goal.progresso_pct))) : 0}% alcançado</div>` : ''}
+            </div>` : ''}
 
             <div class="chart-card">
                 <div class="chart-head">
-                    <span class="chart-title">💪 Dias treinados por semana</span>
+                    <span class="chart-title">Dias treinados por semana</span>
                     <span class="chart-legend">meta: ${weeklyGoal}</span>
                 </div>
                 ${actChart}
             </div>
 
             <div class="chart-card">
-                <div class="chart-head"><span class="chart-title">⚡ Pontos por semana</span></div>
+                <div class="chart-head"><span class="chart-title">Pontos por semana</span></div>
                 ${ptsChart}
             </div>
 
             ${cinturaPoints.length > 0 ? `
             <div class="chart-card">
-                <div class="chart-head"><span class="chart-title">📏 Cintura</span></div>
+                <div class="chart-head"><span class="chart-title">Cintura</span></div>
                 ${cinturaChart}
             </div>` : ''}
         </div>
     `;
+    hydrateLembretes();
 }
 
 async function renderChallenges() {
@@ -3840,7 +4051,7 @@ async function renderChallenges() {
             <span class="cw-rank-medal">${medal}</span>
             ${avatarHTML(u, 'sm')}
             <span class="cw-rank-name">${isMe?'Você':escapeHTML(u.display_name)}</span>
-            <span class="cw-rank-pts">${Math.round(u.points)} pts</span>
+            <span class="cw-rank-pts">${plural(Math.round(u.points), 'pt', 'pts')}</span>
         </div>`;
     }).join('') || '<div class="log-empty">Ninguém pontuou essa semana ainda.</div>';
 
@@ -3859,7 +4070,7 @@ async function renderChallenges() {
                 <div class="stat-card"><div class="num">${s.total_treinos||0}</div><div class="lbl">Treinos</div></div>
             </div>
             <div class="chart-card" style="margin-top:12px">
-                <div class="chart-head"><span class="chart-title">🏆 Ranking geral da semana</span></div>
+                <div class="chart-head"><span class="chart-title">Ranking da semana</span></div>
                 ${mine && mine.rank
                     ? `<div class="cw-my-rank">Você está em <b>${mine.rank}º</b> de ${mine.total}</div>`
                     : `<div class="cw-my-rank">Você ainda não pontuou essa semana. Registre um treino pra entrar no ranking!</div>`}
@@ -3886,14 +4097,20 @@ async function renderChallengeDetail(cid) {
     const souDono = ch.created_by === state.session.user.id || state.profile.is_admin;
     const podeEntrar = !ch.im_member && ch.is_open && ch.status !== 'encerrado';
 
+    const diasPorPessoa = {};
+    (saude || []).forEach(m => { diasPorPessoa[m.user_id] = m.dias_treinados; });
+
     const rankRows = (ranking || []).map((u, i) => {
-        const medal = ['🥇','🥈','🥉'][i] || (i+1)+'º';
         const isMe = u.user_id === state.session.user.id;
+        const dias = diasPorPessoa[u.user_id];
         return `<div class="cw-rank-item${isMe?' me':''}" data-act="view-user" data-uid="${u.user_id}">
-            <span class="cw-rank-medal">${medal}</span>
+            <span class="cw-rank-medal">${i+1}</span>
             ${avatarHTML(u, 'sm')}
-            <span class="cw-rank-name">${isMe?'Você':escapeHTML(u.display_name)}</span>
-            <span class="cw-rank-pts">${Math.round(u.points)} pts</span>
+            <div class="cw-rank-info">
+                <span class="cw-rank-name">${isMe?'Você':escapeHTML(u.display_name)}</span>
+                ${dias != null ? `<span class="cw-rank-sub">${plural(dias, 'dia treinado', 'dias treinados')} no desafio</span>` : ''}
+            </div>
+            <span class="cw-rank-pts">${plural(Math.round(u.points), 'pt', 'pts')}</span>
         </div>`;
     }).join('') || '<div class="log-empty">Ninguém pontuou nesse período ainda.</div>';
 
@@ -3911,7 +4128,7 @@ async function renderChallengeDetail(cid) {
                 ${avatarHTML(m, 'sm')}
                 <div class="ch-health-info">
                     <div class="ch-health-name">${isMe?'Você':escapeHTML(m.display_name)}</div>
-                    <div class="ch-health-sub">${isMe && m.peso_atual ? Number(m.peso_atual).toFixed(1)+' kg · ' : ''}${m.dias_treinados} dias treinados</div>
+                    <div class="ch-health-sub">${isMe && m.peso_atual ? Number(m.peso_atual).toFixed(1)+' kg · ' : ''}${plural(m.dias_treinados, 'dia treinado', 'dias treinados')}</div>
                 </div>
                 <span class="ch-health-pct" style="color:${cor}">${pct > 0 ? '-' : ''}${Math.abs(pct).toFixed(1)}%</span>
             </div>`;
@@ -3945,12 +4162,13 @@ async function renderChallengeDetail(cid) {
             </div>
 
             <div class="chart-card">
-                <div class="chart-head"><span class="chart-title">🏆 Ranking do desafio</span></div>
+                <div class="chart-head"><span class="chart-title">Ranking do desafio</span></div>
                 <div class="cw-rank-list">${rankRows}</div>
+                <p class="chart-foot" style="text-align:left">Conta só o que cada um ganhou de ${dataBR(ch.starts_at)} em diante. Pontos anteriores ao desafio não entram.</p>
             </div>
 
             <div class="chart-card">
-                <div class="chart-head"><span class="chart-title">⚖️ Progresso do grupo</span></div>
+                <div class="chart-head"><span class="chart-title">Progresso do grupo</span></div>
                 <div class="ch-health-list">${saudeHTML}</div>
                 ${ch.im_member && ch.status === 'ativo' ? '<p class="dest-hint" style="margin-top:10px">Cada um vê só o percentual de evolução dos outros. Peso e medidas continuam privados.</p>' : ''}
             </div>
@@ -4117,7 +4335,7 @@ async function renderProfile() {
         const deltaSign = delta > 0 ? '↓ ' : delta < 0 ? '↑ ' : '';
         goalHTML = `<div class="goal-card">
             <div class="goal-card-head">
-                <span class="goal-title">🎯 Meta de peso</span>
+                <span class="goal-title">Meta de peso</span>
                 <span class="goal-delta ${deltaClass}">${deltaSign}${Math.abs(delta).toFixed(1)} kg</span>
             </div>
             <div class="goal-numbers">
@@ -4172,16 +4390,16 @@ async function renderProfile() {
             </div>
             <div class="stat-grid" style="margin-top:14px">
                 <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
-                <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Ofensiva</div></div>
+                <div class="stat-card"><div class="num">${streak?.current_streak || 0}</div><div class="lbl">Ofensiva</div></div>
                 <div class="stat-card tappable-card" data-act="go-progress"><div class="num">${diasSemana}/${state.profile.weekly_goal || 3}</div><div class="lbl">Semana</div><div class="sub">Ver evolução ›</div></div>
                 <div class="stat-card tappable-card" data-act="go-community"><div class="num">${rankTxt}</div><div class="lbl">No ranking</div><div class="sub">Ver desafios ›</div></div>
             </div>
             ${goalHTML}
             <div class="ig-tabs">
-                <button class="ig-tab on" data-act="profile-tab" data-tab="posts">▦ Posts</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}">💪 Treinos</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${state.session.user.id}">🍽️ Refeições</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${state.session.user.id}">🏅 Conquistas</button>
+                <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}">Treinos</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${state.session.user.id}">Refeições</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${state.session.user.id}">Conquistas</button>
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
@@ -4627,7 +4845,7 @@ function openWeightLogSheet() {
     sheet.innerHTML = `
         <div class="sheet-card">
             <div class="sheet-handle"></div>
-            <h3 class="sheet-title">⚖️ Registrar peso</h3>
+            <h3 class="sheet-title">Registrar peso</h3>
             <p class="sheet-sub">🔒 Só você vê isso. Nunca aparece no feed nem no seu mural.</p>
 
             <div class="field">
@@ -4901,11 +5119,10 @@ async function renderActivityLog() {
             </div>
             <div class="log-filters">
                 <button class="log-filter on" data-filter="all">Tudo</button>
-                <button class="log-filter" data-filter="workout">💪 Treinos</button>
-                <button class="log-filter" data-filter="meal">🍽️ Refeições</button>
-                <button class="log-filter" data-filter="weight">⚖️ Pesagens</button>
-                <button class="log-filter" data-filter="water">💧 Água</button>
-                <button class="log-filter" data-filter="text">✍️ Textos</button>
+                <button class="log-filter" data-filter="workout">Treinos</button>
+                <button class="log-filter" data-filter="meal">Refeições</button>
+                <button class="log-filter" data-filter="weight">Pesagens</button>
+                <button class="log-filter" data-filter="text">Textos</button>
             </div>
             <div id="logList"><div class="spinner"></div></div>
         </div>
@@ -4919,6 +5136,7 @@ async function renderActivityLog() {
             .eq('user_id', state.session.user.id)
             .order('created_at', { ascending: false })
             .limit(100);
+        q = q.neq('kind', 'water');  // água tem muitos registros por dia, fica só na Evolução
         if (filter !== 'all') q = q.eq('kind', filter);
 
         const { data: posts, error } = await q;
@@ -4938,6 +5156,7 @@ async function renderActivityLog() {
         });
 
         list.innerHTML = Object.entries(byDay).map(([day, items]) => {
+            // Água do dia vira uma linha só, senão a lista fica cheia de copos
             const rowsHTML = items.map(p => renderLogItem(p)).join('');
             return `<div class="log-day"><h4 class="log-day-title">${day}</h4>${rowsHTML}</div>`;
         }).join('');
@@ -5042,11 +5261,11 @@ async function renderUserProfile(uid) {
                 <button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>
                 <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções">⋯</button>
             </div>
-            ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}🔥</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
+            ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
             <div class="ig-tabs">
-                <button class="ig-tab on" data-act="profile-tab" data-tab="posts">▦ Posts</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}">💪 Treinos</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}">🍽️ Refeições</button>
+                <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}">Treinos</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}">Refeições</button>
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
@@ -5409,6 +5628,19 @@ document.addEventListener('click', async e => {
         openPeopleSheet('Quem curtiu', 'Só você vê essa lista.', () => sb.rpc('post_likers', { pid: btn.dataset.id }));
     } else if (act === 'see-story-viewers') {
         openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.', () => sb.rpc('story_viewers', { sid: btn.dataset.id }));
+    } else if (act === 'toggle-reminder') {
+        const ligado = localStorage.getItem('pulso-reminder') === 'on';
+        if (ligado) {
+            localStorage.setItem('pulso-reminder', 'off');
+            toast('Lembrete desligado', 'ok');
+        } else {
+            let perm = Notification.permission;
+            if (perm === 'default') perm = await Notification.requestPermission();
+            if (perm !== 'granted') { toast('Seu navegador bloqueou os avisos', 'err'); return; }
+            localStorage.setItem('pulso-reminder', 'on');
+            toast('Pronto. Aviso no fim do dia se faltar algo.', 'ok');
+        }
+        renderSettings();
     } else if (act === 'export-data') {
         toast('Preparando seus dados...', 'ok');
         const { data, error } = await sb.rpc('export_my_data');
@@ -5656,9 +5888,9 @@ function showPostMenu(postId, anchor) {
     menu.id = 'floatingPostMenu';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        <button class="post-menu-item" data-act="edit-post" data-id="${postId}">✏️ Editar</button>
-        <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">👁️ Quem pode ver</button>
-        <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">🗑️ Apagar post</button>
+        <button class="post-menu-item" data-act="edit-post" data-id="${postId}">Editar</button>
+        <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">Quem pode ver</button>
+        <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">Apagar post</button>
     `;
     const rect = anchor.getBoundingClientRect();
     menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
@@ -6361,6 +6593,7 @@ async function boot() {
     updateNotifBadge();
 
     await carregarBlocked();
+    checkDailyReminder();
 
     // Aceite dos termos (uma vez por pessoa)
     if (!state.profile.terms_accepted_at) {
