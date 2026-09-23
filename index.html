@@ -162,7 +162,7 @@ select:-webkit-autofill{
 .post-badge .emo{ font-size:14px; }
 .post-badge b{ color:var(--vital); font-family:var(--ff-display); font-weight:600; }
 .post-caption{ font-size:14px; line-height:1.5; color:var(--ink); margin:8px 0; white-space:pre-wrap; }
-.post-photo{ margin-top:10px; border-radius:14px; width:100%; max-height:400px; object-fit:cover; border:1px solid var(--line); display:block; }
+.post-photo{ margin-top:10px; border-radius:14px; width:100%; max-height:75vh; object-fit:contain; background:var(--bg-elev); border:1px solid var(--line); display:block; }
 .post-actions{ display:flex; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
 .post-btn{ display:flex; align-items:center; gap:6px; background:var(--bg-elev); border:1px solid var(--line); color:var(--ink-dim); padding:7px 12px; border-radius:20px; font-size:12.5px; font-weight:500; transition:all .15s; }
 .post-btn:hover{ border-color:var(--vital); }
@@ -195,7 +195,7 @@ select:-webkit-autofill{
 .sheet-card{
     width:100%; max-width:520px; background:var(--bg-card); border:1px solid var(--line);
     border-radius:24px 24px 0 0; padding:20px 20px calc(20px + env(safe-area-inset-bottom));
-    max-height:92vh; overflow-y:auto; animation:slideUp .25s cubic-bezier(.2,.8,.2,1);
+    max-height:calc(var(--app-h, 100vh) - 20px); overflow-y:auto; animation:slideUp .25s cubic-bezier(.2,.8,.2,1);
 }
 @keyframes slideUp{ from{transform:translateY(30px);opacity:0} to{transform:none;opacity:1} }
 .sheet-handle{ width:38px; height:4px; background:var(--line); border-radius:4px; margin:0 auto 16px; }
@@ -861,9 +861,24 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
 .sv-views-btn b{ font-family:var(--ff-display); }
 
 /* Teclado aberto no celular: nada flutuando */
-body.kb-open .bottomnav{ display:none; }
-body.kb-open .app{ padding-bottom:0; }
-body.kb-open .view.coach-view{ height:calc(var(--app-h, 100vh) - var(--topbar-h, 64px)); }
+/* No chat, a página inteira para de rolar e o app ocupa só a área visível.
+   Isso resolve o teclado do iPhone empurrando o conteúdo pra fora da tela. */
+html.chat-mode, html.chat-mode body{ height:100%; overflow:hidden; position:relative; }
+html.chat-mode .app{
+    height:var(--app-h, 100vh);
+    padding-bottom:0;
+    display:flex; flex-direction:column;
+    transform:translateY(var(--vv-offset, 0px));
+}
+html.chat-mode .topbar{ position:static; flex-shrink:0; }
+html.chat-mode #viewContainer{ flex:1; min-height:0; display:flex; flex-direction:column; }
+html.chat-mode .view.coach-view{
+    flex:1; min-height:0; height:auto; max-width:600px; width:100%;
+    margin:0 auto; overflow:hidden;
+    padding-bottom:calc(var(--nav-pad, 90px) - 10px);
+}
+html.chat-mode.kb-open .bottomnav{ display:none; }
+html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
 
 /* Regras */
 .rule-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:12px; }
@@ -877,6 +892,35 @@ body.kb-open .view.coach-view{ height:calc(var(--app-h, 100vh) - var(--topbar-h,
 .rule-text b{ color:var(--ink); }
 .rule-text:last-child{ margin-bottom:0; }
 .rule-note{ font-size:12.5px; color:var(--ink-faint); line-height:1.5; background:var(--bg-elev); border-radius:10px; padding:9px 12px; margin-top:4px; }
+
+/* ============ ONDA 12: composer enxuto ============ */
+#composerSheet .kind-btn{ padding:10px 6px; gap:4px; }
+#composerSheet .kind-btn .emo{ font-size:19px; }
+#composerSheet .sheet-title{ font-size:17px; }
+#composerSheet .sheet-sub{ margin-bottom:12px; }
+#composerSheet .field{ margin-bottom:10px; }
+#composerSheet .field textarea{ min-height:54px; }
+#composerSheet .file-drop{ padding:10px; }
+#composerSheet .photo-btn-choice{ padding:9px; font-size:12.5px; }
+#composerSheet .file-preview.on{ max-height:110px; width:auto; margin:8px auto 0; border-radius:10px; }
+
+/* ============ ONDA 13: água ============ */
+.kind-picker{ grid-template-columns:repeat(4, 1fr); }
+#composerSheet .kind-btn{ font-size:11px; padding:9px 4px; }
+.water-progress{ background:var(--bg-elev); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
+.wtr-top{ display:flex; align-items:baseline; gap:8px; margin-bottom:8px; }
+.wtr-now{ font-family:var(--ff-display); font-size:26px; font-weight:700; color:var(--info); line-height:1; }
+.wtr-goal{ font-size:12.5px; color:var(--ink-dim); }
+.wtr-track{ height:8px; background:var(--bg-input); border-radius:4px; overflow:hidden; }
+.wtr-fill{ height:100%; background:linear-gradient(90deg, #2F86D9, #5FB0FF); border-radius:4px; transition:width .35s; }
+.wtr-hint{ font-size:11.5px; color:var(--ink-faint); margin-top:7px; }
+.water-quick{ display:grid; grid-template-columns:repeat(4, 1fr); gap:7px; margin-bottom:10px; }
+.water-btn{ background:var(--bg-elev); border:1px solid var(--line); color:var(--ink-dim); border-radius:11px; padding:10px 4px; font-size:11.5px; font-weight:600; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:3px; }
+.water-btn span{ font-size:17px; }
+.water-btn.on{ background:rgba(95,176,255,.14); border-color:var(--info); color:var(--info); }
+.water-card{ cursor:pointer; }
+.water-card:hover{ border-color:var(--info); }
+.inv-add{ font-size:11.5px; color:var(--vital); font-weight:600; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -1039,6 +1083,7 @@ body.kb-open .view.coach-view{ height:calc(var(--app-h, 100vh) - var(--topbar-h,
         <div class="kind-picker">
             <button class="kind-btn on" data-kind="workout"><span class="emo">💪</span><span>Treino</span></button>
             <button class="kind-btn" data-kind="meal"><span class="emo">🍽️</span><span>Refeição</span></button>
+            <button class="kind-btn" data-kind="water"><span class="emo">💧</span><span>Água</span></button>
             <button class="kind-btn" data-kind="story"><span class="emo">⚡</span><span>Story 24h</span></button>
         </div>
 
@@ -1071,6 +1116,24 @@ body.kb-open .view.coach-view{ height:calc(var(--app-h, 100vh) - var(--topbar-h,
                     <option value="jantar">Jantar</option>
                     <option value="lanche">Lanche</option>
                 </select>
+            </div>
+        </div>
+
+        <div id="waterFields" class="hidden">
+            <div id="waterProgress" class="water-progress"></div>
+            <div class="water-quick">
+                <button type="button" class="water-btn" data-ml="200"><span>🥛</span>200 ml</button>
+                <button type="button" class="water-btn on" data-ml="300"><span>🥤</span>300 ml</button>
+                <button type="button" class="water-btn" data-ml="500"><span>🍶</span>500 ml</button>
+                <button type="button" class="water-btn" data-ml="750"><span>🧴</span>750 ml</button>
+            </div>
+            <div class="field">
+                <label>Ou digite a quantidade (ml)</label>
+                <div class="stepper" data-target="wMl" data-min="50" data-max="2000" data-step="50" data-default="300">
+                    <button type="button" class="step-btn" data-dir="-">−</button>
+                    <input type="number" id="wMl" value="300" inputmode="numeric">
+                    <button type="button" class="step-btn" data-dir="+">+</button>
+                </div>
             </div>
         </div>
 
@@ -2007,6 +2070,36 @@ async function openEditPostSheet(id) {
         else if (state.view === 'activity-log') renderActivityLog();
     };
 }
+
+// ---- Água ----
+function formatLitros(ml) {
+    return (ml / 1000).toFixed(ml % 1000 === 0 ? 1 : 2).replace('.', ',') + ' L';
+}
+
+async function refreshWaterProgress() {
+    const box = $('#waterProgress');
+    if (!box) return;
+    const { data } = await sb.rpc('water_today');
+    const w = (data && data[0]) || { total_ml: 0, goal_ml: 2000, pct: 0 };
+    state.waterToday = w;
+    const falta = Math.max(0, w.goal_ml - w.total_ml);
+    box.innerHTML = `
+        <div class="wtr-top">
+            <span class="wtr-now">${formatLitros(w.total_ml)}</span>
+            <span class="wtr-goal">de ${formatLitros(w.goal_ml)} hoje</span>
+        </div>
+        <div class="wtr-track"><div class="wtr-fill" style="width:${w.pct}%"></div></div>
+        <div class="wtr-hint">${falta > 0 ? `Faltam ${formatLitros(falta)} pra bater a meta de hoje.` : 'Meta do dia batida! 🎉'}</div>
+    `;
+}
+
+document.addEventListener('click', e => {
+    const b = e.target.closest('.water-btn');
+    if (!b) return;
+    document.querySelectorAll('.water-btn').forEach(x => x.classList.toggle('on', x === b));
+    const input = $('#wMl');
+    if (input) input.value = b.dataset.ml;
+});
 
 // ---- Refeições já registradas hoje ficam bloqueadas no seletor ----
 async function refreshMealSlots() {
@@ -3304,6 +3397,8 @@ async function renderProgress() {
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
         sb.rpc('count_valid_weeks', { uid }),
     ]);
+    const { data: aguaData } = await sb.rpc('water_today');
+    const aguaHoje = (aguaData && aguaData[0]) || { total_ml: 0, goal_ml: 2000, pct: 0 };
 
     const goal = goalData?.[0] || {};
     const weeklyGoal = state.profile.weekly_goal || 3;
@@ -3378,6 +3473,19 @@ async function renderProgress() {
                 <div class="stat-card"><div class="num">${streak?.current_streak || 0}🔥</div><div class="lbl">Ofensiva</div><div class="sub">Recorde: ${streak?.longest_streak || 0}</div></div>
                 <div class="stat-card"><div class="num">${Number(validWeeks || 0)}</div><div class="lbl">Semanas na meta</div></div>
                 <div class="stat-card"><div class="num">${horas}h</div><div class="lbl">Treinados (12 sem)</div><div class="sub">${totalDays} dias</div></div>
+            </div>
+
+            <div class="chart-card water-card" data-act="quick-water">
+                <div class="chart-head">
+                    <span class="chart-title">💧 Água hoje</span>
+                    <span class="chart-legend">${aguaHoje.pct || 0}% da meta</span>
+                </div>
+                <div class="wtr-top">
+                    <span class="wtr-now">${formatLitros(aguaHoje.total_ml || 0)}</span>
+                    <span class="wtr-goal">de ${formatLitros(aguaHoje.goal_ml || 2000)}</span>
+                </div>
+                <div class="wtr-track"><div class="wtr-fill" style="width:${aguaHoje.pct || 0}%"></div></div>
+                <div class="wtr-hint">Toque pra registrar um copo</div>
             </div>
 
             <div class="chart-card">
@@ -3648,7 +3756,8 @@ function openInviteSheet(cid) {
         <div class="sheet-handle"></div>
         <h3 class="sheet-title">Convidar pro desafio</h3>
         <p class="sheet-sub">Digite o usuário da pessoa (aparece no perfil dela como @usuario).</p>
-        <div class="field"><label>Usuário</label><input type="text" id="invUser" placeholder="ex: joao_silva" autocapitalize="off"></div>
+        <div class="field"><label>Usuário ou nome</label><input type="text" id="invUser" placeholder="comece a digitar..." autocapitalize="off" autocomplete="off"></div>
+        <div id="invResults" class="follow-list"></div>
         <div id="invMsg"></div>
         <div class="sheet-footer">
             <button class="btn-ghost" id="invCancel">Fechar</button>
@@ -3660,6 +3769,33 @@ function openInviteSheet(cid) {
     const close = () => { sheet.remove(); document.body.style.overflow = ''; };
     sheet.onclick = e => { if (e.target === sheet) close(); };
     document.getElementById('invCancel').onclick = close;
+
+    // Sugere pessoas conforme digita
+    const campo = document.getElementById('invUser');
+    let buscaTimer = null;
+    campo.addEventListener('input', () => {
+        clearTimeout(buscaTimer);
+        const q = campo.value.trim().replace('@', '');
+        const box = document.getElementById('invResults');
+        if (q.length < 2) { box.innerHTML = ''; return; }
+        buscaTimer = setTimeout(async () => {
+            const { data } = await sb.rpc('search_profiles', { q });
+            if (!data || data.length === 0) { box.innerHTML = '<div class="log-empty" style="padding:12px">Ninguém com esse nome.</div>'; return; }
+            box.innerHTML = data.slice(0, 6).map(u => `<div class="follow-row" data-inv-user="${escapeHTML(u.username)}">
+                ${avatarHTML(u, 'sm')}
+                <div style="flex:1;min-width:0">
+                    <div class="follow-name">${escapeHTML(u.display_name)}</div>
+                    <div class="follow-uname">@${escapeHTML(u.username)}</div>
+                </div>
+                <span class="inv-add">+ Adicionar</span>
+            </div>`).join('');
+            box.querySelectorAll('[data-inv-user]').forEach(row => row.addEventListener('click', () => {
+                campo.value = row.dataset.invUser;
+                box.innerHTML = '';
+                document.getElementById('invAdd').click();
+            }));
+        }, 300);
+    });
 
     document.getElementById('invAdd').onclick = async () => {
         const btn = document.getElementById('invAdd');
@@ -4484,6 +4620,7 @@ async function renderActivityLog() {
                 <button class="log-filter" data-filter="workout">💪 Treinos</button>
                 <button class="log-filter" data-filter="meal">🍽️ Refeições</button>
                 <button class="log-filter" data-filter="weight">⚖️ Pesagens</button>
+                <button class="log-filter" data-filter="water">💧 Água</button>
                 <button class="log-filter" data-filter="text">✍️ Textos</button>
             </div>
             <div id="logList"><div class="spinner"></div></div>
@@ -4494,7 +4631,7 @@ async function renderActivityLog() {
         const list = $('#logList');
         list.innerHTML = '<div class="spinner"></div>';
         let q = sb.from('posts')
-            .select('id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, visibility')
+            .select('id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, water_ml, created_at, visibility')
             .eq('user_id', state.session.user.id)
             .order('created_at', { ascending: false })
             .limit(100);
@@ -4532,6 +4669,8 @@ async function renderActivityLog() {
             sub = p.image_url ? 'com foto' : 'sem foto';
         } else if (p.kind === 'weight') {
             emo = '⚖️'; title = 'Pesagem'; sub = `${p.weight_kg} kg`;
+        } else if (p.kind === 'water') {
+            emo = '💧'; title = 'Água'; sub = `${p.water_ml} ml`;
         } else if (p.kind === 'text') {
             emo = '✍️'; title = 'Texto'; sub = (p.caption||'').slice(0,60);
         }
@@ -4801,8 +4940,7 @@ async function renderEditProfile() {
 }
 
 function setKeyboardMode(on) {
-    document.body.classList.toggle('kb-open', on);
-    if (on) window.scrollTo(0, 0);
+    document.documentElement.classList.toggle('kb-open', on);
     syncLayoutVars();
 }
 
@@ -4818,6 +4956,7 @@ function syncLayoutVars() {
     const root = document.documentElement.style;
     const vv = window.visualViewport;
     root.setProperty('--app-h', Math.round(vv ? vv.height : window.innerHeight) + 'px');
+    root.setProperty('--vv-offset', Math.round(vv ? vv.offsetTop : 0) + 'px');
     const tb = document.querySelector('.topbar');
     const app = document.getElementById('app');
     if (tb && tb.offsetHeight) root.setProperty('--topbar-h', tb.offsetHeight + 'px');
@@ -4825,10 +4964,16 @@ function syncLayoutVars() {
 }
 window.addEventListener('resize', syncLayoutVars);
 window.addEventListener('orientationchange', syncLayoutVars);
-if (window.visualViewport) window.visualViewport.addEventListener('resize', syncLayoutVars);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncLayoutVars);
+    window.visualViewport.addEventListener('scroll', syncLayoutVars);
+}
 
 async function switchView(v, params = {}) {
     closeDynamicSheets();
+    const noChat = (v === 'chat' || v === 'coach');
+    document.documentElement.classList.toggle('chat-mode', noChat);
+    if (!noChat) document.documentElement.classList.remove('kb-open');
     requestAnimationFrame(syncLayoutVars);
     if (v !== 'chat') stopChatSync();
     state.view = v;
@@ -4972,6 +5117,10 @@ document.addEventListener('click', async e => {
         openPeopleSheet('Quem curtiu', 'Só você vê essa lista.', () => sb.rpc('post_likers', { pid: btn.dataset.id }));
     } else if (act === 'see-story-viewers') {
         openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.', () => sb.rpc('story_viewers', { sid: btn.dataset.id }));
+    } else if (act === 'quick-water') {
+        $('#composerSheet').classList.add('on');
+        document.body.style.overflow = 'hidden';
+        document.querySelector('.kind-btn[data-kind="water"]').click();
     } else if (act === 'go-search') {
         switchView('search');
     } else if (act === 'go-notifications') {
@@ -5381,14 +5530,19 @@ function showCurrentStory() {
     if (isMineStory) {
         viewsBtn.dataset.act = 'see-story-viewers';
         viewsBtn.dataset.id = item.id;
-        sb.rpc('story_view_count', { sid: item.id }).then(({ data }) => {
+        // Já busca a lista aqui, pra abrir na hora quando tocar
+        state.storyViewers = state.storyViewers || {};
+        sb.rpc('story_viewers', { sid: item.id }).then(({ data }) => {
+            state.storyViewers[item.id] = data || [];
             const n = document.getElementById('svViewsN');
-            if (n) n.textContent = Number(data || 0);
+            if (n) n.textContent = (data || []).length;
         });
         viewsBtn.onclick = (ev) => {
             ev.stopPropagation();
             clearTimeout(state.storyTimer);
-            openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.', () => sb.rpc('story_viewers', { sid: item.id }));
+            const cache = state.storyViewers && state.storyViewers[item.id];
+            openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.',
+                () => cache ? Promise.resolve({ data: cache }) : sb.rpc('story_viewers', { sid: item.id }));
         };
     }
 
@@ -5494,6 +5648,8 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     $$('.kind-btn').forEach(x => x.classList.toggle('on', x === e.currentTarget));
     $('#workoutFields').classList.toggle('hidden', state.composerKind !== 'workout');
     $('#mealFields').classList.toggle('hidden', state.composerKind !== 'meal');
+    $('#waterFields').classList.toggle('hidden', state.composerKind !== 'water');
+    if (state.composerKind === 'water') refreshWaterProgress();
     $('#storyFields').classList.toggle('hidden', state.composerKind !== 'story');
     if (state.composerKind === 'meal') refreshMealSlots();
     $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
@@ -5555,8 +5711,13 @@ function updateDestUI() {
     if (!state.composerDest) state.composerDest = 'log';
     if (!hasPhoto && state.composerDest === 'feed') state.composerDest = 'log';
 
-    sec.classList.toggle('hidden', isStory);
-    $('#destHint').classList.toggle('hidden', isStory);
+    const isWater = kind === 'water';
+    sec.classList.toggle('hidden', isStory || isWater);
+    $('#destHint').classList.toggle('hidden', isStory || isWater);
+    const fotoBloco = document.querySelector('#composerSheet .file-drop');
+    if (fotoBloco) fotoBloco.classList.toggle('hidden', isWater);
+    const legenda = document.querySelector('#pCaption');
+    if (legenda && legenda.closest('.field')) legenda.closest('.field').classList.toggle('hidden', isWater);
     const feedBtn = sec.querySelector('[data-dest="feed"]');
     feedBtn.disabled = !hasPhoto;
     sec.querySelectorAll('.dest-btn').forEach(b => b.classList.toggle('on', b.dataset.dest === state.composerDest));
@@ -5570,11 +5731,13 @@ function updateDestUI() {
     }
     $('#destHint').textContent = hint;
 
-    $('#privacySection').classList.toggle('hidden', isStory || state.composerDest !== 'feed');
+    $('#privacySection').classList.toggle('hidden', isStory || isWater || state.composerDest !== 'feed');
 
     const btn = $('#composerSubmit');
     if (btn && !btn.disabled) {
-        btn.textContent = isStory ? 'Publicar Story' : (state.composerDest === 'feed' ? 'Publicar no feed' : 'Registrar');
+        btn.textContent = isStory ? 'Publicar Story'
+            : isWater ? 'Registrar água'
+            : (state.composerDest === 'feed' ? 'Publicar no feed' : 'Registrar');
     }
 }
 
@@ -5660,6 +5823,39 @@ $('#composerSubmit').addEventListener('click', async () => {
             closeComposer();
             toast(ganhos > 0 ? `+${ganhos} pontos! Story publicado` : 'Story publicado (limite diário de pontos atingido)', 'ok');
             if (state.view === 'feed') await renderFeed();
+            return;
+        }
+
+        // ============ ÁGUA (registro privado e rápido) ============
+        if (state.composerKind === 'water') {
+            const ml = parseInt($('#wMl').value) || 0;
+            if (ml < 50) { toast('Informe quanto você bebeu', 'err'); return; }
+
+            const { data: criado, error: erroAgua } = await sb.from('posts').insert({
+                user_id: state.session.user.id,
+                kind: 'water',
+                water_ml: ml,
+                visibility: 'private',
+                is_public: false,
+                in_feed: false,
+            }).select().single();
+            if (erroAgua) throw erroAgua;
+
+            const [{ data: aguaPts }, { data: agora }] = await Promise.all([
+                sb.rpc('points_for_reference', { ref: criado.id }),
+                sb.rpc('water_today'),
+            ]);
+            await updateStreak(new Date().toISOString().split('T')[0]);
+            await loadScore();
+            closeComposer();
+
+            const w = (agora && agora[0]) || {};
+            const ganhos = Number(aguaPts || 0);
+            let aviso = `${formatLitros(w.total_ml || ml)} hoje`;
+            if (w.goal_ml) aviso += ` de ${formatLitros(w.goal_ml)}`;
+            if (ganhos > 0) aviso = `+${ganhos} ${ganhos === 1 ? 'ponto' : 'pontos'}! ` + aviso;
+            toast(aviso, 'ok');
+            if (state.view === 'progress') await renderProgress();
             return;
         }
 
