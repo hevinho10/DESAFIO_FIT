@@ -1250,6 +1250,14 @@ html.chat-mode.kb-open .view.coach-view{ padding-bottom:8px; }
 .sleep-now{ display:flex; align-items:baseline; gap:8px; }
 .sleep-val{ font-family:var(--ff-display); font-size:26px; font-weight:600; color:var(--ink); }
 .sleep-lbl{ font-size:12px; color:var(--ink-dim); }
+
+/* ============ ONDA 16 ============ */
+.conquista-card{ display:flex; align-items:center; gap:14px; background:linear-gradient(120deg, var(--vital-dim), transparent 70%); border-radius:16px; padding:16px; margin-top:10px; }
+.cq-emo{ font-size:34px; flex-shrink:0; }
+.cq-tag{ font-size:10px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--vital); }
+.cq-nome{ font-family:var(--ff-display); font-size:17px; font-weight:600; color:var(--ink); margin-top:3px; }
+.cq-desc{ font-size:12.5px; color:var(--ink-dim); margin-top:2px; }
+.badge-share.feito{ color:var(--ink-faint); }
 </style>
 </head>
 <body>
@@ -2496,7 +2504,9 @@ async function checkDailyReminder() {
             else if ((w.pct || 0) < 100) corpo = `Faltam ${formatLitros(Math.max(0, w.goal_ml - w.total_ml))} pra sua meta de água.`;
             else if (!treinos) corpo = 'Água em dia. Ainda dá tempo de registrar um treino.';
         } else {
-            if (!treinos && (w.pct || 0) >= 100) corpo = 'Água batida. Registrou tudo do seu dia?';
+            const { data: sono } = await sb.rpc('sleep_summary');
+            const temSono = sono && sono[0] && sono[0].hoje != null;
+            if (!temSono) corpo = 'Quantas horas você dormiu hoje? Leva 5 segundos pra registrar.';
             else if (!treinos) corpo = 'Fechando o dia: registre o que você fez hoje.';
         }
 
@@ -2515,12 +2525,10 @@ async function hydrateLembretes() {
         const iso = hoje.toISOString();
         const uid = state.session.user.id;
 
-        const [{ data: agua }, { count: treinos }, { count: refeicoes }] = await Promise.all([
+        const [{ data: agua }, { count: treinos }] = await Promise.all([
             sb.rpc('water_today'),
             sb.from('posts').select('*', { count: 'exact', head: true })
                 .eq('user_id', uid).eq('kind', 'workout').gte('created_at', iso),
-            sb.from('posts').select('*', { count: 'exact', head: true })
-                .eq('user_id', uid).eq('kind', 'meal').gte('created_at', iso),
         ]);
 
         const w = (agua && agua[0]) || { total_ml: 0, goal_ml: 2000, pct: 0 };
@@ -2529,10 +2537,9 @@ async function hydrateLembretes() {
             faltas.push({ emo: '💧', txt: `Beber água: ${formatLitros(w.total_ml)} de ${formatLitros(w.goal_ml)}`, kind: 'water' });
         }
         if (!treinos) faltas.push({ emo: '💪', txt: 'Você ainda não registrou treino hoje', kind: 'workout' });
-        if (!refeicoes) faltas.push({ emo: '🍽️', txt: 'Que tal registrar uma refeição?', kind: 'meal' });
 
         if (faltas.length === 0) {
-            slot.innerHTML = `<div class="lembrete-card tudo-ok">✅ Dia completo: água, treino e refeição registrados. Boa!</div>`;
+            slot.innerHTML = `<div class="lembrete-card tudo-ok">Dia completo: água e treino registrados. Boa!</div>`;
             return;
         }
 
@@ -2554,7 +2561,11 @@ async function renderAchievements(uid) {
     const body = $('#profileTabBody');
     if (!body) return;
     body.innerHTML = '<div class="spinner"></div>';
-    const { data, error } = await sb.rpc('user_achievements', { alvo });
+    const [{ data, error }, { data: jaCompartilhadas }] = await Promise.all([
+        sb.rpc('user_achievements', { alvo }),
+        ehMeu ? sb.rpc('shared_achievements') : Promise.resolve({ data: [] }),
+    ]);
+    const compartilhadas = new Set((jaCompartilhadas || []).map(r => r.code));
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
 
@@ -2569,12 +2580,14 @@ async function renderAchievements(uid) {
         <div class="badge-grid">
             ${lista.map(a => {
                 const prog = (!a.ok && a.meta) ? `<div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (a.prog / a.meta) * 100)}%"></div></div><span class="badge-prog-txt">${a.prog}/${a.meta}</span>` : '';
-                return `<div class="badge-card${a.ok ? ' ok' : ''}"${a.ok && ehMeu ? ` data-act="share-badge" data-code="${a.code}"` : ''}>
+                const jaFoi = compartilhadas.has(a.code);
+                const podeCompartilhar = a.ok && ehMeu && !jaFoi;
+                return `<div class="badge-card${a.ok ? ' ok' : ''}"${podeCompartilhar ? ` data-act="share-badge" data-code="${a.code}"` : ''}>
                     <span class="badge-emo">${a.emo}</span>
                     <div class="badge-name">${escapeHTML(a.nome)}</div>
                     <div class="badge-desc">${escapeHTML(a.desc)}</div>
                     ${prog}
-                    ${a.ok && ehMeu ? '<span class="badge-share">compartilhar</span>' : ''}
+                    ${a.ok && ehMeu ? `<span class="badge-share${jaFoi ? ' feito' : ''}">${jaFoi ? 'compartilhado' : 'compartilhar'}</span>` : ''}
                 </div>`;
             }).join('')}
         </div>`;
@@ -2690,7 +2703,7 @@ async function loadMoreFeed() {
     const de = state.feedOffset || 0;
     const { data: posts, error } = await sb.from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis,
+            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
             user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -3147,7 +3160,7 @@ function renderSettings() {
                 <button class="settings-item" data-act="go-install">${icon('instalar')}<span class="si-txt">Instalar na tela inicial</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="go-rules">${icon('medalha')}<span class="si-txt">Como ganhar pontos</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="go-privacy">${icon('cadeado')}<span class="si-txt">Privacidade</span><span class="si-end">›</span></button>
-                <button class="settings-item" data-act="export-data">${icon('baixar')}<span class="si-txt">Baixar meus dados</span><span class="si-end">›</span></button>
+                ${state.profile.is_admin ? `<button class="settings-item" data-act="export-data">${icon('baixar')}<span class="si-txt">Baixar meus dados</span><span class="si-end">›</span></button>` : ''}
                 <button class="settings-item" data-act="go-blocked">${icon('bloquear')}<span class="si-txt">Pessoas bloqueadas</span><span class="si-end">›</span></button>
                 <button class="settings-item danger" data-act="delete-account">${icon('alerta')}<span class="si-txt">Excluir minha conta</span><span class="si-end">›</span></button>
                 <button class="settings-item danger" data-act="do-logout">Sair<span>›</span></button>
@@ -3311,7 +3324,7 @@ async function openPostSheet(id) {
     const old = document.getElementById('postViewSheet');
     if (old) old.remove();
     const { data: p, error } = await sb.from('posts')
-        .select(`id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis,
+        .select(`id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
             user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)`)
@@ -3400,7 +3413,7 @@ async function renderMessages() {
         <span class="conv-coach-avatar">🤖</span>
         <div class="conv-info">
             <div class="conv-name">Coach Pulso <span class="conv-tag">IA</span></div>
-            <div class="conv-preview">Tire dúvidas sobre treino, peso e rotina</div>
+            <div class="conv-preview">Pergunte sobre treino, alimentação e constância</div>
         </div>
         <div class="conv-chevron">›</div>
     </div>`;
@@ -3833,7 +3846,7 @@ async function renderFeed() {
     const postsPromise = sb
         .from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis,
+            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
             user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -3960,7 +3973,20 @@ function renderPost(p) {
     } else if (p.kind === 'weight') {
         badge = `<div class="post-badge">Pesagem · <b>${p.weight_kg} kg</b></div>`;
     } else if (p.kind === 'achievement') {
-        badge = `<div class="post-badge conquista">Nova conquista</div>`;
+        const partes = String(p.caption || '').split('|');
+        if (partes.length === 3) {
+            badge = `<div class="conquista-card">
+                <span class="cq-emo">${partes[0]}</span>
+                <div class="cq-txt">
+                    <div class="cq-tag">Nova conquista</div>
+                    <div class="cq-nome">${escapeHTML(partes[1])}</div>
+                    <div class="cq-desc">${escapeHTML(partes[2])}</div>
+                </div>
+            </div>`;
+            p = Object.assign({}, p, { caption: null });
+        } else {
+            badge = `<div class="post-badge conquista">Nova conquista</div>`;
+        }
     }
 
     if (p.caption) body += `<p class="post-caption">${escapeHTML(p.caption)}</p>`;
@@ -4212,8 +4238,6 @@ async function renderProgress() {
                 <div class="stat-card"><div class="num">${horas > 0 ? horas + 'h' : totalMin + 'min'}</div><div class="lbl">Treinados (12 sem)</div><div class="sub">${plural(totalDays, 'dia', 'dias')}</div></div>
             </div>
 
-            <div class="chart-card" id="sleepCard"></div>
-
             <div class="chart-card water-card" data-act="quick-water">
                 <div class="chart-head">
                     <span class="chart-title">Água hoje</span>
@@ -4226,6 +4250,8 @@ async function renderProgress() {
                 <div class="wtr-track"><div class="wtr-fill" style="width:${aguaHoje.pct || 0}%"></div></div>
                 <div class="wtr-hint">Toque pra registrar um copo</div>
             </div>
+
+            <div class="chart-card" id="sleepCard"></div>
 
             ${weightPoints.length >= 2 ? `
             <div class="chart-card">
@@ -4672,7 +4698,7 @@ async function renderProfile() {
 // ============================================================
 const COACH_SUGGESTIONS = [
     'Como está minha evolução?',
-    'Por que meu peso não muda?',
+    'Como está minha constância?',
     'Monta um treino pra hoje',
     'O que comer depois do treino?',
     'Tô sem motivação, me ajuda',
@@ -4728,7 +4754,7 @@ function paintCoachChat() {
     if (state.coachHistory.length === 0) {
         chat.innerHTML = `<div class="coach-empty">
             <span class="ce-emo">👋</span>
-            <p>Oi! Eu acompanho seus treinos, seu peso e suas medidas aqui no app.</p>
+            <p>Oi! Eu acompanho seus treinos, sua alimentação e sua rotina aqui no app.</p>
             <p class="ce-hint">Pergunta o que quiser, eu respondo olhando os seus números de verdade.</p>
         </div>`;
     } else {
@@ -5623,7 +5649,6 @@ async function renderEditProfile() {
                         <input type="number" id="edPesoInicial" value="${p.peso_inicial || ''}" step="0.5" min="30" max="250" inputmode="decimal">
                         <button type="button" class="step-btn" data-dir="+">+</button>
                     </div>
-                    <p id="pesoLockTag" class="field-hint hidden">Travado enquanto você está em um desafio.</p>
                 </div>
                 <div class="field">
                     <label>Meta de peso (kg)</label>
@@ -5649,8 +5674,12 @@ async function renderEditProfile() {
             const st = pi.closest('.stepper');
             if (st) st.querySelectorAll('.step-btn').forEach(b => b.disabled = true);
         }
-        const tag = $('#pesoLockTag');
-        if (tag) tag.classList.remove('hidden');
+        if (pi) {
+            const avisar = () => toast('O peso inicial fica travado enquanto você está em um desafio, pra ninguém mudar a base do cálculo no meio do jogo.', 'err');
+            pi.addEventListener('focus', avisar);
+            const st2 = pi.closest('.stepper');
+            if (st2) st2.addEventListener('click', avisar);
+        }
     }
 
     // Preview do avatar novo
@@ -5970,13 +5999,20 @@ document.addEventListener('click', async e => {
         const { error } = await sb.from('posts').insert({
             user_id: state.session.user.id,
             kind: 'achievement',
-            caption: `${conq.emo} ${conq.nome} · ${conq.desc}`,
+            achievement_code: code,
+            caption: `${conq.emo}|${conq.nome}|${conq.desc}`,
             visibility: state.defaultPrivacy || 'public',
             is_public: (state.defaultPrivacy || 'public') === 'public',
             in_feed: true,
         });
-        if (error) { toast('Erro ao compartilhar', 'err'); return; }
+        if (error) {
+            toast(String(error.message || '').includes('duplicate') || error.code === '23505'
+                ? 'Essa conquista já foi compartilhada'
+                : 'Erro ao compartilhar', 'err');
+            return;
+        }
         toast('Conquista compartilhada!', 'ok');
+        renderAchievements();
     } else if (act === 'quick-water') {
         $('#composerSheet').classList.add('on');
         document.body.style.overflow = 'hidden';
