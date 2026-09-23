@@ -842,6 +842,41 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
 .priv-text{ font-size:13.5px; color:var(--ink-dim); line-height:1.6; margin-bottom:8px; }
 .priv-text b{ color:var(--ink); }
 .priv-text:last-child{ margin-bottom:0; }
+
+/* ============ ONDA 11 ============ */
+/* Composer: ações sempre visíveis */
+.composer-actions{ position:sticky; bottom:0; background:var(--bg-card); padding-top:8px; margin-top:4px; }
+.composer-actions::before{ content:''; position:absolute; top:-14px; left:0; right:0; height:14px; background:linear-gradient(transparent, var(--bg-card)); pointer-events:none; }
+.dest-picker{ margin:0 0 6px; }
+.dest-btn{ padding:10px 8px; font-size:12.5px; }
+.dest-hint{ margin:0 2px 8px; }
+.file-preview{ max-height:150px; }
+.sheet-footer{ margin-top:6px; }
+.post-btn.ghost{ background:none; border-color:transparent; color:var(--ink-faint); }
+.post-btn.ghost:hover{ color:var(--vital); }
+.people-time{ font-size:11px; color:var(--ink-faint); flex-shrink:0; }
+
+/* Story: quem viu */
+.sv-views-btn{ background:rgba(0,0,0,.35); border:none; color:#fff; font-size:12px; height:34px; padding:0 12px; border-radius:20px; cursor:pointer; margin-right:6px; display:flex; align-items:center; gap:5px; }
+.sv-views-btn b{ font-family:var(--ff-display); }
+
+/* Teclado aberto no celular: nada flutuando */
+body.kb-open .bottomnav{ display:none; }
+body.kb-open .app{ padding-bottom:0; }
+body.kb-open .view.coach-view{ height:calc(var(--app-h, 100vh) - var(--topbar-h, 64px)); }
+
+/* Regras */
+.rule-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; margin-bottom:12px; }
+.rule-card.destaque{ border-color:rgba(53,225,155,.35); background:linear-gradient(135deg, var(--vital-dim), var(--bg-card) 60%); }
+.rule-card.alerta{ border-color:rgba(255,159,69,.3); }
+.rule-head{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.rule-emo{ font-size:24px; flex-shrink:0; }
+.rule-head h4{ font-family:var(--ff-display); font-size:15.5px; font-weight:600; color:var(--ink); margin:0; }
+.rule-pts{ font-size:12px; color:var(--vital); font-weight:600; }
+.rule-text{ font-size:13.5px; color:var(--ink-dim); line-height:1.6; margin-bottom:8px; }
+.rule-text b{ color:var(--ink); }
+.rule-text:last-child{ margin-bottom:0; }
+.rule-note{ font-size:12.5px; color:var(--ink-faint); line-height:1.5; background:var(--bg-elev); border-radius:10px; padding:9px 12px; margin-top:4px; }
 </style>
 </head>
 <body>
@@ -1073,6 +1108,7 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
             <img id="pPhotoPreview" class="file-preview">
         </div>
 
+        <div class="composer-actions">
         <div id="destSection" class="dest-picker">
             <button type="button" class="dest-btn on" data-dest="log"><span class="emo">📝</span><span>Só registrar</span></button>
             <button type="button" class="dest-btn" data-dest="feed"><span class="emo">📢</span><span>Publicar no feed</span></button>
@@ -1106,6 +1142,7 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
             <button class="btn-ghost" id="composerCancel">Cancelar</button>
             <button class="btn-primary" id="composerSubmit">Publicar</button>
         </div>
+        </div>
     </div>
 </div>
 
@@ -1118,6 +1155,7 @@ button.topbar-score{ cursor:pointer; font-family:var(--ff-display); }
             <div class="name" id="svName"></div>
             <div class="time" id="svTime"></div>
         </div>
+        <button class="sv-views-btn hidden" id="svViews" aria-label="Quem viu">👁 <b id="svViewsN">0</b></button>
         <button class="sv-del-btn hidden" id="svDelete" aria-label="Apagar story">🗑</button>
         <button class="close-btn" id="svClose">×</button>
     </div>
@@ -1763,6 +1801,39 @@ async function renderAdmin() {
     `;
 }
 
+// ---- Quem viu o story / quem curtiu o post (só o dono vê) ----
+function openPeopleSheet(titulo, subtitulo, carregar) {
+    const old = document.getElementById('peopleSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'peopleSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">${escapeHTML(titulo)}</h3>
+        <p class="sheet-sub">${escapeHTML(subtitulo)}</p>
+        <div id="peopleBody" class="follow-list"><div class="spinner"></div></div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    sheet.onclick = e => { if (e.target === sheet) { sheet.remove(); document.body.style.overflow = ''; } };
+
+    carregar().then(({ data, error }) => {
+        const body = document.getElementById('peopleBody');
+        if (!body) return;
+        if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+        if (!data || data.length === 0) { body.innerHTML = '<div class="log-empty">Ninguém ainda.</div>'; return; }
+        body.innerHTML = data.map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
+            ${avatarHTML(u, 'sm')}
+            <div style="flex:1;min-width:0">
+                <div class="follow-name">${escapeHTML(u.display_name)}</div>
+                <div class="follow-uname">@${escapeHTML(u.username)}</div>
+            </div>
+            <span class="people-time">${timeAgo(u.viewed_at || u.liked_at)}</span>
+        </div>`).join('');
+    });
+}
+
 // ---- Boas-vindas: completa o perfil no primeiro acesso ----
 function openOnboarding() {
     const old = document.getElementById('onboardingSheet');
@@ -2056,6 +2127,74 @@ async function renderNotifications() {
     updateNotifBadge();
 }
 
+// ---- Como funcionam os pontos ----
+function renderRules() {
+    $('#viewContainer').innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="go-settings-back">←</button>
+                <div class="topbar-title">Como ganhar pontos</div>
+                <div style="width:28px"></div>
+            </div>
+
+            <p class="screen-sub">Aqui tudo gira em torno de constância. Vale mais aparecer todo dia do que se matar uma vez por mês.</p>
+
+            <div class="rule-card">
+                <div class="rule-head"><span class="rule-emo">💪</span><div><h4>Treino</h4><span class="rule-pts">até 15 pontos</span></div></div>
+                <p class="rule-text">Quanto mais tempo de atividade, mais pontos. Musculação, corrida, natação, ciclismo e futebol rendem mais por minuto; caminhada, yoga, dança e alongamento rendem um pouco menos.</p>
+                <p class="rule-text">Anexar foto do treino dá <b>+3</b>.</p>
+                <p class="rule-note">Treinou mais de uma vez no mesmo dia? Vale o treino mais forte do dia.</p>
+            </div>
+
+            <div class="rule-card">
+                <div class="rule-head"><span class="rule-emo">🍽️</span><div><h4>Refeição</h4><span class="rule-pts">1 ponto</span></div></div>
+                <p class="rule-text">Fotografe o prato e a IA analisa: dá uma nota de 0 a 10, identifica os alimentos e sugere um ajuste pra próxima.</p>
+                <p class="rule-note">Café, almoço e jantar valem um registro por dia cada. Lanche é livre.</p>
+            </div>
+
+            <div class="rule-card">
+                <div class="rule-head"><span class="rule-emo">⚖️</span><div><h4>Pesagem</h4><span class="rule-pts">3 pontos por semana</span></div></div>
+                <p class="rule-text">Pode registrar o peso quando quiser, todo dia se preferir, pra acompanhar a curva. A pontuação entra uma vez por semana.</p>
+                <p class="rule-note">Seu peso é privado. Ninguém vê, a não ser dentro de um desafio que você escolher entrar.</p>
+            </div>
+
+            <div class="rule-card destaque">
+                <div class="rule-head"><span class="rule-emo">📉</span><div><h4>Perda de peso</h4><span class="rule-pts">10 pontos por 1%</span></div></div>
+                <p class="rule-text">A conta é proporcional ao seu peso inicial, então é justa pra qualquer ponto de partida. Cada 1% perdido vale 10 pontos, pagos uma única vez por marco.</p>
+                <p class="rule-note">Se o peso subir e descer de novo, você não perde o que já conquistou.</p>
+            </div>
+
+            <div class="rule-card">
+                <div class="rule-head"><span class="rule-emo">🔥</span><div><h4>Ofensiva</h4><span class="rule-pts">até 20 pontos</span></div></div>
+                <p class="rule-text">Qualquer registro do dia mantém a chama acesa: treino, refeição, pesagem ou story.</p>
+                <p class="rule-text">Bônus em <b>3 dias</b> (+2), <b>7 dias</b> (+5), <b>14 dias</b> (+10) e <b>30 dias</b> (+20).</p>
+                <p class="rule-note">Ficou um dia sem registrar nada? A ofensiva recomeça do zero.</p>
+            </div>
+
+            <div class="rule-card">
+                <div class="rule-head"><span class="rule-emo">🎯</span><div><h4>Meta da semana</h4><span class="rule-pts">10 pontos</span></div></div>
+                <p class="rule-text">Você escolhe quantos treinos quer fazer por semana em Editar perfil. Bateu a meta, ganha o bônus.</p>
+            </div>
+
+            <div class="rule-card">
+                <div class="rule-head"><span class="rule-emo">⚡</span><div><h4>Story</h4><span class="rule-pts">3 pontos por dia</span></div></div>
+                <p class="rule-text">Poste quantos quiser, eles somem em 24 horas. A pontuação conta uma vez por dia.</p>
+            </div>
+
+            <div class="rule-card alerta">
+                <div class="rule-head"><span class="rule-emo">⏳</span><div><h4>Pontos têm validade</h4></div></div>
+                <p class="rule-text">Cada ponto vale por <b>90 dias</b>. Foi ganho hoje, expira daqui a três meses.</p>
+                <p class="rule-note">É de propósito: o score mostra como você está agora, não como estava no ano passado. Quem mantém a rotina, mantém a pontuação.</p>
+            </div>
+
+            <div class="rule-card">
+                <div class="rule-head"><span class="rule-emo">🏆</span><div><h4>Desafios</h4></div></div>
+                <p class="rule-text">Dentro de um desafio, o ranking usa os pontos que cada um ganhar durante o período dele. Enquanto o desafio rola, os participantes acompanham o progresso uns dos outros.</p>
+            </div>
+        </div>
+    `;
+}
+
 // ---- Política de privacidade ----
 function renderPrivacy() {
     $('#viewContainer').innerHTML = `
@@ -2186,6 +2325,7 @@ function renderSettings() {
             <div class="settings-list">
                 <button class="settings-item" data-act="open-edit-profile">✏️ Editar perfil<span>›</span></button>
                 <button class="settings-item" data-act="go-install">📲 Instalar na tela inicial<span>›</span></button>
+                <button class="settings-item" data-act="go-rules">🏅 Como ganhar pontos<span>›</span></button>
                 <button class="settings-item" data-act="go-privacy">🔒 Privacidade<span>›</span></button>
                 <button class="settings-item danger" data-act="delete-account">⚠️ Excluir minha conta<span>›</span></button>
                 <button class="settings-item danger" data-act="do-logout">🚪 Sair<span>›</span></button>
@@ -3026,6 +3166,7 @@ function renderPost(p) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     <span>${cCount}</span>
                 </button>
+                ${isMine && rCount > 0 ? `<button class="post-btn ghost" data-act="see-likers" data-id="${p.id}">👀 Quem curtiu</button>` : ''}
             </div>
         </article>
     `;
@@ -4659,6 +4800,20 @@ async function renderEditProfile() {
     });
 }
 
+function setKeyboardMode(on) {
+    document.body.classList.toggle('kb-open', on);
+    if (on) window.scrollTo(0, 0);
+    syncLayoutVars();
+}
+
+// Detecta o teclado abrindo e fechando no celular
+document.addEventListener('focusin', e => {
+    if (e.target.matches('#chatInput, #coachInput')) setKeyboardMode(true);
+});
+document.addEventListener('focusout', e => {
+    if (e.target.matches('#chatInput, #coachInput')) setTimeout(() => setKeyboardMode(false), 120);
+});
+
 function syncLayoutVars() {
     const root = document.documentElement.style;
     const vv = window.visualViewport;
@@ -4698,6 +4853,7 @@ async function switchView(v, params = {}) {
     else if (v === 'search') renderSearch();
     else if (v === 'notifications') await renderNotifications();
     else if (v === 'privacy') renderPrivacy();
+    else if (v === 'rules') renderRules();
     else if (v === 'chat') await renderChat(params.conversationId, params.otherUser);
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -4812,10 +4968,17 @@ document.addEventListener('click', async e => {
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
         toast('Desafio apagado', 'ok');
         switchView('challenges');
+    } else if (act === 'see-likers') {
+        openPeopleSheet('Quem curtiu', 'Só você vê essa lista.', () => sb.rpc('post_likers', { pid: btn.dataset.id }));
+    } else if (act === 'see-story-viewers') {
+        openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.', () => sb.rpc('story_viewers', { sid: btn.dataset.id }));
     } else if (act === 'go-search') {
         switchView('search');
     } else if (act === 'go-notifications') {
         switchView('notifications');
+    } else if (act === 'go-rules') {
+        hidePostMenu();
+        switchView('rules');
     } else if (act === 'go-privacy') {
         hidePostMenu();
         switchView('privacy');
@@ -5211,9 +5374,26 @@ function showCurrentStory() {
     $('#svName').textContent = group.user.display_name || group.user.username;
     $('#svTime').textContent = timeAgo(item.created_at);
 
+    // Quem viu (só no seu story)
+    const isMineStory = group.user.id === state.session.user.id;
+    const viewsBtn = document.getElementById('svViews');
+    viewsBtn.classList.toggle('hidden', !isMineStory);
+    if (isMineStory) {
+        viewsBtn.dataset.act = 'see-story-viewers';
+        viewsBtn.dataset.id = item.id;
+        sb.rpc('story_view_count', { sid: item.id }).then(({ data }) => {
+            const n = document.getElementById('svViewsN');
+            if (n) n.textContent = Number(data || 0);
+        });
+        viewsBtn.onclick = (ev) => {
+            ev.stopPropagation();
+            clearTimeout(state.storyTimer);
+            openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.', () => sb.rpc('story_viewers', { sid: item.id }));
+        };
+    }
+
     // Apagar o próprio story
     const delBtn = document.getElementById('svDelete');
-    const isMineStory = group.user.id === state.session.user.id;
     delBtn.classList.toggle('hidden', !isMineStory);
     delBtn.onclick = async (ev) => {
         ev.stopPropagation();
