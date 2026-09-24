@@ -1548,6 +1548,53 @@ html.tela-cheia .view > .user-topbar .topbar-back{ width:36px; height:36px; bord
 .sv-activity.hidden{ display:none; }
 .sheet.sheet-over-story{ z-index:95; }
 .story-viewer.paused .story-progress-bar.active .fill{ animation-play-state:paused; }
+
+/* ================= ONDA 3: configurações estilo lista ================= */
+.cfg-view{ padding-bottom:28px; }
+html.tela-cheia .view > .user-topbar .topbar-back svg{ width:20px; height:20px; }
+.cfg-grupo{ margin:0 -20px 10px; padding:6px 0 8px; border-bottom:6px solid rgba(255,255,255,.035); }
+:root[data-theme="light"] .cfg-grupo{ border-bottom-color:rgba(0,0,0,.04); }
+.cfg-grupo:last-child{ border-bottom:none; }
+.cfg-titulo{ font-size:12.5px; color:var(--ink-faint); padding:10px 20px 4px; }
+.cfg-row{ width:100%; display:flex; align-items:center; gap:14px; padding:13px 20px; background:none; border:none; color:var(--ink); font-size:15px; text-align:left; }
+.cfg-row:active{ background:rgba(255,255,255,.04); }
+.cfg-row .mi{ width:22px; height:22px; flex-shrink:0; }
+.cfg-txt{ flex:1; min-width:0; }
+.cfg-val{ color:var(--ink-faint); font-size:13.5px; }
+.cfg-seta{ width:16px; height:16px; color:var(--ink-faint); flex-shrink:0; }
+.cfg-perigo{ color:var(--danger); padding-top:11px; padding-bottom:11px; }
+.cfg-sair .cfg-row + .cfg-row{ color:var(--ink-faint); font-size:14px; }
+.cfg-sub{ color:var(--ink-dim); font-size:13px; line-height:1.5; margin:0 0 12px; }
+
+.cfg-switch{ width:44px; height:26px; border-radius:13px; background:var(--line); position:relative; flex-shrink:0; transition:background .18s; }
+.cfg-switch i{ position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; transition:transform .18s; }
+.cfg-switch.on{ background:var(--vital); }
+.cfg-switch.on i{ transform:translateX(18px); }
+
+.cfg-radio{ width:100%; display:flex; align-items:center; gap:14px; padding:14px 20px; background:none; border:none; color:var(--ink); text-align:left; }
+.cfg-radio-txt{ flex:1; display:flex; flex-direction:column; gap:2px; }
+.cfg-radio-txt b{ font-size:15px; font-weight:500; }
+.cfg-radio-txt small{ font-size:12.5px; color:var(--ink-dim); line-height:1.4; }
+.cfg-radio-dot{ width:22px; height:22px; border-radius:50%; border:1.5px solid var(--ink-faint); flex-shrink:0; position:relative; }
+.cfg-radio.on .cfg-radio-dot{ border-color:var(--vital); }
+.cfg-radio.on .cfg-radio-dot::after{ content:''; position:absolute; inset:4px; border-radius:50%; background:var(--vital); }
+
+.cfg-pessoa{ width:100%; display:flex; align-items:center; gap:12px; padding:10px 20px; background:none; border:none; color:var(--ink); text-align:left; }
+.cfg-pessoa-txt{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.cfg-pessoa-txt b{ font-size:14px; font-weight:600; }
+.cfg-pessoa-txt small{ font-size:12px; color:var(--ink-faint); }
+.cfg-check{ width:22px; height:22px; border-radius:50%; border:1.5px solid var(--ink-faint); flex-shrink:0; }
+.cfg-check.on{ border-color:var(--vital); background:var(--vital) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2308110C' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/14px no-repeat; }
+
+/* Criar desafio em destaque */
+.ch-criar{ width:100%; display:flex; align-items:center; gap:14px; padding:14px 16px; margin:4px 0 14px; border-radius:var(--radius); border:1px dashed var(--vital); background:var(--vital-dim); color:var(--ink); text-align:left; }
+.ch-criar svg{ width:22px; height:22px; color:var(--vital); flex-shrink:0; }
+.ch-criar span{ display:flex; flex-direction:column; gap:2px; }
+.ch-criar b{ font-size:14.5px; }
+.ch-criar small{ font-size:12px; color:var(--ink-dim); }
+
+/* 6 opções no +: grade 3x2 */
+.kind-grid:has(#tileDesafio:not(.hidden)){ grid-template-columns:repeat(3, 1fr); }
 </style>
 </head>
 <body>
@@ -1710,6 +1757,7 @@ html.tela-cheia .view > .user-topbar .topbar-back{ width:36px; height:36px; bord
                 <button type="button" class="kind-tile" data-kind="water"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/></svg></span><span class="kt-lbl">Água</span></button>
                 <button type="button" class="kind-tile" data-kind="sleep"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></span><span class="kt-lbl">Sono</span></button>
                 <button type="button" class="kind-tile" data-kind="story"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/><path d="M12 8.5v7M8.5 12h7"/></svg></span><span class="kt-lbl">Story</span></button>
+                <button type="button" class="kind-tile hidden" data-kind="challenge" id="tileDesafio"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg></span><span class="kt-lbl">Desafio</span></button>
             </div>
         </div>
 
@@ -1999,6 +2047,14 @@ const ICO = {
     baixar:'<path d="M12 3v12M8 11l4 4 4-4M4 20h16"/>',
     alerta:'<path d="M12 3l9 17H3l9-17zM12 9v5M12 17h.01"/>',
     sino:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8M13.7 21a2 2 0 0 1-3.4 0"/>',
+    mensagem:'<path d="M22 3L11 13M22 3l-7 19-4-9-9-4 20-6z"/>',
+    comentario:'<path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5.2A8.5 8.5 0 1 1 21 12z"/>',
+    pessoaMais:'<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M19 8v6M16 11h6"/>',
+    storyOculto:'<path d="M3 3l18 18M10.6 5.1A8 8 0 0 1 20 12.5M18.4 18.4A8 8 0 0 1 5.6 5.6M4.2 9.5A8 8 0 0 0 4 12a8 8 0 0 0 2.3 5.6"/>',
+    tema:'<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/>',
+    mais:'<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8.5v7M8.5 12h7"/>',
+    info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
+    chave:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
 };
 const icon = (nome) => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICO[nome] || ''}</svg>`;
 
@@ -2555,7 +2611,7 @@ function showProfileMenu(anchor, isAdmin) {
         <button class="post-menu-item" data-act="go-health">${icon('saude')}Ficha de saúde</button>
         <button class="post-menu-item" data-act="go-activity-log">${icon('historico')}Histórico</button>
         <button class="post-menu-item" data-act="go-compare">${icon('olho')}Antes e depois</button>
-        <button class="post-menu-item" data-act="go-challenges">${icon('comunidade')}Comunidade</button>
+        <button class="post-menu-item" data-act="go-challenges">${icon('comunidade')}Desafios</button>
         <button class="post-menu-item" data-act="go-settings">${icon('config')}Configurações</button>
         ${isAdmin ? `<div class="menu-divider"></div><button class="post-menu-item admin-item" data-act="go-admin">${icon('admin')}Painel Admin</button>` : ''}
         <div class="menu-divider"></div>
@@ -4305,54 +4361,165 @@ function applyTheme(theme) {
     if (meta) meta.setAttribute('content', light ? '#F4F6F4' : '#0A0C0B');
 }
 
+const POLITICA_NOME = { todos: 'Todos', seguidores: 'Seguidores', ninguem: 'Ninguém' };
+const podeCriarDesafio = () => !!(state.profile && (state.profile.is_admin || state.profile.can_create_challenges));
+
+function linhaConfig(act, ic, texto, valor = '', extra = '') {
+    return `<button class="cfg-row" data-act="${act}"${extra}>
+        ${icon(ic)}<span class="cfg-txt">${texto}</span>
+        ${valor !== null ? `<span class="cfg-val">${valor}</span>` : ''}
+        <svg class="cfg-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </button>`;
+}
+function cabecalhoConfig(titulo, voltar = 'go-settings-back') {
+    return `<div class="user-topbar">
+        <button class="topbar-back" data-act="${voltar}" aria-label="Voltar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="topbar-title">${titulo}</div>
+        <div style="width:36px"></div>
+    </div>`;
+}
+
 function renderSettings() {
-    const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    const p = state.profile;
+    const tema = document.documentElement.getAttribute('data-theme') === 'light' ? 'Claro' : 'Escuro';
+    const lembrete = localStorage.getItem('pulso-reminder') === 'on';
     $('#viewContainer').innerHTML = `
-        <div class="view">
-            <div class="user-topbar">
-                <button class="topbar-back" data-act="back-profile">←</button>
-                <div class="topbar-title">Configurações</div>
-                <div style="width:28px"></div>
+        <div class="view cfg-view">
+            ${cabecalhoConfig('Configurações', 'back-profile')}
+
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Sua conta</div>
+                ${linhaConfig('open-edit-profile', 'editar', 'Editar perfil')}
+                ${linhaConfig('trocar-senha', 'chave', 'Trocar senha')}
             </div>
 
-            <h3 class="edit-section-title">Quem pode ver seu conteúdo</h3>
-            <div class="conta-opcoes">
-                <button class="conta-opt${!state.profile.is_private ? ' on' : ''}" data-act="set-account-privacy" data-private="0">
-                    <b>Pública</b><span>Qualquer pessoa vê o que você postar como público. Quem te segue entra na hora.</span>
-                </button>
-                <button class="conta-opt${state.profile.is_private ? ' on' : ''}" data-act="set-account-privacy" data-private="1">
-                    <b>Privada</b><span>Só seguidores aprovados veem seus posts, mesmo os marcados como públicos. Cada pedido pra seguir passa por você.</span>
-                </button>
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Quem pode ver seu conteúdo</div>
+                ${linhaConfig('cfg-page', 'cadeado', 'Privacidade da conta', p.is_private ? 'Privada' : 'Pública', ' data-page="set-privacy"')}
+                ${linhaConfig('cfg-page', 'storyOculto', 'Ocultar story de', '<span id="cfgOcultos"></span>', ' data-page="set-hide-story"')}
+                ${linhaConfig('go-blocked', 'bloquear', 'Bloqueados', '<span id="cfgBloq"></span>')}
+                ${linhaConfig('cfg-page', 'pessoaMais', 'Pedidos pra seguir', '<span id="cfgPedidos"></span>', ' data-page="set-requests"')}
             </div>
 
-            <h3 class="edit-section-title">Aparência</h3>
-            <div class="theme-options">
-                <button class="theme-opt${cur === 'dark' ? ' on' : ''}" data-act="set-theme" data-theme="dark">
-                    <span class="theme-swatch dark"><i></i><i></i><i></i></span>
-                    <span class="theme-name">Escuro</span>
-                </button>
-                <button class="theme-opt${cur === 'light' ? ' on' : ''}" data-act="set-theme" data-theme="light">
-                    <span class="theme-swatch light"><i></i><i></i><i></i></span>
-                    <span class="theme-name">Claro</span>
-                </button>
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Como outras pessoas interagem com você</div>
+                ${linhaConfig('cfg-page', 'mensagem', 'Mensagens', POLITICA_NOME[p.dm_policy || 'todos'], ' data-page="set-messages"')}
+                ${linhaConfig('cfg-page', 'comentario', 'Comentários', POLITICA_NOME[p.comment_policy || 'todos'], ' data-page="set-comments"')}
             </div>
 
-            <h3 class="edit-section-title">Conta</h3>
-            <div class="settings-list">
-                <button class="settings-item" data-act="open-edit-profile">${icon('editar')}<span class="si-txt">Editar perfil</span><span class="si-end">›</span></button>
-                <button class="settings-item" data-act="toggle-reminder">${icon('sino')}<span class="si-txt">Lembrete do fim do dia</span><span class="si-end" id="remState">${localStorage.getItem('pulso-reminder') === 'on' ? 'ligado' : 'desligado'}</span></button>
-                <button class="settings-item" data-act="trocar-senha">${icon('cadeado')}<span class="si-txt">Trocar minha senha</span><span class="si-end">›</span></button>
-                <button class="settings-item" data-act="convidar-amigo">${icon('comunidade')}<span class="si-txt">Convidar um amigo</span><span class="si-end">›</span></button>
-                <button class="settings-item" data-act="go-install">${icon('instalar')}<span class="si-txt">Instalar na tela inicial</span><span class="si-end">›</span></button>
-                <button class="settings-item" data-act="go-rules">${icon('medalha')}<span class="si-txt">Como ganhar pontos</span><span class="si-end">›</span></button>
-                <button class="settings-item" data-act="go-privacy">${icon('cadeado')}<span class="si-txt">Privacidade</span><span class="si-end">›</span></button>
-                ${state.profile.is_admin ? `<button class="settings-item" data-act="export-data">${icon('baixar')}<span class="si-txt">Baixar meus dados</span><span class="si-end">›</span></button>` : ''}
-                <button class="settings-item" data-act="go-blocked">${icon('bloquear')}<span class="si-txt">Pessoas bloqueadas</span><span class="si-end">›</span></button>
-                <button class="settings-item danger" data-act="delete-account">${icon('alerta')}<span class="si-txt">Excluir minha conta</span><span class="si-end">›</span></button>
-                <button class="settings-item danger" data-act="do-logout">Sair<span>›</span></button>
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Desafios</div>
+                ${linhaConfig('go-community', 'comunidade', 'Meus desafios')}
+                ${podeCriarDesafio() ? linhaConfig('new-challenge', 'mais', 'Criar desafio') : ''}
+            </div>
+
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">App</div>
+                ${linhaConfig('cfg-page', 'tema', 'Aparência', tema, ' data-page="set-appearance"')}
+                <button class="cfg-row" data-act="toggle-reminder" role="switch" aria-checked="${lembrete}">
+                    ${icon('sino')}<span class="cfg-txt">Lembrete do fim do dia</span>
+                    <span class="cfg-switch${lembrete ? ' on' : ''}"><i></i></span>
+                </button>
+                ${linhaConfig('go-install', 'instalar', 'Instalar na tela inicial')}
+                ${p.is_admin ? linhaConfig('export-data', 'baixar', 'Baixar meus dados') : ''}
+            </div>
+
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Ajuda</div>
+                ${linhaConfig('go-rules', 'medalha', 'Como ganhar pontos')}
+                ${linhaConfig('go-privacy', 'info', 'Seus dados e privacidade')}
+                ${linhaConfig('convidar-amigo', 'pessoaMais', 'Convidar amigos')}
+            </div>
+
+            <div class="cfg-grupo cfg-sair">
+                <button class="cfg-row cfg-perigo" data-act="do-logout"><span class="cfg-txt">Sair</span></button>
+                <button class="cfg-row cfg-perigo" data-act="delete-account"><span class="cfg-txt">Excluir conta</span></button>
             </div>
         </div>
     `;
+    // Números à direita chegam depois, sem travar a tela
+    Promise.all([
+        sb.from('blocks').select('*', { count: 'exact', head: true }).eq('blocker_id', state.session.user.id),
+        sb.rpc('pending_follow_requests_count'),
+        sb.from('story_hidden').select('*', { count: 'exact', head: true }).eq('owner_id', state.session.user.id),
+    ]).then(([bl, pend, oc]) => {
+        const put = (id, n) => { const el = document.getElementById(id); if (el && Number(n) > 0) el.textContent = n; };
+        put('cfgBloq', bl.count);
+        put('cfgPedidos', pend.data);
+        put('cfgOcultos', oc.count);
+    });
+}
+
+function paginaOpcoes(titulo, sub, campo, atual, opcoes) {
+    return `<div class="view cfg-view">
+        ${cabecalhoConfig(titulo)}
+        <p class="cfg-sub">${sub}</p>
+        <div class="cfg-grupo">
+            ${opcoes.map(([v, nome, desc]) => `<button class="cfg-radio${atual === v ? ' on' : ''}" data-act="cfg-set" data-campo="${campo}" data-valor="${v}">
+                <span class="cfg-radio-txt"><b>${nome}</b>${desc ? `<small>${desc}</small>` : ''}</span>
+                <span class="cfg-radio-dot"></span>
+            </button>`).join('')}
+        </div>
+    </div>`;
+}
+
+async function renderPaginaConfig(page) {
+    const c = $('#viewContainer');
+    const p = state.profile;
+    if (page === 'set-privacy') {
+        c.innerHTML = paginaOpcoes('Privacidade da conta',
+            'Numa conta privada, só quem você aprovar vê seus posts, treinos e stories, mesmo os marcados como públicos.',
+            'is_private', p.is_private ? '1' : '0', [
+                ['0', 'Pública', 'Qualquer pessoa vê o que você posta como público. Seguir é na hora.'],
+                ['1', 'Privada', 'Cada pedido pra seguir passa por você.'],
+            ]);
+    } else if (page === 'set-messages') {
+        c.innerHTML = paginaOpcoes('Mensagens',
+            'Quem pode começar uma conversa com você. Conversas que já existem continuam.',
+            'dm_policy', p.dm_policy || 'todos', [
+                ['todos', 'Todos', ''], ['seguidores', 'Só quem me segue', ''], ['ninguem', 'Ninguém', ''],
+            ]);
+    } else if (page === 'set-comments') {
+        c.innerHTML = paginaOpcoes('Comentários',
+            'Quem pode comentar nos seus posts.',
+            'comment_policy', p.comment_policy || 'todos', [
+                ['todos', 'Todos', ''], ['seguidores', 'Só quem me segue', ''], ['ninguem', 'Ninguém', ''],
+            ]);
+    } else if (page === 'set-appearance') {
+        const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+        c.innerHTML = paginaOpcoes('Aparência', 'Vale só pra este aparelho.', 'tema', cur, [
+            ['dark', 'Escuro', ''], ['light', 'Claro', ''],
+        ]);
+    } else if (page === 'set-requests') {
+        c.innerHTML = `<div class="view cfg-view">${cabecalhoConfig('Pedidos pra seguir')}<div id="cfgBody"><div class="spinner"></div></div></div>`;
+        const { data } = await sb.rpc('list_follow_requests');
+        const body = document.getElementById('cfgBody');
+        if (!body) return;
+        body.innerHTML = (data && data.length) ? `<div class="freq-box">${data.map(u => `<div class="freq-row" data-act="view-user" data-uid="${u.id}">
+            ${avatarHTML(u, 'sm')}
+            <div class="freq-info"><div class="freq-nome">${escapeHTML(u.display_name)}</div><div class="freq-user">@${escapeHTML(u.username)} · ${timeAgo(u.requested_at)}</div></div>
+            <div class="freq-acoes">
+                <button class="btn-primary-sm" data-act="follow-request" data-uid="${u.id}" data-accept="1">Aprovar</button>
+                <button class="btn-ghost btn-xs" data-act="follow-request" data-uid="${u.id}" data-accept="0">Recusar</button>
+            </div>
+        </div>`).join('')}</div>`
+            : `<p class="cfg-sub">Nenhum pedido esperando.${p.is_private ? '' : ' Sua conta é pública, então quem te segue entra na hora.'}</p>`;
+    } else if (page === 'set-hide-story') {
+        c.innerHTML = `<div class="view cfg-view">${cabecalhoConfig('Ocultar story de')}
+            <p class="cfg-sub">Quem estiver marcado não vê seus stories. A pessoa não é avisada.</p>
+            <div id="cfgBody"><div class="spinner"></div></div></div>`;
+        const { data, error } = await sb.rpc('my_followers_story_visibility');
+        const body = document.getElementById('cfgBody');
+        if (!body) return;
+        if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${escapeHTML(error.message)}</p>`; return; }
+        body.innerHTML = (data && data.length) ? `<div class="cfg-grupo">${data.map(u => `<button class="cfg-pessoa" data-act="toggle-hide-story" data-uid="${u.id}" data-on="${u.hidden ? '1' : '0'}">
+            ${avatarHTML(u, 'sm')}
+            <span class="cfg-pessoa-txt"><b>${escapeHTML(u.display_name)}</b><small>@${escapeHTML(u.username)}</small></span>
+            <span class="cfg-check${u.hidden ? ' on' : ''}"></span>
+        </button>`).join('')}</div>` : '<p class="cfg-sub">Quando alguém te seguir, aparece aqui.</p>';
+    }
 }
 
 // ---- Histórico de refeições no perfil ----
@@ -5610,7 +5777,7 @@ async function renderChallenges() {
                 ${ch.pedidos > 0 ? `<span class="ch-pedidos">${plural(ch.pedidos, 'pedido', 'pedidos')}</span>` : ''}
             </div>
         </div>`;
-    }).join('') || `<div class="feed-empty"><span class="emo">🏆</span><h3>Nenhum desafio ainda</h3><p>${(state.profile.is_admin || state.profile.can_create_challenges) ? 'Crie o primeiro no botão acima.' : 'Fique de olho, logo aparece um por aqui.'}</p></div>`;
+    }).join('') || `<div class="feed-empty"><span class="emo">🏆</span><h3>Nenhum desafio ainda</h3><p>${podeCriarDesafio() ? 'Crie o primeiro no botão acima.' : 'Fique de olho, logo aparece um por aqui.'}</p></div>`;
 
     const rankRows = (top || []).map((u, i) => {
         const medal = ['🥇','🥈','🥉'][i] || (i+1)+'º';
@@ -5632,9 +5799,13 @@ async function renderChallenges() {
             </div>
             <div class="ch-title-row">
                 <span class="page-sub">compare seu progresso com um grupo</span>
-                ${(state.profile.is_admin || state.profile.can_create_challenges) ? '<button class="btn-mini" data-act="new-challenge">+ Criar</button>' : ''}
+
             </div>
 
+            ${podeCriarDesafio() ? `<button class="ch-criar" data-act="new-challenge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                <span><b>Criar desafio</b><small>Defina período, regras e convide quem quiser</small></span>
+            </button>` : ''}
             <div class="ch-list">${cards}</div>
 
             <h3 class="edit-section-title" style="margin-top:24px">Comunidade essa semana</h3>
@@ -7226,7 +7397,7 @@ async function renderUserProfile(uid) {
                 <button class="${(iFollow || pedi) ? 'btn-secondary' : 'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${(iFollow || pedi) ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">
                     ${txtSeguir}
                 </button>
-                <button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>
+                ${(p.dm_policy === 'ninguem' || (p.dm_policy === 'seguidores' && !iFollow)) ? '' : `<button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>`}
                 <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções">⋯</button>
             </div>
             ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
@@ -7459,7 +7630,7 @@ async function switchView(v, params = {}) {
     const feedPostBtn = document.getElementById('feedPostBtn');
     if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
     // Telas de configuração ocupam a tela toda, sem topo nem menu do app
-    const telaCheia = ['settings', 'privacy', 'rules', 'install'].includes(v);
+    const telaCheia = ['settings', 'privacy', 'rules', 'install'].includes(v) || v.startsWith('set-');
     document.documentElement.classList.toggle('tela-cheia', telaCheia);
     document.documentElement.classList.remove('nav-compacta');
     $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === navView));
@@ -7475,6 +7646,7 @@ async function switchView(v, params = {}) {
     else if (v === 'admin') await renderAdmin();
     else if (v === 'messages') await renderMessages();
     else if (v === 'settings') renderSettings();
+    else if (v.startsWith('set-')) await renderPaginaConfig(v);
     else if (v === 'challenge') await renderChallengeDetail(params.id);
     else if (v === 'install') renderInstall();
     else if (v === 'search') renderSearch();
@@ -7585,7 +7757,13 @@ document.addEventListener('click', async e => {
         btn.disabled = true;
         const { data: convId, error } = await sb.rpc('get_or_create_conversation', { other_id: otherUid });
         btn.disabled = false;
-        if (error) { toast('Erro ao abrir conversa: ' + error.message, 'err'); return; }
+        if (error) {
+            const t = String(error.message || '');
+            if (t.includes('dm_ninguem')) toast('Essa pessoa não está recebendo mensagens.', 'err');
+            else if (t.includes('dm_seguidores')) toast('Essa pessoa só recebe mensagem de quem a segue.', 'err');
+            else toast('Erro ao abrir conversa: ' + t, 'err');
+            return;
+        }
         switchView('chat', { conversationId: convId, otherUser: { id: otherUid, display_name: otherName, username: otherUsername, avatar_url: otherAvatar } });
     } else if (act === 'profile-tab') {
         $$('.ig-tab').forEach(t => t.classList.toggle('on', t === btn));
@@ -7827,7 +8005,6 @@ document.addEventListener('click', async e => {
         if (error) { toast('Não consegui mudar agora. Tente de novo.', 'err'); return; }
         state.profile.is_private = privado;
         toast(privado ? 'Conta privada. Só seguidores aprovados veem seus posts.' : 'Conta pública. Pedidos pendentes foram aprovados.', 'ok');
-        renderSettings();
     } else if (act === 'follow-request') {
         e.stopPropagation();
         btn.closest('.freq-row').querySelectorAll('button').forEach(b => b.disabled = true);
@@ -7879,6 +8056,29 @@ document.addEventListener('click', async e => {
     } else if (act === 'set-theme') {
         applyTheme(btn.dataset.theme);
         renderSettings();
+    } else if (act === 'cfg-page') {
+        switchView(btn.dataset.page);
+    } else if (act === 'cfg-set') {
+        const campo = btn.dataset.campo, valor = btn.dataset.valor;
+        if (btn.classList.contains('on')) return;
+        if (campo === 'tema') {
+            applyTheme(valor);
+        } else {
+            const novo = campo === 'is_private' ? valor === '1' : valor;
+            const { error } = await sb.from('profiles').update({ [campo]: novo }).eq('id', state.session.user.id);
+            if (error) { toast(msgErro(error), 'err'); return; }
+            state.profile[campo] = novo;
+            if (campo === 'is_private') toast(novo ? 'Conta privada' : 'Conta pública. Pedidos pendentes foram aprovados.', 'ok');
+        }
+        btn.parentElement.querySelectorAll('.cfg-radio').forEach(x => x.classList.toggle('on', x === btn));
+    } else if (act === 'toggle-hide-story') {
+        const ocultar = btn.dataset.on !== '1';
+        btn.disabled = true;
+        const { error } = await sb.rpc('set_story_hidden', { target: btn.dataset.uid, hide: ocultar });
+        btn.disabled = false;
+        if (error) { toast(msgErro(error), 'err'); return; }
+        btn.dataset.on = ocultar ? '1' : '0';
+        btn.querySelector('.cfg-check').classList.toggle('on', ocultar);
     } else if (act === 'open-edit-profile') {
         switchView('edit-profile');
     } else if (act === 'go-settings-back') {
@@ -8127,7 +8327,11 @@ async function openCommentSheet(postId) {
             parent_id: state.respondendo || null,
         });
         btn.disabled = false; btn.textContent = 'Enviar';
-        if (error) { toast(msgErro(error), 'err'); return; }
+        if (error) {
+            const t = String(error.message || '').toLowerCase();
+            toast(t.includes('row-level security') ? 'O autor limitou quem pode comentar nesse post.' : msgErro(error), 'err');
+            return;
+        }
         input.value = '';
         state.respondendo = null;
         const aviso = document.getElementById('respondendoTag');
@@ -8658,6 +8862,7 @@ function limparComposer() {
 
 // + central: primeiro só os ícones, o formulário vem depois
 $('#postFab').addEventListener('click', () => {
+    $('#tileDesafio').classList.toggle('hidden', !podeCriarDesafio());
     limparComposer();
     mostrarEscolhaDeTipo();
     abrirComposer();
@@ -8686,6 +8891,7 @@ function closeComposer() {
 $$('.kind-tile').forEach(b => b.addEventListener('click', e => {
     const kind = e.currentTarget.dataset.kind;
     if (kind === 'story') { closeComposer(); openStoryCreator(); return; }
+    if (kind === 'challenge') { closeComposer(); openNewChallengeSheet(); return; }
     setComposerKind(kind);
 }));
 
