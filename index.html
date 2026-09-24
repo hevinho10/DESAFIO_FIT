@@ -3617,7 +3617,7 @@ async function loadMoreFeed() {
     const { data: posts, error } = await sb.from('posts')
         .select(`
             id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
-            user:profiles!inner (id, username, display_name, avatar_url),
+            user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
         `)
@@ -4728,7 +4728,7 @@ async function openPostSheet(id) {
     if (old) old.remove();
     const { data: p, error } = await sb.from('posts')
         .select(`id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
-            user:profiles!inner (id, username, display_name, avatar_url),
+            user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)`)
         .eq('id', id).maybeSingle();
@@ -5325,7 +5325,7 @@ async function renderFeed() {
         .from('posts')
         .select(`
             id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
-            user:profiles!inner (id, username, display_name, avatar_url),
+            user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
         `)
