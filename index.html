@@ -1341,6 +1341,20 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 .cmp-grid .grid-item{ position:relative; }
 .cmp-grid .sel-a::after{ content:'antes'; position:absolute; bottom:4px; left:4px; background:var(--bg); color:var(--ink); font-size:9px; padding:2px 6px; border-radius:6px; }
 .cmp-grid .sel-b::after{ content:'depois'; position:absolute; bottom:4px; left:4px; background:var(--vital); color:#08110C; font-size:9px; padding:2px 6px; border-radius:6px; font-weight:600; }
+
+/* ============ ONDA 21 ============ */
+.qual-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.qual-btn{ background:transparent; border:1px solid var(--line); border-radius:12px; padding:11px 6px; cursor:pointer; color:var(--ink-dim); }
+.qual-btn span{ display:block; font-size:13px; font-weight:500; }
+.qual-btn small{ display:block; font-size:10px; color:var(--ink-faint); margin-top:2px; }
+.qual-btn.on{ border-color:var(--vital); color:var(--vital); }
+.qual-btn.on small{ color:var(--vital); opacity:.75; }
+.peso-delta{ color:var(--ink-faint); font-family:var(--ff-display); font-size:11.5px; margin-left:6px; }
+.kind-picker{ grid-template-columns:repeat(5, 1fr); }
+#composerSheet .kind-btn{ font-size:10px; padding:9px 2px; }
+.pw-wrap{ position:relative; }
+.pw-wrap input{ width:100%; padding-right:42px; }
+.pw-toggle{ position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:15px; opacity:.6; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -1464,6 +1478,9 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
             <button class="topbar-icon" data-act="go-search" aria-label="Buscar pessoas">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             </button>
+            <button class="topbar-icon" data-act="topbar-menu" aria-label="Menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
             <button class="topbar-icon" data-act="go-notifications" aria-label="Notificações">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
                 <span id="notifDot" class="unread-count hidden"></span>
@@ -1497,13 +1514,14 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 <div id="composerSheet" class="sheet">
     <div class="sheet-card">
         <div class="sheet-handle"></div>
-        <h3 class="sheet-title">O que você quer postar?</h3>
-        <p class="sheet-sub">Cada post gera pontos pro seu score.</p>
+        <h3 class="sheet-title">Registrar</h3>
+        <p class="sheet-sub">Tudo vale pontos. Só vai pro feed o que você escolher.</p>
 
         <div class="kind-picker">
             <button class="kind-btn on" data-kind="workout"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg></span><span>Treino</span></button>
             <button class="kind-btn" data-kind="meal"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v7a2 2 0 0 0 4 0V3M7 10v11M15 3c-1.5 1-2 2.5-2 4.5S14 12 15 12v9"/></svg></span><span>Refeição</span></button>
             <button class="kind-btn" data-kind="water"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/></svg></span><span>Água</span></button>
+            <button class="kind-btn" data-kind="sleep"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></span><span>Sono</span></button>
             <button class="kind-btn" data-kind="story"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/><path d="M12 8v8M8 12h8"/></svg></span><span>Story 24h</span></button>
         </div>
 
@@ -1554,6 +1572,31 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
                     <input type="number" id="wMl" value="300" inputmode="numeric">
                     <button type="button" class="step-btn" data-dir="+">+</button>
                 </div>
+            </div>
+        </div>
+
+        <div id="sleepFields" class="hidden">
+            <div id="sleepInfo" class="water-progress"></div>
+            <div class="field">
+                <label>Horas dormidas</label>
+                <div class="stepper" data-target="skHours" data-min="0" data-max="16" data-step="0.5" data-default="7.5">
+                    <button type="button" class="step-btn" data-dir="-">−</button>
+                    <input type="number" id="skHours" step="0.5" value="7.5" inputmode="decimal">
+                    <button type="button" class="step-btn" data-dir="+">+</button>
+                </div>
+            </div>
+            <div class="field">
+                <label>Como foi a noite?</label>
+                <div class="qual-grid">
+                    <button type="button" class="qual-btn" data-qual="ruim"><span>Ruim</span><small>acordei cansado</small></button>
+                    <button type="button" class="qual-btn on" data-qual="moderado"><span>Moderada</span><small>deu pra ir</small></button>
+                    <button type="button" class="qual-btn" data-qual="bom"><span>Boa</span><small>acordei renovado</small></button>
+                </div>
+            </div>
+            <div class="field">
+                <label>Dia</label>
+                <input type="date" id="skDate">
+                <p class="field-hint">Vem com ontem, a noite que você acabou de dormir.</p>
             </div>
         </div>
 
@@ -2666,6 +2709,135 @@ async function enviarFilaOffline() {
 
 window.addEventListener('online', () => { if (state.session) enviarFilaOffline(); });
 
+// ---- Trocar senha ----
+function abrirTrocaSenha() {
+    const old = document.getElementById('senhaSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'senhaSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Trocar senha</h3>
+        <p class="sheet-sub">Mínimo 6 caracteres, com um número e um caractere especial.</p>
+        <div class="field">
+            <label>Senha nova</label>
+            <div class="pw-wrap">
+                <input type="password" id="pwNova" minlength="6" autocomplete="new-password">
+                <button type="button" class="pw-toggle" data-target="pwNova">👁</button>
+            </div>
+        </div>
+        <div class="field">
+            <label>Repita a senha nova</label>
+            <div class="pw-wrap">
+                <input type="password" id="pwNova2" minlength="6" autocomplete="new-password">
+                <button type="button" class="pw-toggle" data-target="pwNova2">👁</button>
+            </div>
+        </div>
+        <div id="pwMsg"></div>
+        <p class="field-hint" style="margin-top:10px">Não lembra a senha atual? <button class="link-btn" id="pwEsqueci">Receber link por email</button></p>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="pwCancel">Cancelar</button>
+            <button class="btn-primary" id="pwSave">Salvar senha</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    const close = () => { sheet.remove(); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+    document.getElementById('pwCancel').onclick = close;
+
+    sheet.querySelectorAll('.pw-toggle').forEach(b => b.addEventListener('click', () => {
+        const campo = document.getElementById(b.dataset.target);
+        campo.type = campo.type === 'password' ? 'text' : 'password';
+    }));
+
+    document.getElementById('pwEsqueci').onclick = async () => {
+        const email = state.session.user.email;
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast(`Link enviado para ${email}`, 'ok');
+        close();
+    };
+
+    document.getElementById('pwSave').onclick = async () => {
+        const a = document.getElementById('pwNova').value;
+        const b = document.getElementById('pwNova2').value;
+        const msg = document.getElementById('pwMsg');
+        if (a.length < 6) { msg.innerHTML = '<div class="auth-msg err">A senha precisa de pelo menos 6 caracteres.</div>'; return; }
+        if (!/[0-9]/.test(a)) { msg.innerHTML = '<div class="auth-msg err">Inclua pelo menos um número.</div>'; return; }
+        if (!/[^a-zA-Z0-9]/.test(a)) { msg.innerHTML = '<div class="auth-msg err">Inclua pelo menos um caractere especial.</div>'; return; }
+        if (a !== b) { msg.innerHTML = '<div class="auth-msg err">As duas senhas não são iguais.</div>'; return; }
+
+        const btn = document.getElementById('pwSave');
+        btn.disabled = true; btn.textContent = 'Salvando...';
+        const { error } = await sb.auth.updateUser({ password: a });
+        btn.disabled = false; btn.textContent = 'Salvar senha';
+        if (error) { msg.innerHTML = `<div class="auth-msg err">${escapeHTML(msgErro(error))}</div>`; return; }
+        close();
+        toast('Senha atualizada', 'ok');
+    };
+}
+
+// ---- Explicações rápidas ----
+const CONCEITOS = {
+    pontos: {
+        titulo: 'Pontos ativos',
+        corpo: [
+            'É o seu placar dos últimos 90 dias. Cada treino, refeição com foto, pesagem, copo de água e story soma pontos.',
+            'Eles expiram depois de 90 dias, de propósito: o número mostra como você está agora, não como estava no ano passado.',
+            'É por eles que sai o ranking da comunidade e dos desafios.',
+        ],
+    },
+    ofensiva: {
+        titulo: 'Ofensiva',
+        corpo: [
+            'São os dias seguidos em que você registrou alguma coisa. Vale qualquer registro: treino, refeição, água, sono ou pesagem.',
+            'A cada marco você ganha bônus: 3 dias, 7, 14 e 30.',
+            'Perdeu um dia? Você tem um escudo por semana que segura a sequência, sem precisar fazer nada.',
+        ],
+    },
+    semana: {
+        titulo: 'Meta da semana',
+        corpo: [
+            'É quantos dias de treino você decidiu fazer por semana, lá no seu perfil.',
+            'Bateu a meta, ganha 10 pontos de bônus naquela semana.',
+        ],
+    },
+    ranking: {
+        titulo: 'Ranking',
+        corpo: [
+            'Sua posição entre quem pontuou nesta semana, considerando só os pontos ganhos de segunda pra cá.',
+            'Dentro de um desafio, vale só o que foi ganho durante o período dele.',
+        ],
+    },
+};
+
+function explicarConceito(tema) {
+    const c = CONCEITOS[tema];
+    if (!c) return;
+    const old = document.getElementById('explicaSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'explicaSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">${c.titulo}</h3>
+        ${c.corpo.map(p => `<p class="priv-text">${p}</p>`).join('')}
+        <div class="sheet-footer">
+            <button class="btn-ghost" data-act="go-rules" id="exRegras">Ver todas as regras</button>
+            <button class="btn-primary" id="exOk">Entendi</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    const close = () => { sheet.remove(); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) close(); };
+    document.getElementById('exOk').onclick = close;
+    document.getElementById('exRegras').onclick = () => { close(); switchView('rules'); };
+}
+
 // ---- Convite por link ----
 async function checarConvite() {
     const params = new URLSearchParams(location.search);
@@ -2917,9 +3089,13 @@ async function hydrateLembretes() {
             faltas.push({ emo: '💧', txt: `Beber água: ${formatLitros(w.total_ml)} de ${formatLitros(w.goal_ml)}`, kind: 'water' });
         }
         if (!treinos) faltas.push({ emo: '💪', txt: 'Você ainda não registrou treino hoje', kind: 'workout' });
+        const ontemISO = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const { data: sonoOntem } = await sb.from('sleep_logs')
+            .select('hours').eq('user_id', uid).eq('slept_on', ontemISO).maybeSingle();
+        if (!sonoOntem) faltas.push({ emo: '🌙', txt: 'Registre seu sono da noite passada', kind: 'sleep' });
 
         if (faltas.length === 0) {
-            slot.innerHTML = `<div class="lembrete-card tudo-ok">Dia completo: água e treino registrados. Boa!</div>`;
+            slot.innerHTML = `<div class="lembrete-card tudo-ok">Dia completo: sono, água e treino registrados. Boa!</div>`;
             return;
         }
 
@@ -3330,32 +3506,72 @@ function ditar(alvoId) {
     toast('Pode falar', 'ok');
 }
 
+// ---- Sono no composer ----
+let qualidadeSono = 'moderado';
+document.addEventListener('click', e => {
+    const b = e.target.closest('.qual-btn');
+    if (!b) return;
+    qualidadeSono = b.dataset.qual;
+    document.querySelectorAll('.qual-btn').forEach(x => x.classList.toggle('on', x === b));
+});
+
+async function prepararSono() {
+    const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const campoData = $('#skDate');
+    campoData.value = ontem;
+    campoData.max = ontem;
+
+    const { data } = await sb.rpc('sleep_summary');
+    const s = (data && data[0]) || {};
+    const box = $('#sleepInfo');
+    if (!box) return;
+
+    const jaTem = s.ontem != null;
+    if (jaTem) $('#skHours').value = Number(s.ontem);
+
+    box.innerHTML = `
+        <div class="wtr-top">
+            <span class="wtr-now">${s.media7 != null ? String(s.media7).replace('.', ',') + 'h' : '--'}</span>
+            <span class="wtr-goal">média das últimas noites</span>
+        </div>
+        <div class="wtr-hint">${jaTem
+            ? 'Você já registrou essa noite. Salvando de novo, o valor é atualizado.'
+            : 'Registre a noite que acabou de passar.'}</div>`;
+}
+
 // ---- Sono ----
 async function refreshSleepCard() {
     const box = $('#sleepCard');
     if (!box) return;
-    const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    const [{ data }, { data: reg }] = await Promise.all([
+    const [{ data }, { data: serie }] = await Promise.all([
         sb.rpc('sleep_summary'),
-        sb.from('sleep_logs').select('hours').eq('user_id', state.session.user.id).eq('slept_on', ontem).maybeSingle(),
+        sb.rpc('sleep_series', { days_back: 14 }),
     ]);
     const s = (data && data[0]) || {};
-    s.ontem = reg ? Number(reg.hours) : null;
     state.sleep = s;
-    const hoje = s.ontem;
+
+    if (!s.registros) { box.innerHTML = ''; box.style.display = 'none'; return; }
+    box.style.display = '';
+
     const media = s.media7 != null ? Number(s.media7) : null;
+    const rotulo = { ruim: 'noites difíceis', moderado: 'noites medianas', bom: 'noites boas' }[s.qualidade_comum] || null;
+    const barras = (serie || []).map(d => ({
+        label: new Date(d.d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit' }),
+        value: Number(d.hours),
+    }));
+
     box.innerHTML = `
         <div class="chart-head">
             <span class="chart-title">Sono</span>
-            ${media != null ? `<span class="chart-legend">média ${media.toString().replace('.', ',')}h na semana</span>` : ''}
+            ${rotulo ? `<span class="chart-legend">na maioria, ${rotulo}</span>` : ''}
         </div>
         <div class="sleep-row">
             <div class="sleep-now">
-                <span class="sleep-val">${hoje != null ? hoje.toString().replace('.', ',') + 'h' : '--'}</span>
-                <span class="sleep-lbl">noite passada</span>
+                <span class="sleep-val">${media != null ? String(media).replace('.', ',') + 'h' : '--'}</span>
+                <span class="sleep-lbl">média por noite</span>
             </div>
-            <button class="btn-mini" data-act="open-sleep">${hoje != null ? 'Editar' : 'Registrar'}</button>
         </div>
+        ${barras.length >= 2 ? barChart(barras, { goal: 7, height: 110 }) : ''}
     `;
 }
 
@@ -3771,6 +3987,7 @@ function renderSettings() {
             <div class="settings-list">
                 <button class="settings-item" data-act="open-edit-profile">${icon('editar')}<span class="si-txt">Editar perfil</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="toggle-reminder">${icon('sino')}<span class="si-txt">Lembrete do fim do dia</span><span class="si-end" id="remState">${localStorage.getItem('pulso-reminder') === 'on' ? 'ligado' : 'desligado'}</span></button>
+                <button class="settings-item" data-act="trocar-senha">${icon('cadeado')}<span class="si-txt">Trocar minha senha</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="convidar-amigo">${icon('comunidade')}<span class="si-txt">Convidar um amigo</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="go-install">${icon('instalar')}<span class="si-txt">Instalar na tela inicial</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="go-rules">${icon('medalha')}<span class="si-txt">Como ganhar pontos</span><span class="si-end">›</span></button>
@@ -5378,7 +5595,7 @@ async function renderProfile() {
         </div>`;
     } else {
         goalHTML = `<div class="goal-card" style="text-align:center; color:var(--ink-dim); font-size:13px;">
-            🎯 Defina peso inicial e meta em <b style="color:var(--vital)">Editar perfil</b> para ver seu progresso aqui.
+            Defina peso inicial e meta na <b style="color:var(--vital)">Ficha de saúde</b> para acompanhar seu progresso aqui.
         </div>`;
     }
 
@@ -5419,9 +5636,9 @@ async function renderProfile() {
                 </button>
             </div>
             <div class="stat-grid" style="margin-top:14px">
-                <div class="stat-card"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div></div>
-                <div class="stat-card"><div class="num">${streak?.current_streak || 0}</div><div class="lbl">Ofensiva</div></div>
-                <div class="stat-card tappable-card" data-act="go-progress"><div class="num">${diasSemana}/${state.profile.weekly_goal || 3}</div><div class="lbl">Semana</div><div class="sub">Ver evolução ›</div></div>
+                <div class="stat-card tappable-card" data-act="explicar" data-tema="pontos"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div><div class="sub">O que é isso? ›</div></div>
+                <div class="stat-card tappable-card" data-act="explicar" data-tema="ofensiva"><div class="num">${streak?.current_streak || 0}</div><div class="lbl">Ofensiva</div><div class="sub">O que é isso? ›</div></div>
+                <div class="stat-card tappable-card" data-act="go-progress"><div class="num">${diasSemana}/${state.profile.weekly_goal || 3}</div><div class="lbl">Treinos na semana</div><div class="sub">Ver evolução ›</div></div>
                 <div class="stat-card tappable-card" data-act="go-community"><div class="num">${rankTxt}</div><div class="lbl">No ranking</div><div class="sub">Ver desafios ›</div></div>
             </div>
             ${goalHTML}
@@ -5986,6 +6203,19 @@ function openBodyDataSheet() {
         if (error) { toast(msgErro(error), 'err'); return; }
 
         Object.assign(state.profile, up);
+
+        // Se é o primeiro peso informado, já vira a primeira pesagem
+        if (up.peso_inicial) {
+            const { count } = await sb.from('posts').select('*', { count: 'exact', head: true })
+                .eq('user_id', state.session.user.id).eq('kind', 'weight');
+            if (!count) {
+                await sb.from('posts').insert({
+                    user_id: state.session.user.id, kind: 'weight', weight_kg: up.peso_inicial,
+                    visibility: 'private', is_public: false, in_feed: false,
+                });
+            }
+        }
+
         close();
         toast('Dados atualizados', 'ok');
         if (state.view === 'health') renderHealth();
@@ -6340,6 +6570,12 @@ async function renderActivityLog() {
         }
 
         // Agrupa por dia
+        // guarda o peso anterior de cada pesagem, pra mostrar a direção
+        state.pesoAnterior = {};
+        const pesagens = posts.filter(p => p.kind === 'weight' && p.weight_kg != null)
+            .slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        pesagens.forEach((p, i) => { if (i > 0) state.pesoAnterior[p.id] = pesagens[i - 1].weight_kg; });
+
         const byDay = {};
         posts.forEach(p => {
             const d = new Date(p.created_at);
@@ -6369,7 +6605,15 @@ async function renderActivityLog() {
             emo = '🍽️'; title = { cafe:'Café da manhã', almoco:'Almoço', jantar:'Jantar', lanche:'Lanche' }[p.meal_slot] || 'Refeição';
             sub = p.image_url ? 'com foto' : 'sem foto';
         } else if (p.kind === 'weight') {
-            emo = '⚖️'; title = 'Pesagem'; sub = `${p.weight_kg} kg`;
+            emo = '⚖️'; title = 'Pesagem';
+            const anterior = state.pesoAnterior && state.pesoAnterior[p.id];
+            if (anterior != null) {
+                const d = Number(p.weight_kg) - Number(anterior);
+                const seta = Math.abs(d) < 0.05 ? '=' : (d > 0 ? '↑' : '↓');
+                sub = `${p.weight_kg} kg <span class="peso-delta">${seta} ${Math.abs(d).toFixed(1)} kg</span>`;
+            } else {
+                sub = `${p.weight_kg} kg`;
+            }
         } else if (p.kind === 'water') {
             emo = '💧'; title = 'Água'; sub = `${p.water_ml} ml`;
         } else if (p.kind === 'text') {
@@ -6380,7 +6624,7 @@ async function renderActivityLog() {
             <span class="log-emo">${emo}</span>
             <div class="log-body">
                 <div class="log-title">${escapeHTML(title)}</div>
-                <div class="log-sub">${escapeHTML(sub)}${p.caption && p.kind !== 'text' ? ' · ' + escapeHTML(p.caption.slice(0,50)) : ''}</div>
+                <div class="log-sub">${sub}${p.caption && p.kind !== 'text' ? ' · ' + escapeHTML(p.caption.slice(0,50)) : ''}</div>
             </div>
             <div class="log-meta">
                 <div class="log-time">${t}</div>
@@ -6682,6 +6926,11 @@ async function switchView(v, params = {}) {
     state.viewParams = params;
     // Coach e conversas ficam sob a aba Chat na navegação
     const navView = (v === 'coach' || v === 'chat') ? 'messages' : v;
+    const mostraPlacar = (v === 'feed' || v === 'profile');
+    const pill = document.querySelector('.weekly-pill');
+    const score = document.querySelector('.topbar-score');
+    if (pill) pill.classList.toggle('hidden', !mostraPlacar);
+    if (score) score.classList.toggle('hidden', !mostraPlacar);
     $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === navView));
     if (v === 'feed') await renderFeed();
     else if (v === 'progress') await renderProgress();
@@ -6816,6 +7065,13 @@ document.addEventListener('click', async e => {
         const s = document.getElementById('conviteSheet');
         if (s) { s.remove(); document.body.style.overflow = ''; }
         switchView('feed');
+    } else if (act === 'topbar-menu') {
+        showProfileMenu(btn, !!state.profile.is_admin);
+    } else if (act === 'trocar-senha') {
+        hidePostMenu();
+        abrirTrocaSenha();
+    } else if (act === 'explicar') {
+        explicarConceito(btn.dataset.tema);
     } else if (act === 'cmp-pick') {
         const id = btn.dataset.id;
         if (state.cmpA === id) { state.cmpA = state.cmpB; state.cmpB = id; }
@@ -7547,7 +7803,9 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     $('#workoutFields').classList.toggle('hidden', state.composerKind !== 'workout');
     $('#mealFields').classList.toggle('hidden', state.composerKind !== 'meal');
     $('#waterFields').classList.toggle('hidden', state.composerKind !== 'water');
+    $('#sleepFields').classList.toggle('hidden', state.composerKind !== 'sleep');
     if (state.composerKind === 'water') refreshWaterProgress();
+    if (state.composerKind === 'sleep') prepararSono();
     $('#storyFields').classList.toggle('hidden', state.composerKind !== 'story');
     if (state.composerKind === 'meal') refreshMealSlots();
     $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
@@ -7610,12 +7868,13 @@ function updateDestUI() {
     if (!hasPhoto && state.composerDest === 'feed') state.composerDest = 'log';
 
     const isWater = kind === 'water';
-    sec.classList.toggle('hidden', isStory || isWater);
-    $('#destHint').classList.toggle('hidden', isStory || isWater);
+    const isSleep = kind === 'sleep';
+    sec.classList.toggle('hidden', isStory || isWater || isSleep);
+    $('#destHint').classList.toggle('hidden', isStory || isWater || isSleep);
     const fotoBloco = document.querySelector('#composerSheet .file-drop');
-    if (fotoBloco) fotoBloco.classList.toggle('hidden', isWater);
+    if (fotoBloco) fotoBloco.classList.toggle('hidden', isWater || isSleep);
     const legenda = document.querySelector('#pCaption');
-    if (legenda && legenda.closest('.field')) legenda.closest('.field').classList.toggle('hidden', isWater);
+    if (legenda && legenda.closest('.field')) legenda.closest('.field').classList.toggle('hidden', isWater || isSleep);
     const feedBtn = sec.querySelector('[data-dest="feed"]');
     feedBtn.disabled = !hasPhoto;
     sec.querySelectorAll('.dest-btn').forEach(b => b.classList.toggle('on', b.dataset.dest === state.composerDest));
@@ -7629,12 +7888,13 @@ function updateDestUI() {
     }
     $('#destHint').textContent = hint;
 
-    $('#privacySection').classList.toggle('hidden', isStory || isWater || state.composerDest !== 'feed');
+    $('#privacySection').classList.toggle('hidden', isStory || isWater || isSleep || state.composerDest !== 'feed');
 
     const btn = $('#composerSubmit');
     if (btn && !btn.disabled) {
         btn.textContent = isStory ? 'Publicar Story'
             : isWater ? 'Registrar água'
+            : isSleep ? 'Registrar sono'
             : (state.composerDest === 'feed' ? 'Publicar no feed' : 'Registrar');
     }
 }
@@ -7752,6 +8012,35 @@ $('#composerSubmit').addEventListener('click', async () => {
             closeComposer();
             toast(ganhos > 0 ? `+${ganhos} pontos! Story publicado` : 'Story publicado (limite diário de pontos atingido)', 'ok');
             if (state.view === 'feed') await renderFeed();
+            return;
+        }
+
+        // ============ SONO ============
+        if (state.composerKind === 'sleep') {
+            const horas = parseFloat($('#skHours').value);
+            const dia = $('#skDate').value;
+            if (isNaN(horas) || horas < 0 || horas > 16) { toast('Informe entre 0 e 16 horas', 'err'); return; }
+
+            const { error: erroSono } = await sb.from('sleep_logs').upsert({
+                user_id: state.session.user.id, slept_on: dia, hours: horas,
+                quality: qualidadeSono, updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,slept_on' });
+
+            if (erroSono) {
+                if (!navigator.onLine || String(erroSono.message || '').toLowerCase().includes('fetch')) {
+                    guardarNaFila({ tipo: 'sleep', dia, horas });
+                    closeComposer();
+                    toast('Sem internet agora. Guardei e envio assim que voltar.', 'ok');
+                    return;
+                }
+                throw erroSono;
+            }
+
+            await updateStreak(new Date().toISOString().split('T')[0]);
+            await loadScore();
+            closeComposer();
+            toast('Sono registrado. Isso ajuda o coach a entender seus dias.', 'ok');
+            if (state.view === 'progress') await renderProgress();
             return;
         }
 
