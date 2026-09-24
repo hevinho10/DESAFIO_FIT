@@ -4,7 +4,7 @@
 // o "Instalar aplicativo" do Chrome no Android e no computador.
 // ============================================================
 
-const CACHE = 'pulso-v1';
+const CACHE = 'pulso-v2';
 const ESTATICOS = [
   './',
   './index.html',
@@ -67,6 +67,38 @@ self.addEventListener('fetch', event => {
         })
         .catch(() => cacheado);
       return cacheado || rede;
+    })
+  );
+});
+
+// ============================================================
+// Notificações push (funciona com o app fechado)
+// ============================================================
+self.addEventListener('push', event => {
+  let dados = { title: 'Pulso', body: 'Você tem algo pra registrar hoje.' };
+  try { if (event.data) dados = event.data.json(); } catch (e) {}
+
+  event.waitUntil(
+    self.registration.showNotification(dados.title || 'Pulso', {
+      body: dados.body || '',
+      icon: dados.icon || './icon-192.png',
+      badge: dados.badge || './icon-192.png',
+      tag: dados.tag || 'pulso',
+      renotify: false,
+      data: { url: dados.url || './' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const destino = (event.notification.data && event.notification.data.url) || './';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(lista => {
+      for (const c of lista) {
+        if ('focus' in c) return c.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(destino);
     })
   );
 });

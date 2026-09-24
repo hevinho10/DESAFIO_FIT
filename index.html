@@ -1319,6 +1319,28 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 .ch-pedido-tag{ font-size:12px; color:var(--ink-dim); align-self:center; }
 .ch-pedido-tag.recusado{ color:var(--effort); }
 .ch-pedidos{ color:var(--gold); }
+
+/* ============ ONDA 20 ============ */
+.comment-item.resposta{ margin-left:34px; padding-left:10px; border-left:1px solid var(--line); }
+.comment-acoes{ display:flex; gap:14px; margin-top:6px; }
+.cm-acao{ background:none; border:none; padding:0; font-size:11.5px; color:var(--ink-faint); cursor:pointer; }
+.cm-acao.on{ color:var(--vital); }
+.cm-acao.apagar:hover{ color:var(--danger); }
+.respondendo-tag{ display:flex; align-items:center; justify-content:space-between; gap:10px; background:var(--bg-elev); border-radius:10px; padding:8px 12px; font-size:12px; color:var(--ink-dim); margin-bottom:8px; }
+.respondendo-tag button{ background:none; border:none; color:var(--vital); font-size:12px; cursor:pointer; }
+.cmp-par{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+.cmp-lado img{ width:100%; border-radius:12px; background:var(--bg-elev); }
+.cmp-data{ font-size:11.5px; color:var(--ink-dim); margin-top:6px; text-align:center; }
+.cmp-num{ font-family:var(--ff-display); font-size:16px; font-weight:600; color:var(--ink); text-align:center; }
+.cmp-resumo{ background:var(--surface); border-radius:14px; padding:14px; margin-bottom:8px; }
+.cmp-linha{ display:flex; align-items:center; justify-content:space-between; padding:7px 0; font-size:13.5px; color:var(--ink-dim); }
+.cmp-linha b{ color:var(--ink); font-family:var(--ff-display); }
+.cmp-delta{ font-family:var(--ff-display); font-weight:600; color:var(--ink-dim); }
+.cmp-delta.down{ color:var(--vital); }
+.cmp-delta.up{ color:var(--effort); }
+.cmp-grid .grid-item{ position:relative; }
+.cmp-grid .sel-a::after{ content:'antes'; position:absolute; bottom:4px; left:4px; background:var(--bg); color:var(--ink); font-size:9px; padding:2px 6px; border-radius:6px; }
+.cmp-grid .sel-b::after{ content:'depois'; position:absolute; bottom:4px; left:4px; background:var(--vital); color:#08110C; font-size:9px; padding:2px 6px; border-radius:6px; font-weight:600; }
 </style>
 </head>
 <body>
@@ -2231,6 +2253,7 @@ function showProfileMenu(anchor, isAdmin) {
         <button class="post-menu-item" data-act="open-weight-log">${icon('peso')}Registrar peso</button>
         <button class="post-menu-item" data-act="go-health">${icon('saude')}Ficha de saúde</button>
         <button class="post-menu-item" data-act="go-activity-log">${icon('historico')}Histórico</button>
+        <button class="post-menu-item" data-act="go-compare">${icon('olho')}Antes e depois</button>
         <button class="post-menu-item" data-act="go-challenges">${icon('comunidade')}Comunidade</button>
         <button class="post-menu-item" data-act="go-settings">${icon('config')}Configurações</button>
         ${isAdmin ? `<div class="menu-divider"></div><button class="post-menu-item admin-item" data-act="go-admin">${icon('admin')}Painel Admin</button>` : ''}
@@ -2598,6 +2621,227 @@ function openTermsSheet() {
         sheet.remove();
         document.body.style.overflow = '';
     };
+}
+
+// ---- Fila offline: o que você registrou sem internet ----
+function guardarNaFila(registro) {
+    try {
+        const fila = JSON.parse(localStorage.getItem('pulso-fila') || '[]');
+        fila.push({ ...registro, quando: Date.now() });
+        localStorage.setItem('pulso-fila', JSON.stringify(fila.slice(-30)));
+        return true;
+    } catch (e) { return false; }
+}
+
+async function enviarFilaOffline() {
+    let fila = [];
+    try { fila = JSON.parse(localStorage.getItem('pulso-fila') || '[]'); } catch (e) { return; }
+    if (!fila.length || !navigator.onLine) return;
+
+    const sobraram = [];
+    for (const item of fila) {
+        try {
+            if (item.tipo === 'sleep') {
+                const { error } = await sb.from('sleep_logs').upsert({
+                    user_id: state.session.user.id, slept_on: item.dia, hours: item.horas,
+                }, { onConflict: 'user_id,slept_on' });
+                if (error) throw error;
+            } else {
+                const { error } = await sb.from('posts').insert({
+                    ...item.post, user_id: state.session.user.id,
+                });
+                if (error && error.code !== '23505') throw error;
+            }
+        } catch (e) {
+            sobraram.push(item);
+        }
+    }
+    localStorage.setItem('pulso-fila', JSON.stringify(sobraram));
+    const enviados = fila.length - sobraram.length;
+    if (enviados > 0) {
+        await loadScore();
+        toast(`${plural(enviados, 'registro enviado', 'registros enviados')} agora que a internet voltou`, 'ok');
+    }
+}
+
+window.addEventListener('online', () => { if (state.session) enviarFilaOffline(); });
+
+// ---- Convite por link ----
+async function checarConvite() {
+    const params = new URLSearchParams(location.search);
+    const quem = params.get('seguir');
+    if (!quem) return;
+    history.replaceState(null, '', location.pathname);
+    if (quem.toLowerCase() === (state.profile.username || '').toLowerCase()) return;
+
+    const { data: perfil } = await sb.from('profiles')
+        .select('id, username, display_name, avatar_url, bio')
+        .ilike('username', quem).maybeSingle();
+    if (!perfil) return;
+
+    const { data: jaSegue } = await sb.rpc('am_i_following', { target_id: perfil.id });
+    if (jaSegue) return;
+
+    const sheet = document.createElement('div');
+    sheet.id = 'conviteSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card" style="text-align:center">
+        <div class="sheet-handle"></div>
+        <div style="margin:6px auto 12px">${avatarHTML(perfil, 'lg')}</div>
+        <h3 class="sheet-title">${escapeHTML(perfil.display_name)} te convidou</h3>
+        <p class="sheet-sub">@${escapeHTML(perfil.username)}${perfil.bio ? ' · ' + escapeHTML(perfil.bio.slice(0, 50)) : ''}</p>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="cvSkip">Agora não</button>
+            <button class="btn-primary" data-act="seguir-convite" data-uid="${perfil.id}">Seguir</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    document.body.style.overflow = 'hidden';
+    document.getElementById('cvSkip').onclick = () => { sheet.remove(); document.body.style.overflow = ''; };
+}
+
+// ---- Antes e depois ----
+async function renderCompare() {
+    const c = $('#viewContainer');
+    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+
+    const { data: fotos } = await sb.from('posts')
+        .select('id, image_url, created_at')
+        .eq('user_id', state.session.user.id)
+        .not('image_url', 'is', null)
+        .order('created_at', { ascending: true })
+        .limit(60);
+
+    if (!fotos || fotos.length < 2) {
+        c.innerHTML = `
+            <div class="view">
+                <div class="user-topbar">
+                    <button class="topbar-back" data-act="back-profile">←</button>
+                    <div class="topbar-title">Antes e depois</div><div style="width:28px"></div>
+                </div>
+                <div class="grid-empty">Você precisa de pelo menos duas fotos registradas pra montar a comparação.</div>
+            </div>`;
+        return;
+    }
+
+    if (!state.cmpA) state.cmpA = fotos[0].id;
+    if (!state.cmpB) state.cmpB = fotos[fotos.length - 1].id;
+    const a = fotos.find(f => f.id === state.cmpA) || fotos[0];
+    const b = fotos.find(f => f.id === state.cmpB) || fotos[fotos.length - 1];
+
+    const [{ data: pesos }, { data: medidas }] = await Promise.all([
+        sb.from('posts').select('weight_kg, created_at').eq('user_id', state.session.user.id)
+            .eq('kind', 'weight').not('weight_kg', 'is', null).order('created_at', { ascending: true }),
+        sb.from('body_measurements').select('cintura, measured_at').eq('user_id', state.session.user.id)
+            .order('measured_at', { ascending: true }),
+    ]);
+
+    const maisProximo = (lista, quando, campoData, campoValor) => {
+        if (!lista || !lista.length) return null;
+        const alvo = new Date(quando).getTime();
+        let melhor = null, dist = Infinity;
+        lista.forEach(x => {
+            if (x[campoValor] == null) return;
+            const d = Math.abs(new Date(x[campoData]).getTime() - alvo);
+            if (d < dist) { dist = d; melhor = Number(x[campoValor]); }
+        });
+        return melhor;
+    };
+
+    const pesoA = maisProximo(pesos, a.created_at, 'created_at', 'weight_kg');
+    const pesoB = maisProximo(pesos, b.created_at, 'created_at', 'weight_kg');
+    const cintA = maisProximo(medidas, a.created_at, 'measured_at', 'cintura');
+    const cintB = maisProximo(medidas, b.created_at, 'measured_at', 'cintura');
+
+    const dias = Math.max(0, Math.round((new Date(b.created_at) - new Date(a.created_at)) / 86400000));
+    const fmt = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+    const delta = (x, y, un) => {
+        if (x == null || y == null) return '';
+        const d = y - x;
+        if (Math.abs(d) < 0.05) return `<span class="cmp-delta">sem mudança</span>`;
+        return `<span class="cmp-delta ${d < 0 ? 'down' : 'up'}">${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(1)} ${un}</span>`;
+    };
+
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back-profile">←</button>
+                <div class="topbar-title">Antes e depois</div><div style="width:28px"></div>
+            </div>
+
+            <div class="cmp-par">
+                <div class="cmp-lado">
+                    <img src="${a.image_url}" loading="lazy">
+                    <div class="cmp-data">${fmt(a.created_at)}</div>
+                    ${pesoA != null ? `<div class="cmp-num">${pesoA.toFixed(1)} kg</div>` : ''}
+                </div>
+                <div class="cmp-lado">
+                    <img src="${b.image_url}" loading="lazy">
+                    <div class="cmp-data">${fmt(b.created_at)}</div>
+                    ${pesoB != null ? `<div class="cmp-num">${pesoB.toFixed(1)} kg</div>` : ''}
+                </div>
+            </div>
+
+            <div class="cmp-resumo">
+                <div class="cmp-linha"><span>Intervalo</span><b>${plural(dias, 'dia', 'dias')}</b></div>
+                ${pesoA != null && pesoB != null ? `<div class="cmp-linha"><span>Peso</span>${delta(pesoA, pesoB, 'kg')}</div>` : ''}
+                ${cintA != null && cintB != null ? `<div class="cmp-linha"><span>Cintura</span>${delta(cintA, cintB, 'cm')}</div>` : ''}
+            </div>
+
+            <h3 class="edit-section-title">Escolha as fotos</h3>
+            <p class="chart-foot" style="text-align:left">Toque numa foto pra usar como "antes", toque de novo pra usar como "depois".</p>
+            <div class="ig-grid cmp-grid">
+                ${fotos.map(f => `<div class="grid-item${f.id === state.cmpA ? ' sel-a' : ''}${f.id === state.cmpB ? ' sel-b' : ''}" data-act="cmp-pick" data-id="${f.id}">
+                    <img src="${f.image_url}" loading="lazy">
+                </div>`).join('')}
+            </div>
+        </div>`;
+}
+const VAPID_PUBLIC = 'BNJ3oZgUsEZlykYnN_2RnotEOQuFzKhIGTNO8qvpWDHRMZ2aUqUx0ZRFrK3MAcFbI9wJygm1bONzsVQszgK6NT0';
+
+function base64ParaUint8(base64) {
+    const pad = '='.repeat((4 - base64.length % 4) % 4);
+    const b64 = (base64 + pad).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(b64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function ligarPush() {
+    try {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+        const reg = await navigator.serviceWorker.ready;
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+            sub = await reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: base64ParaUint8(VAPID_PUBLIC),
+            });
+        }
+        const json = sub.toJSON();
+        if (!json.keys || !json.keys.p256dh) return false;
+
+        await sb.from('push_subs').upsert({
+            user_id: state.session.user.id,
+            endpoint: json.endpoint,
+            p256dh: json.keys.p256dh,
+            auth: json.keys.auth,
+        }, { onConflict: 'endpoint' });
+        return true;
+    } catch (e) {
+        console.warn('push indisponível', e);
+        return false;
+    }
+}
+
+async function desligarPush() {
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+            await sb.from('push_subs').delete().eq('endpoint', sub.endpoint);
+            await sub.unsubscribe();
+        }
+    } catch (e) {}
 }
 
 // ---- Aviso do fim do dia ----
@@ -3090,10 +3334,15 @@ function ditar(alvoId) {
 async function refreshSleepCard() {
     const box = $('#sleepCard');
     if (!box) return;
-    const { data } = await sb.rpc('sleep_summary');
+    const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const [{ data }, { data: reg }] = await Promise.all([
+        sb.rpc('sleep_summary'),
+        sb.from('sleep_logs').select('hours').eq('user_id', state.session.user.id).eq('slept_on', ontem).maybeSingle(),
+    ]);
     const s = (data && data[0]) || {};
+    s.ontem = reg ? Number(reg.hours) : null;
     state.sleep = s;
-    const hoje = s.hoje != null ? Number(s.hoje) : null;
+    const hoje = s.ontem;
     const media = s.media7 != null ? Number(s.media7) : null;
     box.innerHTML = `
         <div class="chart-head">
@@ -3103,7 +3352,7 @@ async function refreshSleepCard() {
         <div class="sleep-row">
             <div class="sleep-now">
                 <span class="sleep-val">${hoje != null ? hoje.toString().replace('.', ',') + 'h' : '--'}</span>
-                <span class="sleep-lbl">última noite</span>
+                <span class="sleep-lbl">noite passada</span>
             </div>
             <button class="btn-mini" data-act="open-sleep">${hoje != null ? 'Editar' : 'Registrar'}</button>
         </div>
@@ -3113,14 +3362,15 @@ async function refreshSleepCard() {
 function openSleepSheet() {
     const old = document.getElementById('sleepSheet');
     if (old) old.remove();
-    const atual = (state.sleep && state.sleep.hoje != null) ? Number(state.sleep.hoje) : 7.5;
+    const atual = (state.sleep && state.sleep.ontem != null) ? Number(state.sleep.ontem) : 7.5;
+    const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
     const sheet = document.createElement('div');
     sheet.id = 'sleepSheet';
     sheet.className = 'sheet on';
     sheet.innerHTML = `<div class="sheet-card">
         <div class="sheet-handle"></div>
         <h3 class="sheet-title">Quanto você dormiu?</h3>
-        <p class="sheet-sub">Registre a noite que já passou. Só você vê, e dá pra ajustar depois.</p>
+        <p class="sheet-sub">A noite que já passou. Só você vê, e dá pra ajustar depois.</p>
         <div class="field">
             <label>Horas de sono</label>
             <div class="stepper" data-target="slHours" data-min="0" data-max="16" data-step="0.5" data-default="7.5">
@@ -3130,9 +3380,9 @@ function openSleepSheet() {
             </div>
         </div>
         <div class="field">
-            <label>Noite que terminou em</label>
-            <input type="date" id="slDate" value="${new Date().toISOString().split('T')[0]}" max="${new Date().toISOString().split('T')[0]}">
-            <p class="field-hint">Acordou hoje de manhã? Então é a data de hoje. Dá pra registrar dias anteriores também.</p>
+            <label>Dia</label>
+            <input type="date" id="slDate" value="${ontem}" max="${ontem}">
+            <p class="field-hint">Por padrão vem o dia de ontem, a noite que você acabou de dormir. Dá pra escolher dias anteriores.</p>
         </div>
         <div class="sheet-footer">
             <button class="btn-ghost" id="slCancel">Cancelar</button>
@@ -3155,7 +3405,15 @@ function openSleepSheet() {
             user_id: state.session.user.id, slept_on: dia, hours: horas, updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id,slept_on' });
         btn.disabled = false; btn.textContent = 'Salvar';
-        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+        if (error) {
+            if (!navigator.onLine || String(error.message || '').toLowerCase().includes('fetch')) {
+                guardarNaFila({ tipo: 'sleep', dia, horas });
+                close();
+                toast('Sem internet agora. Guardei e envio assim que voltar.', 'ok');
+                return;
+            }
+            toast(msgErro(error), 'err'); return;
+        }
         close();
         toast('Sono registrado', 'ok');
         refreshSleepCard();
@@ -3513,6 +3771,7 @@ function renderSettings() {
             <div class="settings-list">
                 <button class="settings-item" data-act="open-edit-profile">${icon('editar')}<span class="si-txt">Editar perfil</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="toggle-reminder">${icon('sino')}<span class="si-txt">Lembrete do fim do dia</span><span class="si-end" id="remState">${localStorage.getItem('pulso-reminder') === 'on' ? 'ligado' : 'desligado'}</span></button>
+                <button class="settings-item" data-act="convidar-amigo">${icon('comunidade')}<span class="si-txt">Convidar um amigo</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="go-install">${icon('instalar')}<span class="si-txt">Instalar na tela inicial</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="go-rules">${icon('medalha')}<span class="si-txt">Como ganhar pontos</span><span class="si-end">›</span></button>
                 <button class="settings-item" data-act="go-privacy">${icon('cadeado')}<span class="si-txt">Privacidade</span><span class="si-end">›</span></button>
@@ -4623,6 +4882,8 @@ async function renderProgress() {
     const pctWeek = Math.min(100, Math.round((days / weeklyGoal) * 100));
     const falta = weeklyGoal - days;
     const currentStreak = streak?.current_streak || 0;
+    const { data: escudo } = await sb.rpc('shield_status');
+    const escudoOk = escudo && escudo[0] && escudo[0].disponivel;
     const totalValid = Number(validWeeks || 0);
 
     const weeklyCardHTML = `<div class="weekly-card ${isValid ? 'valid' : ''}">
@@ -4641,7 +4902,7 @@ async function renderProgress() {
                 : `Falta${falta === 1 ? '' : 'm'} <b style="color:var(--vital)">${falta}</b> ${falta === 1 ? 'dia' : 'dias'} pra bater sua meta.`}
         </div>
         <div class="weekly-stats">
-            <span><b>${currentStreak}</b> dias de ofensiva</span>
+            <span><b>${currentStreak}</b> dias de ofensiva${escudoOk ? ' · escudo pronto 🛡️' : ''}</span>
             <span><b>${totalValid}</b> semanas com meta batida</span>
         </div>
     </div>`;
@@ -5859,6 +6120,7 @@ function openWeightLogSheet() {
 
             close();
             let msg = `+${Number(basePts || 0)} pontos! Peso registrado`;
+            if (streakInfo?.shield_used) msg += ' · escudo usado 🛡️';
             if (wlPts > 0) msg = `+${3 + wlPts} pontos! Você chegou a ${wl[0].pct}% do peso inicial perdido 🎉`;
             if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
             toast(msg, 'ok');
@@ -6439,6 +6701,7 @@ async function switchView(v, params = {}) {
     else if (v === 'notifications') await renderNotifications();
     else if (v === 'privacy') renderPrivacy();
     else if (v === 'rules') renderRules();
+    else if (v === 'compare') await renderCompare();
     else if (v === 'chat') await renderChat(params.conversationId, params.otherUser);
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -6539,6 +6802,50 @@ document.addEventListener('click', async e => {
         openNewChallengeSheet();
     } else if (act === 'invite-challenge') {
         openInviteSheet(btn.dataset.id);
+    } else if (act === 'convidar-amigo') {
+        const link = `${location.origin}${location.pathname}?seguir=${encodeURIComponent(state.profile.username)}`;
+        const texto = `Tô usando o Pulso pra acompanhar meus treinos. Bora junto? ${link}`;
+        try {
+            if (navigator.share) await navigator.share({ title: 'Pulso', text: texto, url: link });
+            else { await navigator.clipboard.writeText(texto); toast('Convite copiado, é só colar', 'ok'); }
+        } catch (e) {}
+    } else if (act === 'seguir-convite') {
+        const uid = btn.dataset.uid;
+        await sb.from('follows').insert({ follower_id: state.session.user.id, following_id: uid });
+        toast('Seguindo!', 'ok');
+        const s = document.getElementById('conviteSheet');
+        if (s) { s.remove(); document.body.style.overflow = ''; }
+        switchView('feed');
+    } else if (act === 'cmp-pick') {
+        const id = btn.dataset.id;
+        if (state.cmpA === id) { state.cmpA = state.cmpB; state.cmpB = id; }
+        else if (state.cmpB === id) { state.cmpB = state.cmpA; state.cmpA = id; }
+        else { state.cmpA = state.cmpB; state.cmpB = id; }
+        renderCompare();
+    } else if (act === 'go-compare') {
+        switchView('compare');
+    } else if (act === 'curtir-comentario') {
+        const id = btn.dataset.id;
+        const curtido = btn.dataset.curtido === '1';
+        if (curtido) await sb.from('comment_likes').delete().match({ comment_id: id, user_id: state.session.user.id });
+        else await sb.from('comment_likes').insert({ comment_id: id, user_id: state.session.user.id });
+        const sheet = document.getElementById('commentSheet');
+        if (sheet && sheet.dataset.postId) loadComments(sheet.dataset.postId);
+    } else if (act === 'responder-comentario') {
+        state.respondendo = btn.dataset.id;
+        const slot = document.getElementById('respondendoSlot');
+        if (slot) {
+            slot.innerHTML = `<div class="respondendo-tag" id="respondendoTag">
+                Respondendo ${escapeHTML(btn.dataset.nome)}
+                <button data-act="cancelar-resposta">cancelar</button>
+            </div>`;
+        }
+        const campo = document.getElementById('commentInput');
+        if (campo) campo.focus();
+    } else if (act === 'cancelar-resposta') {
+        state.respondendo = null;
+        const t = document.getElementById('respondendoTag');
+        if (t) t.remove();
     } else if (act === 'pedir-acesso') {
         btn.disabled = true;
         const { error } = await sb.from('challenge_requests').insert({
@@ -6583,14 +6890,18 @@ document.addEventListener('click', async e => {
     } else if (act === 'toggle-reminder') {
         const ligado = localStorage.getItem('pulso-reminder') === 'on';
         if (ligado) {
+            await desligarPush();
             localStorage.setItem('pulso-reminder', 'off');
-            toast('Lembrete desligado', 'ok');
+            toast('Lembretes desligados', 'ok');
         } else {
             let perm = Notification.permission;
             if (perm === 'default') perm = await Notification.requestPermission();
             if (perm !== 'granted') { toast('Seu navegador bloqueou os avisos', 'err'); return; }
+            const ok = await ligarPush();
             localStorage.setItem('pulso-reminder', 'on');
-            toast('Pronto. Aviso no fim do dia se faltar algo.', 'ok');
+            toast(ok
+                ? 'Pronto. Os lembretes chegam mesmo com o app fechado.'
+                : 'Lembretes ligados. Nesse aparelho eles aparecem quando você abrir o app.', 'ok');
         }
         renderSettings();
     } else if (act === 'export-data') {
@@ -6788,6 +7099,9 @@ document.addEventListener('click', async e => {
     } else if (act === 'go-health' && btn.closest('#floatingPostMenu')) {
         hidePostMenu();
         switchView('health');
+    } else if (act === 'go-compare' && btn.closest('#floatingPostMenu')) {
+        hidePostMenu();
+        switchView('compare');
     } else if (act === 'go-activity-log' && btn.closest('#floatingPostMenu')) {
         hidePostMenu();
         switchView('activity-log');
@@ -6937,6 +7251,7 @@ async function openCommentSheet(postId) {
                 <div class="sheet-handle"></div>
                 <h3 class="sheet-title">Comentários</h3>
                 <div id="commentsList" class="comments-list"></div>
+                <div id="respondendoSlot"></div>
                 <div class="comment-composer">
                     <textarea id="commentInput" placeholder="Escreva um comentário..." maxlength="500"></textarea>
                     <button class="btn-primary" id="commentSendBtn">Enviar</button>
@@ -6961,11 +7276,15 @@ async function openCommentSheet(postId) {
         const btn = document.getElementById('commentSendBtn');
         btn.disabled = true; btn.textContent = 'Enviando...';
         const { error } = await sb.from('comments').insert({
-            post_id: postId, user_id: state.session.user.id, body
+            post_id: postId, user_id: state.session.user.id, body,
+            parent_id: state.respondendo || null,
         });
         btn.disabled = false; btn.textContent = 'Enviar';
-        if (error) { toast('Erro: ' + error.message, 'err'); return; }
+        if (error) { toast(msgErro(error), 'err'); return; }
         input.value = '';
+        state.respondendo = null;
+        const aviso = document.getElementById('respondendoTag');
+        if (aviso) aviso.remove();
         await loadComments(postId);
         // Atualiza contador no feed
         const countSpan = document.querySelector(`.post[data-post-id="${postId}"] [data-act="comment"] span`);
@@ -6976,27 +7295,39 @@ async function openCommentSheet(postId) {
 async function loadComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = '<div class="spinner"></div>';
-    const { data: comments, error } = await sb.from('comments')
-        .select(`id, body, created_at, user_id, user:profiles!inner (id, username, display_name, avatar_url)`)
-        .eq('post_id', postId)
-        .order('created_at', { ascending: true });
+    const { data: comments, error } = await sb.rpc('post_comments', { pid: postId });
     if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
     if (!comments || comments.length === 0) {
         list.innerHTML = '<p class="comments-empty">Nenhum comentário ainda. Seja o primeiro!</p>';
         return;
     }
-    list.innerHTML = comments.map(cm => {
-        const isMine = cm.user_id === state.session.user.id;
+
+    const raiz = comments.filter(c => !c.parent_id);
+    const respostas = comments.filter(c => c.parent_id);
+
+    const linha = (cm, ehResposta) => {
+        const meu = cm.user_id === state.session.user.id;
+        const autor = { id: cm.user_id, display_name: cm.display_name, username: cm.username, avatar_url: cm.avatar_url };
         return `
-            <div class="comment-item">
-                <span data-act="view-user" data-uid="${cm.user_id}">${avatarHTML(cm.user, 'sm')}</span>
+            <div class="comment-item${ehResposta ? ' resposta' : ''}">
+                <span data-act="view-user" data-uid="${cm.user_id}">${avatarHTML(autor, 'sm')}</span>
                 <div class="comment-body">
-                    <div class="comment-name">${escapeHTML(cm.user.display_name)} <span class="comment-time">${timeAgo(cm.created_at)}</span></div>
+                    <div class="comment-name">${escapeHTML(cm.display_name)} <span class="comment-time">${timeAgo(cm.created_at)}</span></div>
                     <div class="comment-text">${escapeHTML(cm.body)}</div>
+                    <div class="comment-acoes">
+                        <button class="cm-acao${cm.eu_curti ? ' on' : ''}" data-act="curtir-comentario" data-id="${cm.id}" data-curtido="${cm.eu_curti ? '1' : '0'}">
+                            ${cm.eu_curti ? 'Curtido' : 'Curtir'}${cm.curtidas > 0 ? ` · ${cm.curtidas}` : ''}
+                        </button>
+                        ${!ehResposta ? `<button class="cm-acao" data-act="responder-comentario" data-id="${cm.id}" data-nome="${escapeHTML(cm.display_name)}">Responder</button>` : ''}
+                        ${meu ? `<button class="cm-acao apagar" data-act="delete-comment" data-id="${cm.id}">Apagar</button>` : ''}
+                    </div>
                 </div>
-                ${isMine ? `<button class="comment-del" data-act="delete-comment" data-id="${cm.id}">×</button>` : ''}
-            </div>
-        `;
+            </div>`;
+    };
+
+    list.innerHTML = raiz.map(c => {
+        const filhas = respostas.filter(r => r.parent_id === c.id);
+        return linha(c, false) + filhas.map(f => linha(f, true)).join('');
     }).join('');
 }
 
@@ -7429,15 +7760,22 @@ $('#composerSubmit').addEventListener('click', async () => {
             const ml = parseInt($('#wMl').value) || 0;
             if (ml < 50) { toast('Informe quanto você bebeu', 'err'); return; }
 
-            const { data: criado, error: erroAgua } = await sb.from('posts').insert({
-                user_id: state.session.user.id,
-                kind: 'water',
-                water_ml: ml,
-                visibility: 'private',
-                is_public: false,
-                in_feed: false,
-            }).select().single();
-            if (erroAgua) throw erroAgua;
+            const registroAgua = {
+                kind: 'water', water_ml: ml,
+                visibility: 'private', is_public: false, in_feed: false,
+            };
+            const { data: criado, error: erroAgua } = await sb.from('posts')
+                .insert({ ...registroAgua, user_id: state.session.user.id }).select().single();
+
+            if (erroAgua) {
+                if (!navigator.onLine || String(erroAgua.message || '').toLowerCase().includes('fetch')) {
+                    guardarNaFila({ tipo: 'post', post: registroAgua });
+                    closeComposer();
+                    toast('Sem internet agora. Guardei e envio assim que voltar.', 'ok');
+                    return;
+                }
+                throw erroAgua;
+            }
 
             const [{ data: aguaPts }, { data: agora }] = await Promise.all([
                 sb.rpc('points_for_reference', { ref: criado.id }),
@@ -7505,7 +7843,16 @@ $('#composerSubmit').addEventListener('click', async () => {
 
         const { data: created, error: postErr } = await sb.from('posts').insert(post).select().single();
         if (postErr) {
-            if (String(postErr.message || '').includes('refeicao_duplicada')) {
+            const txtErro = String(postErr.message || '');
+            if (txtErro.includes('limite_por_hora')) {
+                toast('Você registrou bastante coisa na última hora. Dá um tempinho e volte.', 'err');
+                return;
+            }
+            if (txtErro.includes('post_repetido')) {
+                toast('Esse mesmo texto já foi postado agora há pouco.', 'err');
+                return;
+            }
+            if (txtErro.includes('refeicao_duplicada')) {
                 const nome = { cafe:'o café da manhã', almoco:'o almoço', jantar:'o jantar' }[post.meal_slot] || 'essa refeição';
                 toast(`Você já registrou ${nome} de hoje. Lanche você pode registrar mais de um.`, 'err');
                 return;
@@ -7533,6 +7880,7 @@ $('#composerSubmit').addEventListener('click', async () => {
 
         let msg = `+${ptsToCredit} pontos!`;
         if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
+        if (streakInfo?.shield_used) msg += ' · escudo usado, sua sequência continua 🛡️';
         if (weeklyBonus > 0) msg += ` · +${weeklyBonus} semana válida ✅`;
 
         if (mealFeedback) {
@@ -7615,6 +7963,8 @@ async function boot() {
     updateUnreadBadge();
     updateNotifBadge();
     checarConquistas(true);
+    checarConvite();
+    enviarFilaOffline();
 
     await carregarBlocked();
     checkDailyReminder();
