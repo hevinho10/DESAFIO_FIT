@@ -1374,6 +1374,109 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 .cheer-btn:disabled{ color:var(--ink-faint); border-color:var(--line); }
 .ch-reta-final{ background:var(--vital-dim); color:var(--vital); border-radius:12px; padding:11px 14px; font-size:13px; margin-bottom:12px; }
 .ch-aviso-privacidade{ font-size:11.5px; color:var(--ink-faint); line-height:1.5; margin-top:8px; width:100%; }
+
+/* ================= ONDA: perfil, + em duas etapas, story, nav flutuante ================= */
+
+/* Topbar: + do feed à esquerda */
+.topbar-left{ display:flex; align-items:center; gap:6px; }
+.feed-post-btn{ margin-left:-6px; color:var(--ink) !important; }
+.feed-post-btn svg{ width:23px; height:23px; }
+.feed-post-btn.hidden{ display:none; }
+
+/* Perfil: Editar + pílula na mesma linha */
+.ig-profile-actions{ align-items:center; }
+.ig-profile-actions .btn-secondary{ height:38px; padding:0 14px; }
+.prof-pill{ display:flex; align-items:center; flex-shrink:0; height:38px; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+.prof-pill .weekly-pill,
+.prof-pill .topbar-score{ height:100%; border:none !important; border-radius:0 !important; background:transparent !important; padding:0 10px !important; gap:5px; font-size:12.5px; }
+.prof-pill .topbar-score{ border-left:1px solid var(--line) !important; }
+.prof-pill .wp-ring{ width:18px; height:18px; }
+.prof-pill .top-rank{ margin-left:2px; padding-left:6px; }
+@media (max-width:360px){
+    .prof-pill .weekly-pill, .prof-pill .topbar-score{ padding:0 7px !important; font-size:12px; }
+}
+
+/* Composer: passo 1, grade de ícones */
+.kind-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(62px, 1fr)); gap:14px 6px; margin:8px 0 10px; }
+.kind-tile{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:4px 0; background:none; border:none; color:var(--ink-dim); font-size:12px; font-weight:500; }
+.kind-tile .kt-ico{ width:54px; height:54px; border-radius:50%; display:grid; place-items:center; background:var(--vital-dim); color:var(--vital); transition:transform .12s, background .15s; }
+.kind-tile .kt-ico svg{ width:23px; height:23px; }
+.kind-tile:active .kt-ico{ transform:scale(.93); background:rgba(53,225,155,.22); }
+@media (hover:hover){ .kind-tile:hover .kt-ico{ background:rgba(53,225,155,.2); } .kind-tile:hover{ color:var(--ink); } }
+.kind-tile:focus-visible{ outline:2px solid var(--vital); outline-offset:2px; }
+
+/* Composer: passo 2, cabeçalho com voltar */
+.composer-head{ display:flex; align-items:center; gap:6px; margin:-4px 0 14px; }
+.composer-head .sheet-title{ margin:0; }
+.composer-back{ width:34px; height:34px; margin-left:-8px; border-radius:50%; border:none; background:none; color:var(--ink); display:grid; place-items:center; }
+.composer-back svg{ width:22px; height:22px; }
+.composer-back.hidden{ display:none; }
+
+/* Criar story: tela cheia */
+.sc{ position:fixed; inset:0; z-index:80; display:none; background:#000; color:#fff; }
+.sc.on{ display:block; }
+.sc-top{ position:absolute; top:0; left:0; right:0; z-index:3; display:flex; justify-content:space-between; align-items:center; padding:calc(12px + env(safe-area-inset-top,0px)) 14px 12px; }
+.sc-round{ width:40px; height:40px; border-radius:50%; border:none; background:rgba(0,0,0,.28); color:#fff; display:grid; place-items:center; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+.sc-round svg{ width:20px; height:20px; }
+.sc-round.hidden{ display:none; }
+.sc-publish{ height:38px; padding:0 18px; border-radius:20px; border:none; background:#fff; color:#0A0C0B; font-weight:700; font-size:14px; }
+.sc-publish.hidden{ display:none; }
+.sc-publish:disabled{ opacity:.6; }
+.sc-stage{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#0A0C0B; transition:background .2s; }
+.sc-choose{ display:flex; flex-direction:column; align-items:center; gap:22px; }
+.sc-choose.hidden{ display:none; }
+.sc-choose-title{ font-family:var(--ff-display); font-size:17px; font-weight:600; color:rgba(255,255,255,.9); }
+.sc-opts{ display:flex; gap:26px; }
+.sc-opt{ display:flex; flex-direction:column; align-items:center; gap:9px; background:none; border:none; color:#fff; font-size:12.5px; cursor:pointer; }
+.sc-opt svg, .sc-opt .sc-aa{ width:62px; height:62px; padding:17px; border-radius:50%; border:1px solid rgba(255,255,255,.22); display:grid; place-items:center; box-sizing:border-box; }
+.sc-opt:active svg, .sc-opt:active .sc-aa{ background:rgba(255,255,255,.08); }
+.sc-aa{ font-family:var(--ff-display); font-weight:700; font-size:19px; letter-spacing:-.02em; }
+.sc-img{ max-width:100%; max-height:100%; object-fit:contain; }
+.sc-img.hidden{ display:none; }
+.sc-text{ position:relative; z-index:2; width:min(86%, 460px); background:none; border:none; outline:none; resize:none; overflow:hidden; text-align:center; font-family:var(--ff-display); font-weight:600; font-size:28px; line-height:1.25; letter-spacing:-.015em; color:#0A0C0B; caret-color:currentColor; }
+.sc-text::placeholder{ color:currentColor; opacity:.45; }
+.sc-text.hidden{ display:none; }
+.sc.photo-mode .sc-text{ position:absolute; left:50%; bottom:calc(120px + env(safe-area-inset-bottom)); transform:translateX(-50%); font-size:22px; padding:10px 14px; border-radius:14px; background:rgba(0,0,0,.45); color:#fff; }
+.sc-bottom{ position:absolute; left:0; right:0; bottom:0; z-index:3; padding:10px 16px calc(18px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; align-items:center; gap:12px; }
+.sc-bottom.hidden{ display:none; }
+.sc-tools{ display:flex; gap:12px; }
+.sc-tool .sc-aa{ font-size:15px; }
+.sc-dot{ width:20px; height:20px; border-radius:50%; border:2px solid #fff; display:block; }
+.sc-swatches{ display:flex; gap:12px; padding:8px 12px; border-radius:24px; background:rgba(0,0,0,.3); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+.sc-swatches.hidden{ display:none; }
+.sc-swatch{ width:26px; height:26px; border-radius:50%; border:2px solid rgba(255,255,255,.7); padding:0; }
+.sc-swatch.on{ border-color:#fff; box-shadow:0 0 0 2px rgba(255,255,255,.35); transform:scale(1.12); }
+
+/* Desafio: vitrine pra quem não participa */
+.ch-locked{ display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; padding:34px 20px; margin-top:6px; border:1px dashed var(--line); border-radius:var(--radius-lg); color:var(--ink-dim); font-size:13.5px; }
+.ch-locked svg{ width:28px; height:28px; color:var(--ink-faint); }
+.ch-locked p{ max-width:280px; }
+
+/* Nav flutuante translúcida */
+.bottomnav{
+    left:14px !important; right:14px !important;
+    bottom:calc(10px + env(safe-area-inset-bottom)) !important;
+    height:62px !important; padding:0 8px !important;
+    max-width:520px; margin:0 auto;
+    border-radius:31px !important;
+    border:1px solid rgba(255,255,255,.08) !important;
+    background:rgba(22,28,25,.58) !important;
+    backdrop-filter:blur(22px) saturate(1.6) !important;
+    -webkit-backdrop-filter:blur(22px) saturate(1.6) !important;
+    box-shadow:0 12px 32px -12px rgba(0,0,0,.7) !important;
+}
+.bottomnav .nav-btn > span:not(.nav-unread-count){ display:none !important; }
+.bottomnav .nav-btn svg{ width:24px; height:24px; }
+.bottomnav .nav-unread-count{ top:10px; right:calc(50% - 18px); }
+.bottomnav .nav-fab{ width:42px !important; height:42px !important; margin-top:0 !important; border-radius:14px !important; box-shadow:none !important; }
+.bottomnav .nav-fab svg{ width:20px; height:20px; }
+:root[data-theme="light"] .bottomnav{ background:rgba(255,255,255,.66) !important; border-color:rgba(0,0,0,.06) !important; box-shadow:0 12px 30px -14px rgba(0,0,0,.25) !important; }
+.app{ padding-bottom:calc(96px + env(safe-area-inset-bottom)); }
+.toast{ bottom:calc(92px + env(safe-area-inset-bottom)); }
+
+@media (prefers-reduced-motion:reduce){
+    .kind-tile .kt-ico, .sc-stage, .sc-swatch{ transition:none; }
+}
 </style>
 </head>
 <body>
@@ -1492,7 +1595,12 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 <!-- ============ APP ============ -->
 <div id="app" class="app">
     <div class="topbar">
-        <div class="topbar-brand">Pulso<span class="accent">.</span></div>
+        <div class="topbar-left">
+            <button class="topbar-icon feed-post-btn" id="feedPostBtn" aria-label="Novo post">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8.5v7M8.5 12h7"/></svg>
+            </button>
+            <div class="topbar-brand">Pulso<span class="accent">.</span></div>
+        </div>
         <div class="topbar-right">
             <button class="topbar-icon" data-act="go-search" aria-label="Buscar pessoas">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -1503,17 +1611,6 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
             </button>
             <button class="topbar-icon" data-act="topbar-menu" aria-label="Menu">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-            </button>
-            <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
-                <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill" id="wpFill" stroke-dasharray="0 56.55"/></svg>
-                <span id="wpDays">0/3</span>
-                <span class="wp-flame">🔥<b id="wpStreak">0</b></span>
-            </button>
-            <button class="topbar-score" data-act="go-community" aria-label="Ranking da comunidade">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
-                <span id="topScore">0</span>
-                <span class="lbl">pts</span>
-                <span id="topRank" class="top-rank hidden">🏆<b id="topRankN"></b></span>
             </button>
         </div>
     </div>
@@ -1533,15 +1630,24 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 <div id="composerSheet" class="sheet">
     <div class="sheet-card">
         <div class="sheet-handle"></div>
-        <h3 class="sheet-title">Registrar</h3>
-        <p class="sheet-sub">Tudo vale pontos. Só vai pro feed o que você escolher.</p>
+        <div id="composerPick">
+            <h3 class="sheet-title">Registrar</h3>
+            <p class="sheet-sub">Tudo vale pontos.</p>
+            <div class="kind-grid">
+                <button type="button" class="kind-tile" data-kind="workout"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg></span><span class="kt-lbl">Treino</span></button>
+                <button type="button" class="kind-tile" data-kind="meal"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v7a2 2 0 0 0 4 0V3M7 10v11M15 3c-1.5 1-2 2.5-2 4.5S14 12 15 12v9"/></svg></span><span class="kt-lbl">Refeição</span></button>
+                <button type="button" class="kind-tile" data-kind="water"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/></svg></span><span class="kt-lbl">Água</span></button>
+                <button type="button" class="kind-tile" data-kind="sleep"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></span><span class="kt-lbl">Sono</span></button>
+                <button type="button" class="kind-tile" data-kind="story"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/><path d="M12 8.5v7M8.5 12h7"/></svg></span><span class="kt-lbl">Story</span></button>
+            </div>
+        </div>
 
-        <div class="kind-picker">
-            <button class="kind-btn on" data-kind="workout"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg></span><span>Treino</span></button>
-            <button class="kind-btn" data-kind="meal"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v7a2 2 0 0 0 4 0V3M7 10v11M15 3c-1.5 1-2 2.5-2 4.5S14 12 15 12v9"/></svg></span><span>Refeição</span></button>
-            <button class="kind-btn" data-kind="water"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/></svg></span><span>Água</span></button>
-            <button class="kind-btn" data-kind="sleep"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg></span><span>Sono</span></button>
-            <button class="kind-btn" data-kind="story"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" stroke-dasharray="3 3"/><path d="M12 8v8M8 12h8"/></svg></span><span>Story 24h</span></button>
+        <div id="composerForm" class="hidden">
+        <div class="composer-head">
+            <button type="button" class="composer-back" id="composerBack" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <h3 class="sheet-title" id="composerTitle">Treino</h3>
         </div>
 
         <div id="workoutFields">
@@ -1619,20 +1725,6 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
             </div>
         </div>
 
-        <div id="storyFields" class="hidden">
-            <div class="field" id="storyColorField">
-                <div class="story-preview" id="storyPreview"><span id="storyPreviewTxt">Escreva algo na legenda</span></div>
-                <div class="bg-color-picker" id="bgPicker">
-                    <button type="button" class="bg-color-swatch on" data-color="#35E19B" style="background:#35E19B"></button>
-                    <button type="button" class="bg-color-swatch" data-color="#5FB0FF" style="background:#5FB0FF"></button>
-                    <button type="button" class="bg-color-swatch" data-color="#FF7A4D" style="background:#FF7A4D"></button>
-                    <button type="button" class="bg-color-swatch" data-color="#C08BFF" style="background:#C08BFF"></button>
-                    <button type="button" class="bg-color-swatch" data-color="#FFC24B" style="background:#FFC24B"></button>
-                    <button type="button" class="bg-color-swatch" data-color="#151B18" style="background:#151B18"></button>
-                </div>
-            </div>
-        </div>
-
         <div class="field">
             <label id="captionLabel">Legenda (opcional)</label>
             <textarea id="pCaption" maxlength="500" placeholder="Conta pra gente como foi..."></textarea>
@@ -1691,6 +1783,36 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
             <button class="btn-ghost" id="composerCancel">Cancelar</button>
             <button class="btn-primary" id="composerSubmit">Publicar</button>
         </div>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ CRIAR STORY ============ -->
+<div id="storyCreator" class="sc">
+    <div class="sc-top">
+        <button type="button" class="sc-round" id="scClose" aria-label="Fechar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <button type="button" class="sc-publish hidden" id="scPublish">Publicar</button>
+    </div>
+    <div class="sc-stage" id="scStage">
+        <div class="sc-choose" id="scChoose">
+            <p class="sc-choose-title">Novo story</p>
+            <div class="sc-opts">
+                <label class="sc-opt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Câmera</span><input type="file" id="scCam" accept="image/*" capture="environment" hidden></label>
+                <label class="sc-opt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8 8.5"/></svg><span>Galeria</span><input type="file" id="scGal" accept="image/*" hidden></label>
+                <button type="button" class="sc-opt" id="scTextMode"><b class="sc-aa">Aa</b><span>Texto</span></button>
+            </div>
+        </div>
+        <img id="scImg" class="sc-img hidden" alt="">
+        <textarea id="scText" class="sc-text hidden" maxlength="300" rows="1" placeholder="Escreva algo"></textarea>
+    </div>
+    <div class="sc-bottom hidden" id="scBottom">
+        <div class="sc-swatches hidden" id="scSwatches"><button type="button" class="sc-swatch on" data-color="#35E19B" style="background:#35E19B" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#5FB0FF" style="background:#5FB0FF" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#FF7A4D" style="background:#FF7A4D" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#C08BFF" style="background:#C08BFF" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#FFC24B" style="background:#FFC24B" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#151B18" style="background:#151B18" aria-label="Cor"></button></div>
+        <div class="sc-tools">
+            <button type="button" class="sc-round sc-tool" id="scAddText" aria-label="Escrever"><b class="sc-aa">Aa</b></button>
+            <button type="button" class="sc-round sc-tool" id="scColorBtn" aria-label="Trocar cor"><span class="sc-dot" id="scDot"></span></button>
         </div>
     </div>
 </div>
@@ -1910,7 +2032,8 @@ async function loadScore() {
     const { data, error } = await sb.rpc('user_score', { uid: state.session.user.id });
     if (!error) {
         state.score = Number(data || 0);
-        $('#topScore').textContent = Math.round(state.score);
+        const ts = document.getElementById('topScore');
+        if (ts) ts.textContent = Math.round(state.score);
     }
     refreshWeeklyPill();
 }
@@ -5353,13 +5476,18 @@ async function renderChallengeDetail(cid) {
     const c = $('#viewContainer');
     c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
 
-    const [{ data: all }, { data: ranking }, { data: saude }] = await Promise.all([
-        sb.rpc('list_challenges'),
+    const { data: all } = await sb.rpc('list_challenges');
+    const ch = (all || []).find(x => x.id === cid);
+    if (!ch) { c.innerHTML = '<div class="view"><p style="color:var(--danger)">Desafio não encontrado.</p></div>'; return; }
+
+    // Quem não participa não vê ranking nem progresso: só a vitrine
+    const podeVerDentro = ch.im_member || ch.created_by === state.session.user.id || state.profile.is_admin;
+    if (!podeVerDentro) { await renderChallengeVitrine(ch); return; }
+
+    const [{ data: ranking }, { data: saude }] = await Promise.all([
         sb.rpc('challenge_ranking', { cid }),
         sb.rpc('challenge_health', { cid }),
     ]);
-    const ch = (all || []).find(x => x.id === cid);
-    if (!ch) { c.innerHTML = '<div class="view"><p style="color:var(--danger)">Desafio não encontrado.</p></div>'; return; }
 
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' });
     const diasFim = Math.max(0, Math.ceil((new Date(ch.ends_at) - new Date()) / 86400000));
@@ -5574,6 +5702,57 @@ async function renderChallengeDetail(cid) {
     `;
 }
 
+// ---- Vitrine do desafio (pra quem ainda não participa) ----
+async function renderChallengeVitrine(ch) {
+    const c = $('#viewContainer');
+    const cid = ch.id;
+    const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    const aberto = ch.status !== 'encerrado';
+    const podeEntrar = ch.is_open && aberto;
+    const podePedir = !ch.is_open && aberto;
+
+    let meuPedido = null;
+    if (podePedir) {
+        const { data: st } = await sb.rpc('my_challenge_request', { cid });
+        meuPedido = st || null;
+    }
+
+    const statusLbl = ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado';
+    const statusCls = ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim';
+
+    c.innerHTML = `
+        <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="go-community">←</button>
+                <div class="topbar-title">Desafio</div>
+                <div style="width:28px"></div>
+            </div>
+
+            <div class="ch-hero">
+                <span class="ch-status ${statusCls}">${statusLbl}</span>
+                <h1 class="ch-hero-name">${escapeHTML(ch.name)}</h1>
+                ${ch.description ? `<p class="ch-hero-desc">${escapeHTML(ch.description)}</p>` : ''}
+                <div class="ch-hero-meta">
+                    <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
+                    <span>👥 ${plural(ch.members, 'participante', 'participantes')}</span>
+                </div>
+                <div class="ch-actions">
+                    ${podeEntrar ? `<button class="btn-primary-sm" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
+                    ${podePedir && !meuPedido ? `<button class="btn-primary-sm" data-act="pedir-acesso" data-id="${cid}">Solicitar entrada</button>` : ''}
+                    ${meuPedido === 'pendente' ? '<span class="ch-pedido-tag">Pedido enviado, aguardando resposta</span>' : ''}
+                    ${meuPedido === 'recusado' ? '<span class="ch-pedido-tag recusado">Pedido não aceito</span>' : ''}
+                    ${(podeEntrar || (podePedir && !meuPedido)) ? '<p class="ch-aviso-privacidade">Entrando, o grupo passa a ver seu percentual de evolução, seus dias treinados e seus pontos. Peso, medidas e refeições continuam privados.</p>' : ''}
+                </div>
+            </div>
+
+            <div class="ch-locked">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
+                <p>${aberto ? 'Ranking e progresso do grupo ficam visíveis só pra quem participa.' : 'Esse desafio já terminou.'}</p>
+            </div>
+        </div>
+    `;
+}
+
 function openNewChallengeSheet() {
     const old = document.getElementById('newChallengeSheet');
     if (old) old.remove();
@@ -5758,6 +5937,7 @@ async function renderProfile() {
     ]);
     const diasSemana = Number(diasSem || 0);
     const rankTxt = (rkProf && rkProf[0] && rkProf[0].rank) ? rkProf[0].rank + 'º' : '-';
+    const metaSemana = state.profile.weekly_goal || 3;
 
     const { count: myStoryCount } = await sb.from('stories')
         .select('id', { count: 'exact', head: true })
@@ -5781,16 +5961,19 @@ async function renderProfile() {
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
             <div class="ig-profile-actions">
-                <button class="hamburger-btn" data-act="open-profile-menu" aria-label="Menu">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-                </button>
                 <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
-            </div>
-            <div class="stat-grid" style="margin-top:14px">
-                <div class="stat-card tappable-card" data-act="explicar" data-tema="pontos"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div><div class="sub">o que você somou em 90 dias</div></div>
-                <div class="stat-card tappable-card" data-act="explicar" data-tema="ofensiva"><div class="num">${streak?.current_streak || 0}</div><div class="lbl">Ofensiva</div><div class="sub">dias seguidos registrando</div></div>
-                <div class="stat-card tappable-card" data-act="go-progress"><div class="num">${diasSemana}/${state.profile.weekly_goal || 3}</div><div class="lbl">Treinos na semana</div><div class="sub">sua meta semanal ›</div></div>
-                <div class="stat-card tappable-card" data-act="go-community"><div class="num">${rankTxt}</div><div class="lbl">No ranking</div><div class="sub">sua colocação da semana ›</div></div>
+                <div class="prof-pill">
+                    <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
+                        <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
+                        <span id="wpDays">${diasSemana}/${metaSemana}</span>
+                        <span class="wp-flame">🔥<b id="wpStreak">${streak?.current_streak || 0}</b></span>
+                    </button>
+                    <button class="topbar-score" data-act="go-community" aria-label="Ranking">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
+                        <span id="topScore">${Math.round(state.score)}</span>
+                        <span id="topRank" class="top-rank${rankTxt === '-' ? ' hidden' : ''}">🏆<b id="topRankN">${rankTxt}</b></span>
+                    </button>
+                </div>
             </div>
             ${goalHTML}
             <div class="ig-tabs">
@@ -5804,10 +5987,6 @@ async function renderProfile() {
     `;
 
     $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
-    $('[data-act="open-profile-menu"]').addEventListener('click', e => {
-        e.stopPropagation();
-        showProfileMenu(e.currentTarget, p.is_admin);
-    });
 }
 
 // ============================================================
@@ -7056,7 +7235,9 @@ function syncLayoutVars() {
     const app = document.getElementById('app');
     if (tb && tb.offsetHeight) root.setProperty('--topbar-h', tb.offsetHeight + 'px');
     const nav = document.querySelector('.bottomnav');
-    const navH = nav && nav.offsetHeight ? nav.offsetHeight : 74;
+    const navH = nav && nav.offsetHeight
+        ? Math.round(window.innerHeight - nav.getBoundingClientRect().top)
+        : 74;
     root.setProperty('--nav-pad', navH + 'px');
 }
 window.addEventListener('resize', syncLayoutVars);
@@ -7077,11 +7258,8 @@ async function switchView(v, params = {}) {
     state.viewParams = params;
     // Coach e conversas ficam sob a aba Chat na navegação
     const navView = (v === 'coach' || v === 'chat') ? 'messages' : v;
-    const mostraPlacar = (v === 'feed' || v === 'profile');
-    const pill = document.querySelector('.weekly-pill');
-    const score = document.querySelector('.topbar-score');
-    if (pill) pill.classList.toggle('hidden', !mostraPlacar);
-    if (score) score.classList.toggle('hidden', !mostraPlacar);
+    const feedPostBtn = document.getElementById('feedPostBtn');
+    if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed');
     $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === navView));
     if (v === 'feed') await renderFeed();
     else if (v === 'progress') await renderProgress();
@@ -7346,9 +7524,9 @@ document.addEventListener('click', async e => {
             return { data: (data || []).map(r => r.profiles).filter(Boolean) };
         });
     } else if (act === 'quick-kind') {
-        $('#composerSheet').classList.add('on');
-        document.body.style.overflow = 'hidden';
-        document.querySelector(`.kind-btn[data-kind="${btn.dataset.kind}"]`).click();
+        limparComposer();
+        if (btn.dataset.kind === 'story') { openStoryCreator(); }
+        else { setComposerKind(btn.dataset.kind); abrirComposer(); }
     } else if (act === 'user-menu') {
         showUserMenu(btn);
     } else if (act === 'report-user') {
@@ -7411,9 +7589,9 @@ document.addEventListener('click', async e => {
         toast('Conquista compartilhada!', 'ok');
         renderAchievements();
     } else if (act === 'quick-water') {
-        $('#composerSheet').classList.add('on');
-        document.body.style.overflow = 'hidden';
-        document.querySelector('.kind-btn[data-kind="water"]').click();
+        limparComposer();
+        setComposerKind('water');
+        abrirComposer();
     } else if (act === 'go-search') {
         switchView('search');
     } else if (act === 'go-notifications') {
@@ -7561,9 +7739,9 @@ document.addEventListener('click', async e => {
         if (target === 'chat') switchView('coach');
         else if (target === 'progress') switchView('progress');
         else if (target === 'register') {
-            $('#composerSheet').classList.add('on');
-            document.body.style.overflow = 'hidden';
-            document.querySelector('.kind-btn[data-kind="workout"]').click();
+            limparComposer();
+            setComposerKind('workout');
+            abrirComposer();
         }
     } else if (act === 'coach-suggest') {
         sendCoachMessage(btn.dataset.q);
@@ -7788,11 +7966,175 @@ document.addEventListener('click', async e => {
 });
 
 function openComposerAsStory() {
-    $('#composerSheet').classList.add('on');
-    document.body.style.overflow = 'hidden';
-    // Simula clique no botão story
-    document.querySelector('.kind-btn[data-kind="story"]').click();
+    openStoryCreator();
 }
+
+// ============================================================
+// CRIAR STORY (tela cheia, estilo Instagram)
+// ============================================================
+const sc = { mode: null, file: null, bg: '#35E19B', busy: false };
+
+function corDeTextoPara(bg) {
+    return (bg || '').toLowerCase() === '#151b18' ? '#F1F4F1' : '#0A0C0B';
+}
+
+function openStoryCreator() {
+    sc.mode = null; sc.file = null; sc.busy = false;
+    sc.bg = sc.bg || '#35E19B';
+    $('#scCam').value = ''; $('#scGal').value = '';
+    const txt = $('#scText');
+    txt.value = ''; txt.classList.add('hidden'); txt.style.height = '';
+    $('#scImg').classList.add('hidden'); $('#scImg').removeAttribute('src');
+    $('#scChoose').classList.remove('hidden');
+    $('#scBottom').classList.add('hidden');
+    $('#scSwatches').classList.add('hidden');
+    $('#scStage').style.background = '';
+    $('#storyCreator').classList.remove('text-mode', 'photo-mode');
+    $('#storyCreator').classList.add('on');
+    document.body.style.overflow = 'hidden';
+    atualizarBotaoPublicarStory();
+}
+
+function closeStoryCreator() {
+    $('#storyCreator').classList.remove('on');
+    document.body.style.overflow = '';
+    $('#scText').blur();
+}
+
+function ajustarAlturaTextoStory() {
+    const t = $('#scText');
+    t.style.height = 'auto';
+    t.style.height = Math.min(t.scrollHeight, window.innerHeight * 0.6) + 'px';
+}
+
+function atualizarBotaoPublicarStory() {
+    const temTexto = $('#scText').value.trim().length > 0;
+    const pronto = (sc.mode === 'photo' && sc.file) || (sc.mode === 'text' && temTexto);
+    $('#scPublish').classList.toggle('hidden', !pronto);
+}
+
+function aplicarCorStory() {
+    $('#scStage').style.background = sc.bg;
+    $('#scText').style.color = corDeTextoPara(sc.bg);
+    $('#scDot').style.background = sc.bg;
+    $$('.sc-swatch').forEach(x => x.classList.toggle('on', x.dataset.color === sc.bg));
+}
+
+function entrarModoTexto() {
+    sc.mode = 'text';
+    $('#storyCreator').classList.add('text-mode');
+    $('#storyCreator').classList.remove('photo-mode');
+    $('#scChoose').classList.add('hidden');
+    $('#scBottom').classList.remove('hidden');
+    $('#scAddText').classList.add('hidden');
+    $('#scColorBtn').classList.remove('hidden');
+    const t = $('#scText');
+    t.classList.remove('hidden');
+    t.placeholder = 'Escreva algo';
+    aplicarCorStory();
+    ajustarAlturaTextoStory();
+    setTimeout(() => t.focus(), 60);
+    atualizarBotaoPublicarStory();
+}
+
+function entrarModoFoto(file) {
+    sc.mode = 'photo';
+    sc.file = file;
+    $('#storyCreator').classList.add('photo-mode');
+    $('#storyCreator').classList.remove('text-mode');
+    $('#scChoose').classList.add('hidden');
+    $('#scStage').style.background = '#000';
+    const img = $('#scImg');
+    img.src = URL.createObjectURL(file);
+    img.classList.remove('hidden');
+    $('#scBottom').classList.remove('hidden');
+    $('#scAddText').classList.remove('hidden');
+    $('#scColorBtn').classList.add('hidden');
+    $('#scSwatches').classList.add('hidden');
+    const t = $('#scText');
+    t.style.color = '#fff';
+    t.placeholder = 'Escreva por cima da foto';
+    t.classList.toggle('hidden', !t.value.trim());
+    atualizarBotaoPublicarStory();
+}
+
+function escolherFotoStory(e) {
+    const file = e.target.files && e.target.files[0];
+    if (file) entrarModoFoto(file);
+}
+$('#scCam').addEventListener('change', escolherFotoStory);
+$('#scGal').addEventListener('change', escolherFotoStory);
+$('#scTextMode').addEventListener('click', entrarModoTexto);
+$('#scClose').addEventListener('click', closeStoryCreator);
+$('#scText').addEventListener('input', () => { ajustarAlturaTextoStory(); atualizarBotaoPublicarStory(); });
+$('#scAddText').addEventListener('click', () => {
+    const t = $('#scText');
+    t.classList.remove('hidden');
+    ajustarAlturaTextoStory();
+    t.focus();
+});
+$('#scColorBtn').addEventListener('click', () => {
+    $('#scSwatches').classList.toggle('hidden');
+});
+$$('.sc-swatch').forEach(b => b.addEventListener('click', e => {
+    sc.bg = e.currentTarget.dataset.color;
+    aplicarCorStory();
+    $('#scSwatches').classList.add('hidden');
+    $('#scText').focus();
+}));
+// Toque no fundo do modo texto leva o foco pro campo
+$('#scStage').addEventListener('click', e => {
+    if (sc.mode === 'text' && e.target.id === 'scStage') $('#scText').focus();
+});
+
+$('#scPublish').addEventListener('click', async () => {
+    if (sc.busy) return;
+    const btn = $('#scPublish');
+    const caption = $('#scText').value.trim();
+    if (sc.mode === 'text' && !caption) return;
+    if (sc.mode === 'photo' && !sc.file) return;
+    sc.busy = true;
+    btn.disabled = true;
+    btn.textContent = sc.file ? 'Enviando...' : 'Publicando...';
+    let imageUrl = null;
+    try {
+        if (sc.mode === 'photo') {
+            imageUrl = await uploadImage('post-images', sc.file);
+            btn.textContent = 'Verificando...';
+            try {
+                const { data: mod } = await sb.functions.invoke('vision-tools', { body: { task: 'moderate', imageUrl } });
+                if (mod && mod.safe === false) {
+                    await removeStoredImage(imageUrl);
+                    toast(mod.reason || 'Essa foto não pode ser publicada.', 'err');
+                    return;
+                }
+            } catch (e) { console.warn('moderação indisponível', e); }
+        }
+
+        const { data: story, error } = await sb.from('stories').insert({
+            user_id: state.session.user.id,
+            caption: caption || null,
+            image_url: imageUrl,
+            background_color: imageUrl ? null : sc.bg,
+        }).select().single();
+        if (error) throw error;
+
+        const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id });
+        const ganhos = Number(stPts || 0);
+        await loadScore();
+        closeStoryCreator();
+        toast(ganhos > 0 ? `+${ganhos} pontos! Story publicado` : 'Story publicado', 'ok');
+        if (state.view === 'feed') await renderFeed();
+        else if (state.view === 'profile') await renderProfile();
+    } catch (err) {
+        console.error(err);
+        toast(msgErro(err), 'err');
+    } finally {
+        sc.busy = false;
+        btn.disabled = false;
+        btn.textContent = 'Publicar';
+    }
+});
 
 // ============================================================
 // STORY VIEWER
@@ -7941,9 +8283,42 @@ document.getElementById('svClose').onclick = closeStoryViewer;
 // ============================================================
 // COMPOSER
 // ============================================================
-$('#postFab').addEventListener('click', () => {
+const KIND_TITLES = { workout:'Treino', meal:'Refeição', water:'Água', sleep:'Sono', post:'Novo post' };
+
+function abrirComposer() {
     $('#composerSheet').classList.add('on');
     document.body.style.overflow = 'hidden';
+}
+function mostrarEscolhaDeTipo() {
+    $('#composerPick').classList.remove('hidden');
+    $('#composerForm').classList.add('hidden');
+}
+function limparComposer() {
+    $('#pCaption').value = '';
+    $('#pPhotoCam').value = '';
+    $('#pPhotoGal').value = '';
+    $('#pPhotoPreview').classList.remove('on');
+    $('#pPhotoClear').classList.add('hidden');
+    $('#lerPrintBtn').classList.add('hidden');
+    state.composerPhoto = null;
+    state.composerDest = 'log';
+}
+
+// + central: primeiro só os ícones, o formulário vem depois
+$('#postFab').addEventListener('click', () => {
+    limparComposer();
+    mostrarEscolhaDeTipo();
+    abrirComposer();
+});
+// + do feed: vai direto pro post livre
+$('#feedPostBtn').addEventListener('click', () => {
+    limparComposer();
+    setComposerKind('post');
+    abrirComposer();
+});
+$('#composerBack').addEventListener('click', () => {
+    limparComposer();
+    mostrarEscolhaDeTipo();
 });
 $('#composerCancel').addEventListener('click', closeComposer);
 $('#composerSheet').addEventListener('click', e => { if (e.target.id === 'composerSheet') closeComposer(); });
@@ -7951,47 +8326,48 @@ $('#composerSheet').addEventListener('click', e => { if (e.target.id === 'compos
 function closeComposer() {
     $('#composerSheet').classList.remove('on');
     document.body.style.overflow = '';
-    $('#pCaption').value = '';
-    $('#pPhotoCam').value = '';
-    $('#pPhotoGal').value = '';
-    $('#pPhotoPreview').classList.remove('on');
-    $('#pPhotoClear').classList.add('hidden');
-    state.composerPhoto = null;
-    state.composerDest = 'log';
+    limparComposer();
+    mostrarEscolhaDeTipo();
     updateDestUI();
 }
 
-$$('.kind-btn').forEach(b => b.addEventListener('click', e => {
-    state.composerKind = e.currentTarget.dataset.kind;
-    $$('.kind-btn').forEach(x => x.classList.toggle('on', x === e.currentTarget));
-    $('#workoutFields').classList.toggle('hidden', state.composerKind !== 'workout');
-    $('#mealFields').classList.toggle('hidden', state.composerKind !== 'meal');
-    $('#waterFields').classList.toggle('hidden', state.composerKind !== 'water');
-    $('#sleepFields').classList.toggle('hidden', state.composerKind !== 'sleep');
-    if (state.composerKind === 'water') refreshWaterProgress();
-    if (state.composerKind === 'sleep') prepararSono();
-    if (state.composerKind === 'story') prepararStory();
-    $('#storyFields').classList.toggle('hidden', state.composerKind !== 'story');
-    if (state.composerKind === 'meal') refreshMealSlots();
-    $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
+$$('.kind-tile').forEach(b => b.addEventListener('click', e => {
+    const kind = e.currentTarget.dataset.kind;
+    if (kind === 'story') { closeComposer(); openStoryCreator(); return; }
+    setComposerKind(kind);
+}));
+
+function setComposerKind(kind) {
+    state.composerKind = kind;
+    $('#composerPick').classList.add('hidden');
+    $('#composerForm').classList.remove('hidden');
+    $('#composerTitle').textContent = KIND_TITLES[kind] || 'Registrar';
+    // Post livre abre direto, sem passo de escolha: não tem pra onde voltar
+    $('#composerBack').classList.toggle('hidden', kind === 'post');
+
+    $('#workoutFields').classList.toggle('hidden', kind !== 'workout');
+    $('#mealFields').classList.toggle('hidden', kind !== 'meal');
+    $('#waterFields').classList.toggle('hidden', kind !== 'water');
+    $('#sleepFields').classList.toggle('hidden', kind !== 'sleep');
+    if (kind === 'water') refreshWaterProgress();
+    if (kind === 'sleep') prepararSono();
+    if (kind === 'meal') refreshMealSlots();
 
     // Refeição é dado pessoal: por padrão só a própria pessoa vê.
-    if (state.composerKind === 'meal') {
-        state.composerPrivacy = 'private';
-    } else {
-        state.composerPrivacy = state.defaultPrivacy || 'public';
-    }
+    state.composerPrivacy = kind === 'meal' ? 'private' : (state.defaultPrivacy || 'public');
     updatePrivacyChip();
 
     const hint = $('#photoHint');
-    if (state.composerKind === 'workout') hint.textContent = '(opcional, +3 pts se anexar)';
-    else if (state.composerKind === 'meal') hint.textContent = '(só com foto a IA analisa e vale 1 ponto)';
-    else if (state.composerKind === 'story') hint.textContent = '(opcional - pode ser só texto)';
+    if (kind === 'workout') hint.textContent = '(opcional, +3 pts se anexar)';
+    else if (kind === 'meal') hint.textContent = '(só com foto a IA analisa e vale 1 ponto)';
+    else if (kind === 'post') hint.textContent = '(obrigatória)';
+    $('#pCaption').placeholder = kind === 'post' ? 'Escreva uma legenda...' : 'Conta pra gente como foi...';
 
-    // Treino com foto sugere o feed; o resto começa como registro
-    state.composerDest = (state.composerKind === 'workout' && state.composerPhoto) ? 'feed' : 'log';
+    state.composerDest = kind === 'post' ? 'feed' : 'log';
     updateDestUI();
-}));
+    const card = document.querySelector('#composerSheet .sheet-card');
+    if (card) card.scrollTop = 0;
+}
 
 // Privacy chip: abre/fecha popover
 $('#privacyChip').addEventListener('click', e => {
@@ -8029,13 +8405,15 @@ function updateDestUI() {
     const kind = state.composerKind;
     const hasPhoto = !!state.composerPhoto;
     const isStory = kind === 'story';
+    const isPost = kind === 'post';
     if (!state.composerDest) state.composerDest = 'log';
-    if (!hasPhoto && state.composerDest === 'feed') state.composerDest = 'log';
+    if (isPost) state.composerDest = 'feed';
+    else if (!hasPhoto && state.composerDest === 'feed') state.composerDest = 'log';
 
     const isWater = kind === 'water';
     const isSleep = kind === 'sleep';
-    sec.classList.toggle('hidden', isStory || isWater || isSleep);
-    $('#destHint').classList.toggle('hidden', isStory || isWater || isSleep);
+    sec.classList.toggle('hidden', isStory || isWater || isSleep || isPost);
+    $('#destHint').classList.toggle('hidden', isStory || isWater || isSleep || isPost);
     const fotoBloco = document.querySelector('#composerSheet .file-drop');
     if (fotoBloco) fotoBloco.classList.toggle('hidden', isWater || isSleep);
     const legenda = document.querySelector('#pCaption');
@@ -8045,7 +8423,7 @@ function updateDestUI() {
     sec.querySelectorAll('.dest-btn').forEach(b => b.classList.toggle('on', b.dataset.dest === state.composerDest));
 
     let hint = '';
-    if (!isStory) {
+    if (!isStory && !isPost) {
         if (state.composerDest === 'feed') hint = 'Vai aparecer no feed e nas fotos do seu perfil.';
         else if (kind === 'meal') hint = 'Fica só pra você no histórico. A IA analisa a foto do mesmo jeito.';
         else hint = 'Fica no seu histórico de treinos, que aparece no seu perfil.';
@@ -8057,7 +8435,8 @@ function updateDestUI() {
 
     const btn = $('#composerSubmit');
     if (btn && !btn.disabled) {
-        btn.textContent = isStory ? 'Publicar Story'
+        btn.textContent = isPost ? 'Publicar'
+            : isStory ? 'Publicar Story'
             : isWater ? 'Registrar água'
             : isSleep ? 'Registrar sono'
             : (state.composerDest === 'feed' ? 'Publicar no feed' : 'Registrar');
@@ -8134,13 +8513,18 @@ $('#composerSubmit').addEventListener('click', async () => {
         const caption = $('#pCaption').value.trim();
         let imageUrl = null;
 
+        if (state.composerKind === 'post' && !state.composerPhoto) {
+            toast('Escolha uma foto pra publicar', 'err');
+            return;
+        }
+
         // upload da foto se houver
         if (state.composerPhoto) {
             btn.textContent = 'Enviando foto...';
             imageUrl = await uploadImage('post-images', state.composerPhoto);
 
             // Foto que vai pro feed passa por uma checagem rápida
-            if (state.composerDest === 'feed' || state.composerKind === 'story') {
+            if (state.composerDest === 'feed' || state.composerKind === 'story' || state.composerKind === 'post') {
                 btn.textContent = 'Verificando a foto...';
                 try {
                     const { data: mod } = await sb.functions.invoke('vision-tools', {
@@ -8155,6 +8539,31 @@ $('#composerSubmit').addEventListener('click', async () => {
                     console.warn('moderação indisponível', e);
                 }
             }
+        }
+
+        // ============ POST LIVRE (vai pro feed, não vale ponto) ============
+        if (state.composerKind === 'post') {
+            const vis = state.composerPrivacy || state.defaultPrivacy || 'public';
+            const { error: postLivreErr } = await sb.from('posts').insert({
+                user_id: state.session.user.id,
+                kind: 'text',
+                caption: caption || null,
+                image_url: imageUrl,
+                visibility: vis,
+                is_public: vis === 'public',
+                in_feed: true,
+            });
+            if (postLivreErr) {
+                const t = String(postLivreErr.message || '');
+                if (t.includes('limite_por_hora')) { toast('Você postou bastante na última hora. Dá um tempinho e volte.', 'err'); return; }
+                if (t.includes('post_repetido')) { toast('Esse mesmo texto já foi postado agora há pouco.', 'err'); return; }
+                throw postLivreErr;
+            }
+            closeComposer();
+            toast('Publicado no feed', 'ok');
+            if (state.view === 'feed') await renderFeed();
+            else if (state.view === 'profile') await renderProfile();
+            return;
         }
 
         // ============ STORY (tabela separada, expira em 24h) ============
