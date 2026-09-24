@@ -1477,6 +1477,77 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 @media (prefers-reduced-motion:reduce){
     .kind-tile .kt-ico, .sc-stage, .sc-swatch{ transition:none; }
 }
+
+/* ================= ONDA 2 ================= */
+
+/* Menu de baixo encolhe ao rolar (estilo Instagram) */
+.bottomnav{ transition:height .22s ease, bottom .22s ease, left .22s ease, right .22s ease, background .22s ease; }
+.bottomnav .nav-btn svg, .bottomnav .nav-fab{ transition:width .22s ease, height .22s ease; }
+html.nav-compacta .bottomnav{ height:50px !important; left:48px !important; right:48px !important; bottom:calc(6px + env(safe-area-inset-bottom)) !important; background:rgba(22,28,25,.45) !important; }
+html.nav-compacta .bottomnav .nav-btn svg{ width:21px; height:21px; }
+html.nav-compacta .bottomnav .nav-fab{ width:36px !important; height:36px !important; border-radius:12px !important; }
+html.nav-compacta[data-theme="light"] .bottomnav{ background:rgba(255,255,255,.55) !important; }
+
+/* Configurações em tela cheia, cabeçalho translúcido */
+html.tela-cheia .topbar, html.tela-cheia .bottomnav{ display:none !important; }
+html.tela-cheia .app{ padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
+html.tela-cheia .view{ padding-top:0; }
+html.tela-cheia .view > .user-topbar{
+    position:sticky; top:0; z-index:30;
+    margin:0 -20px 14px; padding:calc(12px + env(safe-area-inset-top,0px)) 20px 12px;
+    background:rgba(10,12,11,.62); backdrop-filter:blur(18px) saturate(1.4); -webkit-backdrop-filter:blur(18px) saturate(1.4);
+}
+:root[data-theme="light"].tela-cheia .view > .user-topbar{ background:rgba(255,255,255,.7); }
+html.tela-cheia .view > .user-topbar .topbar-back{ width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.07); display:grid; place-items:center; }
+
+/* Conta pública ou privada */
+.conta-opcoes{ display:grid; gap:8px; margin-bottom:22px; }
+.conta-opt{ text-align:left; display:flex; flex-direction:column; gap:3px; padding:13px 14px; border-radius:14px; border:1px solid var(--line); background:transparent; color:var(--ink); }
+.conta-opt b{ font-size:14px; font-weight:600; }
+.conta-opt span{ font-size:12.5px; color:var(--ink-dim); line-height:1.4; }
+.conta-opt.on{ border-color:var(--vital); }
+.conta-opt.on b{ color:var(--vital); }
+
+/* Perfil privado visto de fora */
+.perfil-privado{ display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; padding:38px 20px; margin-top:16px; border-top:1px solid var(--line); color:var(--ink-dim); font-size:13px; }
+.perfil-privado svg{ width:40px; height:40px; padding:9px; border:1.5px solid var(--ink-dim); border-radius:50%; margin-bottom:6px; }
+.perfil-privado b{ color:var(--ink); font-size:15px; }
+
+/* Primeiro post (perfil vazio) */
+.grid-empty-cta{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:34px 20px !important; grid-column:1 / -1; }
+.grid-empty-cta svg{ width:44px; height:44px; color:var(--ink-faint); margin-bottom:4px; }
+.grid-empty-cta b{ color:var(--ink); font-size:15px; }
+.grid-empty-cta span{ max-width:260px; }
+.grid-empty-cta .btn-primary-sm{ margin-top:10px; min-width:160px; }
+
+/* Pedidos pra seguir nas notificações */
+.freq-box{ border:1px solid var(--line); border-radius:var(--radius); padding:6px 12px; margin-bottom:14px; }
+.freq-titulo{ font-size:12.5px; font-weight:600; color:var(--ink-dim); padding:8px 0 4px; }
+.freq-row{ display:flex; align-items:center; gap:10px; padding:9px 0; cursor:pointer; }
+.freq-row + .freq-row{ border-top:1px solid var(--line); }
+.freq-info{ flex:1; min-width:0; }
+.freq-nome{ font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.freq-user{ font-size:12px; color:var(--ink-faint); }
+.freq-acoes{ display:flex; gap:6px; align-items:center; }
+.freq-feito{ font-size:12.5px; color:var(--ink-dim); }
+
+/* Admin: liberar criação de desafio */
+.criador-toggle{ flex-shrink:0; margin-left:8px; font-size:11px; padding:5px 9px; border-radius:14px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); }
+.criador-toggle.on{ border-color:var(--vital); color:var(--vital); }
+
+/* Treino: distância e grupos musculares */
+.lbl-opt{ font-weight:400; color:var(--ink-faint); margin-left:4px; }
+.chip-row{ display:flex; flex-wrap:wrap; gap:7px; }
+.chip{ padding:7px 12px; border-radius:18px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); font-size:12.5px; }
+.chip.on{ border-color:var(--vital); color:var(--vital); background:var(--vital-dim); }
+#wPace:empty{ display:none; }
+
+/* Story: quem viu, embaixo, e a lista por cima do story */
+.sv-activity{ position:absolute; left:50%; bottom:calc(14px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:5; display:flex; flex-direction:column; align-items:center; gap:2px; background:none; border:none; color:#fff; font-size:12.5px; text-shadow:0 1px 6px rgba(0,0,0,.6); }
+.sv-activity svg{ width:20px; height:20px; }
+.sv-activity.hidden{ display:none; }
+.sheet.sheet-over-story{ z-index:95; }
+.story-viewer.paused .story-progress-bar.active .fill{ animation-play-state:paused; }
 </style>
 </head>
 <body>
@@ -1668,6 +1739,24 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
                     </div>
                 </div>
             </div>
+            <div class="field hidden" id="wDistField">
+                <label>Distância (km) <span class="lbl-opt">opcional</span></label>
+                <input type="number" id="wDistance" min="0" max="500" step="0.1" inputmode="decimal" placeholder="ex: 5,2">
+                <p class="field-hint" id="wPace"></p>
+            </div>
+            <div class="field hidden" id="wMuscleField">
+                <label>O que você treinou <span class="lbl-opt">opcional</span></label>
+                <div class="chip-row" id="wMuscles">
+                    <button type="button" class="chip" data-m="Peito">Peito</button>
+                    <button type="button" class="chip" data-m="Costas">Costas</button>
+                    <button type="button" class="chip" data-m="Pernas">Pernas</button>
+                    <button type="button" class="chip" data-m="Ombros">Ombros</button>
+                    <button type="button" class="chip" data-m="Braços">Braços</button>
+                    <button type="button" class="chip" data-m="Abdômen">Abdômen</button>
+                    <button type="button" class="chip" data-m="Glúteos">Glúteos</button>
+                    <button type="button" class="chip" data-m="Corpo todo">Corpo todo</button>
+                </div>
+            </div>
         </div>
 
         <div id="mealFields" class="hidden">
@@ -1809,7 +1898,7 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
         <textarea id="scText" class="sc-text hidden" maxlength="300" rows="1" placeholder="Escreva algo"></textarea>
     </div>
     <div class="sc-bottom hidden" id="scBottom">
-        <div class="sc-swatches hidden" id="scSwatches"><button type="button" class="sc-swatch on" data-color="#35E19B" style="background:#35E19B" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#5FB0FF" style="background:#5FB0FF" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#FF7A4D" style="background:#FF7A4D" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#C08BFF" style="background:#C08BFF" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#FFC24B" style="background:#FFC24B" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#151B18" style="background:#151B18" aria-label="Cor"></button></div>
+        <div class="sc-swatches hidden" id="scSwatches"><button type="button" class="sc-swatch on" data-color="#000000" style="background:#000000" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#35E19B" style="background:#35E19B" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#5FB0FF" style="background:#5FB0FF" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#FF7A4D" style="background:#FF7A4D" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#C08BFF" style="background:#C08BFF" aria-label="Cor"></button><button type="button" class="sc-swatch" data-color="#FFC24B" style="background:#FFC24B" aria-label="Cor"></button></div>
         <div class="sc-tools">
             <button type="button" class="sc-round sc-tool" id="scAddText" aria-label="Escrever"><b class="sc-aa">Aa</b></button>
             <button type="button" class="sc-round sc-tool" id="scColorBtn" aria-label="Trocar cor"><span class="sc-dot" id="scDot"></span></button>
@@ -1836,6 +1925,10 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
             <div id="svNext"></div>
         </div>
     </div>
+    <button type="button" class="sv-activity hidden" id="svActivity">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+        <span><b id="svActivityN">0</b> <span id="svActivityLbl">visualizações</span></span>
+    </button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1954,6 +2047,29 @@ const INTENSITY = {
     'Futebol':1.0,
     'Outro':0.8
 };
+
+// Distância (e ritmo) ou grupos musculares, pro selo do post
+const ATIVIDADES_COM_KM = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação'];
+function formatarPace(min, km) {
+    if (!min || !km) return '';
+    const seg = Math.round((min * 60) / km);
+    return `${Math.floor(seg / 60)}'${String(seg % 60).padStart(2, '0')}"/km`;
+}
+function detalheTreino(p) {
+    let t = '';
+    const km = Number(p.distance_km || 0);
+    if (km > 0) {
+        t += ` · <b>${String(km).replace('.', ',')} km</b>`;
+        if (p.activity_type === 'Corrida' || p.activity_type === 'Caminhada') {
+            const pace = formatarPace(p.duration_min, km);
+            if (pace) t += ` · ${pace}`;
+        }
+    }
+    if (Array.isArray(p.muscle_groups) && p.muscle_groups.length) {
+        t += ` · ${p.muscle_groups.map(escapeHTML).join(', ')}`;
+    }
+    return t;
+}
 
 function workoutPoints(type, duration, hasPhoto) {
     const factor = INTENSITY[type] || 0.8;
@@ -2463,10 +2579,12 @@ async function renderAdmin() {
     }
     c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
 
-    const [{ data: ov, error: ovErr }, { data: users, error: usErr }] = await Promise.all([
+    const [{ data: ov, error: ovErr }, { data: users, error: usErr }, { data: criadores }] = await Promise.all([
         sb.rpc('admin_overview'),
         sb.rpc('admin_user_list'),
+        sb.from('profiles').select('id').eq('can_create_challenges', true),
     ]);
+    const podeCriar = new Set((criadores || []).map(x => x.id));
 
     if (ovErr) { c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro: ${ovErr.message}</p></div>`; return; }
     const o = ov?.[0] || {};
@@ -2481,6 +2599,7 @@ async function renderAdmin() {
                 <div class="admin-user-meta">${u.total_posts} posts · ${u.current_streak} · ativo ${lastActive}</div>
             </div>
             <div class="admin-user-score">${Math.round(u.score)}</div>
+            ${u.id !== state.session.user.id ? `<button class="criador-toggle${podeCriar.has(u.id) ? ' on' : ''}" data-act="toggle-creator" data-uid="${u.id}" data-on="${podeCriar.has(u.id) ? '1' : '0'}">${podeCriar.has(u.id) ? 'Cria desafios' : 'Liberar desafios'}</button>` : ''}
         </div>`;
     }).join('') || '<div class="log-empty">Nenhum usuário ainda.</div>';
 
@@ -3401,7 +3520,7 @@ async function loadMoreFeed() {
     const de = state.feedOffset || 0;
     const { data: posts, error } = await sb.from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
             user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -3478,6 +3597,33 @@ function mostrarConquista(conq, extras) {
 }
 
 // ---- Ler print de treino ----
+// Pra IA: sempre reconverte em JPEG (PNG, WEBP e HEIC davam leitura falha)
+function imagemJpegParaIA(file, maxSide = 1280, quality = 0.88) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            let { width, height } = img;
+            const maior = Math.max(width, height);
+            if (maior > maxSide) { const f = maxSide / maior; width = Math.round(width * f); height = Math.round(height * f); }
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL('image/jpeg', quality).split(',')[1]);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagem ilegível')); };
+        img.src = url;
+    });
+}
+function numeroDaIA(v) {
+    if (v == null) return NaN;
+    const m = String(v).replace(',', '.').match(/\d+(\.\d+)?/);
+    return m ? parseFloat(m[0]) : NaN;
+}
+
 function fileParaBase64(file) {
     return new Promise((resolve, reject) => {
         const r = new FileReader();
@@ -3492,8 +3638,7 @@ async function lerPrintDeTreino() {
     if (!state.composerPhoto) { toast('Escolha a foto do print primeiro', 'err'); return; }
     btn.disabled = true; btn.textContent = 'Lendo o print...';
     try {
-        const menor = await compressImage(state.composerPhoto, 1000, 0.8);
-        const b64 = await fileParaBase64(menor);
+        const b64 = await imagemJpegParaIA(state.composerPhoto);
         const { data, error } = await sb.functions.invoke('vision-tools', {
             body: { task: 'workout', imageBase64: b64, mimeType: 'image/jpeg' },
         });
@@ -3504,8 +3649,9 @@ async function lerPrintDeTreino() {
             sel.value = data.activity_type;
         }
         if (data.duration_min) $('#wDuration').value = data.duration_min;
-        if (data.distance_km && !$('#pCaption').value) {
-            $('#pCaption').value = `${String(data.distance_km).replace('.', ',')} km`;
+        if (data.distance_km) {
+            $('#wDistance').value = data.distance_km;
+            atualizarCamposTreino();
         }
         toast(`Li do print: ${data.activity_type}${data.duration_min ? ', ' + data.duration_min + ' min' : ''}`, 'ok');
     } catch (e) {
@@ -3892,8 +4038,11 @@ function renderSearch() {
 
 // ---- Notificações ----
 async function updateNotifBadge() {
-    const { data } = await sb.rpc('unread_notifications');
-    const n = Number(data || 0);
+    const [{ data }, { data: pend }] = await Promise.all([
+        sb.rpc('unread_notifications'),
+        sb.rpc('pending_follow_requests_count'),
+    ]);
+    const n = Number(data || 0) + Number(pend || 0);
     const dot = $('#notifDot');
     if (!dot) return;
     dot.textContent = n > 9 ? '9+' : String(n);
@@ -3912,10 +4061,33 @@ async function renderNotifications() {
             <div id="notifList"><div class="spinner"></div></div>
         </div>
     `;
-    const { data, error } = await sb.rpc('list_notifications');
+    const [{ data, error }, { data: pedidos }] = await Promise.all([
+        sb.rpc('list_notifications'),
+        sb.rpc('list_follow_requests'),
+    ]);
     const box = $('#notifList');
     if (!box) return;
     if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+    const pedidosHTML = (pedidos && pedidos.length) ? `<div class="freq-box">
+        <div class="freq-titulo">Pedidos pra seguir</div>
+        ${pedidos.map(u => `<div class="freq-row" data-act="view-user" data-uid="${u.id}">
+            ${avatarHTML(u, 'sm')}
+            <div class="freq-info">
+                <div class="freq-nome">${escapeHTML(u.display_name)}</div>
+                <div class="freq-user">@${escapeHTML(u.username)} · ${timeAgo(u.requested_at)}</div>
+            </div>
+            <div class="freq-acoes">
+                <button class="btn-primary-sm" data-act="follow-request" data-uid="${u.id}" data-accept="1">Aprovar</button>
+                <button class="btn-ghost btn-xs" data-act="follow-request" data-uid="${u.id}" data-accept="0">Recusar</button>
+            </div>
+        </div>`).join('')}
+    </div>` : '';
+    if ((!data || data.length === 0) && pedidosHTML) {
+        box.innerHTML = pedidosHTML;
+        await sb.rpc('mark_notifications_read');
+        updateNotifBadge();
+        return;
+    }
     if (!data || data.length === 0) {
         box.innerHTML = `<div class="feed-empty"><span class="emo">🔔</span><h3>Nada por aqui</h3><p>Curtidas, comentários e convites aparecem nesta tela.</p></div>`;
         await sb.rpc('mark_notifications_read');
@@ -3923,7 +4095,7 @@ async function renderNotifications() {
         return;
     }
 
-    box.innerHTML = data.map(n => {
+    box.innerHTML = pedidosHTML + data.map(n => {
         const quem = escapeHTML(n.actor_name || 'Alguém');
         const autor = { id: n.actor_id, display_name: n.actor_name, username: n.actor_username, avatar_url: n.actor_avatar };
         let texto, emo, act = '', extra = '';
@@ -4143,6 +4315,16 @@ function renderSettings() {
                 <div style="width:28px"></div>
             </div>
 
+            <h3 class="edit-section-title">Quem pode ver seu conteúdo</h3>
+            <div class="conta-opcoes">
+                <button class="conta-opt${!state.profile.is_private ? ' on' : ''}" data-act="set-account-privacy" data-private="0">
+                    <b>Pública</b><span>Qualquer pessoa vê o que você postar como público. Quem te segue entra na hora.</span>
+                </button>
+                <button class="conta-opt${state.profile.is_private ? ' on' : ''}" data-act="set-account-privacy" data-private="1">
+                    <b>Privada</b><span>Só seguidores aprovados veem seus posts, mesmo os marcados como públicos. Cada pedido pra seguir passa por você.</span>
+                </button>
+            </div>
+
             <h3 class="edit-section-title">Aparência</h3>
             <div class="theme-options">
                 <button class="theme-opt${cur === 'dark' ? ' on' : ''}" data-act="set-theme" data-theme="dark">
@@ -4328,7 +4510,7 @@ async function openPostSheet(id) {
     const old = document.getElementById('postViewSheet');
     if (old) old.remove();
     const { data: p, error } = await sb.from('posts')
-        .select(`id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
+        .select(`id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
             user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)`)
@@ -4925,7 +5107,7 @@ async function renderFeed() {
     const postsPromise = sb
         .from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
             user:profiles!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -5058,7 +5240,7 @@ function renderPost(p) {
 
     let badge = '', body = '';
     if (p.kind === 'workout') {
-        badge = `<div class="post-badge"><span class="emo">💪</span>${escapeHTML(p.activity_type||'Treino')} · <b>${p.duration_min||0} min</b></div>`;
+        badge = `<div class="post-badge"><span class="emo">💪</span>${escapeHTML(p.activity_type||'Treino')} · <b>${p.duration_min||0} min</b>${detalheTreino(p)}</div>`;
     } else if (p.kind === 'meal') {
         const slotName = {cafe:'Café da manhã',almoco:'Almoço',jantar:'Jantar',lanche:'Lanche'}[p.meal_slot] || 'Refeição';
         const scoreTag = p.meal_score != null
@@ -5428,7 +5610,7 @@ async function renderChallenges() {
                 ${ch.pedidos > 0 ? `<span class="ch-pedidos">${plural(ch.pedidos, 'pedido', 'pedidos')}</span>` : ''}
             </div>
         </div>`;
-    }).join('') || `<div class="feed-empty"><span class="emo">🏆</span><h3>Nenhum desafio ainda</h3><p>${state.profile.is_admin ? 'Crie o primeiro no botão acima.' : 'Fique de olho, logo aparece um por aqui.'}</p></div>`;
+    }).join('') || `<div class="feed-empty"><span class="emo">🏆</span><h3>Nenhum desafio ainda</h3><p>${(state.profile.is_admin || state.profile.can_create_challenges) ? 'Crie o primeiro no botão acima.' : 'Fique de olho, logo aparece um por aqui.'}</p></div>`;
 
     const rankRows = (top || []).map((u, i) => {
         const medal = ['🥇','🥈','🥉'][i] || (i+1)+'º';
@@ -5450,7 +5632,7 @@ async function renderChallenges() {
             </div>
             <div class="ch-title-row">
                 <span class="page-sub">compare seu progresso com um grupo</span>
-                ${state.profile.is_admin ? '<button class="btn-mini" data-act="new-challenge">+ Criar</button>' : ''}
+                ${(state.profile.is_admin || state.profile.can_create_challenges) ? '<button class="btn-mini" data-act="new-challenge">+ Criar</button>' : ''}
             </div>
 
             <div class="ch-list">${cards}</div>
@@ -5929,7 +6111,12 @@ async function renderProfile() {
         </div>`;
     }
 
-    const gridHTML = state.profileGridHTML = (myPosts || []).map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto postada ainda. Seus treinos e refeições sem foto ficam no Histórico.</div>';
+    const gridHTML = state.profileGridHTML = (myPosts || []).map(pp => gridThumb(pp)).join('') || `<div class="grid-empty grid-empty-cta">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 16l-5-5-8 8.5"/></svg>
+        <b>Crie seu primeiro post</b>
+        <span>Uma foto pro feed. Treinos e refeições sem foto ficam no Histórico.</span>
+        <button class="btn-primary-sm" data-act="novo-post">Criar</button>
+    </div>`;
 
     const [{ data: diasSem }, { data: rkProf }] = await Promise.all([
         sb.rpc('count_days_current_week', { uid: state.session.user.id }),
@@ -6616,14 +6803,14 @@ function openWeightLogSheet() {
         if (!photoFile) return;
         b.disabled = true; b.textContent = 'Lendo o visor...';
         try {
-            const menor = await compressImage(photoFile, 1000, 0.85);
-            const b64 = await fileParaBase64(menor);
+            const b64 = await imagemJpegParaIA(photoFile);
             const { data, error } = await sb.functions.invoke('vision-tools', {
                 body: { task: 'scale', imageBase64: b64, mimeType: 'image/jpeg' },
             });
-            if (error || !data || !data.weight_kg) throw (error || new Error('sem leitura'));
+            if (error) { console.warn('vision-tools scale erro', error); throw error; }
+            const lido = numeroDaIA(data && (data.weight_kg ?? data.weight ?? data.peso));
+            if (!(lido >= 20 && lido <= 300)) { console.warn('vision-tools scale resposta', data); throw new Error('sem leitura'); }
 
-            const lido = Number(data.weight_kg);
             const { data: ultimo } = await sb.from('posts')
                 .select('weight_kg').eq('user_id', state.session.user.id).eq('kind', 'weight')
                 .not('weight_kg', 'is', null).order('created_at', { ascending: false }).limit(1);
@@ -6998,6 +7185,13 @@ async function renderUserProfile(uid) {
     const iFollow = !!iFollowRes.data;
     const streak = streakRes.data;
     const posts = postsRes.data || [];
+    let pedi = false;
+    if (!iFollow && p.is_private) {
+        const { data: st } = await sb.rpc('follow_request_status', { target_id: uid });
+        pedi = st === 'pendente';
+    }
+    const trancado = !!p.is_private && !iFollow;
+    const txtSeguir = iFollow ? 'Seguindo' : pedi ? 'Solicitado' : 'Seguir';
 
     const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
 
@@ -7029,20 +7223,24 @@ async function renderUserProfile(uid) {
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
             <div class="ig-profile-actions">
-                <button class="${iFollow?'btn-secondary':'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${iFollow?'1':'0'}">
-                    ${iFollow ? 'Seguindo' : 'Seguir'}
+                <button class="${(iFollow || pedi) ? 'btn-secondary' : 'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${(iFollow || pedi) ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">
+                    ${txtSeguir}
                 </button>
                 <button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>
                 <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções">⋯</button>
             </div>
             ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
-            <div class="ig-tabs">
+            ${trancado ? `<div class="perfil-privado">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
+                <b>Esta conta é privada</b>
+                <span>${pedi ? 'Seu pedido está aguardando aprovação.' : 'Siga pra ver os posts e treinos.'}</span>
+            </div>` : `<div class="ig-tabs">
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}">Treinos</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}">Refeições</button>
                 ${mostraBadges ? `<button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${uid}">Conquistas</button>` : ''}
             </div>
-            <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
+            <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>`}
         </div>
     `;
 }
@@ -7259,7 +7457,11 @@ async function switchView(v, params = {}) {
     // Coach e conversas ficam sob a aba Chat na navegação
     const navView = (v === 'coach' || v === 'chat') ? 'messages' : v;
     const feedPostBtn = document.getElementById('feedPostBtn');
-    if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed');
+    if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
+    // Telas de configuração ocupam a tela toda, sem topo nem menu do app
+    const telaCheia = ['settings', 'privacy', 'rules', 'install'].includes(v);
+    document.documentElement.classList.toggle('tela-cheia', telaCheia);
+    document.documentElement.classList.remove('nav-compacta');
     $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === navView));
     if (v === 'feed') await renderFeed();
     else if (v === 'progress') await renderProgress();
@@ -7285,6 +7487,25 @@ async function switchView(v, params = {}) {
 }
 
 $$('.nav-btn').forEach(b => b.addEventListener('click', e => switchView(e.currentTarget.dataset.view)));
+
+// Igual Instagram: rolando pra baixo o menu encolhe, rolando pra cima volta
+(function navQueEncolhe() {
+    let ultimo = window.scrollY, pendente = false;
+    window.addEventListener('scroll', () => {
+        if (pendente) return;
+        pendente = true;
+        requestAnimationFrame(() => {
+            const y = window.scrollY;
+            const html = document.documentElement;
+            if (!html.classList.contains('chat-mode')) {
+                if (y > 80 && y - ultimo > 6) html.classList.add('nav-compacta');
+                else if (ultimo - y > 6 || y < 40) html.classList.remove('nav-compacta');
+            }
+            ultimo = y;
+            pendente = false;
+        });
+    }, { passive: true });
+})();
 
 // ============================================================
 // FEED INTERACTIONS
@@ -7319,15 +7540,15 @@ document.addEventListener('click', async e => {
         const following = btn.dataset.following === '1';
         btn.disabled = true;
         if (following) {
-            await sb.from('follows').delete().match({ follower_id: state.session.user.id, following_id: uid });
+            await sb.rpc('unfollow_user', { target_id: uid });
             btn.dataset.following = '0';
             btn.textContent = 'Seguir';
             btn.classList.remove('following');
         } else {
-            const { error } = await sb.from('follows').insert({ follower_id: state.session.user.id, following_id: uid });
+            const { data: res, error } = await sb.rpc('follow_user', { target_id: uid });
             if (!error) {
                 btn.dataset.following = '1';
-                btn.textContent = 'Seguindo';
+                btn.textContent = res === 'requested' ? 'Solicitado' : 'Seguindo';
                 btn.classList.add('following');
             }
         }
@@ -7337,17 +7558,15 @@ document.addEventListener('click', async e => {
         const following = btn.dataset.following === '1';
         btn.disabled = true;
         if (following) {
-            await sb.from('follows').delete().match({ follower_id: state.session.user.id, following_id: uid });
-            btn.dataset.following = '0';
-            btn.textContent = 'Seguir';
-            btn.className = 'btn-primary-sm flex-1';
+            const eraPedido = btn.dataset.requested === '1';
+            if (!eraPedido && btn.dataset.private === '1' && !confirm('Deixar de seguir? A conta é privada, pra ver de novo vai precisar pedir.')) { btn.disabled = false; return; }
+            await sb.rpc('unfollow_user', { target_id: uid });
         } else {
-            await sb.from('follows').insert({ follower_id: state.session.user.id, following_id: uid });
-            btn.dataset.following = '1';
-            btn.textContent = 'Seguindo';
-            btn.className = 'btn-secondary flex-1';
+            const { error } = await sb.rpc('follow_user', { target_id: uid });
+            if (error) { toast('Não consegui seguir agora.', 'err'); btn.disabled = false; return; }
         }
         btn.disabled = false;
+        renderUserProfile(uid);
     } else if (act === 'back') {
         switchView('feed');
     } else if (act === 'back-profile') {
@@ -7389,8 +7608,8 @@ document.addEventListener('click', async e => {
         } catch (e) {}
     } else if (act === 'seguir-convite') {
         const uid = btn.dataset.uid;
-        await sb.from('follows').insert({ follower_id: state.session.user.id, following_id: uid });
-        toast('Seguindo!', 'ok');
+        const { data: res } = await sb.rpc('follow_user', { target_id: uid });
+        toast(res === 'requested' ? 'Pedido pra seguir enviado' : 'Seguindo!', 'ok');
         const s = document.getElementById('conviteSheet');
         if (s) { s.remove(); document.body.style.overflow = ''; }
         switchView('feed');
@@ -7599,6 +7818,36 @@ document.addEventListener('click', async e => {
     } else if (act === 'go-rules') {
         hidePostMenu();
         switchView('rules');
+    } else if (act === 'novo-post') {
+        $('#feedPostBtn').click();
+    } else if (act === 'set-account-privacy') {
+        const privado = btn.dataset.private === '1';
+        if (privado === !!state.profile.is_private) return;
+        const { error } = await sb.from('profiles').update({ is_private: privado }).eq('id', state.session.user.id);
+        if (error) { toast('Não consegui mudar agora. Tente de novo.', 'err'); return; }
+        state.profile.is_private = privado;
+        toast(privado ? 'Conta privada. Só seguidores aprovados veem seus posts.' : 'Conta pública. Pedidos pendentes foram aprovados.', 'ok');
+        renderSettings();
+    } else if (act === 'follow-request') {
+        e.stopPropagation();
+        btn.closest('.freq-row').querySelectorAll('button').forEach(b => b.disabled = true);
+        const aceitar = btn.dataset.accept === '1';
+        const { error } = await sb.rpc('respond_follow_request', { requester: btn.dataset.uid, accept: aceitar });
+        if (error) { toast('Não consegui responder agora.', 'err'); btn.closest('.freq-row').querySelectorAll('button').forEach(b => b.disabled = false); return; }
+        const row = btn.closest('.freq-row');
+        row.querySelector('.freq-acoes').innerHTML = `<span class="freq-feito">${aceitar ? 'Aprovado' : 'Recusado'}</span>`;
+        updateNotifBadge();
+    } else if (act === 'toggle-creator') {
+        e.stopPropagation();
+        const libera = btn.dataset.on !== '1';
+        btn.disabled = true;
+        const { error } = await sb.rpc('admin_set_challenge_creator', { target: btn.dataset.uid, allow: libera });
+        btn.disabled = false;
+        if (error) { toast('Não consegui alterar: ' + error.message, 'err'); return; }
+        btn.dataset.on = libera ? '1' : '0';
+        btn.classList.toggle('on', libera);
+        btn.textContent = libera ? 'Cria desafios' : 'Liberar desafios';
+        toast(libera ? 'Liberado pra criar desafios' : 'Permissão removida', 'ok');
     } else if (act === 'go-privacy') {
         hidePostMenu();
         switchView('privacy');
@@ -7972,15 +8221,16 @@ function openComposerAsStory() {
 // ============================================================
 // CRIAR STORY (tela cheia, estilo Instagram)
 // ============================================================
-const sc = { mode: null, file: null, bg: '#35E19B', busy: false };
+const STORY_BG_PADRAO = '#000000';
+const sc = { mode: null, file: null, bg: STORY_BG_PADRAO, busy: false };
 
 function corDeTextoPara(bg) {
-    return (bg || '').toLowerCase() === '#151b18' ? '#F1F4F1' : '#0A0C0B';
+    return ['#000000', '#151b18'].includes((bg || '').toLowerCase()) ? '#F1F4F1' : '#0A0C0B';
 }
 
 function openStoryCreator() {
     sc.mode = null; sc.file = null; sc.busy = false;
-    sc.bg = sc.bg || '#35E19B';
+    sc.bg = STORY_BG_PADRAO;
     $('#scCam').value = ''; $('#scGal').value = '';
     const txt = $('#scText');
     txt.value = ''; txt.classList.add('hidden'); txt.style.height = '';
@@ -8148,7 +8398,8 @@ async function openStoryViewer(groupIdx) {
 }
 
 function closeStoryViewer() {
-    $('#storyViewer').classList.remove('on');
+    $('#storyViewer').classList.remove('on', 'paused');
+    state.storyAtual = null;
     document.body.style.overflow = '';
     clearTimeout(state.storyTimer);
 }
@@ -8178,31 +8429,26 @@ function showCurrentStory() {
     $('#svName').textContent = group.user.display_name || group.user.username;
     $('#svTime').textContent = timeAgo(item.created_at);
 
-    // Quem viu (só no seu story)
+    // Quem viu (só no seu story): barra embaixo, toque ou arraste pra cima
     const isMineStory = group.user.id === state.session.user.id;
-    const viewsBtn = document.getElementById('svViews');
-    viewsBtn.classList.toggle('hidden', !isMineStory);
+    document.getElementById('svViews').classList.add('hidden');
+    const act = document.getElementById('svActivity');
+    act.classList.toggle('hidden', !isMineStory);
+    state.storyAtual = isMineStory ? item.id : null;
     if (isMineStory) {
-        viewsBtn.dataset.act = 'see-story-viewers';
-        viewsBtn.dataset.id = item.id;
-        // Já busca a lista aqui, pra abrir na hora quando tocar
         state.storyViewers = state.storyViewers || {};
         state.storyViewersReq = state.storyViewersReq || {};
         if (!state.storyViewersReq[item.id]) {
             state.storyViewersReq[item.id] = sb.rpc('story_viewers', { sid: item.id })
                 .then(r => { state.storyViewers[item.id] = r.data || []; return r; });
         }
+        document.getElementById('svActivityN').textContent = '';
         state.storyViewersReq[item.id].then(r => {
-            const n = document.getElementById('svViewsN');
-            if (n) n.textContent = (r.data || []).length;
+            if (state.storyAtual !== item.id) return;
+            const n = (r.data || []).length;
+            document.getElementById('svActivityN').textContent = n;
+            document.getElementById('svActivityLbl').textContent = n === 1 ? 'visualização' : 'visualizações';
         });
-        viewsBtn.onclick = (ev) => {
-            ev.stopPropagation();
-            clearTimeout(state.storyTimer);
-            const pronto = state.storyViewers[item.id];
-            openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.',
-                () => pronto ? Promise.resolve({ data: pronto }) : state.storyViewersReq[item.id]);
-        };
     }
 
     // Apagar o próprio story
@@ -8237,8 +8483,9 @@ function showCurrentStory() {
     } else {
         // Story de texto puro
         content.className = 'story-content text-story';
-        content.style.background = item.background_color || '#35E19B';
-        content.innerHTML = `<div class="text-body">${escapeHTML(item.caption || '')}</div>
+        const fundo = item.background_color || STORY_BG_PADRAO;
+        content.style.background = fundo;
+        content.innerHTML = `<div class="text-body" style="color:${corDeTextoPara(fundo)}">${escapeHTML(item.caption || '')}</div>
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     }
 
@@ -8256,8 +8503,83 @@ function showCurrentStory() {
     state.storyTimer = setTimeout(() => advanceStory(1), 6000);
 }
 
+// Pausa o story enquanto a lista de quem viu está aberta
+function pausarStory() {
+    clearTimeout(state.storyTimer);
+    $('#storyViewer').classList.add('paused');
+}
+function retomarStory() {
+    $('#storyViewer').classList.remove('paused');
+    if ($('#storyViewer').classList.contains('on')) showCurrentStory();
+}
+
+function abrirQuemViuStory() {
+    const sid = state.storyAtual;
+    if (!sid) return;
+    pausarStory();
+    const old = document.getElementById('peopleSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'peopleSheet';
+    sheet.className = 'sheet on sheet-over-story';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Quem viu</h3>
+        <p class="sheet-sub">Só você vê essa lista.</p>
+        <div id="peopleBody" class="follow-list"><div class="spinner"></div></div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const fechar = () => { sheet.remove(); retomarStory(); };
+    sheet.onclick = e => { if (e.target === sheet) fechar(); };
+    // arrastar a folha pra baixo também fecha
+    let y0 = null;
+    const card = sheet.querySelector('.sheet-card');
+    card.addEventListener('touchstart', e => { y0 = card.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+    card.addEventListener('touchend', e => {
+        if (y0 != null && e.changedTouches[0].clientY - y0 > 70) fechar();
+        y0 = null;
+    });
+
+    const pronto = state.storyViewers && state.storyViewers[sid];
+    const req = pronto ? Promise.resolve({ data: pronto }) : state.storyViewersReq[sid];
+    req.then(({ data, error }) => {
+        const body = document.getElementById('peopleBody');
+        if (!body) return;
+        if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${escapeHTML(error.message)}</p>`; return; }
+        if (!data || !data.length) { body.innerHTML = '<div class="log-empty">Ninguém viu ainda.</div>'; return; }
+        body.innerHTML = data.map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
+            ${avatarHTML(u, 'sm')}
+            <div style="flex:1;min-width:0">
+                <div class="follow-name">${escapeHTML(u.display_name)}</div>
+                <div class="follow-uname">@${escapeHTML(u.username)}</div>
+            </div>
+            <span class="people-time">${timeAgo(u.viewed_at)}</span>
+        </div>`).join('');
+        // abrir um perfil fecha o story
+        body.querySelectorAll('.follow-row').forEach(r => r.addEventListener('click', () => {
+            sheet.remove();
+            $('#storyViewer').classList.remove('paused');
+            closeStoryViewer();
+        }));
+    });
+}
+
+document.getElementById('svActivity').addEventListener('click', e => { e.stopPropagation(); abrirQuemViuStory(); });
+(function gestoArrastarPraCima() {
+    const v = document.getElementById('storyViewer');
+    let x0 = 0, y0 = 0;
+    v.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    v.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - x0;
+        const dy = e.changedTouches[0].clientY - y0;
+        if (dy < -60 && Math.abs(dy) > Math.abs(dx) * 1.5 && state.storyAtual) abrirQuemViuStory();
+        else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) closeStoryViewer();
+    });
+})();
+
 function advanceStory(dir) {
     clearTimeout(state.storyTimer);
+    if ($('#storyViewer').classList.contains('paused')) return;
     const group = state.storiesData[state.storyIdx];
     if (!group) { closeStoryViewer(); return; }
     if (dir > 0) {
@@ -8283,6 +8605,34 @@ document.getElementById('svClose').onclick = closeStoryViewer;
 // ============================================================
 // COMPOSER
 // ============================================================
+function atualizarCamposTreino() {
+    const tipo = $('#wType').value;
+    const temKm = ATIVIDADES_COM_KM.includes(tipo);
+    $('#wDistField').classList.toggle('hidden', !temKm);
+    $('#wMuscleField').classList.toggle('hidden', tipo !== 'Musculação');
+    const km = parseFloat(String($('#wDistance').value).replace(',', '.'));
+    const min = parseInt($('#wDuration').value);
+    const pace = (tipo === 'Corrida' || tipo === 'Caminhada') ? formatarPace(min, km) : '';
+    const vel = (tipo === 'Ciclismo' && km > 0 && min > 0) ? (km / (min / 60)).toFixed(1).replace('.', ',') + ' km/h de média' : '';
+    $('#wPace').textContent = pace ? 'Ritmo: ' + pace : vel;
+}
+$('#wType').addEventListener('change', atualizarCamposTreino);
+$('#wDistance').addEventListener('input', atualizarCamposTreino);
+$('#wDuration').addEventListener('input', atualizarCamposTreino);
+document.querySelector('.stepper[data-target="wDuration"]').addEventListener('click', () => setTimeout(atualizarCamposTreino, 0));
+$('#wMuscles').addEventListener('click', e => {
+    const c = e.target.closest('.chip');
+    if (!c) return;
+    if (c.dataset.m === 'Corpo todo') {
+        const liga = !c.classList.contains('on');
+        $$('#wMuscles .chip').forEach(x => x.classList.toggle('on', x === c && liga));
+    } else {
+        c.classList.toggle('on');
+        const todo = document.querySelector('#wMuscles .chip[data-m="Corpo todo"]');
+        if (todo) todo.classList.remove('on');
+    }
+});
+
 const KIND_TITLES = { workout:'Treino', meal:'Refeição', water:'Água', sleep:'Sono', post:'Novo post' };
 
 function abrirComposer() {
@@ -8302,6 +8652,8 @@ function limparComposer() {
     $('#lerPrintBtn').classList.add('hidden');
     state.composerPhoto = null;
     state.composerDest = 'log';
+    $('#wDistance').value = '';
+    $$('#wMuscles .chip').forEach(x => x.classList.remove('on'));
 }
 
 // + central: primeiro só os ícones, o formulário vem depois
@@ -8352,6 +8704,7 @@ function setComposerKind(kind) {
     if (kind === 'water') refreshWaterProgress();
     if (kind === 'sleep') prepararSono();
     if (kind === 'meal') refreshMealSlots();
+    if (kind === 'workout') atualizarCamposTreino();
 
     // Refeição é dado pessoal: por padrão só a própria pessoa vê.
     state.composerPrivacy = kind === 'meal' ? 'private' : (state.defaultPrivacy || 'public');
@@ -8686,6 +9039,14 @@ $('#composerSubmit').addEventListener('click', async () => {
         if (state.composerKind === 'workout') {
             post.activity_type = $('#wType').value;
             post.duration_min = parseInt($('#wDuration').value) || 30;
+            if (ATIVIDADES_COM_KM.includes(post.activity_type)) {
+                const km = parseFloat(String($('#wDistance').value).replace(',', '.'));
+                if (km > 0 && km <= 500) post.distance_km = Math.round(km * 100) / 100;
+            }
+            if (post.activity_type === 'Musculação') {
+                const grupos = [...document.querySelectorAll('#wMuscles .chip.on')].map(c => c.dataset.m);
+                if (grupos.length) post.muscle_groups = grupos;
+            }
             ptsToCredit = workoutPoints(post.activity_type, post.duration_min, !!imageUrl);
             ptsReason = 'workout';
         } else if (state.composerKind === 'meal') {
