@@ -1355,6 +1355,25 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 .pw-wrap{ position:relative; }
 .pw-wrap input{ width:100%; padding-right:42px; }
 .pw-toggle{ position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:15px; opacity:.6; cursor:pointer; }
+
+/* ============ ONDA 22 ============ */
+.story-preview{ min-height:130px; border-radius:14px; display:grid; place-items:center; padding:20px; margin-bottom:12px; text-align:center; font-family:var(--ff-display); font-size:17px; font-weight:600; line-height:1.4; }
+.bg-color-picker{ display:flex; gap:10px; justify-content:center; }
+.dest-list{ display:flex; flex-direction:column; gap:4px; }
+.dest-row{ display:flex; align-items:center; gap:11px; padding:11px 2px; border-bottom:1px solid var(--line); cursor:pointer; }
+.dest-row:last-child{ border-bottom:none; }
+.dest-info{ flex:1; min-width:0; }
+.dest-tipo{ font-size:11px; color:var(--ink-faint); letter-spacing:.04em; text-transform:uppercase; }
+.dest-nome{ font-size:14px; font-weight:500; color:var(--ink); margin-top:1px; }
+.dest-valor{ font-family:var(--ff-display); font-size:16px; font-weight:600; color:var(--vital); text-align:right; }
+.dest-valor small{ display:block; font-size:10px; color:var(--ink-faint); font-weight:400; }
+.grupo-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 10px; }
+.grupo-item b{ display:block; font-family:var(--ff-display); font-size:20px; font-weight:600; color:var(--ink); }
+.grupo-item span{ display:block; font-size:11.5px; color:var(--ink-dim); margin-top:2px; }
+.cheer-btn{ background:transparent; border:1px solid var(--line); color:var(--vital); font-size:11px; padding:5px 9px; border-radius:10px; cursor:pointer; flex-shrink:0; margin-right:6px; }
+.cheer-btn:disabled{ color:var(--ink-faint); border-color:var(--line); }
+.ch-reta-final{ background:var(--vital-dim); color:var(--vital); border-radius:12px; padding:11px 14px; font-size:13px; margin-bottom:12px; }
+.ch-aviso-privacidade{ font-size:11.5px; color:var(--ink-faint); line-height:1.5; margin-top:8px; width:100%; }
 </style>
 </head>
 <body>
@@ -1478,12 +1497,12 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
             <button class="topbar-icon" data-act="go-search" aria-label="Buscar pessoas">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             </button>
-            <button class="topbar-icon" data-act="topbar-menu" aria-label="Menu">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-            </button>
             <button class="topbar-icon" data-act="go-notifications" aria-label="Notificações">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
                 <span id="notifDot" class="unread-count hidden"></span>
+            </button>
+            <button class="topbar-icon" data-act="topbar-menu" aria-label="Menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
             <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
                 <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill" id="wpFill" stroke-dasharray="0 56.55"/></svg>
@@ -1601,8 +1620,8 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
         </div>
 
         <div id="storyFields" class="hidden">
-            <div class="field">
-                <label>Cor de fundo (para story de texto)</label>
+            <div class="field" id="storyColorField">
+                <div class="story-preview" id="storyPreview"><span id="storyPreviewTxt">Escreva algo na legenda</span></div>
                 <div class="bg-color-picker" id="bgPicker">
                     <button type="button" class="bg-color-swatch on" data-color="#35E19B" style="background:#35E19B"></button>
                     <button type="button" class="bg-color-swatch" data-color="#5FB0FF" style="background:#5FB0FF"></button>
@@ -3506,6 +3525,30 @@ function ditar(alvoId) {
     toast('Pode falar', 'ok');
 }
 
+// ---- Story já começa com uma cor bonita ----
+function prepararStory() {
+    const campo = $('#storyColorField');
+    if (!campo) return;
+    // Com foto, a cor não importa: some o seletor
+    campo.classList.toggle('hidden', !!state.composerPhoto);
+    if (!state.composerBg) state.composerBg = '#35E19B';
+    atualizarPreviaStory();
+}
+
+function atualizarPreviaStory() {
+    const prev = $('#storyPreview');
+    if (!prev) return;
+    prev.style.background = state.composerBg || '#35E19B';
+    const escuro = (state.composerBg || '') === '#151B18';
+    prev.style.color = escuro ? '#F1F4F1' : '#0A0C0B';
+    const txt = $('#storyPreviewTxt');
+    const legenda = ($('#pCaption') && $('#pCaption').value.trim()) || '';
+    if (txt) {
+        txt.textContent = legenda || 'Escreva algo na legenda';
+        txt.style.opacity = legenda ? '1' : '.55';
+    }
+}
+
 // ---- Sono no composer ----
 let qualidadeSono = 'moderado';
 document.addEventListener('click', e => {
@@ -3771,6 +3814,12 @@ async function renderNotifications() {
         } else if (n.kind === 'follow') {
             emo = '👤'; texto = `<b>${quem}</b> começou a te seguir`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.body === 'incentivo') {
+            emo = '💪'; texto = `<b>${quem}</b> mandou força pra você no desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
+            act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
+        } else if (n.body === 'pediu pra entrar') {
+            emo = '🙋'; texto = `<b>${quem}</b> pediu pra entrar no desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
+            act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         } else {
             emo = '🏆'; texto = `<b>${quem}</b> te adicionou no desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
@@ -5271,8 +5320,13 @@ async function renderChallenges() {
 
     c.innerHTML = `
         <div class="view">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="back-profile">←</button>
+                <div class="topbar-title">Desafios</div>
+                <div style="width:28px"></div>
+            </div>
             <div class="ch-title-row">
-                <div class="page-head"><h1 class="screen-title" style="margin:0">Desafios</h1><span class="page-sub">compare com um grupo</span></div>
+                <span class="page-sub">compare seu progresso com um grupo</span>
                 ${state.profile.is_admin ? '<button class="btn-mini" data-act="new-challenge">+ Criar</button>' : ''}
             </div>
 
@@ -5308,6 +5362,7 @@ async function renderChallengeDetail(cid) {
     if (!ch) { c.innerHTML = '<div class="view"><p style="color:var(--danger)">Desafio não encontrado.</p></div>'; return; }
 
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' });
+    const diasFim = Math.max(0, Math.ceil((new Date(ch.ends_at) - new Date()) / 86400000));
     const souDono = ch.created_by === state.session.user.id || state.profile.is_admin;
     const podeEntrar = !ch.im_member && ch.is_open && ch.status !== 'encerrado';
     const podePedir = !ch.im_member && !ch.is_open && ch.status !== 'encerrado';
@@ -5335,6 +5390,94 @@ async function renderChallengeDetail(cid) {
                         <button class="btn-ghost btn-xs" data-act="recusar-pedido" data-cid="${cid}" data-uid="${u.id}">Recusar</button>
                     </div>`).join('')}
                 </div>
+            </div>`;
+        }
+    }
+
+    // Destaques, médias e resumo só fazem sentido pra quem está dentro
+    let destaquesHTML = '', grupoHTML = '', semanaHTML = '', relatorioHTML = '';
+    if (ch.im_member) {
+        const [{ data: destaques }, { data: grupo }, { data: semana }] = await Promise.all([
+            sb.rpc('challenge_highlights', { cid }),
+            sb.rpc('challenge_group_stats', { cid }),
+            sb.rpc('challenge_week_summary', { cid }),
+        ]);
+
+        const rotulos = {
+            treinos: 'Quem mais treinou',
+            agua: 'Mais hidratado',
+            ofensiva: 'Maior ofensiva',
+        };
+        const comValor = (destaques || []).filter(d => Number(d.valor) > 0);
+        if (comValor.length) {
+            destaquesHTML = `<div class="chart-card">
+                <div class="chart-head"><span class="chart-title">Destaques</span></div>
+                <div class="dest-list">
+                    ${comValor.map(d => `<div class="dest-row" data-act="view-user" data-uid="${d.user_id}">
+                        ${avatarHTML({ id: d.user_id, display_name: d.display_name, avatar_url: d.avatar_url }, 'sm')}
+                        <div class="dest-info">
+                            <div class="dest-tipo">${rotulos[d.tipo] || d.tipo}</div>
+                            <div class="dest-nome">${d.user_id === state.session.user.id ? 'Você' : escapeHTML(d.display_name)}</div>
+                        </div>
+                        <div class="dest-valor">${String(Number(d.valor)).replace('.', ',')}<small>${d.unidade}</small></div>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+
+        const g = (grupo && grupo[0]) || null;
+        if (g) {
+            grupoHTML = `<div class="chart-card">
+                <div class="chart-head"><span class="chart-title">O grupo junto</span>${g.dias_restantes > 0 ? `<span class="chart-legend">${plural(g.dias_restantes, 'dia restante', 'dias restantes')}</span>` : ''}</div>
+                <div class="grupo-grid">
+                    <div class="grupo-item"><b>${g.treinos_total}</b><span>treinos somados</span></div>
+                    <div class="grupo-item"><b>${String(g.agua_media_l).replace('.', ',')} L</b><span>água por dia</span></div>
+                    <div class="grupo-item"><b>${String(g.sono_medio).replace('.', ',')}h</b><span>sono médio</span></div>
+                    <div class="grupo-item"><b>${String(g.pct_medio).replace('.', ',')}%</b><span>evolução média</span></div>
+                </div>
+                <p class="chart-foot" style="text-align:left">Médias do grupo inteiro, sem identificar ninguém.</p>
+            </div>`;
+        }
+
+        const semanaLista = (semana || []).filter(s => Number(s.pontos_semana) > 0 || s.dias_semana > 0);
+        if (semanaLista.length) {
+            semanaHTML = `<div class="chart-card">
+                <div class="chart-head"><span class="chart-title">Esta semana</span></div>
+                <div class="cw-rank-list">
+                    ${semanaLista.slice(0, 6).map((s, i) => {
+                        const eu = s.user_id === state.session.user.id;
+                        return `<div class="cw-rank-item${eu ? ' me' : ''}">
+                            <span class="cw-rank-medal">${i + 1}</span>
+                            ${avatarHTML({ id: s.user_id, display_name: s.display_name, avatar_url: s.avatar_url }, 'sm')}
+                            <div class="cw-rank-info">
+                                <span class="cw-rank-name">${eu ? 'Você' : escapeHTML(s.display_name)}</span>
+                                <span class="cw-rank-sub">${plural(s.dias_semana, 'treino', 'treinos')} na semana</span>
+                            </div>
+                            ${!eu ? `<button class="cheer-btn" data-act="incentivar" data-cid="${cid}" data-uid="${s.user_id}" data-nome="${escapeHTML(s.display_name)}">Força!</button>` : ''}
+                            <span class="cw-rank-pts">${Math.round(s.pontos_semana)}</span>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        }
+    }
+
+    if (souDono) {
+        const { data: rel } = await sb.rpc('challenge_admin_report', { cid });
+        const r = rel && rel[0];
+        if (r) {
+            const horas = Math.floor((r.minutos_total || 0) / 60);
+            relatorioHTML = `<div class="chart-card">
+                <div class="chart-head"><span class="chart-title">Relatório do organizador</span></div>
+                <div class="grupo-grid">
+                    <div class="grupo-item"><b>${r.participantes}</b><span>participantes</span></div>
+                    <div class="grupo-item"><b>${String(r.kg_perdidos_total).replace('.', ',')} kg</b><span>perdidos no total</span></div>
+                    <div class="grupo-item"><b>${String(r.pct_medio).replace('.', ',')}%</b><span>média de evolução</span></div>
+                    <div class="grupo-item"><b>${horas}h</b><span>de treino somadas</span></div>
+                    <div class="grupo-item"><b>${String(r.sono_medio).replace('.', ',')}h</b><span>sono médio</span></div>
+                    <div class="grupo-item"><b>${String(r.agua_media_l).replace('.', ',')} L</b><span>água por dia</span></div>
+                </div>
+                ${r.sem_registro > 0 ? `<p class="chart-foot" style="text-align:left">${plural(r.sem_registro, 'pessoa está', 'pessoas estão')} sem registrar nada há mais de 7 dias.</p>` : ''}
             </div>`;
         }
     }
@@ -5385,6 +5528,8 @@ async function renderChallengeDetail(cid) {
                 <div style="width:28px"></div>
             </div>
 
+            ${ch.status === 'ativo' && diasFim <= 7 ? `<div class="ch-reta-final">Reta final: ${plural(diasFim, 'dia restante', 'dias restantes')} neste desafio.</div>` : ''}
+
             <div class="ch-hero">
                 <span class="ch-status ${ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim'}">
                     ${ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado'}
@@ -5397,6 +5542,7 @@ async function renderChallengeDetail(cid) {
                 </div>
                 <div class="ch-actions">
                     ${podeEntrar ? `<button class="btn-primary-sm" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
+                    ${(podeEntrar || podePedir) ? '<p class="ch-aviso-privacidade">Entrando, o grupo passa a ver seu percentual de evolução, seus dias treinados e seus pontos. Peso, medidas e refeições continuam privados.</p>' : ''}
                     ${podePedir && !meuPedido ? `<button class="btn-primary-sm" data-act="pedir-acesso" data-id="${cid}">Solicitar acesso</button>` : ''}
                     ${meuPedido === 'pendente' ? '<span class="ch-pedido-tag">Pedido enviado, aguardando resposta</span>' : ''}
                     ${meuPedido === 'recusado' ? '<span class="ch-pedido-tag recusado">Pedido não aceito</span>' : ''}
@@ -5413,6 +5559,11 @@ async function renderChallengeDetail(cid) {
                 <div class="cw-rank-list">${rankRows}</div>
                 <p class="chart-foot" style="text-align:left">Conta só o que cada um ganhou de ${dataBR(ch.starts_at)} em diante. Pontos anteriores ao desafio não entram.</p>
             </div>
+
+            ${destaquesHTML}
+            ${grupoHTML}
+            ${semanaHTML}
+            ${relatorioHTML}
 
             <div class="chart-card">
                 <div class="chart-head"><span class="chart-title">Progresso do grupo</span></div>
@@ -5630,16 +5781,16 @@ async function renderProfile() {
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
             <div class="ig-profile-actions">
-                <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
                 <button class="hamburger-btn" data-act="open-profile-menu" aria-label="Menu">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
+                <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
             </div>
             <div class="stat-grid" style="margin-top:14px">
-                <div class="stat-card tappable-card" data-act="explicar" data-tema="pontos"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div><div class="sub">O que é isso? ›</div></div>
-                <div class="stat-card tappable-card" data-act="explicar" data-tema="ofensiva"><div class="num">${streak?.current_streak || 0}</div><div class="lbl">Ofensiva</div><div class="sub">O que é isso? ›</div></div>
-                <div class="stat-card tappable-card" data-act="go-progress"><div class="num">${diasSemana}/${state.profile.weekly_goal || 3}</div><div class="lbl">Treinos na semana</div><div class="sub">Ver evolução ›</div></div>
-                <div class="stat-card tappable-card" data-act="go-community"><div class="num">${rankTxt}</div><div class="lbl">No ranking</div><div class="sub">Ver desafios ›</div></div>
+                <div class="stat-card tappable-card" data-act="explicar" data-tema="pontos"><div class="num">${Math.round(state.score)}</div><div class="lbl">Pontos ativos</div><div class="sub">o que você somou em 90 dias</div></div>
+                <div class="stat-card tappable-card" data-act="explicar" data-tema="ofensiva"><div class="num">${streak?.current_streak || 0}</div><div class="lbl">Ofensiva</div><div class="sub">dias seguidos registrando</div></div>
+                <div class="stat-card tappable-card" data-act="go-progress"><div class="num">${diasSemana}/${state.profile.weekly_goal || 3}</div><div class="lbl">Treinos na semana</div><div class="sub">sua meta semanal ›</div></div>
+                <div class="stat-card tappable-card" data-act="go-community"><div class="num">${rankTxt}</div><div class="lbl">No ranking</div><div class="sub">sua colocação da semana ›</div></div>
             </div>
             ${goalHTML}
             <div class="ig-tabs">
@@ -7070,6 +7221,19 @@ document.addEventListener('click', async e => {
     } else if (act === 'trocar-senha') {
         hidePostMenu();
         abrirTrocaSenha();
+    } else if (act === 'incentivar') {
+        btn.disabled = true;
+        const { error } = await sb.rpc('cheer_member', { cid: btn.dataset.cid, alvo: btn.dataset.uid });
+        if (error) {
+            const t = String(error.message || '');
+            toast(t.includes('ja_incentivou_hoje')
+                ? `Você já mandou força pra ${btn.dataset.nome} hoje.`
+                : msgErro(error), 'err');
+            btn.disabled = false;
+            return;
+        }
+        btn.textContent = 'Enviado';
+        toast(`Força enviada pra ${btn.dataset.nome}`, 'ok');
     } else if (act === 'explicar') {
         explicarConceito(btn.dataset.tema);
     } else if (act === 'cmp-pick') {
@@ -7806,6 +7970,7 @@ $$('.kind-btn').forEach(b => b.addEventListener('click', e => {
     $('#sleepFields').classList.toggle('hidden', state.composerKind !== 'sleep');
     if (state.composerKind === 'water') refreshWaterProgress();
     if (state.composerKind === 'sleep') prepararSono();
+    if (state.composerKind === 'story') prepararStory();
     $('#storyFields').classList.toggle('hidden', state.composerKind !== 'story');
     if (state.composerKind === 'meal') refreshMealSlots();
     $('#privacySection').classList.toggle('hidden', state.composerKind === 'story');
@@ -7926,7 +8091,11 @@ function updatePrivacyChip() {
 $$('.bg-color-swatch').forEach(s => s.addEventListener('click', e => {
     state.composerBg = e.currentTarget.dataset.color;
     $$('.bg-color-swatch').forEach(x => x.classList.toggle('on', x === e.currentTarget));
+    atualizarPreviaStory();
 }));
+$('#pCaption').addEventListener('input', () => {
+    if (state.composerKind === 'story') atualizarPreviaStory();
+});
 
 function handlePhotoPick(e) {
     const file = e.target.files[0];
