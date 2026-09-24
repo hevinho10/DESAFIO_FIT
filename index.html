@@ -1631,6 +1631,24 @@ html.tela-cheia .view > .user-topbar .topbar-back svg{ width:20px; height:20px; 
 .dc-medalha{ width:20px; text-align:center; }
 .dc-podio-nome{ flex:1; }
 .dc-podio-pts{ font-family:var(--ff-display); font-weight:600; color:var(--ink-dim); font-size:13px; }
+
+/* ================= ONDA 5: objetivos e usuário no topo ================= */
+.topbar-user{ position:absolute; left:50%; bottom:14px; transform:translateX(-50%); display:flex; align-items:center; gap:6px; font-family:var(--ff-display); font-weight:700; font-size:18px; letter-spacing:-.01em; max-width:52%; }
+.topbar-user span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tu-cadeado{ width:15px; height:15px; flex-shrink:0; }
+.topbar-title-user{ display:flex; align-items:center; justify-content:center; gap:6px; }
+
+.obj-bloco{ margin-bottom:18px; flex:1; min-width:0; }
+.obj-linha{ display:flex; gap:12px; }
+.obj-rotulo{ font-size:13px; font-weight:600; color:var(--ink); margin-bottom:8px; }
+.obj-input{ width:100%; background:var(--bg-input); border:1px solid var(--line); color:var(--ink); padding:11px 13px; border-radius:12px; font-size:14px; font-family:inherit; resize:vertical; }
+.obj-input:focus{ outline:none; border-color:var(--vital); box-shadow:var(--ring); }
+.obj-dias{ display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; }
+.obj-dia{ aspect-ratio:1; border-radius:12px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); font-family:var(--ff-display); font-weight:600; font-size:15px; }
+.obj-dia.on{ border-color:var(--vital); color:#08110C; background:var(--vital); }
+.obj-grupo{ margin:0; border:1px solid var(--line); border-radius:var(--radius); padding:2px 0; }
+.obj-grupo .cfg-radio{ padding:12px 14px; }
+.obj-salvar{ width:100%; margin-top:6px; position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); }
 </style>
 </head>
 <body>
@@ -1755,6 +1773,7 @@ html.tela-cheia .view > .user-topbar .topbar-back svg{ width:20px; height:20px; 
             </button>
             <div class="topbar-brand">Pulso<span class="accent">.</span></div>
         </div>
+        <div class="topbar-user hidden" id="topbarUser"></div>
         <div class="topbar-right">
             <button class="topbar-icon" data-act="go-search" aria-label="Buscar pessoas">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -2095,6 +2114,7 @@ const ICO = {
     salvo:'<path d="M6 3h12v18l-6-4.5L6 21z"/>',
     agua:'<path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/>',
     coach:'<rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 3v4M9 12h.01M15 12h.01M9.5 15.5h5"/>',
+    alvo:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/>',
 };
 const icon = (nome) => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICO[nome] || ''}</svg>`;
 
@@ -4125,7 +4145,7 @@ function renderSearch() {
                 ${avatarHTML(u, 'sm')}
                 <div style="flex:1;min-width:0">
                     <div class="follow-name">${escapeHTML(u.display_name)}</div>
-                    <div class="follow-uname">@${escapeHTML(u.username)}${u.bio ? ' · ' + escapeHTML(u.bio.slice(0, 40)) : ''}</div>
+                    <div class="follow-uname">@${escapeHTML(u.username)}</div>
                 </div>
             </div>`).join('');
         }, 350);
@@ -5092,6 +5112,13 @@ function formatCoachContext(ctx) {
         L.push(`- ${label}: ${Array.isArray(val) ? val.join(', ') : val}${suffix}`);
     };
 
+    const p = state.profile || {};
+    const obj = OBJETIVOS.find(o => o[0] === p.goal);
+    add('Objetivo principal', obj ? `${obj[1]} (${obj[2]})` : null);
+    add('O que quer alcançar, nas palavras dela', p.goal_details);
+    if (p.goal_deadline) add('Prazo que definiu', new Date(p.goal_deadline + 'T12:00:00').toLocaleDateString('pt-BR'));
+    add('Nível de treino', (NIVEIS.find(n => n[0] === p.training_level) || [])[1]);
+    add('Onde treina', Array.isArray(p.training_place) ? p.training_place : null);
     add('Nome', ctx.nome);
     add('Idade', ctx.idade, ' anos');
     add('Sexo', ctx.sexo === 'M' ? 'masculino' : ctx.sexo === 'F' ? 'feminino' : null);
@@ -6148,9 +6175,9 @@ async function renderMenu() {
 
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Seu corpo</div>
+                ${linhaMenu('m-go', 'alvo', 'Objetivos', p.goal ? (OBJETIVOS.find(o => o[0] === p.goal) || [,''])[1] : 'Definir', ' data-view="objetivos"')}
                 ${linhaMenu('m-peso', 'peso', 'Registrar peso')}
                 ${linhaMenu('m-go', 'saude', 'Ficha de saúde', '', ' data-view="health"')}
-                ${linhaMenu('m-go', 'olho', 'Antes e depois', '', ' data-view="compare"')}
             </div>
 
             <div class="cfg-grupo">
@@ -6186,6 +6213,103 @@ async function renderMenu() {
     if (state.view !== 'menu') return;
     const rolando = (ch || []).filter(x => x.status === 'ativo').length;
     pintar(rolando ? `${rolando} rolando` : '', Number(pend || 0));
+}
+
+// ============================================================
+// OBJETIVOS (alimenta o coach e as análises da IA)
+// ============================================================
+const NIVEIS = [['iniciante', 'Iniciante', 'estou começando ou voltando agora'], ['intermediario', 'Intermediário', 'treino com alguma regularidade'], ['avancado', 'Avançado', 'treino há anos, com constância']];
+const LOCAIS = ['Academia', 'Em casa', 'Ao ar livre', 'Esporte coletivo'];
+
+function renderObjetivos() {
+    const p = state.profile;
+    const locais = Array.isArray(p.training_place) ? p.training_place : [];
+    $('#viewContainer').innerHTML = `
+        <div class="view cfg-view">
+            ${cabecalhoConfig('Objetivos', 'go-menu')}
+            <p class="cfg-sub">Quanto mais claro aqui, mais certeiro o coach fica. Ele usa essas respostas em toda conversa e análise.</p>
+
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Seu objetivo principal</div>
+                <div class="goal-grid">
+                    ${OBJETIVOS.map(([v, nome, desc]) => `<button type="button" class="goal-btn${p.goal === v ? ' on' : ''}" data-obj-goal="${v}">
+                        <span class="goal-nome">${nome}</span><span class="goal-desc">${desc}</span>
+                    </button>`).join('')}
+                </div>
+            </div>
+
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Com suas palavras, onde você quer chegar?</div>
+                <textarea id="objTexto" class="obj-input" maxlength="300" rows="3" placeholder="ex: correr 10 km sem parar até dezembro, ou voltar a caber na calça de antes">${escapeHTML(p.goal_details || '')}</textarea>
+            </div>
+
+            <div class="obj-linha">
+                <div class="obj-bloco">
+                    <div class="obj-rotulo">Até quando <span class="lbl-opt">opcional</span></div>
+                    <input type="date" id="objPrazo" class="obj-input" value="${p.goal_deadline || ''}">
+                </div>
+                <div class="obj-bloco">
+                    <div class="obj-rotulo">Meta de peso <span class="lbl-opt">opcional</span></div>
+                    <input type="number" id="objPeso" class="obj-input" step="0.1" min="30" max="250" inputmode="decimal" placeholder="kg" value="${p.target_weight || ''}">
+                </div>
+            </div>
+
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Treinos por semana</div>
+                <div class="obj-dias">
+                    ${[1, 2, 3, 4, 5, 6, 7].map(n => `<button type="button" class="obj-dia${(p.weekly_goal || 3) === n ? ' on' : ''}" data-obj-dias="${n}">${n}</button>`).join('')}
+                </div>
+            </div>
+
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Seu nível</div>
+                <div class="cfg-grupo obj-grupo">
+                    ${NIVEIS.map(([v, nome, desc]) => `<button type="button" class="cfg-radio${p.training_level === v ? ' on' : ''}" data-obj-nivel="${v}">
+                        <span class="cfg-radio-txt"><b>${nome}</b><small>${desc}</small></span><span class="cfg-radio-dot"></span>
+                    </button>`).join('')}
+                </div>
+            </div>
+
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Onde você treina</div>
+                <div class="chip-row">
+                    ${LOCAIS.map(l => `<button type="button" class="chip${locais.includes(l) ? ' on' : ''}" data-obj-local="${l}">${l}</button>`).join('')}
+                </div>
+            </div>
+
+            <button class="btn-primary obj-salvar" id="objSalvar">Salvar objetivos</button>
+        </div>
+    `;
+
+    const c = $('#viewContainer');
+    c.querySelectorAll('[data-obj-goal]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-goal]').forEach(x => x.classList.toggle('on', x === b)));
+    c.querySelectorAll('[data-obj-dias]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-dias]').forEach(x => x.classList.toggle('on', x === b)));
+    c.querySelectorAll('[data-obj-nivel]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-nivel]').forEach(x => x.classList.toggle('on', x === b)));
+    c.querySelectorAll('[data-obj-local]').forEach(b => b.onclick = () => b.classList.toggle('on'));
+
+    document.getElementById('objSalvar').onclick = async () => {
+        const btn = document.getElementById('objSalvar');
+        const sel = q => { const el = c.querySelector(q + '.on'); return el ? el : null; };
+        const peso = parseFloat(String(document.getElementById('objPeso').value).replace(',', '.'));
+        const dados = {
+            goal: sel('[data-obj-goal]') ? sel('[data-obj-goal]').dataset.objGoal : null,
+            goal_details: document.getElementById('objTexto').value.trim() || null,
+            goal_deadline: document.getElementById('objPrazo').value || null,
+            target_weight: peso >= 30 && peso <= 250 ? peso : null,
+            weekly_goal: sel('[data-obj-dias]') ? Number(sel('[data-obj-dias]').dataset.objDias) : (p.weekly_goal || 3),
+            training_level: sel('[data-obj-nivel]') ? sel('[data-obj-nivel]').dataset.objNivel : null,
+            training_place: [...c.querySelectorAll('[data-obj-local].on')].map(x => x.dataset.objLocal),
+        };
+        btn.disabled = true; btn.textContent = 'Salvando...';
+        const { error } = await sb.from('profiles').update(dados).eq('id', state.session.user.id);
+        btn.disabled = false; btn.textContent = 'Salvar objetivos';
+        if (error) { toast(msgErro(error), 'err'); return; }
+        Object.assign(state.profile, dados);
+        state.coachContext = null;
+        toast('Objetivos salvos. O coach já vai levar isso em conta.', 'ok');
+        refreshWeeklyPill();
+        switchView('menu');
+    };
 }
 
 // ---- Salvos ----
@@ -6566,7 +6690,6 @@ async function renderProfile() {
             </div>
             <div class="ig-profile-info">
                 <div class="ig-name">${escapeHTML(p.display_name)}</div>
-                <div class="ig-uname">@${escapeHTML(p.username)}</div>
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
@@ -7629,7 +7752,7 @@ async function renderUserProfile(uid) {
         <div class="view">
             <div class="user-topbar">
                 <button class="topbar-back" data-act="back">←</button>
-                <div class="topbar-title">@${escapeHTML(p.username)}</div>
+                <div class="topbar-title topbar-title-user">${p.is_private ? '<svg class="tu-cadeado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>' : ''}${escapeHTML(p.username)}</div>
                 <div style="width:28px"></div>
             </div>
             <div class="ig-profile-head">
@@ -7880,11 +8003,18 @@ async function switchView(v, params = {}) {
     state.viewParams = params;
     // Coach e conversas ficam sob a aba Chat na navegação
     const navView = (v === 'coach' || v === 'chat') ? 'messages' : v;
+    const topoUser = document.getElementById('topbarUser');
+    if (topoUser) {
+        const noPerfil = v === 'profile' && state.profile;
+        topoUser.classList.toggle('hidden', !noPerfil);
+        document.querySelector('.topbar-brand').classList.toggle('hidden', !!noPerfil);
+        if (noPerfil) topoUser.innerHTML = `${state.profile.is_private ? '<svg class="tu-cadeado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>' : ''}<span>${escapeHTML(state.profile.username)}</span>`;
+    }
     const feedPostBtn = document.getElementById('feedPostBtn');
     if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
     // Telas de configuração ocupam a tela toda, sem topo nem menu do app
-    const telaCheia = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved'].includes(v) || v.startsWith('set-');
-    if (v === 'menu' && viewAnterior && viewAnterior !== 'menu' && !viewAnterior.startsWith('set-') && !['settings', 'saved', 'privacy', 'rules', 'install'].includes(viewAnterior)) {
+    const telaCheia = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos'].includes(v) || v.startsWith('set-');
+    if (v === 'menu' && viewAnterior && viewAnterior !== 'menu' && !viewAnterior.startsWith('set-') && !['settings', 'saved', 'privacy', 'rules', 'install', 'objetivos'].includes(viewAnterior)) {
         state.menuVoltar = viewAnterior;
     }
     document.documentElement.classList.toggle('tela-cheia', telaCheia);
@@ -7903,6 +8033,7 @@ async function switchView(v, params = {}) {
     else if (v === 'messages') await renderMessages();
     else if (v === 'settings') renderSettings();
     else if (v === 'menu') await renderMenu();
+    else if (v === 'objetivos') renderObjetivos();
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
     else if (v === 'challenge') await renderChallengeDetail(params.id);
