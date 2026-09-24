@@ -1595,6 +1595,42 @@ html.tela-cheia .view > .user-topbar .topbar-back svg{ width:20px; height:20px; 
 
 /* 6 opções no +: grade 3x2 */
 .kind-grid:has(#tileDesafio:not(.hidden)){ grid-template-columns:repeat(3, 1fr); }
+
+/* ================= ONDA 4: menu, salvos, desafios no feed ================= */
+.menu-perfil{ width:100%; display:flex; align-items:center; gap:12px; padding:6px 0 16px; background:none; border:none; color:var(--ink); text-align:left; }
+.menu-perfil .avatar{ width:52px; height:52px; font-size:18px; }
+.menu-perfil-txt{ flex:1; display:flex; flex-direction:column; }
+.menu-perfil-txt b{ font-size:16px; font-weight:600; }
+.menu-perfil-txt small{ font-size:12.5px; color:var(--ink-dim); }
+.menu-atalhos{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:12px; }
+.menu-atalho{ display:flex; flex-direction:column; align-items:center; gap:7px; padding:14px 6px; border-radius:16px; border:1px solid var(--line); background:transparent; color:var(--ink); font-size:12.5px; }
+.menu-atalho .mi{ width:24px; height:24px; color:var(--vital); }
+.menu-atalho:active{ background:rgba(255,255,255,.04); }
+.cfg-aviso{ min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--effort); color:#fff; font-size:11px; font-weight:700; display:grid; place-items:center; font-family:var(--ff-display); }
+
+.post-salvar{ margin-left:auto; }
+.post-salvar.on{ color:var(--ink); }
+
+.dc-card{ position:relative; border:1px solid var(--line); border-radius:var(--radius); padding:14px 14px 12px; margin:0 0 14px; background:radial-gradient(120% 100% at 0% 0%, rgba(53,225,155,.08), transparent 60%), var(--bg-card); cursor:pointer; }
+.dc-x{ position:absolute; top:6px; right:6px; width:30px; height:30px; border-radius:50%; border:none; background:none; color:var(--ink-faint); font-size:20px; line-height:1; }
+.dc-topo{ display:flex; align-items:center; gap:10px; padding-right:24px; }
+.dc-emo{ font-size:22px; }
+.dc-topo b{ display:block; font-size:14.5px; font-weight:600; }
+.dc-topo small{ font-size:12.5px; color:var(--ink-dim); }
+.dc-rodape{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px; }
+.dc-social{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-dim); min-width:0; }
+.dc-avatares{ display:flex; }
+.dc-avatares .avatar{ width:24px; height:24px; font-size:10px; border:2px solid var(--bg-card); }
+.dc-avatares .avatar + .avatar{ margin-left:-8px; }
+.dc-tag{ font-size:12px; color:var(--ink-dim); white-space:nowrap; }
+.dc-rodape .btn-primary-sm{ white-space:nowrap; flex-shrink:0; }
+.ch-card-acao{ margin:10px 0 2px; }
+.dc-podio-lista{ display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+.dc-podio-item{ display:flex; align-items:center; gap:9px; font-size:13.5px; }
+.dc-podio-item.eu .dc-podio-nome{ color:var(--vital); font-weight:600; }
+.dc-medalha{ width:20px; text-align:center; }
+.dc-podio-nome{ flex:1; }
+.dc-podio-pts{ font-family:var(--ff-display); font-weight:600; color:var(--ink-dim); font-size:13px; }
 </style>
 </head>
 <body>
@@ -1999,6 +2035,7 @@ const state = {
     view: 'feed',
     posts: [],
     composerKind: 'workout',
+    salvos: new Set(),
     composerPhoto: null,
     composerPrivacy: 'followers',  // padrão dinâmico ajustado no boot
     composerBg: '#35E19B',
@@ -2055,6 +2092,9 @@ const ICO = {
     mais:'<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8.5v7M8.5 12h7"/>',
     info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/>',
     chave:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/>',
+    salvo:'<path d="M6 3h12v18l-6-4.5L6 21z"/>',
+    agua:'<path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/>',
+    coach:'<rect x="4" y="7" width="16" height="12" rx="4"/><path d="M12 3v4M9 12h.01M15 12h.01M9.5 15.5h5"/>',
 };
 const icon = (nome) => `<svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${ICO[nome] || ''}</svg>`;
 
@@ -4094,11 +4134,12 @@ function renderSearch() {
 
 // ---- Notificações ----
 async function updateNotifBadge() {
-    const [{ data }, { data: pend }] = await Promise.all([
+    const [{ data }, { data: pend }, { data: extra }] = await Promise.all([
         sb.rpc('unread_notifications'),
         sb.rpc('pending_follow_requests_count'),
+        sb.rpc('unread_app_notifications'),
     ]);
-    const n = Number(data || 0) + Number(pend || 0);
+    const n = Number(data || 0) + Number(pend || 0) + Number(extra || 0);
     const dot = $('#notifDot');
     if (!dot) return;
     dot.textContent = n > 9 ? '9+' : String(n);
@@ -4117,10 +4158,13 @@ async function renderNotifications() {
             <div id="notifList"><div class="spinner"></div></div>
         </div>
     `;
-    const [{ data, error }, { data: pedidos }] = await Promise.all([
+    const [{ data: base, error }, { data: pedidos }, { data: extras }] = await Promise.all([
         sb.rpc('list_notifications'),
         sb.rpc('list_follow_requests'),
+        sb.rpc('list_app_notifications'),
     ]);
+    const data = [...(base || []), ...(extras || [])]
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     const box = $('#notifList');
     if (!box) return;
     if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
@@ -4165,6 +4209,12 @@ async function renderNotifications() {
         } else if (n.kind === 'follow') {
             emo = '👤'; texto = `<b>${quem}</b> começou a te seguir`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'follow_aceito') {
+            emo = '✅'; texto = `<b>${quem}</b> aceitou seu pedido pra seguir`;
+            act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'desafio_aceito') {
+            emo = '🏆'; texto = `Seu pedido pra entrar no desafio <b>${escapeHTML(n.challenge_name || '')}</b> foi aceito`;
+            act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         } else if (n.body === 'incentivo') {
             emo = '💪'; texto = `<b>${quem}</b> mandou força pra você no desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
@@ -4185,7 +4235,7 @@ async function renderNotifications() {
         </div>`;
     }).join('');
 
-    await sb.rpc('mark_notifications_read');
+    await Promise.all([sb.rpc('mark_notifications_read'), sb.rpc('mark_app_notifications_read')]);
     updateNotifBadge();
 }
 
@@ -4387,7 +4437,7 @@ function renderSettings() {
     const lembrete = localStorage.getItem('pulso-reminder') === 'on';
     $('#viewContainer').innerHTML = `
         <div class="view cfg-view">
-            ${cabecalhoConfig('Configurações', 'back-profile')}
+            ${cabecalhoConfig('Configurações', 'go-menu')}
 
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Sua conta</div>
@@ -5345,6 +5395,7 @@ async function renderFeed() {
 
     html += `<div id="coachSlot"></div>`;
     html += storiesHTML;
+    html += `<div id="desafioSlot"></div>`;
 
     // Sugestões de seguir (só aparece se você não segue ninguém ainda ou poucas pessoas)
     const { data: suggestions } = await sb.rpc('suggest_users_to_follow', { lim: 6 });
@@ -5391,8 +5442,9 @@ async function renderFeed() {
     html += '</div>';
     c.innerHTML = html;
 
-    // Coach e lembretes aparecem depois, sem travar o feed
+    // Coach, lembretes e desafios aparecem depois, sem travar o feed
     hydrateCoachCard();
+    hydrateDesafiosFeed();
 }
 
 function renderPost(p) {
@@ -5470,6 +5522,9 @@ function renderPost(p) {
                     <span>${cCount}</span>
                 </button>
                 ${isMine && rCount > 0 ? `<button class="post-btn ghost" data-act="see-likers" data-id="${p.id}">👀 Quem curtiu</button>` : ''}
+                <button class="post-btn post-salvar${state.salvos && state.salvos.has(p.id) ? ' on' : ''}" data-act="save-post" data-id="${p.id}" aria-label="Salvar">
+                    <svg viewBox="0 0 24 24" fill="${state.salvos && state.salvos.has(p.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>
+                </button>
             </div>
         </article>
     `;
@@ -5745,8 +5800,8 @@ async function renderChallenges() {
     const c = $('#viewContainer');
     c.innerHTML = '<div class="view"><h1 class="screen-title">Desafios</h1><div class="spinner"></div></div>';
 
-    const [{ data: challenges }, { data: summaryData }, { data: top }, { data: myRk }] = await Promise.all([
-        sb.rpc('list_challenges'),
+    const [{ lista: challenges, amigos: amigosCh, pedidos: pedidosCh }, { data: summaryData }, { data: top }, { data: myRk }] = await Promise.all([
+        dadosDesafios(),
         sb.rpc('community_weekly_summary'),
         sb.rpc('community_weekly_top', { lim: 10 }),
         sb.rpc('my_weekly_rank'),
@@ -5769,6 +5824,10 @@ async function renderChallenges() {
                 <span class="ch-status ${st.cls}">${st.label}</span>
             </div>
             ${ch.description ? `<p class="ch-desc">${escapeHTML(ch.description.slice(0,90))}</p>` : ''}
+            ${!ch.im_member && ch.status !== 'encerrado' ? `<div class="dc-rodape ch-card-acao">
+                <div class="dc-social"><span class="dc-avatares">${avataresAmigos(amigosCh[ch.id])}</span><span>${provaSocial(ch, amigosCh[ch.id])}</span></div>
+                ${botaoEntrarDesafio(ch, pedidosCh[ch.id])}
+            </div>` : ''}
             <div class="ch-meta">
                 <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
                 <span>👥 ${ch.members}</span>
@@ -6053,6 +6112,199 @@ async function renderChallengeDetail(cid) {
             </div>
         </div>
     `;
+}
+
+// ============================================================
+// MENU (tela cheia, mesma cara das configurações)
+// ============================================================
+function linhaMenu(act, ic, texto, valor = '', extra = '', aviso = 0) {
+    return `<button class="cfg-row" data-act="${act}"${extra}>
+        ${icon(ic)}<span class="cfg-txt">${texto}</span>
+        ${aviso > 0 ? `<span class="cfg-aviso">${aviso > 9 ? '9+' : aviso}</span>` : ''}
+        ${valor ? `<span class="cfg-val">${valor}</span>` : ''}
+        <svg class="cfg-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    </button>`;
+}
+
+async function renderMenu() {
+    const p = state.profile;
+    const c = $('#viewContainer');
+    const pintar = (rolando = '', pedidos = 0) => {
+        c.innerHTML = `
+        <div class="view cfg-view">
+            ${cabecalhoConfig('Menu', 'menu-voltar')}
+
+            <button class="menu-perfil" data-act="m-go" data-view="profile">
+                ${avatarHTML(p, 'md')}
+                <span class="menu-perfil-txt"><b>${escapeHTML(p.display_name)}</b><small>Ver perfil</small></span>
+                <svg class="cfg-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+
+            <div class="menu-atalhos">
+                <button class="menu-atalho" data-act="m-peso">${icon('peso')}<span>Peso</span></button>
+                <button class="menu-atalho" data-act="quick-water">${icon('agua')}<span>Água</span></button>
+                <button class="menu-atalho" data-act="m-go" data-view="coach">${icon('coach')}<span>Coach</span></button>
+            </div>
+
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Seu corpo</div>
+                ${linhaMenu('m-peso', 'peso', 'Registrar peso')}
+                ${linhaMenu('m-go', 'saude', 'Ficha de saúde', '', ' data-view="health"')}
+                ${linhaMenu('m-go', 'olho', 'Antes e depois', '', ' data-view="compare"')}
+            </div>
+
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Sua atividade</div>
+                ${linhaMenu('m-go', 'historico', 'Histórico', '', ' data-view="activity-log"')}
+                ${linhaMenu('m-go', 'salvo', 'Salvos', state.salvos.size ? String(state.salvos.size) : '', ' data-view="saved"')}
+            </div>
+
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Comunidade</div>
+                ${linhaMenu('m-go', 'comunidade', 'Desafios', rolando, ' data-view="challenges"')}
+            </div>
+
+            ${p.is_admin ? `<div class="cfg-grupo">
+                <div class="cfg-titulo">Admin</div>
+                ${linhaMenu('m-go', 'admin', 'Painel Admin', '', ' data-view="admin"')}
+            </div>` : ''}
+
+            <div class="cfg-grupo">
+                ${linhaMenu('m-go', 'config', 'Configurações', '', ' data-view="settings"', pedidos)}
+            </div>
+
+            <div class="cfg-grupo cfg-sair">
+                <button class="cfg-row cfg-perigo" data-act="do-logout"><span class="cfg-txt">Sair</span></button>
+            </div>
+        </div>`;
+    };
+    pintar();
+    const [{ data: ch }, { data: pend }] = await Promise.all([
+        sb.rpc('list_challenges'),
+        sb.rpc('pending_follow_requests_count'),
+    ]);
+    if (state.view !== 'menu') return;
+    const rolando = (ch || []).filter(x => x.status === 'ativo').length;
+    pintar(rolando ? `${rolando} rolando` : '', Number(pend || 0));
+}
+
+// ---- Salvos ----
+async function carregarSalvos() {
+    const { data } = await sb.from('saved_posts').select('post_id').eq('user_id', state.session.user.id);
+    state.salvos = new Set((data || []).map(r => r.post_id));
+}
+
+async function renderSalvos() {
+    const c = $('#viewContainer');
+    c.innerHTML = `<div class="view cfg-view">${cabecalhoConfig('Salvos', 'go-menu')}<div id="salvosBody"><div class="spinner"></div></div></div>`;
+    const { data: marc } = await sb.from('saved_posts').select('post_id, created_at')
+        .eq('user_id', state.session.user.id).order('created_at', { ascending: false }).limit(90);
+    const ids = (marc || []).map(r => r.post_id);
+    let posts = [];
+    if (ids.length) {
+        const { data } = await sb.from('posts')
+            .select('id, image_url, kind, caption, created_at, activity_type, duration_min, meal_slot').in('id', ids);
+        const porId = {};
+        (data || []).forEach(x => { porId[x.id] = x; });
+        posts = ids.map(id => porId[id]).filter(Boolean);
+    }
+    const body = document.getElementById('salvosBody');
+    if (!body) return;
+    body.innerHTML = posts.length
+        ? `<div class="ig-grid">${posts.map(gridThumb).join('')}</div>`
+        : `<div class="grid-empty grid-empty-cta">${ICO.salvo ? icon('salvo') : ''}<b>Nada salvo ainda</b><span>Toque no marcador de um post no feed pra guardar e achar aqui depois.</span></div>`;
+}
+
+// ============================================================
+// DESAFIOS NO FEED: vitrine (rolando ou em breve) e pódio
+// ============================================================
+function provaSocial(ch, amigos) {
+    const lista = amigos || [];
+    if (!lista.length) return plural(ch.members, 'participante', 'participantes');
+    const nomes = lista.slice(0, 2).map(a => escapeHTML(String(a.display_name || a.username).split(' ')[0]));
+    const resto = Math.max(0, Number(ch.members || 0) - nomes.length);
+    return nomes.join(', ') + (resto > 0 ? ` e mais ${resto}` : '');
+}
+function avataresAmigos(amigos) {
+    return (amigos || []).slice(0, 3).map(a => avatarHTML(a, 'sm')).join('');
+}
+function botaoEntrarDesafio(ch, pedido) {
+    if (ch.im_member) return '<span class="dc-tag">Você participa</span>';
+    if (ch.status === 'encerrado') return '';
+    if (ch.is_open) return `<button class="btn-primary-sm" data-act="join-challenge" data-id="${ch.id}">Entrar</button>`;
+    if (pedido === 'pendente') return '<span class="dc-tag">Pedido enviado</span>';
+    if (pedido === 'recusado') return '';
+    return `<button class="btn-primary-sm" data-act="pedir-acesso" data-id="${ch.id}">Solicitar entrada</button>`;
+}
+async function dadosDesafios() {
+    const [{ data: todos }, { data: amigosRows }] = await Promise.all([
+        sb.rpc('list_challenges'),
+        sb.rpc('challenge_friends'),
+    ]);
+    const amigos = {};
+    (amigosRows || []).forEach(r => { (amigos[r.challenge_id] = amigos[r.challenge_id] || []).push(r); });
+    const lista = todos || [];
+    const pedidos = {};
+    await Promise.all(lista.filter(ch => !ch.im_member && !ch.is_open && ch.status !== 'encerrado').map(async ch => {
+        const { data } = await sb.rpc('my_challenge_request', { cid: ch.id });
+        pedidos[ch.id] = data || null;
+    }));
+    return { lista, amigos, pedidos };
+}
+
+async function hydrateDesafiosFeed() {
+    const slot = document.getElementById('desafioSlot');
+    if (!slot) return;
+    const oculto = k => { try { return localStorage.getItem(k) === '1'; } catch (_) { return false; } };
+    const { lista, amigos, pedidos } = await dadosDesafios();
+    if (!document.getElementById('desafioSlot')) return;
+    const agora = Date.now();
+    let html = '';
+
+    // Pódio: desafios que você participou e acabaram nos últimos 7 dias
+    const encerrados = lista.filter(ch => ch.im_member && ch.status === 'encerrado'
+        && (agora - new Date(ch.ends_at).getTime()) < 7 * 86400000 && !oculto('pulso-podio-' + ch.id));
+    for (const ch of encerrados.slice(0, 1)) {
+        const { data: rk } = await sb.rpc('challenge_ranking', { cid: ch.id });
+        const r = rk || [];
+        if (!r.length) continue;
+        const minhaPos = r.findIndex(u => u.user_id === state.session.user.id) + 1;
+        const medalhas = ['🥇', '🥈', '🥉'];
+        html += `<div class="dc-card dc-podio" data-act="open-challenge" data-id="${ch.id}">
+            <button class="dc-x" data-act="dispensar-card" data-chave="pulso-podio-${ch.id}" aria-label="Fechar">×</button>
+            <div class="dc-topo"><span class="dc-emo">🏁</span><div><b>${escapeHTML(ch.name)} terminou</b><small>${minhaPos ? `Você ficou em ${minhaPos}º de ${r.length}` : 'Veja como ficou'}</small></div></div>
+            <div class="dc-podio-lista">${r.slice(0, 3).map((u, i) => `<div class="dc-podio-item${u.user_id === state.session.user.id ? ' eu' : ''}">
+                <span class="dc-medalha">${medalhas[i]}</span>${avatarHTML({ id: u.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}
+                <span class="dc-podio-nome">${u.user_id === state.session.user.id ? 'Você' : escapeHTML(String(u.display_name || '').split(' ')[0])}</span>
+                <span class="dc-podio-pts">${Math.round(u.points)}</span>
+            </div>`).join('')}</div>
+        </div>`;
+    }
+
+    // Vitrine: rolando ou em breve, pra quem ainda não participa
+    const abertos = lista.filter(ch => !ch.im_member && (ch.status === 'ativo' || ch.status === 'futuro')
+        && pedidos[ch.id] !== 'recusado' && !oculto('pulso-desafio-' + ch.id));
+    for (const ch of abertos.slice(0, 2)) {
+        const dias = Math.ceil(((ch.status === 'futuro' ? new Date(ch.starts_at) : new Date(ch.ends_at)) - agora) / 86400000);
+        const quando = ch.status === 'futuro'
+            ? (dias <= 1 ? 'Começa amanhã, garanta sua vaga' : `Começa em ${dias} dias, garanta sua vaga`)
+            : (dias <= 1 ? 'Termina hoje' : `Termina em ${dias} dias`);
+        html += `<div class="dc-card" data-act="open-challenge" data-id="${ch.id}">
+            <button class="dc-x" data-act="dispensar-card" data-chave="pulso-desafio-${ch.id}" aria-label="Fechar">×</button>
+            <div class="dc-topo"><span class="dc-emo">🏆</span><div><b>${escapeHTML(ch.name)} ${ch.status === 'futuro' ? 'vem aí' : 'está rolando'}</b><small>${quando}</small></div></div>
+            <div class="dc-rodape">
+                <div class="dc-social"><span class="dc-avatares">${avataresAmigos(amigos[ch.id])}</span><span>${provaSocial(ch, amigos[ch.id])}</span></div>
+                ${botaoEntrarDesafio(ch, pedidos[ch.id])}
+            </div>
+        </div>`;
+    }
+    slot.innerHTML = html;
+}
+
+function atualizarTelaDesafio(cid) {
+    if (state.view === 'feed') hydrateDesafiosFeed();
+    else if (state.view === 'challenges') renderChallenges();
+    else renderChallengeDetail(cid);
 }
 
 // ---- Vitrine do desafio (pra quem ainda não participa) ----
@@ -7617,6 +7869,7 @@ if (window.visualViewport) {
 }
 
 async function switchView(v, params = {}) {
+    const viewAnterior = state.view;
     closeDynamicSheets();
     const noChat = (v === 'chat' || v === 'coach');
     document.documentElement.classList.toggle('chat-mode', noChat);
@@ -7630,7 +7883,10 @@ async function switchView(v, params = {}) {
     const feedPostBtn = document.getElementById('feedPostBtn');
     if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
     // Telas de configuração ocupam a tela toda, sem topo nem menu do app
-    const telaCheia = ['settings', 'privacy', 'rules', 'install'].includes(v) || v.startsWith('set-');
+    const telaCheia = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved'].includes(v) || v.startsWith('set-');
+    if (v === 'menu' && viewAnterior && viewAnterior !== 'menu' && !viewAnterior.startsWith('set-') && !['settings', 'saved', 'privacy', 'rules', 'install'].includes(viewAnterior)) {
+        state.menuVoltar = viewAnterior;
+    }
     document.documentElement.classList.toggle('tela-cheia', telaCheia);
     document.documentElement.classList.remove('nav-compacta');
     $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === navView));
@@ -7646,6 +7902,8 @@ async function switchView(v, params = {}) {
     else if (v === 'admin') await renderAdmin();
     else if (v === 'messages') await renderMessages();
     else if (v === 'settings') renderSettings();
+    else if (v === 'menu') await renderMenu();
+    else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
     else if (v === 'challenge') await renderChallengeDetail(params.id);
     else if (v === 'install') renderInstall();
@@ -7792,7 +8050,32 @@ document.addEventListener('click', async e => {
         if (s) { s.remove(); document.body.style.overflow = ''; }
         switchView('feed');
     } else if (act === 'topbar-menu') {
-        showProfileMenu(btn, !!state.profile.is_admin);
+        switchView('menu');
+    } else if (act === 'go-menu') {
+        switchView('menu');
+    } else if (act === 'menu-voltar') {
+        switchView(state.menuVoltar || 'feed');
+    } else if (act === 'm-go') {
+        switchView(btn.dataset.view);
+    } else if (act === 'm-peso') {
+        openWeightLogSheet();
+    } else if (act === 'save-post') {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const salvar = !state.salvos.has(id);
+        btn.classList.toggle('on', salvar);
+        const { error } = salvar
+            ? await sb.from('saved_posts').insert({ user_id: state.session.user.id, post_id: id })
+            : await sb.from('saved_posts').delete().match({ user_id: state.session.user.id, post_id: id });
+        if (error) { btn.classList.toggle('on', !salvar); toast(msgErro(error), 'err'); return; }
+        if (salvar) state.salvos.add(id); else state.salvos.delete(id);
+        btn.querySelector('svg').setAttribute('fill', salvar ? 'currentColor' : 'none');
+        toast(salvar ? 'Salvo. Fica em Menu › Salvos.' : 'Removido dos salvos', 'ok');
+    } else if (act === 'dispensar-card') {
+        e.stopPropagation();
+        try { localStorage.setItem(btn.dataset.chave, '1'); } catch (_) {}
+        const card = btn.closest('.dc-card');
+        if (card) card.remove();
     } else if (act === 'trocar-senha') {
         hidePostMenu();
         abrirTrocaSenha();
@@ -7848,7 +8131,7 @@ document.addEventListener('click', async e => {
         });
         if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
         toast('Pedido enviado. Quem criou o desafio vai receber o aviso.', 'ok');
-        renderChallengeDetail(btn.dataset.id);
+        atualizarTelaDesafio(btn.dataset.id);
     } else if (act === 'aprovar-pedido') {
         btn.disabled = true;
         const { error } = await sb.rpc('approve_challenge_request', { cid: btn.dataset.cid, alvo: btn.dataset.uid });
@@ -7864,9 +8147,9 @@ document.addEventListener('click', async e => {
     } else if (act === 'join-challenge') {
         btn.disabled = true;
         const { error } = await sb.from('challenge_members').insert({ challenge_id: btn.dataset.id, user_id: state.session.user.id });
-        if (error) { toast('Erro ao entrar: ' + error.message, 'err'); btn.disabled = false; return; }
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
         toast('Você entrou no desafio!', 'ok');
-        renderChallengeDetail(btn.dataset.id);
+        atualizarTelaDesafio(btn.dataset.id);
     } else if (act === 'leave-challenge') {
         if (!confirm('Sair do desafio? Você perde acesso ao progresso do grupo.')) return;
         await sb.from('challenge_members').delete().match({ challenge_id: btn.dataset.id, user_id: state.session.user.id });
@@ -9401,6 +9684,7 @@ async function boot() {
     enviarFilaOffline();
 
     await carregarBlocked();
+    carregarSalvos();
     checkDailyReminder();
 
     // Aceite dos termos (uma vez por pessoa)
