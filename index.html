@@ -278,7 +278,7 @@ select:-webkit-autofill{
 
 .ig-grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:3px; margin-top:3px; }
 .grid-item{ aspect-ratio:1; background:var(--bg-elev); overflow:hidden; cursor:pointer; position:relative; }
-.grid-item img{ width:100%; height:100%; object-fit:cover; }
+.grid-item img{ width:100%; height:100%; object-fit:contain; background:var(--bg-elev); }
 .grid-text-thumb{ width:100%; height:100%; display:grid; place-items:center; padding:8px; background:linear-gradient(135deg, var(--vital-dim), var(--bg-elev)); }
 .grid-text-thumb span{ font-size:11px; color:var(--ink); text-align:center; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; }
 .grid-empty{ grid-column:1/-1; text-align:center; padding:40px 20px; color:var(--ink-dim); font-size:13px; }
@@ -1301,6 +1301,24 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
 .ret-fill{ height:100%; border-radius:3px; }
 .ret-pct{ font-family:var(--ff-display); font-weight:600; min-width:34px; text-align:right; }
 .ret-n{ color:var(--ink-faint); min-width:40px; text-align:right; }
+
+/* ============ ONDA 19 ============ */
+.post-view-back{ position:absolute; top:14px; left:10px; z-index:2; width:34px; height:34px; border-radius:50%; background:rgba(0,0,0,.45); border:none; color:#fff; display:grid; place-items:center; cursor:pointer; }
+.post-view-back svg{ width:18px; height:18px; }
+.post-view-card{ position:relative; }
+.nav-unread-count{ position:absolute; top:6px; right:calc(50% - 20px); min-width:15px; height:15px; padding:0 4px; border-radius:8px; background:var(--effort); color:#fff; font-size:9px; font-weight:700; display:grid; place-items:center; border:2px solid var(--bg); font-family:var(--ff-display); }
+
+/* ============ ONDA 19b ============ */
+.ch-req-list{ display:flex; flex-direction:column; gap:4px; }
+.ch-req-row{ display:flex; align-items:center; gap:10px; padding:10px 2px; border-bottom:1px solid var(--line); }
+.ch-req-row:last-child{ border-bottom:none; }
+.ch-req-info{ flex:1; min-width:0; }
+.ch-req-nome{ font-size:13.5px; font-weight:500; color:var(--ink); }
+.ch-req-user{ font-size:11.5px; color:var(--ink-dim); }
+.btn-xs{ padding:6px 10px !important; font-size:11.5px !important; }
+.ch-pedido-tag{ font-size:12px; color:var(--ink-dim); align-self:center; }
+.ch-pedido-tag.recusado{ color:var(--effort); }
+.ch-pedidos{ color:var(--gold); }
 </style>
 </head>
 <body>
@@ -1448,7 +1466,7 @@ html.chat-mode.kb-open #viewContainer{ padding-bottom:0; }
         <button class="nav-btn on" data-view="feed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg><span>Feed</span></button>
         <button class="nav-btn" data-view="progress"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15l5-5 4 3 7-8M16 5h5v5"/></svg><span>Evolução</span></button>
         <button class="nav-fab" id="postFab" aria-label="Postar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-        <button class="nav-btn" data-view="messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Chat</span><span id="navUnreadDot" class="nav-unread-dot hidden"></span></button>
+        <button class="nav-btn" data-view="messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Chat</span><span id="navUnreadDot" class="nav-unread-count hidden"></span></button>
         <button class="nav-btn" data-view="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Perfil</span></button>
     </nav>
 </div>
@@ -2597,6 +2615,7 @@ async function checkDailyReminder() {
     if (hora >= 21) janela = 'noite';
     else if (hora >= 18) janela = 'tarde';
     else if (hora >= 12) janela = 'meiodia';
+    else if (hora >= 10) janela = 'manha';
     if (!janela) return;
     if (localStorage.getItem('pulso-reminder-' + janela) === hoje) return;
 
@@ -2611,7 +2630,11 @@ async function checkDailyReminder() {
         const w = (agua && agua[0]) || { total_ml: 0, pct: 100 };
         let corpo = null;
 
-        if (janela === 'meiodia') {
+        if (janela === 'manha') {
+            const { data: sono } = await sb.rpc('sleep_summary');
+            const temSono = sono && sono[0] && sono[0].hoje != null;
+            if (!temSono) corpo = 'Quantas horas você dormiu essa noite? Registre agora, leva 5 segundos.';
+        } else if (janela === 'meiodia') {
             if ((w.total_ml || 0) === 0) corpo = 'Nenhuma água registrada até agora. Bora começar o dia hidratado?';
             else if ((w.pct || 0) < 50) corpo = `Você está em ${formatLitros(w.total_ml)}. Que tal mais um copo?`;
         } else if (janela === 'tarde') {
@@ -2619,10 +2642,8 @@ async function checkDailyReminder() {
             else if ((w.pct || 0) < 100) corpo = `Faltam ${formatLitros(Math.max(0, w.goal_ml - w.total_ml))} pra sua meta de água.`;
             else if (!treinos) corpo = 'Água em dia. Ainda dá tempo de registrar um treino.';
         } else {
-            const { data: sono } = await sb.rpc('sleep_summary');
-            const temSono = sono && sono[0] && sono[0].hoje != null;
-            if (!temSono) corpo = 'Quantas horas você dormiu hoje? Leva 5 segundos pra registrar.';
-            else if (!treinos) corpo = 'Fechando o dia: registre o que você fez hoje.';
+            if (!treinos) corpo = 'Fechando o dia: registre o que você fez hoje.';
+            else if ((w.pct || 0) < 100) corpo = 'Faltou água hoje. Amanhã a gente compensa.';
         }
 
         if (!corpo) return;
@@ -3082,7 +3103,7 @@ async function refreshSleepCard() {
         <div class="sleep-row">
             <div class="sleep-now">
                 <span class="sleep-val">${hoje != null ? hoje.toString().replace('.', ',') + 'h' : '--'}</span>
-                <span class="sleep-lbl">esta noite</span>
+                <span class="sleep-lbl">última noite</span>
             </div>
             <button class="btn-mini" data-act="open-sleep">${hoje != null ? 'Editar' : 'Registrar'}</button>
         </div>
@@ -3099,7 +3120,7 @@ function openSleepSheet() {
     sheet.innerHTML = `<div class="sheet-card">
         <div class="sheet-handle"></div>
         <h3 class="sheet-title">Quanto você dormiu?</h3>
-        <p class="sheet-sub">Só você vê. Dá pra ajustar depois quando quiser.</p>
+        <p class="sheet-sub">Registre a noite que já passou. Só você vê, e dá pra ajustar depois.</p>
         <div class="field">
             <label>Horas de sono</label>
             <div class="stepper" data-target="slHours" data-min="0" data-max="16" data-step="0.5" data-default="7.5">
@@ -3109,8 +3130,9 @@ function openSleepSheet() {
             </div>
         </div>
         <div class="field">
-            <label>Dia</label>
+            <label>Noite que terminou em</label>
             <input type="date" id="slDate" value="${new Date().toISOString().split('T')[0]}" max="${new Date().toISOString().split('T')[0]}">
+            <p class="field-hint">Acordou hoje de manhã? Então é a data de hoje. Dá pra registrar dias anteriores também.</p>
         </div>
         <div class="sheet-footer">
             <button class="btn-ghost" id="slCancel">Cancelar</button>
@@ -3668,10 +3690,47 @@ async function openPostSheet(id) {
     const sheet = document.createElement('div');
     sheet.id = 'postViewSheet';
     sheet.className = 'sheet on';
-    sheet.innerHTML = `<div class="sheet-card post-view-card"><div class="sheet-handle"></div>${renderPost(p)}</div>`;
+    sheet.innerHTML = `<div class="sheet-card post-view-card">
+        <div class="sheet-handle"></div>
+        <button class="post-view-back" id="pvBack" aria-label="Voltar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        ${renderPost(p)}
+    </div>`;
     document.body.appendChild(sheet);
     document.body.style.overflow = 'hidden';
-    sheet.onclick = e => { if (e.target === sheet) { sheet.remove(); document.body.style.overflow = ''; } };
+
+    const fechar = () => { sheet.remove(); document.body.style.overflow = ''; };
+    sheet.onclick = e => { if (e.target === sheet) fechar(); };
+    document.getElementById('pvBack').onclick = fechar;
+
+    // Arrastar pra baixo ou pro lado fecha, igual ao gesto do celular
+    const card = sheet.querySelector('.sheet-card');
+    let x0 = 0, y0 = 0, arrastando = false;
+    card.addEventListener('touchstart', ev => {
+        if (card.scrollTop > 4) return;
+        arrastando = true;
+        x0 = ev.touches[0].clientX; y0 = ev.touches[0].clientY;
+    }, { passive: true });
+    card.addEventListener('touchmove', ev => {
+        if (!arrastando) return;
+        const dx = ev.touches[0].clientX - x0;
+        const dy = ev.touches[0].clientY - y0;
+        if (dy > 8 || Math.abs(dx) > 8) {
+            card.style.transform = `translate(${dx * 0.5}px, ${Math.max(0, dy) * 0.6}px)`;
+            card.style.opacity = String(Math.max(0.35, 1 - (Math.abs(dx) + Math.max(0, dy)) / 420));
+        }
+    }, { passive: true });
+    card.addEventListener('touchend', ev => {
+        if (!arrastando) return;
+        arrastando = false;
+        const dx = ev.changedTouches[0].clientX - x0;
+        const dy = ev.changedTouches[0].clientY - y0;
+        if (Math.abs(dx) > 90 || dy > 110) { fechar(); return; }
+        card.style.transition = 'transform .18s ease, opacity .18s ease';
+        card.style.transform = ''; card.style.opacity = '';
+        setTimeout(() => { card.style.transition = ''; }, 200);
+    }, { passive: true });
 }
 
 function showChatMenu(anchor) {
@@ -3781,9 +3840,12 @@ async function renderMessages() {
 }
 
 async function updateUnreadBadge() {
-    const { data } = await sb.rpc('total_unread_messages');
+    const { data } = await sb.rpc('unread_conversations');
+    const n = Number(data || 0);
     const dot = $('#navUnreadDot');
-    if (dot) dot.classList.toggle('hidden', !(data > 0));
+    if (!dot) return;
+    dot.textContent = n > 9 ? '9+' : String(n);
+    dot.classList.toggle('hidden', n === 0);
 }
 
 let chatChannel = null;
@@ -4711,7 +4773,9 @@ async function renderChallenges() {
             <div class="ch-meta">
                 <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
                 <span>👥 ${ch.members}</span>
-                ${ch.im_member ? '<span class="ch-in">✓ Você participa</span>' : ''}
+                ${ch.im_member ? '<span class="ch-in">Você participa</span>' : ''}
+                ${!ch.is_open ? '<span>privado</span>' : ''}
+                ${ch.pedidos > 0 ? `<span class="ch-pedidos">${plural(ch.pedidos, 'pedido', 'pedidos')}</span>` : ''}
             </div>
         </div>`;
     }).join('') || `<div class="feed-empty"><span class="emo">🏆</span><h3>Nenhum desafio ainda</h3><p>${state.profile.is_admin ? 'Crie o primeiro no botão acima.' : 'Fique de olho, logo aparece um por aqui.'}</p></div>`;
@@ -4768,6 +4832,34 @@ async function renderChallengeDetail(cid) {
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' });
     const souDono = ch.created_by === state.session.user.id || state.profile.is_admin;
     const podeEntrar = !ch.im_member && ch.is_open && ch.status !== 'encerrado';
+    const podePedir = !ch.im_member && !ch.is_open && ch.status !== 'encerrado';
+
+    let meuPedido = null;
+    if (podePedir) {
+        const { data: st } = await sb.rpc('my_challenge_request', { cid });
+        meuPedido = st || null;
+    }
+
+    let pedidosHTML = '';
+    if (souDono) {
+        const { data: pedidos } = await sb.rpc('challenge_requests_list', { cid });
+        if (pedidos && pedidos.length) {
+            pedidosHTML = `<div class="chart-card">
+                <div class="chart-head"><span class="chart-title">Pedidos pra entrar</span><span class="chart-legend">${pedidos.length}</span></div>
+                <div class="ch-req-list">
+                    ${pedidos.map(u => `<div class="ch-req-row">
+                        ${avatarHTML(u, 'sm')}
+                        <div class="ch-req-info">
+                            <div class="ch-req-nome">${escapeHTML(u.display_name)}</div>
+                            <div class="ch-req-user">@${escapeHTML(u.username)}</div>
+                        </div>
+                        <button class="btn-mini" data-act="aprovar-pedido" data-cid="${cid}" data-uid="${u.id}">Aceitar</button>
+                        <button class="btn-ghost btn-xs" data-act="recusar-pedido" data-cid="${cid}" data-uid="${u.id}">Recusar</button>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+        }
+    }
 
     const diasPorPessoa = {};
     (saude || []).forEach(m => { diasPorPessoa[m.user_id] = m.dias_treinados; });
@@ -4827,11 +4919,16 @@ async function renderChallengeDetail(cid) {
                 </div>
                 <div class="ch-actions">
                     ${podeEntrar ? `<button class="btn-primary-sm" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
+                    ${podePedir && !meuPedido ? `<button class="btn-primary-sm" data-act="pedir-acesso" data-id="${cid}">Solicitar acesso</button>` : ''}
+                    ${meuPedido === 'pendente' ? '<span class="ch-pedido-tag">Pedido enviado, aguardando resposta</span>' : ''}
+                    ${meuPedido === 'recusado' ? '<span class="ch-pedido-tag recusado">Pedido não aceito</span>' : ''}
                     ${ch.im_member ? `<button class="btn-secondary" data-act="leave-challenge" data-id="${cid}">Sair</button>` : ''}
                     ${souDono ? `<button class="btn-secondary" data-act="invite-challenge" data-id="${cid}">Convidar</button>` : ''}
                     ${souDono ? `<button class="btn-danger" data-act="delete-challenge" data-id="${cid}">Apagar</button>` : ''}
                 </div>
             </div>
+
+            ${pedidosHTML}
 
             <div class="chart-card">
                 <div class="chart-head"><span class="chart-title">Ranking do desafio</span></div>
@@ -4870,8 +4967,8 @@ function openNewChallengeSheet() {
         <div class="field">
             <label>Quem pode entrar</label>
             <select id="ncOpen">
-                <option value="1">Qualquer pessoa do app</option>
-                <option value="0">Só quem eu convidar</option>
+                <option value="1">Público: qualquer pessoa entra na hora</option>
+                <option value="0">Privado: entra por convite ou pedido aprovado</option>
             </select>
         </div>
         <div class="sheet-footer">
@@ -6442,6 +6539,26 @@ document.addEventListener('click', async e => {
         openNewChallengeSheet();
     } else if (act === 'invite-challenge') {
         openInviteSheet(btn.dataset.id);
+    } else if (act === 'pedir-acesso') {
+        btn.disabled = true;
+        const { error } = await sb.from('challenge_requests').insert({
+            challenge_id: btn.dataset.id, user_id: state.session.user.id,
+        });
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        toast('Pedido enviado. Quem criou o desafio vai receber o aviso.', 'ok');
+        renderChallengeDetail(btn.dataset.id);
+    } else if (act === 'aprovar-pedido') {
+        btn.disabled = true;
+        const { error } = await sb.rpc('approve_challenge_request', { cid: btn.dataset.cid, alvo: btn.dataset.uid });
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        toast('Entrou no desafio', 'ok');
+        renderChallengeDetail(btn.dataset.cid);
+    } else if (act === 'recusar-pedido') {
+        btn.disabled = true;
+        const { error } = await sb.rpc('reject_challenge_request', { cid: btn.dataset.cid, alvo: btn.dataset.uid });
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        toast('Pedido recusado', 'ok');
+        renderChallengeDetail(btn.dataset.cid);
     } else if (act === 'join-challenge') {
         btn.disabled = true;
         const { error } = await sb.from('challenge_members').insert({ challenge_id: btn.dataset.id, user_id: state.session.user.id });
