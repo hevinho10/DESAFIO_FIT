@@ -1649,6 +1649,64 @@ html.tela-cheia .view > .user-topbar .topbar-back svg{ width:20px; height:20px; 
 .obj-grupo{ margin:0; border:1px solid var(--line); border-radius:var(--radius); padding:2px 0; }
 .obj-grupo .cfg-radio{ padding:12px 14px; }
 .obj-salvar{ width:100%; margin-top:6px; position:sticky; bottom:calc(12px + env(safe-area-inset-bottom)); }
+
+/* ================= ONDA 6 ================= */
+/* Compartilhar perfil */
+.prof-share{ width:38px; height:38px; padding:0 !important; display:grid; place-items:center; flex-shrink:0; }
+.prof-share svg{ width:18px; height:18px; }
+
+/* Destaques */
+.destaques{ display:flex; gap:16px; overflow-x:auto; padding:14px 4px 6px; scrollbar-width:none; }
+.destaques::-webkit-scrollbar{ display:none; }
+.destaque{ display:flex; flex-direction:column; align-items:center; gap:6px; background:none; border:none; color:var(--ink); flex-shrink:0; width:66px; }
+.destaque-capa{ width:62px; height:62px; border-radius:50%; background-size:cover; background-position:center; border:2px solid var(--bg); box-shadow:0 0 0 1.5px var(--line); }
+.destaque-nome{ font-size:11.5px; max-width:66px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sv-destacar{ display:flex; align-items:center; gap:5px; height:34px; padding:0 12px; margin-right:6px; border-radius:20px; border:none; background:rgba(0,0,0,.35); color:#fff; font-size:12px; }
+.sv-destacar svg{ width:15px; height:15px; }
+.sv-destacar.hidden{ display:none; }
+.dest-escolha .cfg-row{ padding:12px 4px; }
+.dest-novo{ display:flex; gap:8px; margin-top:10px; }
+.dest-novo input{ flex:1; background:var(--bg-input); border:1px solid var(--line); color:var(--ink); padding:10px 12px; border-radius:11px; font-size:14px; font-family:inherit; }
+
+/* Lista rolável de posts do perfil */
+.posts-viewer{ position:fixed; inset:0; z-index:55; background:var(--bg); overflow-y:auto; -webkit-overflow-scrolling:touch; }
+.pv-topo{ position:sticky; top:0; z-index:2; display:flex; align-items:center; justify-content:space-between; padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px; background:rgba(10,12,11,.62); backdrop-filter:blur(18px) saturate(1.4); -webkit-backdrop-filter:blur(18px) saturate(1.4); border-bottom:1px solid var(--line); }
+:root[data-theme="light"] .pv-topo{ background:rgba(255,255,255,.72); }
+.pv-voltar{ width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.07); display:grid; place-items:center; border:none; color:var(--ink); }
+.pv-voltar svg{ width:20px; height:20px; }
+.pv-lista{ max-width:600px; margin:0 auto; padding:12px 16px calc(40px + env(safe-area-inset-bottom)); }
+
+/* Meta com prazo */
+.meta-card{ cursor:pointer; }
+.meta-linha{ display:flex; flex-direction:column; gap:3px; padding:10px 0; }
+.meta-linha + .meta-linha{ border-top:1px solid var(--line); }
+.meta-linha b{ font-size:14.5px; }
+.meta-linha span{ font-size:12.5px; color:var(--ink-dim); line-height:1.45; }
+.meta-linha.atrasado b{ color:var(--gold); }
+.meta-dica{ font-size:12.5px; color:var(--vital); }
+
+/* Antes e depois na Evolução */
+.ad-card{ cursor:pointer; }
+.ad-fotos{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.ad-foto{ display:flex; flex-direction:column; gap:6px; }
+.ad-foto img{ width:100%; aspect-ratio:3 / 4; object-fit:cover; border-radius:12px; background:var(--bg-elev); }
+.ad-foto span{ font-size:12px; color:var(--ink-dim); text-align:center; }
+
+/* Resumo da semana */
+.resumo-grade{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+.resumo-grade > div{ display:flex; flex-direction:column; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.035); }
+.resumo-grade b{ font-family:var(--ff-display); font-size:22px; font-weight:700; }
+.resumo-grade b small{ font-size:13px; color:var(--ink-dim); font-weight:500; }
+.resumo-grade span{ font-size:12px; color:var(--ink-dim); }
+.resumo-grade em{ font-style:normal; font-size:11px; color:var(--ink-faint); margin-top:2px; }
+.resumo-story{ width:100%; margin-top:12px; }
+
+/* Revisão do objetivo */
+.revisao-obj{ display:flex; flex-direction:column; gap:3px; padding:12px 14px; margin:8px 0 10px; border-radius:14px; border:1px solid var(--vital); background:var(--vital-dim); }
+.revisao-obj b{ color:var(--vital); font-size:15px; }
+.revisao-obj span{ font-size:13px; color:var(--ink-dim); }
+
+.ig-profile-actions .btn-secondary{ white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -2019,6 +2077,10 @@ html.tela-cheia .view > .user-topbar .topbar-back svg{ width:20px; height:20px; 
             <div class="time" id="svTime"></div>
         </div>
         <button class="sv-views-btn hidden" id="svViews" aria-label="Quem viu">👁 <b id="svViewsN">0</b></button>
+        <button class="sv-destacar hidden" id="svDestacar" aria-label="Destacar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6-4.5-4.2 6.1-.7z"/></svg>
+            <span>Destacar</span>
+        </button>
         <button class="sv-del-btn hidden" id="svDelete" aria-label="Apagar story">🗑</button>
         <button class="close-btn" id="svClose">×</button>
     </div>
@@ -3217,11 +3279,23 @@ function explicarConceito(tema) {
 
 // ---- Convite por link ----
 async function checarConvite() {
-    const params = new URLSearchParams(location.search);
-    const quem = params.get('seguir');
+    let quem = null, tipo = 'convite';
+    try {
+        quem = localStorage.getItem('pulso-link-user');
+        tipo = localStorage.getItem('pulso-link-tipo') || 'convite';
+        localStorage.removeItem('pulso-link-user');
+        localStorage.removeItem('pulso-link-tipo');
+    } catch (_) {}
+    if (location.search) history.replaceState(null, '', location.pathname);
     if (!quem) return;
-    history.replaceState(null, '', location.pathname);
     if (quem.toLowerCase() === (state.profile.username || '').toLowerCase()) return;
+    // Conta nova que chegou por link: registra quem convidou (vale ponto no 1º treino)
+    sb.rpc('registrar_convite', { convidante: quem }).then(() => {});
+    if (tipo === 'perfil') {
+        const { data: alvo } = await sb.from('profiles').select('id').ilike('username', quem).maybeSingle();
+        if (alvo) switchView('user-profile', { uid: alvo.id });
+        return;
+    }
 
     const { data: perfil } = await sb.from('profiles')
         .select('id, username, display_name, avatar_url, bio')
@@ -3265,7 +3339,7 @@ async function renderCompare() {
         c.innerHTML = `
             <div class="view">
                 <div class="user-topbar">
-                    <button class="topbar-back" data-act="back-profile">←</button>
+                    <button class="topbar-back" data-act="go-progress">←</button>
                     <div class="topbar-title">Antes e depois</div><div style="width:28px"></div>
                 </div>
                 <div class="grid-empty">Você precisa de pelo menos duas fotos registradas pra montar a comparação.</div>
@@ -3314,7 +3388,7 @@ async function renderCompare() {
     c.innerHTML = `
         <div class="view">
             <div class="user-topbar">
-                <button class="topbar-back" data-act="back-profile">←</button>
+                <button class="topbar-back" data-act="go-progress">←</button>
                 <div class="topbar-title">Antes e depois</div><div style="width:28px"></div>
             </div>
 
@@ -3415,12 +3489,11 @@ async function checkDailyReminder() {
     try {
         const iso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
         const uid = state.session.user.id;
-        const [{ data: agua }, { count: treinos }] = await Promise.all([
-            sb.rpc('water_today'),
+        const [w, { count: treinos }] = await Promise.all([
+            aguaDeHoje(),
             sb.from('posts').select('*', { count: 'exact', head: true })
                 .eq('user_id', uid).eq('kind', 'workout').gte('created_at', iso),
         ]);
-        const w = (agua && agua[0]) || { total_ml: 0, pct: 100 };
         let corpo = null;
 
         if (janela === 'manha') {
@@ -3430,11 +3503,28 @@ async function checkDailyReminder() {
         } else if (janela === 'meiodia') {
             if ((w.total_ml || 0) === 0) corpo = 'Nenhuma água registrada até agora. Bora começar o dia hidratado?';
             else if ((w.pct || 0) < 50) corpo = `Você está em ${formatLitros(w.total_ml)}. Que tal mais um copo?`;
+        }
+        // Meta da semana em risco? Isso vem antes dos outros avisos da tarde
+        if (!corpo && janela === 'tarde' && !treinos) {
+            const { data: diasSem } = await sb.rpc('count_days_current_week', { uid });
+            const meta = state.profile.weekly_goal || 3;
+            const feitos = Number(diasSem || 0);
+            const restam = 7 - ((new Date().getDay() + 6) % 7); // dias até domingo, contando hoje
+            const nomeDia = new Date().toLocaleDateString('pt-BR', { weekday: 'long' });
+            if (feitos < meta && meta - feitos >= restam - 1) {
+                const dia = nomeDia.charAt(0).toUpperCase() + nomeDia.slice(1);
+                corpo = meta - feitos >= restam
+                    ? `${dia} e ${feitos} de ${meta} treinos da semana. Dá pra fechar se treinar todo dia até domingo, bora hoje?`
+                    : `${dia} e ${feitos} de ${meta} treinos da semana. Um hoje deixa a meta bem encaminhada.`;
+            }
+        }
+        if (corpo) {
+            // já definido
         } else if (janela === 'tarde') {
             if ((w.total_ml || 0) === 0) corpo = 'Registre quanto de água você bebeu hoje, leva 5 segundos.';
             else if ((w.pct || 0) < 100) corpo = `Faltam ${formatLitros(Math.max(0, w.goal_ml - w.total_ml))} pra sua meta de água.`;
             else if (!treinos) corpo = 'Água em dia. Ainda dá tempo de registrar um treino.';
-        } else {
+        } else if (janela === 'noite') {
             if (!treinos) corpo = 'Fechando o dia: registre o que você fez hoje.';
             else if ((w.pct || 0) < 100) corpo = 'Faltou água hoje. Amanhã a gente compensa.';
         }
@@ -3454,13 +3544,11 @@ async function hydrateLembretes() {
         const iso = hoje.toISOString();
         const uid = state.session.user.id;
 
-        const [{ data: agua }, { count: treinos }] = await Promise.all([
-            sb.rpc('water_today'),
+        const [w, { count: treinos }] = await Promise.all([
+            aguaDeHoje(),
             sb.from('posts').select('*', { count: 'exact', head: true })
                 .eq('user_id', uid).eq('kind', 'workout').gte('created_at', iso),
         ]);
-
-        const w = (agua && agua[0]) || { total_ml: 0, goal_ml: 2000, pct: 0 };
         const faltas = [];
         if ((w.pct || 0) < 100) {
             faltas.push({ emo: '💧', txt: `Beber água: ${formatLitros(w.total_ml)} de ${formatLitros(w.goal_ml)}`, kind: 'water' });
@@ -3999,7 +4087,7 @@ async function refreshSleepCard() {
                 <span class="sleep-lbl">média por noite</span>
             </div>
         </div>
-        ${barras.length >= 2 ? barChart(barras, { goal: 7, height: 110 }) : ''}
+        ${barras.length >= 2 ? barChart(barras, { goal: Number(state.profile.sleep_goal_h) || 7, height: 110 }) : ''}
     `;
 }
 
@@ -4072,8 +4160,7 @@ function formatLitros(ml) {
 async function refreshWaterProgress() {
     const box = $('#waterProgress');
     if (!box) return;
-    const { data } = await sb.rpc('water_today');
-    const w = (data && data[0]) || { total_ml: 0, goal_ml: 2000, pct: 0 };
+    const w = await aguaDeHoje();
     state.waterToday = w;
     const falta = Math.max(0, w.goal_ml - w.total_ml);
     box.innerHTML = `
@@ -4231,6 +4318,9 @@ async function renderNotifications() {
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
         } else if (n.kind === 'follow_aceito') {
             emo = '✅'; texto = `<b>${quem}</b> aceitou seu pedido pra seguir`;
+            act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'convite_premiado') {
+            emo = '🎁'; texto = `<b>${quem}</b> registrou o primeiro treino. Você ganhou 10 pontos pelo convite`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
         } else if (n.kind === 'desafio_aceito') {
             emo = '🏆'; texto = `Seu pedido pra entrar no desafio <b>${escapeHTML(n.challenge_name || '')}</b> foi aceito`;
@@ -5103,6 +5193,97 @@ LIMITES QUE VOCÊ NÃO ULTRAPASSA:
 - Se a pessoa demonstrar sofrimento com comida, com o peso ou com o corpo, acolha e sugira apoio profissional em vez de dar meta ou número.
 - Se o dossiê tiver condição de saúde ou medicação, leve em conta ao sugerir esforço, mas não opine sobre o tratamento.`;
 
+// Água de hoje, respeitando a meta que a pessoa definiu em Objetivos
+async function aguaDeHoje() {
+    const { data } = await sb.rpc('water_today');
+    const w = Object.assign({ total_ml: 0, goal_ml: 2000, pct: 0 }, (data && data[0]) || {});
+    const meta = Number(state.profile && state.profile.water_goal_ml);
+    if (meta >= 500) {
+        w.goal_ml = meta;
+        w.pct = Math.min(100, Math.round(((w.total_ml || 0) / meta) * 100));
+    }
+    return w;
+}
+
+// ============================================================
+// META COM PRAZO: projeção pelo ritmo real
+// ============================================================
+function projecaoMeta(pesos, semanas, p) {
+    const out = { peso: null, treino: null };
+    const DIA = 86400000;
+    const pts = (pesos || []).filter(x => x && x.y > 0).sort((a, b) => a.x - b.x);
+    const meta = Number(p.target_weight || 0);
+    const prazo = p.goal_deadline ? new Date(p.goal_deadline + 'T12:00:00') : null;
+    if (meta > 0 && pts.length) {
+        const atual = pts[pts.length - 1].y;
+        const recentes = pts.filter(x => x.x >= new Date(Date.now() - 35 * DIA));
+        let ritmo = null; // kg por semana (negativo = perdendo)
+        if (recentes.length >= 2) {
+            const a = recentes[0], b = recentes[recentes.length - 1];
+            const sem = (b.x - a.x) / (7 * DIA);
+            if (sem >= 1) ritmo = (b.y - a.y) / sem;
+        }
+        const falta = meta - atual; // negativo = precisa perder
+        const semanasPrazo = prazo ? Math.max(0, (prazo - Date.now()) / (7 * DIA)) : null;
+        let semanasNoRitmo = null;
+        if (ritmo && Math.abs(falta) > 0.2 && Math.sign(ritmo) === Math.sign(falta)) semanasNoRitmo = Math.abs(falta / ritmo);
+        out.peso = {
+            atual, meta, falta, ritmo, prazo, semanasPrazo, semanasNoRitmo,
+            precisa: semanasPrazo && semanasPrazo > 0.5 ? falta / semanasPrazo : null,
+            chegou: Math.abs(falta) <= 0.2,
+        };
+    }
+    const metaTreino = p.weekly_goal || 3;
+    const ult = (semanas || []).slice(-5, -1); // 4 semanas completas antes da atual
+    if (ult.length) {
+        const media = ult.reduce((t, r) => t + (r.days_trained || 0), 0) / ult.length;
+        out.treino = { meta: metaTreino, media: Math.round(media * 10) / 10 };
+    }
+    return out;
+}
+const kgTxt = n => String(Math.abs(Math.round(n * 10) / 10)).replace('.', ',');
+function metaCardHTML(proj) {
+    const pe = proj.peso, tr = proj.treino;
+    if (!pe && !tr) return '';
+    let linhas = '';
+    if (pe) {
+        const titulo = `Meta: ${kgTxt(pe.meta)} kg${pe.prazo ? ' até ' + pe.prazo.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''}`;
+        let sub;
+        if (pe.chegou) sub = 'Você chegou na meta. Hora de definir a próxima em Objetivos.';
+        else {
+            const partes = [];
+            partes.push(`Faltam ${kgTxt(pe.falta)} kg`);
+            if (pe.semanasPrazo != null) partes.push(`${Math.ceil(pe.semanasPrazo)} semanas de prazo`);
+            if (pe.semanasNoRitmo != null) partes.push(`no seu ritmo atual, chega em ${Math.ceil(pe.semanasNoRitmo)}`);
+            else if (pe.ritmo != null) partes.push('no ritmo atual, o peso está indo pro lado contrário');
+            else partes.push('registre o peso toda semana pra calcular seu ritmo');
+            sub = partes.join(' · ');
+        }
+        const precisa = pe.precisa != null && !pe.chegou
+            ? `<div class="meta-dica">Pra chegar no prazo: ~${kgTxt(pe.precisa)} kg por semana${pe.ritmo != null ? ` (hoje: ${kgTxt(pe.ritmo)} kg)` : ''}</div>` : '';
+        const atrasado = pe.semanasPrazo != null && pe.semanasNoRitmo != null && pe.semanasNoRitmo > pe.semanasPrazo;
+        linhas += `<div class="meta-linha${atrasado ? ' atrasado' : ''}"><b>${titulo}</b><span>${sub}</span>${precisa}</div>`;
+    }
+    if (tr) {
+        const ok = tr.media >= tr.meta;
+        linhas += `<div class="meta-linha${ok ? '' : ' atrasado'}"><b>Treinos: meta de ${tr.meta}x por semana</b><span>Nas últimas 4 semanas, você fez ${String(tr.media).replace('.', ',')} em média${ok ? '. Mandando bem.' : '.'}</span></div>`;
+    }
+    return `<div class="chart-card meta-card" data-act="m-go" data-view="objetivos">
+        <div class="chart-head"><span class="chart-title">Sua meta</span><span class="chart-legend">ajustar ›</span></div>
+        ${linhas}
+    </div>`;
+}
+async function calcularProjecaoAtual() {
+    const uid = state.session.user.id;
+    const [{ data: w }, { data: a }] = await Promise.all([
+        sb.rpc('weight_series', { uid, days_back: 60 }),
+        sb.rpc('activity_series', { uid, weeks_back: 6 }),
+    ]);
+    const pesos = (w || []).map(r => ({ x: new Date(r.d + 'T12:00:00'), y: Number(r.kg) }));
+    state.projecao = projecaoMeta(pesos, a || [], state.profile || {});
+    return state.projecao;
+}
+
 function formatCoachContext(ctx) {
     if (!ctx) return 'Sem dados ainda.';
     const L = [];
@@ -5119,6 +5300,17 @@ function formatCoachContext(ctx) {
     if (p.goal_deadline) add('Prazo que definiu', new Date(p.goal_deadline + 'T12:00:00').toLocaleDateString('pt-BR'));
     add('Nível de treino', (NIVEIS.find(n => n[0] === p.training_level) || [])[1]);
     add('Onde treina', Array.isArray(p.training_place) ? p.training_place : null);
+    add('Meta de água por dia', p.water_goal_ml ? formatLitros(p.water_goal_ml) : null);
+    add('Meta de sono por noite', p.sleep_goal_h, ' h');
+    const pj = state.projecao || {};
+    if (pj.peso && !pj.peso.chegou) {
+        add('Faltam pra meta de peso', kgTxt(pj.peso.falta), ' kg');
+        if (pj.peso.semanasPrazo != null) add('Semanas até o prazo', Math.ceil(pj.peso.semanasPrazo));
+        if (pj.peso.ritmo != null) add('Ritmo real nas últimas semanas', (pj.peso.ritmo > 0 ? '+' : '-') + kgTxt(pj.peso.ritmo), ' kg por semana');
+        if (pj.peso.semanasNoRitmo != null) add('Semanas pra chegar na meta nesse ritmo', Math.ceil(pj.peso.semanasNoRitmo));
+        if (pj.peso.precisa != null) add('Ritmo necessário pra cumprir o prazo', kgTxt(pj.peso.precisa), ' kg por semana');
+    }
+    if (pj.treino) add('Média de treinos por semana (últimas 4)', String(pj.treino.media).replace('.', ','));
     add('Nome', ctx.nome);
     add('Idade', ctx.idade, ' anos');
     add('Sexo', ctx.sexo === 'M' ? 'masculino' : ctx.sexo === 'F' ? 'feminino' : null);
@@ -5153,7 +5345,10 @@ function formatCoachContext(ctx) {
 
 async function getCoachContext(force = false) {
     if (state.coachContext && !force) return state.coachContext;
-    const { data, error } = await sb.rpc('ai_context', { uid: state.session.user.id });
+    const [{ data, error }] = await Promise.all([
+        sb.rpc('ai_context', { uid: state.session.user.id }),
+        calcularProjecaoAtual().catch(() => null),
+    ]);
     if (error) { console.error('ai_context', error); return null; }
     state.coachContext = data;
     return data;
@@ -5422,6 +5617,7 @@ async function renderFeed() {
 
     html += `<div id="coachSlot"></div>`;
     html += storiesHTML;
+    html += `<div id="resumoSlot"></div>`;
     html += `<div id="desafioSlot"></div>`;
 
     // Sugestões de seguir (só aparece se você não segue ninguém ainda ou poucas pessoas)
@@ -5471,6 +5667,7 @@ async function renderFeed() {
 
     // Coach, lembretes e desafios aparecem depois, sem travar o feed
     hydrateCoachCard();
+    hydrateResumoSemana();
     hydrateDesafiosFeed();
 }
 
@@ -5689,8 +5886,10 @@ async function renderProgress() {
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
         sb.rpc('count_valid_weeks', { uid }),
     ]);
-    const { data: aguaData } = await sb.rpc('water_today');
-    const aguaHoje = (aguaData && aguaData[0]) || { total_ml: 0, goal_ml: 2000, pct: 0 };
+    const aguaHoje = await aguaDeHoje();
+    const { data: fotosAD } = await sb.from('posts').select('id, image_url, created_at')
+        .eq('user_id', uid).not('image_url', 'is', null).neq('kind', 'text')
+        .order('created_at', { ascending: true }).limit(200);
 
     const goal = goalData?.[0] || {};
     const weeklyGoal = state.profile.weekly_goal || 3;
@@ -5729,6 +5928,26 @@ async function renderProgress() {
 
     // Gráfico de peso
     const weightPoints = (wSeries || []).map(r => ({ x: new Date(r.d + 'T12:00:00'), y: Number(r.kg) }));
+    const projecao = state.projecao = projecaoMeta(weightPoints, aSeries || [], state.profile);
+    let antesDepoisHTML = '';
+    if (fotosAD && fotosAD.length >= 2) {
+        const fa = fotosAD[0], fb = fotosAD[fotosAD.length - 1];
+        const pesoPerto = quando => {
+            let melhor = null, dist = Infinity;
+            weightPoints.forEach(w => { const d = Math.abs(w.x - new Date(quando)); if (d < dist) { dist = d; melhor = w.y; } });
+            return dist < 21 * 86400000 ? melhor : null;
+        };
+        const pa = pesoPerto(fa.created_at), pb = pesoPerto(fb.created_at);
+        const dataCurta = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        antesDepoisHTML = `<div class="chart-card ad-card" data-act="go-compare">
+            <div class="chart-head"><span class="chart-title">Antes e depois</span><span class="chart-legend">comparar ›</span></div>
+            <div class="ad-fotos">
+                <div class="ad-foto"><img src="${fa.image_url}" loading="lazy" alt=""><span>${dataCurta(fa.created_at)}${pa ? ' · ' + kgTxt(pa) + ' kg' : ''}</span></div>
+                <div class="ad-foto"><img src="${fb.image_url}" loading="lazy" alt=""><span>${dataCurta(fb.created_at)}${pb ? ' · ' + kgTxt(pb) + ' kg' : ''}</span></div>
+            </div>
+            ${pa && pb && Math.abs(pb - pa) >= 0.1 ? `<div class="chart-foot">${pb < pa ? '−' : '+'}${kgTxt(pb - pa)} kg entre as duas fotos</div>` : ''}
+        </div>`;
+    }
     const weightChart = lineChart(weightPoints, { id:'w', goal: goal.meta ? Number(goal.meta) : null, unit:'kg', decimals:1 });
 
     // Gráfico de atividade semanal
@@ -5760,6 +5979,7 @@ async function renderProgress() {
             <div class="page-head"><h1 class="screen-title">Evolução</h1><span class="page-sub">progresso ao longo do tempo</span></div>
 
             <div id="lembretesSlot"></div>
+            ${metaCardHTML(projecao)}
             ${weeklyCardHTML}
 
             <div class="stat-grid">
@@ -5797,6 +6017,8 @@ async function renderProgress() {
                 ${weightChart}
                 ${goal.meta ? `<div class="chart-foot">Meta ${Number(goal.meta).toFixed(1)} kg · ${goal.progresso_pct != null ? Math.max(0, Math.min(100, Number(goal.progresso_pct))) : 0}% alcançado</div>` : ''}
             </div>` : ''}
+
+            ${antesDepoisHTML}
 
             <div class="chart-card">
                 <div class="chart-head">
@@ -6261,6 +6483,19 @@ function renderObjetivos() {
                 </div>
             </div>
 
+            <div class="obj-linha">
+                <div class="obj-bloco">
+                    <div class="obj-rotulo">Água por dia</div>
+                    <input type="number" id="objAgua" class="obj-input" step="0.1" min="0.5" max="6" inputmode="decimal" placeholder="automático" value="${p.water_goal_ml ? String(p.water_goal_ml / 1000).replace('.', ',') : ''}">
+                    <p class="field-hint">Em litros. Vazio = calculado pelo seu peso.</p>
+                </div>
+                <div class="obj-bloco">
+                    <div class="obj-rotulo">Sono por noite</div>
+                    <input type="number" id="objSono" class="obj-input" step="0.5" min="4" max="12" inputmode="decimal" placeholder="7" value="${p.sleep_goal_h || ''}">
+                    <p class="field-hint">Em horas.</p>
+                </div>
+            </div>
+
             <div class="obj-bloco">
                 <div class="obj-rotulo">Seu nível</div>
                 <div class="cfg-grupo obj-grupo">
@@ -6291,6 +6526,8 @@ function renderObjetivos() {
         const btn = document.getElementById('objSalvar');
         const sel = q => { const el = c.querySelector(q + '.on'); return el ? el : null; };
         const peso = parseFloat(String(document.getElementById('objPeso').value).replace(',', '.'));
+        const litros = parseFloat(String(document.getElementById('objAgua').value).replace(',', '.'));
+        const sono = parseFloat(String(document.getElementById('objSono').value).replace(',', '.'));
         const dados = {
             goal: sel('[data-obj-goal]') ? sel('[data-obj-goal]').dataset.objGoal : null,
             goal_details: document.getElementById('objTexto').value.trim() || null,
@@ -6299,6 +6536,9 @@ function renderObjetivos() {
             weekly_goal: sel('[data-obj-dias]') ? Number(sel('[data-obj-dias]').dataset.objDias) : (p.weekly_goal || 3),
             training_level: sel('[data-obj-nivel]') ? sel('[data-obj-nivel]').dataset.objNivel : null,
             training_place: [...c.querySelectorAll('[data-obj-local].on')].map(x => x.dataset.objLocal),
+            water_goal_ml: litros >= 0.5 && litros <= 6 ? Math.round(litros * 1000) : null,
+            sleep_goal_h: sono >= 4 && sono <= 12 ? sono : null,
+            goal_reviewed_at: new Date().toISOString(),
         };
         btn.disabled = true; btn.textContent = 'Salvando...';
         const { error } = await sb.from('profiles').update(dados).eq('id', state.session.user.id);
@@ -6310,6 +6550,174 @@ function renderObjetivos() {
         refreshWeeklyPill();
         switchView('menu');
     };
+}
+
+// ---- Lista rolável de posts (ao tocar numa foto do perfil) ----
+async function abrirListaDePosts(ids, inicio) {
+    const old = document.getElementById('postsViewer');
+    if (old) old.remove();
+    const v = document.createElement('div');
+    v.id = 'postsViewer';
+    v.className = 'posts-viewer';
+    v.innerHTML = `<div class="pv-topo">
+            <button class="topbar-back pv-voltar" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="topbar-title">Publicações</div>
+            <div style="width:36px"></div>
+        </div>
+        <div class="pv-lista"><div class="spinner"></div></div>`;
+    document.body.appendChild(v);
+    document.body.style.overflow = 'hidden';
+    const fechar = () => { v.remove(); document.body.style.overflow = ''; };
+    v.querySelector('.pv-voltar').onclick = fechar;
+
+    const { data, error } = await sb.from('posts').select(`
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
+            user:profiles!user_id!inner (id, username, display_name, avatar_url),
+            reactions (id, user_id),
+            comments (id)
+        `).in('id', ids);
+    const lista = v.querySelector('.pv-lista');
+    if (!lista) return;
+    if (error) { lista.innerHTML = `<p style="color:var(--danger)">${escapeHTML(msgErro(error))}</p>`; return; }
+    const posts = (data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    lista.innerHTML = posts.map(p => renderPost(p)).join('') || '<div class="log-empty">Nada por aqui.</div>';
+    const alvo = lista.querySelector(`.post[data-post-id="${inicio}"]`);
+    if (alvo) v.scrollTop = alvo.offsetTop - 64;
+}
+
+// ---- Revisão dos objetivos (a cada 30 dias) ----
+async function checarRevisaoObjetivo() {
+    const p = state.profile;
+    if (!p || !p.goal) return;
+    if (!p.goal_reviewed_at) {
+        // Começa a contar a partir de agora
+        await sb.from('profiles').update({ goal_reviewed_at: new Date().toISOString() }).eq('id', state.session.user.id);
+        p.goal_reviewed_at = new Date().toISOString();
+        return;
+    }
+    if (Date.now() - new Date(p.goal_reviewed_at).getTime() < 30 * 86400000) return;
+    if (document.querySelector('.sheet.on')) return;
+    const obj = OBJETIVOS.find(o => o[0] === p.goal);
+    const sheet = document.createElement('div');
+    sheet.id = 'revisaoSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Seu objetivo ainda é esse?</h3>
+        <div class="revisao-obj"><b>${obj ? obj[1] : 'Seu objetivo'}</b>${p.goal_details ? `<span>${escapeHTML(p.goal_details)}</span>` : ''}</div>
+        <p class="sheet-sub">O coach usa isso em toda conversa. Faz um mês desde a última vez que você conferiu.</p>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="revAtualizar">Atualizar</button>
+            <button class="btn-primary" id="revOk">Sim, continua</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const marcar = async () => {
+        p.goal_reviewed_at = new Date().toISOString();
+        await sb.from('profiles').update({ goal_reviewed_at: p.goal_reviewed_at }).eq('id', state.session.user.id);
+    };
+    document.getElementById('revOk').onclick = async () => { sheet.remove(); await marcar(); toast('Beleza, seguimos nesse foco', 'ok'); };
+    document.getElementById('revAtualizar').onclick = () => { sheet.remove(); switchView('objetivos'); };
+}
+
+// ---- Resumo da semana (domingo e segunda) ----
+function inicioDaSemana(d = new Date()) {
+    const x = new Date(d); x.setHours(0, 0, 0, 0);
+    const dia = (x.getDay() + 6) % 7; // segunda = 0
+    x.setDate(x.getDate() - dia);
+    return x;
+}
+async function dadosDaSemana() {
+    const uid = state.session.user.id;
+    const hoje = new Date();
+    // No domingo resume a semana atual; na segunda, a que acabou
+    const ini = inicioDaSemana(hoje.getDay() === 1 ? new Date(Date.now() - 86400000) : hoje);
+    const fim = new Date(ini.getTime() + 7 * 86400000);
+    const iniAnt = new Date(ini.getTime() - 7 * 86400000);
+    const [{ data: posts }, { data: sonos }, { data: pts }] = await Promise.all([
+        sb.from('posts').select('kind, water_ml, duration_min, created_at').eq('user_id', uid)
+            .in('kind', ['workout', 'water']).gte('created_at', iniAnt.toISOString()).lt('created_at', fim.toISOString()),
+        sb.from('sleep_logs').select('hours, slept_on').eq('user_id', uid)
+            .gte('slept_on', ini.toISOString().split('T')[0]).lt('slept_on', fim.toISOString().split('T')[0]),
+        sb.from('points_ledger').select('amount, earned_at').eq('user_id', uid)
+            .gte('earned_at', iniAnt.toISOString()).lt('earned_at', fim.toISOString()),
+    ]);
+    const naSemana = (lista, campo, a, b) => (lista || []).filter(x => { const t = new Date(x[campo]); return t >= a && t < b; });
+    const diasTreino = l => new Set(l.filter(x => x.kind === 'workout').map(x => new Date(x.created_at).toDateString())).size;
+    const atual = naSemana(posts, 'created_at', ini, fim), ant = naSemana(posts, 'created_at', iniAnt, ini);
+    const agua = atual.filter(x => x.kind === 'water').reduce((t, x) => t + (x.water_ml || 0), 0);
+    const somaPts = (a, b) => Math.round(naSemana(pts, 'earned_at', a, b).reduce((t, x) => t + Number(x.amount || 0), 0));
+    const horas = (sonos || []).map(x => Number(x.hours)).filter(h => h > 0);
+    return {
+        ini, treinos: diasTreino(atual), treinosAnt: diasTreino(ant),
+        minutos: atual.filter(x => x.kind === 'workout').reduce((t, x) => t + (x.duration_min || 0), 0),
+        aguaMediaL: Math.round((agua / 7) / 100) / 10,
+        sono: horas.length ? Math.round((horas.reduce((a, b) => a + b, 0) / horas.length) * 10) / 10 : null,
+        pontos: somaPts(ini, fim), pontosAnt: somaPts(iniAnt, ini),
+        meta: state.profile.weekly_goal || 3,
+    };
+}
+function difTxt(a, b) { const d = a - b; return d === 0 ? 'igual à semana passada' : `${d > 0 ? '+' : '−'}${Math.abs(d)} vs semana passada`; }
+
+async function hydrateResumoSemana() {
+    const slot = document.getElementById('resumoSlot');
+    if (!slot) return;
+    const dia = new Date().getDay();
+    if (dia !== 0 && dia !== 1) { slot.innerHTML = ''; return; }
+    const chave = 'pulso-resumo-' + inicioDaSemana(dia === 1 ? new Date(Date.now() - 86400000) : new Date()).toISOString().split('T')[0];
+    try { if (localStorage.getItem(chave) === '1') return; } catch (_) {}
+    const d = await dadosDaSemana();
+    state.resumoSemana = d;
+    if (!document.getElementById('resumoSlot')) return;
+    slot.innerHTML = `<div class="dc-card resumo-card">
+        <button class="dc-x" data-act="dispensar-card" data-chave="${chave}" aria-label="Fechar">×</button>
+        <div class="dc-topo"><span class="dc-emo">📊</span><div><b>Sua semana</b><small>${d.ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${new Date(d.ini.getTime() + 6 * 86400000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></div></div>
+        <div class="resumo-grade">
+            <div><b>${d.treinos}<small>/${d.meta}</small></b><span>treinos</span><em>${difTxt(d.treinos, d.treinosAnt)}</em></div>
+            <div><b>${d.pontos}</b><span>pontos</span><em>${difTxt(d.pontos, d.pontosAnt)}</em></div>
+            <div><b>${String(d.aguaMediaL).replace('.', ',')}<small> L</small></b><span>água por dia</span></div>
+            <div><b>${d.sono != null ? String(d.sono).replace('.', ',') + '<small> h</small>' : '-'}</b><span>sono médio</span></div>
+        </div>
+        <button class="btn-secondary resumo-story" data-act="resumo-story">Postar como story</button>
+    </div>`;
+}
+
+// Monta a imagem 1080x1920 do resumo pra virar story
+async function imagemResumoSemana(d) {
+    try { await document.fonts.load('700 80px "Space Grotesk"'); } catch (_) {}
+    const cv = document.createElement('canvas');
+    cv.width = 1080; cv.height = 1920;
+    const g = cv.getContext('2d');
+    const bg = g.createLinearGradient(0, 0, 1080, 1920);
+    bg.addColorStop(0, '#0A0C0B'); bg.addColorStop(1, '#0F1F18');
+    g.fillStyle = bg; g.fillRect(0, 0, 1080, 1920);
+    g.fillStyle = 'rgba(53,225,155,.14)';
+    g.beginPath(); g.arc(980, 180, 360, 0, Math.PI * 2); g.fill();
+    const F = (peso, tam) => `${peso} ${tam}px "Space Grotesk", Inter, sans-serif`;
+    g.fillStyle = '#F1F4F1'; g.font = F(700, 64); g.fillText('Pulso', 90, 170);
+    g.fillStyle = '#35E19B'; g.fillText('.', 90 + g.measureText('Pulso').width, 170);
+    g.fillStyle = '#F1F4F1'; g.font = F(700, 104); g.fillText('Minha semana', 90, 400);
+    g.fillStyle = '#8B948C'; g.font = F(500, 44);
+    const fimSem = new Date(d.ini.getTime() + 6 * 86400000);
+    g.fillText(`${d.ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fimSem.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`, 90, 480);
+    const itens = [
+        [`${d.treinos}/${d.meta}`, 'treinos na semana'],
+        [String(d.pontos), 'pontos'],
+        [String(d.aguaMediaL).replace('.', ',') + ' L', 'de água por dia'],
+        [d.sono != null ? String(d.sono).replace('.', ',') + ' h' : '-', 'de sono por noite'],
+    ];
+    itens.forEach(([n, l], i) => {
+        const y = 700 + i * 270;
+        g.fillStyle = 'rgba(255,255,255,.06)';
+        if (g.roundRect) { g.beginPath(); g.roundRect(90, y - 150, 900, 220, 36); g.fill(); } else g.fillRect(90, y - 150, 900, 220);
+        g.fillStyle = i === 0 && d.treinos >= d.meta ? '#35E19B' : '#F1F4F1';
+        g.font = F(700, 110); g.fillText(n, 140, y - 12);
+        g.fillStyle = '#8B948C'; g.font = F(500, 40); g.fillText(l, 140, y + 42);
+    });
+    g.fillStyle = '#5C655E'; g.font = F(500, 38); g.fillText('desafiofitness.netlify.app', 90, 1820);
+    return await new Promise(r => cv.toBlob(b => r(b), 'image/jpeg', 0.92));
 }
 
 // ---- Salvos ----
@@ -6673,6 +7081,7 @@ async function renderProfile() {
     const rankTxt = (rkProf && rkProf[0] && rkProf[0].rank) ? rkProf[0].rank + 'º' : '-';
     const metaSemana = state.profile.weekly_goal || 3;
 
+    const meusDestaques = await carregarDestaques(state.session.user.id);
     const { count: myStoryCount } = await sb.from('stories')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', state.session.user.id)
@@ -6695,6 +7104,9 @@ async function renderProfile() {
             </div>
             <div class="ig-profile-actions">
                 <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
+                <button class="btn-secondary prof-share" data-act="compartilhar-perfil" aria-label="Compartilhar perfil">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>
+                </button>
                 <div class="prof-pill">
                     <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
                         <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
@@ -6708,6 +7120,7 @@ async function renderProfile() {
                     </button>
                 </div>
             </div>
+            ${destaquesHTML(meusDestaques, state.session.user.id)}
             ${goalHTML}
             <div class="ig-tabs">
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
@@ -7737,6 +8150,7 @@ async function renderUserProfile(uid) {
         pedi = st === 'pendente';
     }
     const trancado = !!p.is_private && !iFollow;
+    const destaquesDele = trancado ? [] : await carregarDestaques(uid);
     const txtSeguir = iFollow ? 'Seguindo' : pedi ? 'Solicitado' : 'Seguir';
 
     const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
@@ -7775,6 +8189,7 @@ async function renderUserProfile(uid) {
                 ${(p.dm_policy === 'ninguem' || (p.dm_policy === 'seguidores' && !iFollow)) ? '' : `<button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>`}
                 <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções">⋯</button>
             </div>
+            ${destaquesHTML(destaquesDele, uid)}
             ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
             ${trancado ? `<div class="perfil-privado">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
@@ -8166,9 +8581,17 @@ document.addEventListener('click', async e => {
         openNewChallengeSheet();
     } else if (act === 'invite-challenge') {
         openInviteSheet(btn.dataset.id);
+    } else if (act === 'compartilhar-perfil') {
+        const link = `${location.origin}${location.pathname}?u=${encodeURIComponent(state.profile.username)}`;
+        const texto = `Me segue no Pulso: ${link}`;
+        try {
+            if (navigator.share) await navigator.share({ title: 'Pulso', text: texto, url: link });
+            else { await navigator.clipboard.writeText(link); toast('Link do perfil copiado', 'ok'); }
+        } catch (e) {}
     } else if (act === 'convidar-amigo') {
         const link = `${location.origin}${location.pathname}?seguir=${encodeURIComponent(state.profile.username)}`;
         const texto = `Tô usando o Pulso pra acompanhar meus treinos. Bora junto? ${link}`;
+        toast('Você ganha 10 pontos quando seu amigo registrar o primeiro treino', 'ok');
         try {
             if (navigator.share) await navigator.share({ title: 'Pulso', text: texto, url: link });
             else { await navigator.clipboard.writeText(texto); toast('Convite copiado, é só colar', 'ok'); }
@@ -8202,6 +8625,16 @@ document.addEventListener('click', async e => {
         if (salvar) state.salvos.add(id); else state.salvos.delete(id);
         btn.querySelector('svg').setAttribute('fill', salvar ? 'currentColor' : 'none');
         toast(salvar ? 'Salvo. Fica em Menu › Salvos.' : 'Removido dos salvos', 'ok');
+    } else if (act === 'resumo-story') {
+        e.stopPropagation();
+        btn.disabled = true; btn.textContent = 'Montando a imagem...';
+        const d = state.resumoSemana || await dadosDaSemana();
+        const blob = await imagemResumoSemana(d);
+        btn.disabled = false; btn.textContent = 'Postar como story';
+        if (!blob) { toast('Não consegui montar a imagem agora.', 'err'); return; }
+        const arquivo = new File([blob], 'minha-semana.jpg', { type: 'image/jpeg' });
+        openStoryCreator();
+        entrarModoFoto(arquivo);
     } else if (act === 'dispensar-card') {
         e.stopPropagation();
         try { localStorage.setItem(btn.dataset.chave, '1'); } catch (_) {}
@@ -8519,8 +8952,17 @@ document.addEventListener('click', async e => {
         openStoryViewer(0);
     } else if (act === 'open-follow-list') {
         openFollowList(btn.dataset.uid, btn.dataset.type);
+    } else if (act === 'abrir-destaque') {
+        abrirDestaque(btn.dataset.id, btn.dataset.uid);
     } else if (act === 'view-post') {
-        openPostSheet(btn.dataset.id);
+        // Vindo de uma grade de perfil ou salvos: abre a lista rolável, na ordem
+        const grade = btn.closest('.ig-grid');
+        if (grade) {
+            const ids = [...grade.querySelectorAll('.grid-item[data-id]')].map(x => x.dataset.id);
+            abrirListaDePosts(ids, btn.dataset.id);
+        } else {
+            openPostSheet(btn.dataset.id);
+        }
     } else if (act === 'chat-menu') {
         showChatMenu(btn);
     } else if (act === 'clear-chat') {
@@ -9048,11 +9490,16 @@ function showCurrentStory() {
     $('#svTime').textContent = timeAgo(item.created_at);
 
     // Quem viu (só no seu story): barra embaixo, toque ou arraste pra cima
-    const isMineStory = group.user.id === state.session.user.id;
+    const souDonoDoStory = group.user.id === state.session.user.id;
+    const ehDestaque = !!group.destaque;
+    const isMineStory = souDonoDoStory && !ehDestaque;
     document.getElementById('svViews').classList.add('hidden');
     const act = document.getElementById('svActivity');
     act.classList.toggle('hidden', !isMineStory);
     state.storyAtual = isMineStory ? item.id : null;
+    const destBtn = document.getElementById('svDestacar');
+    destBtn.classList.toggle('hidden', !isMineStory);
+    destBtn.onclick = ev => { ev.stopPropagation(); abrirEscolhaDestaque(item); };
     if (isMineStory) {
         state.storyViewers = state.storyViewers || {};
         state.storyViewersReq = state.storyViewersReq || {};
@@ -9071,14 +9518,20 @@ function showCurrentStory() {
 
     // Apagar o próprio story
     const delBtn = document.getElementById('svDelete');
-    delBtn.classList.toggle('hidden', !isMineStory);
+    delBtn.classList.toggle('hidden', !souDonoDoStory);
+    delBtn.setAttribute('aria-label', ehDestaque ? 'Tirar do destaque' : 'Apagar story');
     delBtn.onclick = async (ev) => {
         ev.stopPropagation();
         clearTimeout(state.storyTimer);
-        if (!confirm('Apagar este story?')) { state.storyTimer = setTimeout(() => advanceStory(1), 6000); return; }
-        const { error } = await sb.from('stories').delete().eq('id', item.id);
+        if (!confirm(ehDestaque ? 'Tirar este story do destaque?' : 'Apagar este story?')) { state.storyTimer = setTimeout(() => advanceStory(1), 6000); return; }
+        const { error } = ehDestaque
+            ? await sb.from('story_highlight_items').delete().eq('id', item.id)
+            : await sb.from('stories').delete().eq('id', item.id);
+        if (!error && ehDestaque && group.items.length === 1) {
+            await sb.from('story_highlights').delete().eq('id', group.destaque);
+        }
         if (error) { toast('Erro ao apagar story', 'err'); return; }
-        toast('Story apagado', 'ok');
+        toast(ehDestaque ? 'Tirado do destaque' : 'Story apagado', 'ok');
         group.items.splice(state.storyItemIdx, 1);
         if (group.items.length === 0) {
             state.storiesData.splice(state.storyIdx, 1);
@@ -9107,8 +9560,8 @@ function showCurrentStory() {
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     }
 
-    // Marca como visto
-    if (group.user.id !== state.session.user.id) {
+    // Marca como visto (destaque não conta visualização)
+    if (!ehDestaque && group.user.id !== state.session.user.id) {
         sb.from('story_views').insert({ story_id: item.id, viewer_id: state.session.user.id }).then(() => {});
     }
 
@@ -9119,6 +9572,81 @@ function showCurrentStory() {
     // Auto-avança em 6s (só se não tem imagem, senão espera load)
     clearTimeout(state.storyTimer);
     state.storyTimer = setTimeout(() => advanceStory(1), 6000);
+}
+
+// ---- Destaques de stories ----
+async function carregarDestaques(uid) {
+    const { data } = await sb.from('story_highlights')
+        .select('id, title, created_at, story_highlight_items (id, image_url, background_color, created_at)')
+        .eq('user_id', uid).order('created_at', { ascending: true });
+    return (data || []).filter(h => (h.story_highlight_items || []).length);
+}
+function destaquesHTML(lista, uid) {
+    if (!lista || !lista.length) return '';
+    return `<div class="destaques">${lista.map(h => {
+        const itens = [...h.story_highlight_items].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const capa = itens.find(i => i.image_url);
+        const fundo = capa ? `background-image:url('${capa.image_url}')` : `background:${itens[0].background_color || STORY_BG_PADRAO}`;
+        return `<button class="destaque" data-act="abrir-destaque" data-id="${h.id}" data-uid="${uid}">
+            <span class="destaque-capa" style="${fundo}"></span>
+            <span class="destaque-nome">${escapeHTML(h.title)}</span>
+        </button>`;
+    }).join('')}</div>`;
+}
+async function abrirDestaque(hid, uid) {
+    const [{ data: h }, { data: itens }, { data: autor }] = await Promise.all([
+        sb.from('story_highlights').select('id, title').eq('id', hid).maybeSingle(),
+        sb.from('story_highlight_items').select('id, caption, image_url, background_color, created_at')
+            .eq('highlight_id', hid).order('created_at', { ascending: true }),
+        sb.from('profiles').select('id, username, display_name, avatar_url').eq('id', uid).maybeSingle(),
+    ]);
+    if (!h || !itens || !itens.length) { toast('Esse destaque está vazio.', 'err'); return; }
+    state.storiesData = [{ user: autor || { id: uid }, items: itens, destaque: hid }];
+    openStoryViewer(0);
+}
+async function abrirEscolhaDestaque(item) {
+    pausarStory();
+    const { data: meus } = await sb.from('story_highlights').select('id, title')
+        .eq('user_id', state.session.user.id).order('created_at', { ascending: true });
+    const old = document.getElementById('peopleSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'peopleSheet';
+    sheet.className = 'sheet on sheet-over-story';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Destacar no perfil</h3>
+        <p class="sheet-sub">Destaques ficam no seu perfil depois das 24h, com a mesma privacidade da sua conta.</p>
+        <div class="dest-escolha">
+            ${(meus || []).map(h => `<button class="cfg-row" data-dest-id="${h.id}">${icon('salvo')}<span class="cfg-txt">${escapeHTML(h.title)}</span></button>`).join('')}
+        </div>
+        <div class="dest-novo">
+            <input type="text" id="destNovoNome" maxlength="20" placeholder="Novo destaque, ex: Treinos">
+            <button class="btn-primary-sm" id="destNovoBtn">Criar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const fechar = () => { sheet.remove(); retomarStory(); };
+    sheet.onclick = e => { if (e.target === sheet) fechar(); };
+    const adicionar = async (hid) => {
+        const { error } = await sb.from('story_highlight_items').insert({
+            highlight_id: hid, image_url: item.image_url || null, caption: item.caption || null,
+            background_color: item.image_url ? null : (item.background_color || STORY_BG_PADRAO),
+            created_at: item.created_at,
+        });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast('Adicionado ao destaque', 'ok');
+        fechar();
+    };
+    sheet.querySelectorAll('[data-dest-id]').forEach(b => b.onclick = () => adicionar(b.dataset.destId));
+    document.getElementById('destNovoBtn').onclick = async () => {
+        const nome = document.getElementById('destNovoNome').value.trim();
+        if (!nome) { toast('Dê um nome ao destaque', 'err'); return; }
+        const { data: h, error } = await sb.from('story_highlights')
+            .insert({ user_id: state.session.user.id, title: nome }).select().single();
+        if (error) { toast(msgErro(error), 'err'); return; }
+        adicionar(h.id);
+    };
 }
 
 // Pausa o story enquanto a lista de quem viu está aberta
@@ -9617,10 +10145,11 @@ $('#composerSubmit').addEventListener('click', async () => {
                 throw erroAgua;
             }
 
-            const [{ data: aguaPts }, { data: agora }] = await Promise.all([
+            const [{ data: aguaPts }, agoraW] = await Promise.all([
                 sb.rpc('points_for_reference', { ref: criado.id }),
-                sb.rpc('water_today'),
+                aguaDeHoje(),
             ]);
+            const agora = [agoraW];
             await updateStreak(new Date().toISOString().split('T')[0]);
             await loadScore();
             closeComposer();
@@ -9761,6 +10290,14 @@ $('#composerSubmit').addEventListener('click', async () => {
 // INIT
 // ============================================================
 async function boot() {
+    try {
+        const q = new URLSearchParams(location.search);
+        const u = q.get('u') || q.get('seguir');
+        if (u) {
+            localStorage.setItem('pulso-link-user', u);
+            localStorage.setItem('pulso-link-tipo', q.get('u') ? 'perfil' : 'convite');
+        }
+    } catch (_) {}
     // Detecta se veio pelo link de "esqueci senha" (URL tem #access_token e type=recovery)
     const hash = window.location.hash || '';
     const isRecovery = hash.includes('type=recovery');
@@ -9817,6 +10354,7 @@ async function boot() {
     await carregarBlocked();
     carregarSalvos();
     checkDailyReminder();
+    setTimeout(checarRevisaoObjetivo, 2500);
 
     // Aceite dos termos (uma vez por pessoa)
     if (!state.profile.terms_accepted_at) {
