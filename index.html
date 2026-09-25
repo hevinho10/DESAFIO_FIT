@@ -6623,13 +6623,13 @@ async function renderChallengeDetail(cid) {
                 <div class="chart-head"><span class="chart-title">Pedidos pra entrar</span><span class="chart-legend">${pedidos.length}</span></div>
                 <div class="ch-req-list">
                     ${pedidos.map(u => `<div class="ch-req-row">
-                        ${avatarHTML(u, 'sm')}
+                        ${avatarHTML({ ...u, id: u.id || u.user_id || u.requester_id }, 'sm')}
                         <div class="ch-req-info">
                             <div class="ch-req-nome">${escapeHTML(u.display_name)}</div>
                             <div class="ch-req-user">@${escapeHTML(u.username)}</div>
                         </div>
-                        <button class="btn-mini" data-act="aprovar-pedido" data-cid="${cid}" data-uid="${u.id}">Aceitar</button>
-                        <button class="btn-ghost btn-xs" data-act="recusar-pedido" data-cid="${cid}" data-uid="${u.id}">Recusar</button>
+                        <button class="btn-mini" data-act="aprovar-pedido" data-cid="${cid}" data-uid="${u.id || u.user_id || u.requester_id}">Aceitar</button>
+                        <button class="btn-ghost btn-xs" data-act="recusar-pedido" data-cid="${cid}" data-uid="${u.id || u.user_id || u.requester_id}">Recusar</button>
                     </div>`).join('')}
                 </div>
             </div>`;
