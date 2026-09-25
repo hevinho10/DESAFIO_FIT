@@ -1842,6 +1842,70 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .ch-ponto b{ font-weight:500; }
 .ch-ponto em{ font-style:normal; color:var(--vital); font-size:12.5px; text-align:right; }
 #chRegrasMembro{ margin-top:4px; }
+
+/* ================= ONDA 11: coach na Evolução ================= */
+.obj-secao{ font-family:var(--ff-display); font-size:17px; font-weight:700; margin:26px 0 6px; padding-top:18px; border-top:1px solid var(--line); }
+.ia-card{ border-color:rgba(53,225,155,.28); background:radial-gradient(120% 90% at 0% 0%, rgba(53,225,155,.07), transparent 60%), var(--bg-card); }
+.ia-treino-titulo{ font-family:var(--ff-display); font-size:18px; font-weight:700; margin:2px 0 6px; }
+.ia-porque{ font-size:13px; color:var(--ink-dim); line-height:1.5; }
+.ia-blocos{ margin-top:10px; font-size:13px; }
+.ia-blocos summary{ cursor:pointer; color:var(--vital); font-weight:600; font-size:13px; list-style:none; }
+.ia-blocos summary::-webkit-details-marker{ display:none; }
+.ia-blocos summary::after{ content:' ›'; }
+.ia-blocos[open] summary::after{ content:' ‹'; }
+.ia-bloco{ margin-top:10px; }
+.ia-bloco b{ font-size:12.5px; color:var(--ink); }
+.ia-bloco ul{ margin:4px 0 0 18px; color:var(--ink-dim); line-height:1.55; }
+.ia-acoes{ display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+.ia-feito{ margin-top:12px; font-size:13px; color:var(--vital); font-weight:600; }
+.ia-mini{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13px; color:var(--ink-dim); }
+.ia-convite .btn-primary-sm{ margin-top:12px; }
+.ia-carregando{ display:flex; align-items:center; gap:12px; font-size:13px; color:var(--ink-dim); }
+.ia-carregando .spinner{ margin:0; width:20px; height:20px; }
+.ia-link{ background:none; border:none; color:var(--ink-faint); cursor:pointer; }
+.ia-plano{ display:flex; flex-direction:column; margin-top:10px; }
+.ia-dia{ display:grid; grid-template-columns:38px 1fr 18px; align-items:center; gap:8px; padding:8px 0; font-size:13px; }
+.ia-dia + .ia-dia{ border-top:1px solid var(--line); }
+.ia-dia-nome{ text-transform:capitalize; color:var(--ink-faint); font-weight:600; font-size:12px; }
+.ia-dia.folga .ia-dia-foco{ color:var(--ink-faint); }
+.ia-dia.hoje .ia-dia-nome{ color:var(--vital); }
+.ia-dia.hoje .ia-dia-foco{ font-weight:600; }
+.ia-dia.feito .ia-dia-foco{ color:var(--ink-dim); text-decoration:line-through; }
+.ia-dia-check{ color:var(--vital); font-weight:700; }
+.ia-carta-linha{ display:grid; grid-template-columns:20px 1fr; gap:8px; padding:6px 0; font-size:13.5px; line-height:1.5; }
+.ia-carta-linha span{ color:var(--vital); font-weight:700; }
+.ia-carta-ant{ margin-top:12px; padding-top:10px; border-top:1px solid var(--line); }
+.ia-carta-ant > b{ font-size:12px; color:var(--ink-faint); }
+.ia-alerta{ border-color:rgba(255,194,75,.35); background:var(--bg-card); }
+.ia-alerta p{ font-size:13.5px; line-height:1.5; }
+.ia-passo{ margin-top:8px; color:var(--gold); font-weight:600; }
+.ia-narracao{ margin-top:12px; padding:11px 13px; border-radius:12px; background:var(--vital-dim); font-size:13px; line-height:1.5; }
+.anel-prev{ color:var(--gold); font-weight:600; }
+.cenarios{ display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; }
+.cenarios .periodo{ flex:none; padding:0 10px; height:30px; font-size:12px; border:1px solid var(--line); border-radius:15px; }
+.cenario-txt{ font-size:13px; color:var(--ink-dim); margin-top:8px; line-height:1.5; }
+
+.ia-registro{ display:flex; gap:6px; align-items:center; margin:4px 0 16px; padding:5px 5px 5px 14px; border-radius:24px; border:1px solid var(--line); background:var(--bg-input); }
+.ia-registro input{ flex:1; min-width:0; background:none; border:none; color:var(--ink); font-size:14px; font-family:inherit; outline:none; }
+.ia-reg-btn{ width:34px; height:34px; border-radius:50%; border:none; background:transparent; color:var(--ink-dim); display:grid; place-items:center; flex-shrink:0; }
+.ia-reg-btn svg{ width:18px; height:18px; }
+.ia-reg-enviar{ background:var(--vital); color:#08110C; }
+.ia-reg-btn.ouvindo{ color:var(--effort); animation:pulsar 1s infinite; }
+.ia-reg-btn.girando svg{ animation:girar 1s linear infinite; }
+@keyframes girar{ to{ transform:rotate(360deg); } }
+@keyframes pulsar{ 50%{ opacity:.4; } }
+
+.esforco-opcoes{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:10px; }
+.esforco-opcoes button{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:16px 6px; border-radius:16px; border:1px solid var(--line); background:transparent; color:var(--ink); font-size:26px; }
+.esforco-opcoes button span{ font-size:13px; font-weight:600; }
+.esforco-opcoes button:active{ border-color:var(--vital); background:var(--vital-dim); }
+
+.evo-aba{ font-size:13px; }
+.coach-rodape{ font-size:12px; color:var(--ink-faint); text-align:center; margin:4px 0 10px; }
+.coach-rodape .ia-link{ color:var(--vital); font-size:12px; font-weight:600; padding:0; }
+
+.agua-media{ margin-top:12px; font-size:13px; color:var(--ink-dim); line-height:1.5; }
+.agua-media b{ color:var(--info); font-family:var(--ff-display); }
 </style>
 </head>
 <body>
@@ -1999,6 +2063,11 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
         <div id="composerPick">
             <h3 class="sheet-title">Registrar</h3>
             <p class="sheet-sub">Tudo vale pontos.</p>
+            <div class="ia-registro">
+                <input type="text" id="iaTexto" maxlength="200" placeholder="Conta o que você fez, ex: corri 5 km em 32 min" enterkeyhint="send">
+                <button type="button" class="ia-reg-btn hidden" id="iaMic" aria-label="Falar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+                <button type="button" class="ia-reg-btn ia-reg-enviar" id="iaEnviar" aria-label="Preencher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+            </div>
             <div class="kind-grid">
                 <button type="button" class="kind-tile" data-kind="workout"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg></span><span class="kt-lbl">Treino</span></button>
                 <button type="button" class="kind-tile" data-kind="meal"><span class="kt-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v7a2 2 0 0 0 4 0V3M7 10v11M15 3c-1.5 1-2 2.5-2 4.5S14 12 15 12v9"/></svg></span><span class="kt-lbl">Refeição</span></button>
@@ -6063,6 +6132,390 @@ function barChart(bars, opts = {}) {
 // EVOLUÇÃO INDIVIDUAL (aba Progresso)
 // ============================================================
 // ============================================================
+// COACH NA EVOLUÇÃO: treino do dia, plano, carta, alerta
+// (tudo gerado uma vez e guardado; abrir de novo não gera outra vez)
+// ============================================================
+const MODALIDADES = ['Musculação', 'Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Yoga', 'Dança', 'Alongamento', 'Futebol'];
+const TIPOS_TREINO = ['Musculação', 'Corrida', 'Ciclismo', 'Natação', 'Caminhada', 'Yoga', 'Dança', 'Alongamento', 'Futebol', 'Outro'];
+const EQUIPAMENTOS = ['Nenhum', 'Halteres', 'Elástico', 'Barra fixa', 'Kettlebell', 'Esteira ou bike'];
+const DIAS_SEMANA = [[1, 'S'], [2, 'T'], [3, 'Q'], [4, 'Q'], [5, 'S'], [6, 'S'], [0, 'D']];
+const NOME_DIA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+const REGRAS_SEGURAS = `REGRAS FIXAS:
+- Fale em português do Brasil, tom de treinador próximo, sem jargão, sem emojis em excesso.
+- Nunca sugira dieta restritiva, jejum, nem fale de peso se a pessoa não tiver meta de peso.
+- Respeite limitações informadas. Se houver dor ou lesão, prefira exercícios leves e recomende um profissional.
+- Nunca invente números: use só os dados fornecidos.`;
+
+const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const isoDe = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+async function iaGuardado(kind, dia) {
+    const { data } = await sb.from('ai_daily').select('content').eq('user_id', state.session.user.id).eq('day', dia).eq('kind', kind).maybeSingle();
+    return data ? data.content : null;
+}
+async function iaGuardar(kind, dia, content) {
+    await sb.from('ai_daily').upsert({ user_id: state.session.user.id, day: dia, kind, content }, { onConflict: 'user_id,day,kind' });
+}
+async function iaJSON(prompt) {
+    const txt = await callAI(prompt + '\n\nResponda SOMENTE com JSON válido, sem texto antes ou depois e sem crases.');
+    const m = String(txt).match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('Resposta da IA sem JSON');
+    return JSON.parse(m[0]);
+}
+
+// Lacunas calculadas pelo app com dados reais (a IA só usa, não inventa)
+async function calcularLacunas() {
+    const uid = state.session.user.id;
+    const desde = new Date(Date.now() - 42 * 86400000).toISOString();
+    const [{ data: treinos }, { data: sonos }, { data: tudo }] = await Promise.all([
+        sb.from('posts').select('created_at, activity_type, duration_min, distance_km, muscle_groups, effort')
+            .eq('user_id', uid).eq('kind', 'workout').gte('created_at', desde).order('created_at', { ascending: false }),
+        sb.from('sleep_logs').select('slept_on, hours').eq('user_id', uid).order('slept_on', { ascending: false }).limit(3),
+        sb.from('posts').select('created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1),
+    ]);
+    const t = treinos || [];
+    const agora = Date.now();
+    const diasDesde = f => { const x = t.find(f); return x ? Math.floor((agora - new Date(x.created_at)) / 86400000) : null; };
+    const SUP = ['Peito', 'Costas', 'Ombros', 'Braços'], INF = ['Pernas', 'Glúteos'];
+    const tem = (p, lista) => Array.isArray(p.muscle_groups) && (p.muscle_groups.includes('Corpo todo') || p.muscle_groups.some(g => lista.includes(g)));
+    const CARDIO = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Futebol', 'Dança'];
+    // dias seguidos treinando até ontem/hoje
+    const diasTreino = new Set(t.map(p => new Date(p.created_at).toDateString()));
+    let seguidos = 0;
+    for (let i = 0; i < 14; i++) { if (diasTreino.has(new Date(agora - i * 86400000).toDateString())) seguidos++; else if (i > 0) break; }
+    const semanas = [0, 1, 2, 3, 4, 5].map(w => new Set(t.filter(p => { const d = (agora - new Date(p.created_at)) / 86400000; return d >= w * 7 && d < (w + 1) * 7; }).map(p => new Date(p.created_at).toDateString())).size);
+    const mediaAntes = (semanas[2] + semanas[3] + semanas[4] + semanas[5]) / 4;
+    const recente = (semanas[0] + semanas[1]) / 2;
+    const horas = (sonos || []).map(x => Number(x.hours)).filter(Boolean);
+    const contagemTipos = {};
+    t.forEach(p => { contagemTipos[p.activity_type || 'Treino'] = (contagemTipos[p.activity_type || 'Treino'] || 0) + 1; });
+    return {
+        forca: diasDesde(p => p.activity_type === 'Musculação'),
+        superior: diasDesde(p => tem(p, SUP)),
+        inferior: diasDesde(p => tem(p, INF)),
+        cardio: diasDesde(p => CARDIO.includes(p.activity_type)),
+        seguidos,
+        ultimosEsforcos: t.slice(0, 3).map(p => p.effort).filter(Boolean),
+        sonoMedio: horas.length ? Math.round(horas.reduce((a, b) => a + b, 0) / horas.length * 10) / 10 : null,
+        semanas, mediaAntes, recente,
+        diasSemRegistro: tudo && tudo[0] ? Math.floor((agora - new Date(tudo[0].created_at)) / 86400000) : null,
+        tipos: contagemTipos,
+        treinouHoje: diasTreino.has(new Date().toDateString()),
+    };
+}
+function precisaDescanso(l) {
+    const puxados = l.ultimosEsforcos.filter(e => e === 'puxado').length;
+    return l.seguidos >= 5 || (l.seguidos >= 3 && l.sonoMedio != null && l.sonoMedio < 6) || puxados >= 2;
+}
+function perfilTreinoTexto(p) {
+    const L = [];
+    const obj = OBJETIVOS.find(o => o[0] === p.goal);
+    if (obj) L.push(`Objetivo: ${obj[1]} (${obj[2]})`);
+    if (p.goal_details) L.push(`Nas palavras dela: ${p.goal_details}`);
+    if (p.training_level) L.push(`Nível: ${(NIVEIS.find(n => n[0] === p.training_level) || [])[1]}`);
+    if (Array.isArray(p.training_place) && p.training_place.length) L.push(`Onde treina: ${p.training_place.join(', ')}`);
+    if (Array.isArray(p.train_likes) && p.train_likes.length) L.push(`Gosta de: ${p.train_likes.join(', ')}`);
+    if (p.train_avoid) L.push(`Prefere evitar: ${p.train_avoid}`);
+    if (p.train_minutes) L.push(`Tempo por treino: ${p.train_minutes} min`);
+    if (Array.isArray(p.train_equipment) && p.train_equipment.length) L.push(`Equipamento em casa: ${p.train_equipment.join(', ')}`);
+    if (p.train_limits) L.push(`Limitações: ${p.train_limits}`);
+    L.push(`Meta: ${p.weekly_goal || 3} treinos por semana`);
+    return L.join('\n');
+}
+function lacunasTexto(l) {
+    const f = (n, nome) => n == null ? `${nome}: nenhum registro nas últimas 6 semanas` : `${nome}: há ${n} dias`;
+    const tipos = Object.entries(l.tipos).map(([k, v]) => `${k} ${v}x`).join(', ') || 'nenhum';
+    return [
+        f(l.forca, 'Último treino de força'), f(l.superior, 'Último treino de membros superiores'),
+        f(l.inferior, 'Último treino de membros inferiores'), f(l.cardio, 'Último cardio'),
+        `Dias seguidos treinando: ${l.seguidos}`, `Sono médio das últimas noites: ${l.sonoMedio ?? 'sem registro'} h`,
+        `Esforço dos últimos treinos: ${l.ultimosEsforcos.join(', ') || 'sem registro'}`,
+        `Treinos nas últimas 6 semanas por tipo: ${tipos}`,
+    ].join('\n');
+}
+
+// ---------- Treino do dia ----------
+async function obterTreinoDoDia(forcar = false, trocarDe = null) {
+    const p = state.profile;
+    const dia = hojeISO();
+    let atual = await iaGuardado('treino', dia);
+    if (atual && !forcar && !state.iaTreinoForcar) return atual;
+    state.iaTreinoForcar = false;
+    const l = await calcularLacunas();
+    const leve = precisaDescanso(l);
+    const trocas = atual ? (atual.trocas || 0) : 0;
+    const prompt = `Você é o coach do app Pulso. Monte o treino de HOJE (${NOME_DIA[new Date().getDay()]}) pra esta pessoa.
+
+PERFIL:
+${perfilTreinoTexto(p)}
+
+HISTÓRICO REAL (calculado pelo app):
+${lacunasTexto(l)}
+
+COMO DECIDIR:
+- Use o que a pessoa gosta como base, mas encaixe o que está faltando no jeito mais próximo do gosto dela. Ex: quem gosta de correr e está sem força recebe força pensada pra corredor; quem só treina pernas recebe superior.
+- Referência de equilíbrio: força pelo menos 2x por semana, todos os grupos musculares ao longo da semana, cardio regular.
+- ${leve ? 'HOJE É DIA LEVE: sequência longa, sono curto ou esforço alto recente. Sugira mobilidade, alongamento ou cardio bem leve, curto.' : 'Pode ser um treino normal, na duração que a pessoa tem disponível.'}
+- Ajuste ao nível, ao local e ao equipamento. Sem equipamento, use peso do corpo.
+${trocarDe ? `- A pessoa pediu pra TROCAR a sugestão "${trocarDe}". Proponha algo diferente, mantendo o equilíbrio.` : ''}
+${REGRAS_SEGURAS}
+
+Formato do JSON:
+{"titulo": "curto, ex: Corrida leve + força pra corredor", "tipo": "um destes: ${TIPOS_TREINO.join(', ')}", "minutos": número, "porque": "uma frase explicando a escolha, citando o gosto e a lacuna", "leve": ${leve}, "blocos": [{"nome": "ex: Aquecimento", "itens": ["exercício com séries e repetições ou tempo"]}]}`;
+    const t = await iaJSON(prompt);
+    if (!TIPOS_TREINO.includes(t.tipo)) t.tipo = 'Outro';
+    t.minutos = Math.max(10, Math.min(120, parseInt(t.minutos) || p.train_minutes || 30));
+    t.trocas = trocarDe ? trocas + 1 : trocas;
+    t.status = 'sugerido';
+    await iaGuardar('treino', dia, t);
+    return t;
+}
+
+function treinoDoDiaHTML(t, feitoHoje) {
+    if (!t) return '';
+    if (t.status === 'pulado') return `<div class="chart-card ia-card ia-mini"><span>Treino de hoje dispensado. Amanhã tem outro.</span><button class="btn-mini" data-act="ia-treino-voltar">Ver mesmo assim</button></div>`;
+    const feito = t.status === 'feito' || feitoHoje;
+    return `<div class="chart-card ia-card">
+        <div class="chart-head"><span class="chart-title">${t.leve ? 'Hoje é dia leve' : 'Seu treino de hoje'}</span><span class="chart-legend">${t.minutos} min</span></div>
+        <div class="ia-treino-titulo">${escapeHTML(t.titulo || '')}</div>
+        <p class="ia-porque">${escapeHTML(t.porque || '')}</p>
+        <details class="ia-blocos">
+            <summary>Ver exercícios</summary>
+            ${(t.blocos || []).map(b => `<div class="ia-bloco"><b>${escapeHTML(b.nome || '')}</b><ul>${(b.itens || []).map(i => `<li>${escapeHTML(i)}</li>`).join('')}</ul></div>`).join('')}
+        </details>
+        ${feito ? '<div class="ia-feito">✓ Treino de hoje registrado. Mandou bem.</div>' : `<div class="ia-acoes">
+            <button class="btn-ghost btn-xs" data-act="ia-treino-pular">Hoje não</button>
+            ${(t.trocas || 0) < 2 ? '<button class="btn-ghost btn-xs" data-act="ia-treino-trocar">Trocar</button>' : ''}
+            <button class="btn-primary-sm" data-act="ia-treino-fiz">Fiz esse treino</button>
+        </div>`}
+    </div>`;
+}
+
+// ---------- Plano da semana ----------
+function segundaDe(d = new Date()) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+async function obterPlanoSemana(forcar = false) {
+    const seg = isoDe(segundaDe());
+    const salvo = await iaGuardado('plano', seg);
+    if (salvo && !forcar) return salvo;
+    const p = state.profile;
+    const l = await calcularLacunas();
+    const prompt = `Você é o coach do app Pulso. Monte o plano DESTA semana (segunda a domingo) pra esta pessoa.
+
+PERFIL:
+${perfilTreinoTexto(p)}
+Dias disponíveis: ${(p.train_days || []).length ? p.train_days.map(n => NOME_DIA[n]).join(', ') : 'não informou, distribua bem'}
+
+HISTÓRICO REAL:
+${lacunasTexto(l)}
+
+COMO DECIDIR:
+- Exatamente ${p.weekly_goal || 3} dias de treino, nos dias disponíveis. Os outros dias são descanso ou leve.
+- Parta do que a pessoa gosta e encaixe o que falta (força, superior, inferior, cardio), sem repetir o mesmo grupo em dias seguidos.
+${REGRAS_SEGURAS}
+
+Formato do JSON:
+{"resumo": "uma frase sobre o foco da semana", "dias": [{"dia": "segunda", "foco": "ex: Corrida leve 30 min ou Descanso", "minutos": número ou 0, "treino": true ou false}]} com os 7 dias, de segunda a domingo.`;
+    const plano = await iaJSON(prompt);
+    await iaGuardar('plano', seg, plano);
+    return plano;
+}
+function planoSemanaHTML(plano, diasFeitos) {
+    if (!plano || !Array.isArray(plano.dias)) return '';
+    const hojeIdx = (new Date().getDay() + 6) % 7;
+    return `<div class="chart-card ia-card">
+        <div class="chart-head"><span class="chart-title">Seu plano da semana</span><button class="chart-legend ia-link" data-act="ia-plano-refazer">refazer</button></div>
+        ${plano.resumo ? `<p class="ia-porque">${escapeHTML(plano.resumo)}</p>` : ''}
+        <div class="ia-plano">${plano.dias.slice(0, 7).map((d, i) => {
+            const feito = diasFeitos.has(i);
+            return `<div class="ia-dia${i === hojeIdx ? ' hoje' : ''}${feito && d.treino ? ' feito' : ''}${d.treino ? '' : ' folga'}">
+                <span class="ia-dia-nome">${escapeHTML(String(d.dia || NOME_DIA[(i + 1) % 7]).slice(0, 3))}</span>
+                <span class="ia-dia-foco">${escapeHTML(d.foco || '')}</span>
+                <span class="ia-dia-check">${feito ? '✓' : ''}</span>
+            </div>`;
+        }).join('')}</div>
+    </div>`;
+}
+
+// ---------- Carta da semana ----------
+async function obterCartaSemana() {
+    const hoje = new Date();
+    const alvo = hoje.getDay() === 0 ? segundaDe(hoje) : segundaDe(new Date(Date.now() - 7 * 86400000));
+    const chave = isoDe(alvo);
+    const salva = await iaGuardado('carta', chave);
+    if (salva) return { ...salva, semana: chave };
+    // só escreve se a pessoa usou o app naquela semana
+    const fim = new Date(alvo.getTime() + 7 * 86400000);
+    const { data: posts } = await sb.from('posts').select('kind, activity_type, duration_min, distance_km, effort, created_at')
+        .eq('user_id', state.session.user.id).gte('created_at', alvo.toISOString()).lt('created_at', fim.toISOString());
+    if (!posts || !posts.length) return null;
+    const treinos = posts.filter(x => x.kind === 'workout');
+    const dias = new Set(treinos.map(x => new Date(x.created_at).toDateString())).size;
+    const resumo = [
+        `Dias treinados: ${dias} de meta ${state.profile.weekly_goal || 3}`,
+        `Treinos: ${treinos.map(x => `${x.activity_type || 'treino'} ${x.duration_min || 0}min${x.distance_km ? ' ' + x.distance_km + 'km' : ''}${x.effort ? ' (' + x.effort + ')' : ''}`).join('; ') || 'nenhum'}`,
+        `Registros de água: ${posts.filter(x => x.kind === 'water').length}`,
+        `Refeições registradas: ${posts.filter(x => x.kind === 'meal').length}`,
+    ].join('\n');
+    const carta = await iaJSON(`Você é o coach do app Pulso. Escreva a carta da semana desta pessoa.
+
+PERFIL:
+${perfilTreinoTexto(state.profile)}
+
+SEMANA (dados reais):
+${resumo}
+
+${REGRAS_SEGURAS}
+Seja específico com os dados, caloroso e direto. Cada campo com UMA frase.
+Formato do JSON: {"bem": "o que foi bem", "atencao": "o que merece atenção", "foco": "o foco da próxima semana"}`);
+    await iaGuardar('carta', chave, carta);
+    return { ...carta, semana: chave };
+}
+function cartaHTML(carta, anteriores) {
+    if (!carta) return '';
+    const bloco = c => `<div class="ia-carta-linha"><span>✓</span><p>${escapeHTML(c.bem || '')}</p></div>
+        <div class="ia-carta-linha"><span>!</span><p>${escapeHTML(c.atencao || '')}</p></div>
+        <div class="ia-carta-linha"><span>→</span><p>${escapeHTML(c.foco || '')}</p></div>`;
+    const dataCurta = iso => new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    return `<div class="chart-card ia-card">
+        <div class="chart-head"><span class="chart-title">Carta do coach</span><span class="chart-legend">semana de ${dataCurta(carta.semana)}</span></div>
+        ${bloco(carta)}
+        ${anteriores.length ? `<details class="ia-blocos"><summary>Cartas anteriores</summary>${anteriores.map(a => `<div class="ia-carta-ant"><b>Semana de ${dataCurta(a.day)}</b>${bloco(a.content)}</div>`).join('')}</details>` : ''}
+    </div>`;
+}
+
+// ---------- Alerta de queda ----------
+async function obterAlertaQueda(l) {
+    const caiu = (l.mediaAntes >= 1.5 && l.recente < l.mediaAntes * 0.5) || (l.diasSemRegistro != null && l.diasSemRegistro >= 4 && l.mediaAntes >= 1);
+    if (!caiu) return null;
+    const seg = isoDe(segundaDe());
+    const salvo = await iaGuardado('alerta', seg);
+    if (salvo) return salvo;
+    const a = await iaJSON(`Você é o coach do app Pulso. Esta pessoa diminuiu bastante o ritmo.
+Antes: ${l.mediaAntes.toFixed(1)} treinos por semana. Últimas 2 semanas: ${l.recente.toFixed(1)} por semana. Dias sem registrar nada: ${l.diasSemRegistro ?? 0}.
+PERFIL:
+${perfilTreinoTexto(state.profile)}
+${REGRAS_SEGURAS}
+Escreva uma mensagem curta e acolhedora, SEM culpa e sem cobrança, perguntando o que mudou e propondo um passo pequeno pra recomeçar (ex: 15 minutos do que a pessoa mais gosta).
+Formato do JSON: {"mensagem": "2 frases no máximo", "passo": "o passo pequeno, curto"}`);
+    await iaGuardar('alerta', seg, a);
+    return a;
+}
+
+// ---------- Monta tudo na aba Resumo ----------
+async function hydrateIAEvolucao() {
+    const slot = document.getElementById('iaSlot');
+    if (!slot) return;
+    const p = state.profile;
+    const semPrefs = !(p.train_likes && p.train_likes.length);
+    if (semPrefs) {
+        slot.innerHTML = `<div class="chart-card ia-card ia-convite">
+            <div class="chart-head"><span class="chart-title">Seu treino de hoje</span></div>
+            <p class="ia-porque">Me conta o que você gosta de fazer, quanto tempo tem e onde treina, que eu monto seu treino do dia e o plano da semana.</p>
+            <button class="btn-primary-sm" data-act="m-go" data-view="objetivos">Contar pro coach</button>
+        </div>`;
+        return;
+    }
+    slot.innerHTML = '<div class="chart-card ia-card ia-carregando"><div class="spinner"></div><span>O coach está montando seu dia...</span></div>';
+    try {
+        const l = await calcularLacunas();
+        const seg = segundaDe();
+        const { data: semTreinos } = await sb.from('posts').select('created_at').eq('user_id', state.session.user.id)
+            .eq('kind', 'workout').gte('created_at', new Date(seg.getTime() - 12 * 3600000).toISOString());
+        const diasFeitos = new Set((semTreinos || []).map(x => (new Date(x.created_at).getDay() + 6) % 7));
+        const [treino, plano, alerta, carta, { data: antigas }] = await Promise.all([
+            obterTreinoDoDia().catch(e => { console.warn('treino do dia', e); return null; }),
+            obterPlanoSemana().catch(e => { console.warn('plano', e); return null; }),
+            obterAlertaQueda(l).catch(() => null),
+            obterCartaSemana().catch(e => { console.warn('carta', e); return null; }),
+            sb.from('ai_daily').select('day, content').eq('user_id', state.session.user.id).eq('kind', 'carta').order('day', { ascending: false }).limit(5),
+        ]);
+        state.iaTreino = treino;
+        if (!document.getElementById('iaSlot')) return;
+        const anteriores = (antigas || []).filter(a => !carta || a.day !== carta.semana).slice(0, 4);
+        slot.innerHTML = [
+            alerta && alerta.mensagem ? `<div class="chart-card ia-card ia-alerta"><div class="chart-head"><span class="chart-title">Tudo bem por aí?</span></div><p>${escapeHTML(alerta.mensagem || '')}</p>${alerta.passo ? `<p class="ia-passo">${escapeHTML(alerta.passo)}</p>` : ''}</div>` : '',
+            treinoDoDiaHTML(treino, l.treinouHoje),
+            planoSemanaHTML(plano, diasFeitos),
+            cartaHTML(carta, anteriores),
+        ].join('') || '';
+    } catch (e) {
+        console.warn('coach evolução', e);
+        slot.innerHTML = '';
+    }
+}
+
+// ---------- Previsão da semana (no anel) ----------
+function previsaoSemanaTexto(dias, meta, mediaSemanal) {
+    const idx = (new Date().getDay() + 6) % 7; // 0 = segunda
+    if (idx < 2 || dias >= meta) return '';
+    const restam = 6 - idx; // dias depois de hoje
+    const ritmoDia = Math.max(dias / (idx + 1), (mediaSemanal || 0) / 7);
+    const prev = Math.min(7, Math.round(dias + ritmoDia * (restam + 1)));
+    if (prev >= meta) return `No seu ritmo, você fecha a semana na meta.`;
+    return `No seu ritmo, você fecha com ${prev} de ${meta}. ${restam >= meta - dias ? 'Um treino amanhã muda isso.' : 'Ainda dá pra chegar perto.'}`;
+}
+
+// ---------- Registro por texto ou voz ----------
+async function interpretarRegistro(texto) {
+    const r = await iaJSON(`Transforme o que a pessoa escreveu num registro do app Pulso.
+Texto: "${texto.replace(/"/g, "'")}"
+Tipos: "workout" (treino), "water" (água), "sleep" (sono), "meal" (refeição).
+Formato do JSON: {"kind": "workout|water|sleep|meal", "activity_type": "um destes: ${TIPOS_TREINO.join(', ')}", "duration_min": número ou null, "distance_km": número ou null, "water_ml": número ou null, "sleep_hours": número ou null, "legenda": "texto curto opcional ou null"}
+Se não der pra entender, use {"kind": null}.`);
+    return r;
+}
+
+// ---------- Narração do desafio ----------
+async function hydrateNarracaoDesafio(ch, ranking) {
+    const slot = document.getElementById('chNarracao');
+    if (!slot || !ranking || ranking.length < 2 || ch.status !== 'ativo') return;
+    const chave = 'narr:' + ch.id;
+    let n = await iaGuardado(chave, hojeISO());
+    if (!n) {
+        const eu = ranking.findIndex(r => r.user_id === state.session.user.id);
+        const top = ranking.slice(0, 5).map((r, i) => `${i + 1}º ${String(r.display_name || '').split(' ')[0]}: ${Math.round(r.points)} pts`).join('; ');
+        const fim = Math.ceil((new Date(ch.ends_at) - Date.now()) / 86400000);
+        try {
+            n = await iaJSON(`Você narra o desafio "${ch.name}" do app Pulso, como um locutor animado mas respeitoso.
+Ranking atual: ${top}. Participantes: ${ranking.length}. Faltam ${fim} dias.
+Quem está lendo: ${eu >= 0 ? `${eu + 1}º lugar com ${Math.round(ranking[eu].points)} pts` : 'não está no ranking'}${eu > 0 ? `, a ${Math.round(ranking[eu - 1].points - ranking[eu].points)} pts de quem está na frente` : ''}.
+Nunca humilhe ninguém. Use só primeiros nomes e só os dados acima.
+Formato do JSON: {"texto": "2 frases no máximo, falando com quem está lendo no fim"}`);
+            await iaGuardar(chave, hojeISO(), n);
+        } catch (e) { return; }
+    }
+    if (document.getElementById('chNarracao')) slot.innerHTML = `<div class="ia-narracao">🎙️ ${escapeHTML(n.texto || '')}</div>`;
+}
+
+// ---------- Check-in pós-treino ----------
+function perguntarEsforco(postId) {
+    const old = document.getElementById('esforcoSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'esforcoSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Como foi o treino?</h3>
+        <p class="sheet-sub">Isso ajuda o coach a ajustar o próximo.</p>
+        <div class="esforco-opcoes">
+            <button data-esf="leve">😌<span>Leve</span></button>
+            <button data-esf="bom">💪<span>Bom</span></button>
+            <button data-esf="puxado">🥵<span>Puxado</span></button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.onclick = e => { if (e.target === sheet) sheet.remove(); };
+    sheet.querySelectorAll('[data-esf]').forEach(b => b.onclick = async () => {
+        sheet.remove();
+        await sb.rpc('set_workout_effort', { pid: postId, esforco: b.dataset.esf });
+        // treino feito: marca o treino do dia
+        const t = await iaGuardado('treino', hojeISO());
+        if (t && t.status !== 'feito') { t.status = 'feito'; await iaGuardar('treino', hojeISO(), t); }
+    });
+}
+
+// ============================================================
 // EVOLUÇÃO: período, comparações e gráficos novos
 // ============================================================
 const DIA_MS = 86400000;
@@ -6155,17 +6608,53 @@ function montarEvolucao(d) {
     }
     let projecaoLinha = null;
     const pj = d.projecao && d.projecao.peso;
-    if (pj && pj.ritmo && pj.prazo && pesos.length >= 2 && !pj.chegou) {
-        const ult = pesos[pesos.length - 1];
-        const semanas = Math.max(0, (pj.prazo - ult.x) / (7 * DIA_MS));
-        if (semanas > 0.5 && semanas < 104) projecaoLinha = { de: { x: ult.x, y: ult.y }, ate: { x: pj.prazo, y: ult.y + pj.ritmo * semanas } };
+    // Simulador: cenários com base nos seus próprios dados (nada inventado)
+    let cenariosHTML = '';
+    if (pj && !pj.chegou && (d.weightPoints || []).length >= 2) {
+        const todos = [...d.weightPoints].sort((a, b) => a.x - b.x);
+        const querPerder = pj.falta < 0;
+        let melhor = null;
+        for (let i = 0; i < todos.length; i++) {
+            for (let j = i + 1; j < todos.length; j++) {
+                const sem = (todos[j].x - todos[i].x) / (7 * DIA_MS);
+                if (sem < 3 || sem > 6) continue;
+                const r = (todos[j].y - todos[i].y) / sem;
+                if (querPerder ? (r < 0 && (melhor == null || r < melhor)) : (r > 0 && (melhor == null || r > melhor))) melhor = r;
+            }
+        }
+        const cen = {
+            atual: pj.ritmo && Math.sign(pj.ritmo) === Math.sign(pj.falta) ? pj.ritmo : null,
+            prazo: pj.precisa,
+            melhor,
+        };
+        const nomes = { atual: 'No ritmo atual', prazo: 'Pra chegar no prazo', melhor: 'Suas melhores semanas' };
+        const disp = Object.keys(cen).filter(k => cen[k] != null && Math.abs(cen[k]) > 0.02);
+        if (!disp.includes(state.cenario)) state.cenario = disp[0];
+        const escolhido = cen[state.cenario];
+        const ult = todos[todos.length - 1];
+        if (escolhido) {
+            const semanasAte = Math.abs(pj.falta / escolhido);
+            if (semanasAte < 104) {
+                const chegada = new Date(+ult.x + semanasAte * 7 * DIA_MS);
+                projecaoLinha = { de: { x: ult.x, y: ult.y }, ate: { x: chegada, y: pj.meta } };
+                const data = chegada.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+                const txt = {
+                    atual: `No seu ritmo das últimas semanas (${escolhido > 0 ? '+' : '−'}${kgTxt(escolhido)} kg por semana), você chega em ${data}.`,
+                    prazo: `Pra bater o prazo, o ritmo precisa ser ${escolhido > 0 ? '+' : '−'}${kgTxt(escolhido)} kg por semana.`,
+                    melhor: `Se repetir suas melhores semanas (${escolhido > 0 ? '+' : '−'}${kgTxt(escolhido)} kg por semana), você chega em ${data}.`,
+                }[state.cenario];
+                cenariosHTML = `<div class="cenarios">${disp.map(k => `<button class="periodo${k === state.cenario ? ' on' : ''}" data-act="set-cenario" data-c="${k}">${nomes[k]}</button>`).join('')}</div>
+                    <p class="cenario-txt">${txt}</p>`;
+            }
+        }
     }
     const deltaPer = pesos.length >= 2 ? pesos[pesos.length - 1].y - pesos[0].y : null;
     const pesoHTML = `<div class="chart-card">
         <div class="chart-head"><span class="chart-title">Peso</span>${deltaPer != null && Math.abs(deltaPer) >= 0.1 ? `<span class="chart-delta ${deltaPer < 0 ? 'down' : 'up'}">${deltaPer < 0 ? '−' : '+'}${num1(Math.abs(deltaPer))} kg</span>` : ''}</div>
         ${lineChart(pesos, { id: 'w', goal: d.goal.meta ? Number(d.goal.meta) : null, unit: 'kg', decimals: 1, trend: tendencia, projecao: projecaoLinha,
             vazio: { min: 2, msg: pesos.length ? 'Registre seu peso mais uma vez pra ver sua linha de evolução.' : 'Registre seu peso pra começar a acompanhar a evolução.', act: 'm-peso', label: 'Registrar peso' } })}
-        ${tendencia || projecaoLinha ? `<div class="chart-leg">${tendencia ? '<span><i class="leg-trend"></i>tendência</span>' : ''}${projecaoLinha ? '<span><i class="leg-proj"></i>no ritmo atual até o prazo</span>' : ''}</div>` : ''}
+        ${tendencia || projecaoLinha ? `<div class="chart-leg">${tendencia ? '<span><i class="leg-trend"></i>tendência</span>' : ''}${projecaoLinha ? '<span><i class="leg-proj"></i>simulação até a meta</span>' : ''}</div>` : ''}
+        ${cenariosHTML}
     </div>`;
 
     // ---- dias treinados por semana (no período) ----
@@ -6327,6 +6816,18 @@ function montarEvolucao(d) {
         }
     }
 
+    // ---- água: média por dia no período ----
+    const porDiaAguaPer = {};
+    (d.meusPosts || []).filter(p => p.kind === 'water' && noPer(+new Date(p.created_at))).forEach(p => {
+        const k = diaChave(p.created_at); porDiaAguaPer[k] = (porDiaAguaPer[k] || 0) + (p.water_ml || 0);
+    });
+    const diasAguaBase = Math.max(1, Math.min(nDias, diasHist));
+    const totalAguaPer = Object.values(porDiaAguaPer).reduce((a, b) => a + b, 0);
+    const aguaMediaTxt = totalAguaPer
+        ? `Média no período: <b>${formatLitros(Math.round(totalAguaPer / diasAguaBase))}</b> por dia · registrou em ${Object.keys(porDiaAguaPer).length} de ${diasAguaBase} dias`
+        : '';
+    const semMedidas = !(d.weightPoints || []).length && !(d.mSeries || []).some(r => r.cintura != null) && !Number(state.profile.target_weight || 0);
+
     // ---- água: últimos dias contra a meta ----
     const aguaHistorico = metaMl => {
         const nd = Math.min(nDias, 14);
@@ -6350,7 +6851,7 @@ function montarEvolucao(d) {
         return `<div class="chart-sub">Últimos ${barras.length} dias · meta batida em ${bateu}</div>${barChart(barras, { goal: Math.round(metaMl / 100) / 10, height: 110 })}`;
     };
 
-    return { periodosHTML, statsHTML, calendarioHTML, pesoHTML, atividadeHTML, tiposHTML, cardioHTML, musculosHTML, refeicoesHTML, pontosHTML, cinturaHTML, recordesHTML, mesHTML, aguaHistorico };
+    return { periodosHTML, statsHTML, calendarioHTML, pesoHTML, atividadeHTML, tiposHTML, cardioHTML, musculosHTML, refeicoesHTML, pontosHTML, cinturaHTML, recordesHTML, mesHTML, aguaHistorico, aguaMediaTxt, semMedidas };
 }
 
 async function renderProgress() {
@@ -6401,6 +6902,7 @@ async function renderProgress() {
         <div class="anel-info">
             <span class="anel-titulo">Sua semana</span>
             <b class="anel-status">${isValid ? 'Meta batida 🎉' : `Falta${falta === 1 ? '' : 'm'} ${falta} ${falta === 1 ? 'dia' : 'dias'}`}</b>
+            ${(() => { const semAnt = (aSeries || []).slice(-5, -1); const med = semAnt.length ? semAnt.reduce((t, r) => t + (r.days_trained || 0), 0) / semAnt.length : 0; const pv = previsaoSemanaTexto(days, weeklyGoal, med); return pv ? `<span class="anel-prev">${pv}</span>` : ''; })()}
             <span>🔥 ${currentStreak} ${currentStreak === 1 ? 'dia' : 'dias'} de ofensiva${escudoOk ? ' · escudo 🛡️' : ''}</span>
             <span>✅ ${totalValid} ${totalValid === 1 ? 'semana' : 'semanas'} com meta batida</span>
         </div>
@@ -6436,18 +6938,22 @@ async function renderProgress() {
     const horas = Math.floor(totalMin / 60);
     const ev = montarEvolucao({ wSeries, aSeries, mSeries, pSeries, meusPosts, sonos, ledger, streak, weightPoints, projecao, goal, weeklyGoal });
 
-    const aba = state.abaEvolucao || 'resumo';
+    const aba = state.abaEvolucao || 'coach';
     const abaHTML = (id, conteudo) => `<div class="evo-painel${aba === id ? '' : ' hidden'}" data-painel="${id}">${conteudo}</div>`;
     c.innerHTML = `
         <div class="view">
             <div class="page-head"><h1 class="screen-title">Evolução</h1><span class="page-sub">progresso ao longo do tempo</span></div>
 
             <div class="evo-abas">
-                ${[['resumo', 'Resumo'], ['treinos', 'Treinos'], ['corpo', 'Corpo'], ['habitos', 'Hábitos']].map(([k, n]) =>
+                ${[['coach', 'Coach'], ['resumo', 'Resumo'], ['treinos', 'Treinos'], ['corpo', 'Medidas'], ['habitos', 'Hábitos']].map(([k, n]) =>
                     `<button class="evo-aba${aba === k ? ' on' : ''}" data-act="evo-aba" data-aba="${k}">${n}</button>`).join('')}
             </div>
-            ${ev.periodosHTML}
+            <div id="evoPeriodos" class="${aba === 'coach' ? 'hidden' : ''}">${ev.periodosHTML}</div>
 
+            ${abaHTML('coach', `
+                <div id="iaSlot"></div>
+                <p class="coach-rodape">O coach usa seus objetivos e o seu jeito de treinar. <button class="ia-link" data-act="m-go" data-view="objetivos">Ajustar ›</button></p>
+            `)}
             ${abaHTML('resumo', `
                 <div id="lembretesSlot"></div>
                 ${metaCardHTML(projecao)}
@@ -6466,7 +6972,14 @@ async function renderProgress() {
                 ${ev.pontosHTML}
                 ${!ev.atividadeHTML && !ev.tiposHTML ? '<div class="chart-card"><div class="chart-convite"><span>Nenhum treino nesse período ainda.</span><button class="btn-mini" data-act="quick-kind" data-kind="workout">Registrar treino</button></div></div>' : ''}
             `)}
-            ${abaHTML('corpo', `
+            ${abaHTML('corpo', ev.semMedidas ? `
+                <div class="chart-card">
+                    <div class="chart-convite">
+                        <span><b>Quer acompanhar peso ou medidas?</b><br>Você decide o que registrar. Se preferir focar em treino e hábitos, pode deixar essa aba de lado.</span>
+                        <button class="btn-mini" data-act="m-peso">Registrar peso</button>
+                    </div>
+                </div>
+            ` : `
                 ${ev.pesoHTML}
                 ${ev.cinturaHTML}
             `)}
@@ -6481,6 +6994,7 @@ async function renderProgress() {
                         <span class="wtr-goal">de ${formatLitros(aguaHoje.goal_ml || 2000)} hoje</span>
                     </div>
                     <div class="wtr-track"><div class="wtr-fill" style="width:${aguaHoje.pct || 0}%"></div></div>
+                    ${ev.aguaMediaTxt ? `<div class="agua-media">${ev.aguaMediaTxt}</div>` : ''}
                     ${ev.aguaHistorico(aguaHoje.goal_ml || 2000)}
                     <button class="btn-mini wtr-btn" data-act="quick-water">+ Registrar água</button>
                 </div>
@@ -6491,6 +7005,7 @@ async function renderProgress() {
     `;
     const cal = c.querySelector('.cal-scroll');
     if (cal) cal.scrollLeft = cal.scrollWidth;
+    hydrateIAEvolucao();
     hydrateLembretes();
     refreshSleepCard();
     refreshReportCard();
@@ -6602,6 +7117,7 @@ async function renderChallengeDetail(cid) {
         sb.from('challenges').select('rules').eq('id', cid).maybeSingle(),
     ]);
     ch.rules = regrasRow ? regrasRow.rules : null;
+    setTimeout(() => hydrateNarracaoDesafio(ch, ranking || []), 300);
 
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' });
     const diasFim = Math.max(0, Math.ceil((new Date(ch.ends_at) - new Date()) / 86400000));
@@ -6794,6 +7310,7 @@ async function renderChallengeDetail(cid) {
                     ${souDono ? `<button class="btn-danger" data-act="delete-challenge" data-id="${cid}">Apagar</button>` : ''}
                 </div>
                 <div id="chRegrasMembro" class="hidden">${regrasDesafioHTML(ch)}</div>
+                <div id="chNarracao"></div>
             </div>
 
             ${pedidosHTML}
@@ -6968,6 +7485,43 @@ function renderObjetivos() {
                 </div>
             </div>
 
+            <div class="obj-secao">Seu jeito de treinar</div>
+            <p class="cfg-sub">O coach usa isso pra montar seu treino do dia: parte do que você gosta e encaixa o que está faltando.</p>
+
+            <div class="obj-bloco">
+                <div class="obj-rotulo">O que você curte fazer</div>
+                <div class="chip-row">
+                    ${MODALIDADES.map(m => `<button type="button" class="chip${(p.train_likes || []).includes(m) ? ' on' : ''}" data-obj-gosto="${m}">${m}</button>`).join('')}
+                </div>
+            </div>
+            <div class="obj-bloco">
+                <div class="obj-rotulo">O que você prefere evitar <span class="lbl-opt">opcional</span></div>
+                <input type="text" id="objEvita" class="obj-input" maxlength="160" placeholder="ex: burpee, esteira, treino muito longo" value="${escapeHTML(p.train_avoid || '')}">
+            </div>
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Dias que você consegue treinar</div>
+                <div class="obj-dias">
+                    ${DIAS_SEMANA.map(([n, sigla]) => `<button type="button" class="obj-dia${(p.train_days || []).includes(n) ? ' on' : ''}" data-obj-dia-sem="${n}">${sigla}</button>`).join('')}
+                </div>
+            </div>
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Tempo por treino</div>
+                <div class="chip-row">
+                    ${[20, 30, 45, 60, 90].map(m => `<button type="button" class="chip${p.train_minutes === m ? ' on' : ''}" data-obj-min="${m}">${m === 90 ? '90+ min' : m + ' min'}</button>`).join('')}
+                </div>
+            </div>
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Equipamento que você tem em casa <span class="lbl-opt">opcional</span></div>
+                <div class="chip-row">
+                    ${EQUIPAMENTOS.map(e => `<button type="button" class="chip${(p.train_equipment || []).includes(e) ? ' on' : ''}" data-obj-equip="${e}">${e}</button>`).join('')}
+                </div>
+            </div>
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Alguma limitação ou dor? <span class="lbl-opt">opcional</span></div>
+                <input type="text" id="objLimites" class="obj-input" maxlength="160" placeholder="ex: joelho sensível, dor lombar" value="${escapeHTML(p.train_limits || '')}">
+                <p class="field-hint">Só você vê. O coach evita exercícios de risco e, se houver dor, recomenda um profissional.</p>
+            </div>
+
             <button class="btn-primary obj-salvar" id="objSalvar">Salvar objetivos</button>
         </div>
     `;
@@ -6977,6 +7531,8 @@ function renderObjetivos() {
     c.querySelectorAll('[data-obj-dias]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-dias]').forEach(x => x.classList.toggle('on', x === b)));
     c.querySelectorAll('[data-obj-nivel]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-nivel]').forEach(x => x.classList.toggle('on', x === b)));
     c.querySelectorAll('[data-obj-local]').forEach(b => b.onclick = () => b.classList.toggle('on'));
+    c.querySelectorAll('[data-obj-gosto], [data-obj-dia-sem], [data-obj-equip]').forEach(b => b.onclick = () => b.classList.toggle('on'));
+    c.querySelectorAll('[data-obj-min]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-min]').forEach(x => x.classList.toggle('on', x === b)));
 
     document.getElementById('objSalvar').onclick = async () => {
         const btn = document.getElementById('objSalvar');
@@ -6992,6 +7548,12 @@ function renderObjetivos() {
             weekly_goal: sel('[data-obj-dias]') ? Number(sel('[data-obj-dias]').dataset.objDias) : (p.weekly_goal || 3),
             training_level: sel('[data-obj-nivel]') ? sel('[data-obj-nivel]').dataset.objNivel : null,
             training_place: [...c.querySelectorAll('[data-obj-local].on')].map(x => x.dataset.objLocal),
+            train_likes: [...c.querySelectorAll('[data-obj-gosto].on')].map(x => x.dataset.objGosto),
+            train_avoid: document.getElementById('objEvita').value.trim() || null,
+            train_days: [...c.querySelectorAll('[data-obj-dia-sem].on')].map(x => Number(x.dataset.objDiaSem)),
+            train_minutes: c.querySelector('[data-obj-min].on') ? Number(c.querySelector('[data-obj-min].on').dataset.objMin) : null,
+            train_equipment: [...c.querySelectorAll('[data-obj-equip].on')].map(x => x.dataset.objEquip),
+            train_limits: document.getElementById('objLimites').value.trim() || null,
             water_goal_ml: litros >= 0.5 && litros <= 6 ? Math.round(litros * 1000) : null,
             sleep_goal_h: sono >= 4 && sono <= 12 ? sono : null,
             goal_reviewed_at: new Date().toISOString(),
@@ -7003,6 +7565,8 @@ function renderObjetivos() {
         Object.assign(state.profile, dados);
         state.coachContext = null;
         toast('Objetivos salvos. O coach já vai levar isso em conta.', 'ok');
+        // Preferências mudaram: o treino do dia pode ser refeito
+        state.iaTreinoForcar = true;
         refreshWeeklyPill();
         switchView('menu');
     };
@@ -9158,12 +9722,46 @@ document.addEventListener('click', async e => {
     } else if (act === 'ver-regras-desafio') {
         const el = document.getElementById('chRegrasMembro');
         if (el) el.classList.toggle('hidden');
+    } else if (act === 'ia-treino-fiz') {
+        const t = state.iaTreino;
+        if (!t) return;
+        limparComposer();
+        setComposerKind('workout');
+        $('#wType').value = t.tipo;
+        $('#wDuration').value = t.minutos;
+        $('#pCaption').value = t.titulo || '';
+        atualizarCamposTreino();
+        abrirComposer();
+    } else if (act === 'ia-treino-trocar') {
+        const t = state.iaTreino;
+        btn.disabled = true; btn.textContent = 'Pensando...';
+        try { await obterTreinoDoDia(true, t && t.titulo); } catch (err) { toast('Não consegui trocar agora.', 'err'); }
+        hydrateIAEvolucao();
+    } else if (act === 'ia-treino-pular') {
+        const t = state.iaTreino;
+        if (t) { t.status = 'pulado'; await iaGuardar('treino', hojeISO(), t); }
+        hydrateIAEvolucao();
+    } else if (act === 'ia-treino-voltar') {
+        const t = state.iaTreino;
+        if (t) { t.status = 'sugerido'; await iaGuardar('treino', hojeISO(), t); }
+        hydrateIAEvolucao();
+    } else if (act === 'ia-plano-refazer') {
+        btn.textContent = 'refazendo...';
+        try { await obterPlanoSemana(true); } catch (err) { toast('Não consegui refazer agora.', 'err'); }
+        hydrateIAEvolucao();
     } else if (act === 'evo-aba') {
         state.abaEvolucao = btn.dataset.aba;
         $$('.evo-aba').forEach(b => b.classList.toggle('on', b === btn));
         $$('.evo-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== state.abaEvolucao));
+        const per = document.getElementById('evoPeriodos');
+        if (per) per.classList.toggle('hidden', state.abaEvolucao === 'coach');
         const cal = document.querySelector('.cal-scroll');
         if (cal) cal.scrollLeft = cal.scrollWidth;
+    } else if (act === 'set-cenario') {
+        state.cenario = btn.dataset.c;
+        const y = window.scrollY;
+        await renderProgress();
+        window.scrollTo(0, y);
     } else if (act === 'set-periodo') {
         state.periodo = btn.dataset.p;
         const y = window.scrollY;
@@ -10510,6 +11108,55 @@ function closeComposer() {
     updateDestUI();
 }
 
+// Registro por texto ou voz: a IA preenche o formulário e a pessoa confere antes de salvar
+async function enviarRegistroIA() {
+    const campo = $('#iaTexto');
+    const texto = campo.value.trim();
+    if (!texto) return;
+    const btn = $('#iaEnviar');
+    btn.disabled = true; btn.classList.add('girando');
+    try {
+        const r = await interpretarRegistro(texto);
+        if (!r || !r.kind) { toast('Não entendi bem. Tenta de outro jeito, ex: "caminhei 40 minutos".', 'err'); return; }
+        campo.value = '';
+        setComposerKind(r.kind);
+        if (r.kind === 'workout') {
+            if (TIPOS_TREINO.includes(r.activity_type)) $('#wType').value = r.activity_type;
+            if (r.duration_min) $('#wDuration').value = Math.round(r.duration_min);
+            if (r.distance_km) $('#wDistance').value = r.distance_km;
+            atualizarCamposTreino();
+        } else if (r.kind === 'water' && r.water_ml) {
+            $('#wMl').value = Math.round(r.water_ml);
+        } else if (r.kind === 'sleep' && r.sleep_hours) {
+            $('#skHours').value = r.sleep_hours;
+        }
+        if (r.legenda) $('#pCaption').value = r.legenda;
+        toast('Preenchi pra você. Confere e salva.', 'ok');
+    } catch (e) {
+        console.warn(e);
+        toast('Não consegui interpretar agora. Use os ícones abaixo.', 'err');
+    } finally {
+        btn.disabled = false; btn.classList.remove('girando');
+    }
+}
+$('#iaEnviar').addEventListener('click', enviarRegistroIA);
+$('#iaTexto').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarRegistroIA(); } });
+(function ligarMicrofone() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return; // no iPhone, o ditado do próprio teclado resolve
+    const mic = $('#iaMic');
+    mic.classList.remove('hidden');
+    mic.addEventListener('click', () => {
+        const rec = new SR();
+        rec.lang = 'pt-BR'; rec.interimResults = false; rec.maxAlternatives = 1;
+        mic.classList.add('ouvindo');
+        rec.onresult = ev => { $('#iaTexto').value = ev.results[0][0].transcript; enviarRegistroIA(); };
+        rec.onend = () => mic.classList.remove('ouvindo');
+        rec.onerror = () => { mic.classList.remove('ouvindo'); toast('Não consegui ouvir. Tenta escrever.', 'err'); };
+        rec.start();
+    });
+})();
+
 $$('.kind-tile').forEach(b => b.addEventListener('click', e => {
     const kind = e.currentTarget.dataset.kind;
     if (kind === 'story') { closeComposer(); openStoryCreator(); return; }
@@ -10948,8 +11595,10 @@ $('#composerSubmit').addEventListener('click', async () => {
         }
 
         await loadScore();
+        const eraTreino = post.kind === 'workout';
         closeComposer();
         setTimeout(() => checarConquistas(false), 1200);
+        if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
 
         let msg = `+${ptsToCredit} pontos!`;
         if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
