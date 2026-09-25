@@ -1707,6 +1707,24 @@ html.tela-cheia .view > .user-topbar .topbar-back svg{ width:20px; height:20px; 
 .revisao-obj span{ font-size:13px; color:var(--ink-dim); }
 
 .ig-profile-actions .btn-secondary{ white-space:nowrap; }
+
+/* ================= ONDA 7: destaques estilo Instagram ================= */
+.destaque-capa{ box-shadow:0 0 0 1.5px var(--line), 0 0 0 4px var(--bg), 0 0 0 5px rgba(255,255,255,.14); border:none; }
+.destaque-novo{ display:grid; place-items:center; background:transparent; color:var(--ink); box-shadow:0 0 0 1.5px var(--line); }
+.destaque-novo svg{ width:26px; height:26px; }
+.destaques{ padding:16px 6px 8px; gap:18px; }
+.ed-salvar{ height:34px; padding:0 14px; border-radius:18px; border:none; background:var(--vital); color:#08110C; font-weight:700; font-size:13.5px; }
+.ed-salvar:disabled{ opacity:.6; }
+.ed-nome{ margin:6px 0 10px; font-size:15px; }
+.ed-grade{ display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; margin:0 -12px 18px; }
+.ed-item{ position:relative; aspect-ratio:9 / 16; border:none; border-radius:4px; background-size:cover; background-position:center; overflow:hidden; padding:0; }
+.ed-item::after{ content:''; position:absolute; inset:0; background:rgba(0,0,0,0); transition:background .15s; }
+.ed-item.on::after{ background:rgba(0,0,0,.25); }
+.ed-txt{ position:absolute; inset:0; display:grid; place-items:center; padding:8px; font-family:var(--ff-display); font-weight:600; font-size:12px; text-align:center; line-height:1.25; }
+.ed-data{ position:absolute; left:6px; bottom:6px; z-index:1; font-size:10.5px; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.7); }
+.ed-check{ position:absolute; top:6px; right:6px; z-index:1; width:22px; height:22px; border-radius:50%; border:1.5px solid #fff; background:rgba(0,0,0,.2); }
+.ed-item.on .ed-check{ border-color:var(--vital); background:var(--vital) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2308110C' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E") center/13px no-repeat; }
+.ed-excluir{ margin:0 -16px; }
 </style>
 </head>
 <body>
@@ -5887,9 +5905,7 @@ async function renderProgress() {
         sb.rpc('count_valid_weeks', { uid }),
     ]);
     const aguaHoje = await aguaDeHoje();
-    const { data: fotosAD } = await sb.from('posts').select('id, image_url, created_at')
-        .eq('user_id', uid).not('image_url', 'is', null).neq('kind', 'text')
-        .order('created_at', { ascending: true }).limit(200);
+
 
     const goal = goalData?.[0] || {};
     const weeklyGoal = state.profile.weekly_goal || 3;
@@ -5929,25 +5945,6 @@ async function renderProgress() {
     // Gráfico de peso
     const weightPoints = (wSeries || []).map(r => ({ x: new Date(r.d + 'T12:00:00'), y: Number(r.kg) }));
     const projecao = state.projecao = projecaoMeta(weightPoints, aSeries || [], state.profile);
-    let antesDepoisHTML = '';
-    if (fotosAD && fotosAD.length >= 2) {
-        const fa = fotosAD[0], fb = fotosAD[fotosAD.length - 1];
-        const pesoPerto = quando => {
-            let melhor = null, dist = Infinity;
-            weightPoints.forEach(w => { const d = Math.abs(w.x - new Date(quando)); if (d < dist) { dist = d; melhor = w.y; } });
-            return dist < 21 * 86400000 ? melhor : null;
-        };
-        const pa = pesoPerto(fa.created_at), pb = pesoPerto(fb.created_at);
-        const dataCurta = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
-        antesDepoisHTML = `<div class="chart-card ad-card" data-act="go-compare">
-            <div class="chart-head"><span class="chart-title">Antes e depois</span><span class="chart-legend">comparar ›</span></div>
-            <div class="ad-fotos">
-                <div class="ad-foto"><img src="${fa.image_url}" loading="lazy" alt=""><span>${dataCurta(fa.created_at)}${pa ? ' · ' + kgTxt(pa) + ' kg' : ''}</span></div>
-                <div class="ad-foto"><img src="${fb.image_url}" loading="lazy" alt=""><span>${dataCurta(fb.created_at)}${pb ? ' · ' + kgTxt(pb) + ' kg' : ''}</span></div>
-            </div>
-            ${pa && pb && Math.abs(pb - pa) >= 0.1 ? `<div class="chart-foot">${pb < pa ? '−' : '+'}${kgTxt(pb - pa)} kg entre as duas fotos</div>` : ''}
-        </div>`;
-    }
     const weightChart = lineChart(weightPoints, { id:'w', goal: goal.meta ? Number(goal.meta) : null, unit:'kg', decimals:1 });
 
     // Gráfico de atividade semanal
@@ -6018,7 +6015,6 @@ async function renderProgress() {
                 ${goal.meta ? `<div class="chart-foot">Meta ${Number(goal.meta).toFixed(1)} kg · ${goal.progresso_pct != null ? Math.max(0, Math.min(100, Number(goal.progresso_pct))) : 0}% alcançado</div>` : ''}
             </div>` : ''}
 
-            ${antesDepoisHTML}
 
             <div class="chart-card">
                 <div class="chart-head">
@@ -6411,6 +6407,7 @@ async function renderMenu() {
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Comunidade</div>
                 ${linhaMenu('m-go', 'comunidade', 'Desafios', rolando, ' data-view="challenges"')}
+                ${linhaMenu('compartilhar-perfil', 'mensagem', 'Compartilhar perfil')}
             </div>
 
             ${p.is_admin ? `<div class="cfg-grupo">
@@ -7104,9 +7101,6 @@ async function renderProfile() {
             </div>
             <div class="ig-profile-actions">
                 <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
-                <button class="btn-secondary prof-share" data-act="compartilhar-perfil" aria-label="Compartilhar perfil">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>
-                </button>
                 <div class="prof-pill">
                     <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
                         <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
@@ -8952,6 +8946,8 @@ document.addEventListener('click', async e => {
         openStoryViewer(0);
     } else if (act === 'open-follow-list') {
         openFollowList(btn.dataset.uid, btn.dataset.type);
+    } else if (act === 'novo-destaque') {
+        abrirEditorDestaque();
     } else if (act === 'abrir-destaque') {
         abrirDestaque(btn.dataset.id, btn.dataset.uid);
     } else if (act === 'view-post') {
@@ -9498,8 +9494,13 @@ function showCurrentStory() {
     act.classList.toggle('hidden', !isMineStory);
     state.storyAtual = isMineStory ? item.id : null;
     const destBtn = document.getElementById('svDestacar');
-    destBtn.classList.toggle('hidden', !isMineStory);
-    destBtn.onclick = ev => { ev.stopPropagation(); abrirEscolhaDestaque(item); };
+    destBtn.classList.toggle('hidden', !isMineStory && !(ehDestaque && souDonoDoStory));
+    destBtn.querySelector('span').textContent = ehDestaque ? 'Editar' : 'Destacar';
+    destBtn.onclick = ev => {
+        ev.stopPropagation();
+        if (ehDestaque) { closeStoryViewer(); abrirEditorDestaque(group.destaque); }
+        else abrirEscolhaDestaque(item);
+    };
     if (isMineStory) {
         state.storyViewers = state.storyViewers || {};
         state.storyViewersReq = state.storyViewersReq || {};
@@ -9582,8 +9583,13 @@ async function carregarDestaques(uid) {
     return (data || []).filter(h => (h.story_highlight_items || []).length);
 }
 function destaquesHTML(lista, uid) {
-    if (!lista || !lista.length) return '';
-    return `<div class="destaques">${lista.map(h => {
+    const meu = uid === state.session.user.id;
+    if ((!lista || !lista.length) && !meu) return '';
+    const novo = meu ? `<button class="destaque" data-act="novo-destaque">
+            <span class="destaque-capa destaque-novo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></span>
+            <span class="destaque-nome">Novo</span>
+        </button>` : '';
+    return `<div class="destaques">${(lista || []).map(h => {
         const itens = [...h.story_highlight_items].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         const capa = itens.find(i => i.image_url);
         const fundo = capa ? `background-image:url('${capa.image_url}')` : `background:${itens[0].background_color || STORY_BG_PADRAO}`;
@@ -9591,8 +9597,118 @@ function destaquesHTML(lista, uid) {
             <span class="destaque-capa" style="${fundo}"></span>
             <span class="destaque-nome">${escapeHTML(h.title)}</span>
         </button>`;
-    }).join('')}</div>`;
+    }).join('')}${novo}</div>`;
 }
+// ---- Editor de destaque (criar ou editar, escolhendo vários stories) ----
+function miniStoryHTML(x, marcado) {
+    const fundo = x.image_url ? `background-image:url('${x.image_url}')` : `background:${x.background_color || STORY_BG_PADRAO}`;
+    const txt = !x.image_url && x.caption ? `<span class="ed-txt" style="color:${corDeTextoPara(x.background_color || STORY_BG_PADRAO)}">${escapeHTML(x.caption.slice(0, 40))}</span>` : '';
+    return `<button type="button" class="ed-item${marcado ? ' on' : ''}" style="${fundo}">
+        ${txt}
+        <span class="ed-data">${new Date(x.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span>
+        <span class="ed-check"></span>
+    </button>`;
+}
+
+async function abrirEditorDestaque(hid = null) {
+    const old = document.getElementById('editorDestaque');
+    if (old) old.remove();
+    const v = document.createElement('div');
+    v.id = 'editorDestaque';
+    v.className = 'posts-viewer';
+    v.innerHTML = `<div class="pv-topo">
+            <button class="topbar-back pv-voltar" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <div class="topbar-title">${hid ? 'Editar destaque' : 'Novo destaque'}</div>
+            <button class="ed-salvar" id="edSalvar">Salvar</button>
+        </div>
+        <div class="pv-lista"><div class="spinner"></div></div>`;
+    document.body.appendChild(v);
+    document.body.style.overflow = 'hidden';
+    const fechar = () => { v.remove(); document.body.style.overflow = ''; };
+    v.querySelector('.pv-voltar').onclick = fechar;
+
+    const [{ data: arquivo }, dest, { data: itensAtuais }] = await Promise.all([
+        sb.rpc('my_story_archive'),
+        hid ? sb.from('story_highlights').select('id, title').eq('id', hid).maybeSingle() : Promise.resolve({ data: null }),
+        hid ? sb.from('story_highlight_items').select('id, source_story_id, image_url, caption, background_color, created_at').eq('highlight_id', hid)
+            : Promise.resolve({ data: [] }),
+    ]);
+    const lista = v.querySelector('.pv-lista');
+    if (!lista) return;
+
+    // Monta as opções: o que já está no destaque (marcado) + stories antigos que ainda não estão
+    const jaTem = new Set((itensAtuais || []).map(i => i.source_story_id).filter(Boolean));
+    const opcoes = [
+        ...(itensAtuais || []).map(i => ({ tipo: 'item', id: i.id, dado: i, on: true })),
+        ...(arquivo || []).filter(st => !jaTem.has(st.id)).map(st => ({ tipo: 'story', id: st.id, dado: st, on: false })),
+    ].sort((a, b) => new Date(b.dado.created_at) - new Date(a.dado.created_at));
+
+    lista.innerHTML = `
+        <input type="text" id="edNome" class="obj-input ed-nome" maxlength="20" placeholder="Nome do destaque" value="${escapeHTML(dest.data ? dest.data.title : '')}">
+        <p class="cfg-sub">Toque pra escolher os stories. A privacidade é a mesma dos seus stories.</p>
+        ${opcoes.length
+            ? `<div class="ed-grade">${opcoes.map((o, k) => miniStoryHTML(o.dado, o.on).replace('<button type="button" class="ed-item', `<button type="button" data-k="${k}" class="ed-item`)).join('')}</div>`
+            : '<div class="log-empty">Você ainda não tem stories pra destacar. Poste um e volte aqui.</div>'}
+        ${hid ? '<button class="cfg-row cfg-perigo ed-excluir" id="edExcluir"><span class="cfg-txt">Excluir destaque</span></button>' : ''}
+    `;
+    lista.querySelectorAll('.ed-item').forEach(b => b.onclick = () => {
+        const o = opcoes[Number(b.dataset.k)];
+        o.on = !o.on;
+        b.classList.toggle('on', o.on);
+    });
+
+    const exc = document.getElementById('edExcluir');
+    if (exc) exc.onclick = async () => {
+        if (!confirm('Excluir este destaque? Os stories originais não são apagados.')) return;
+        const { error } = await sb.from('story_highlights').delete().eq('id', hid);
+        if (error) { toast(msgErro(error), 'err'); return; }
+        fechar(); toast('Destaque excluído', 'ok');
+        if (state.view === 'profile') renderProfile();
+    };
+
+    document.getElementById('edSalvar').onclick = async () => {
+        const nome = document.getElementById('edNome').value.trim();
+        const escolhidos = opcoes.filter(o => o.on);
+        if (!nome) { toast('Dê um nome ao destaque', 'err'); return; }
+        if (!escolhidos.length) { toast('Escolha pelo menos um story', 'err'); return; }
+        const btn = document.getElementById('edSalvar');
+        btn.disabled = true; btn.textContent = 'Salvando...';
+        try {
+            let id = hid;
+            if (!id) {
+                const { data: h, error } = await sb.from('story_highlights')
+                    .insert({ user_id: state.session.user.id, title: nome }).select().single();
+                if (error) throw error;
+                id = h.id;
+            } else if (!dest.data || dest.data.title !== nome) {
+                const { error } = await sb.from('story_highlights').update({ title: nome }).eq('id', id);
+                if (error) throw error;
+            }
+            const remover = opcoes.filter(o => o.tipo === 'item' && !o.on).map(o => o.id);
+            if (remover.length) {
+                const { error } = await sb.from('story_highlight_items').delete().in('id', remover);
+                if (error) throw error;
+            }
+            const novos = escolhidos.filter(o => o.tipo === 'story').map(o => ({
+                highlight_id: id, source_story_id: o.dado.id,
+                image_url: o.dado.image_url || null, caption: o.dado.caption || null,
+                background_color: o.dado.image_url ? null : (o.dado.background_color || STORY_BG_PADRAO),
+                created_at: o.dado.created_at,
+            }));
+            if (novos.length) {
+                const { error } = await sb.from('story_highlight_items').insert(novos);
+                if (error) throw error;
+            }
+            fechar();
+            toast(hid ? 'Destaque atualizado' : 'Destaque criado', 'ok');
+            if (state.view === 'profile') renderProfile();
+        } catch (err) {
+            toast(msgErro(err), 'err');
+            btn.disabled = false; btn.textContent = 'Salvar';
+        }
+    };
+}
+
 async function abrirDestaque(hid, uid) {
     const [{ data: h }, { data: itens }, { data: autor }] = await Promise.all([
         sb.from('story_highlights').select('id, title').eq('id', hid).maybeSingle(),
@@ -9630,7 +9746,7 @@ async function abrirEscolhaDestaque(item) {
     sheet.onclick = e => { if (e.target === sheet) fechar(); };
     const adicionar = async (hid) => {
         const { error } = await sb.from('story_highlight_items').insert({
-            highlight_id: hid, image_url: item.image_url || null, caption: item.caption || null,
+            highlight_id: hid, source_story_id: item.id, image_url: item.image_url || null, caption: item.caption || null,
             background_color: item.image_url ? null : (item.background_color || STORY_BG_PADRAO),
             created_at: item.created_at,
         });
