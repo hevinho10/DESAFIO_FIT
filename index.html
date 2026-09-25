@@ -1950,6 +1950,14 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .salvar-rodape.on{ transform:none; pointer-events:auto; }
 .salvar-rodape .btn-primary{ width:100%; max-width:560px; margin:0 auto; display:block; }
 .obj-linha .obj-bloco{ min-width:0; }
+
+/* ================= ONDA 13: aviso de metas ================= */
+.meta-aviso{ position:relative; margin:14px 0; padding:14px 16px; border-radius:var(--radius-lg); border:1px solid rgba(53,225,155,.3); background:radial-gradient(120% 100% at 0% 0%, rgba(53,225,155,.08), transparent 60%), var(--bg-card); }
+.ma-topo{ display:flex; gap:12px; padding-right:22px; }
+.ma-emo{ font-size:22px; line-height:1.2; }
+.ma-topo b{ display:block; font-size:14.5px; font-weight:600; }
+.ma-topo p{ font-size:13px; color:var(--ink-dim); line-height:1.45; margin-top:3px; }
+.ma-botoes{ display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:12px; }
 </style>
 </head>
 <body>
@@ -7817,61 +7825,67 @@ async function imagemResumo(r) {
     return await new Promise(r => cv.toBlob(b => r(b), 'image/jpeg', 0.92));
 }
 
-// ---- Card "Suas metas" no perfil (só a própria pessoa vê) ----
-async function montarCardMetas(goal, diasSemana, metaSemana) {
+// ---- Aviso de metas no perfil (só a própria pessoa vê) ----
+// Aparece só quando precisa de ação: sem prazo, prazo vencido, reta final ou meta batida.
+function lsGet(k) { try { return localStorage.getItem(k); } catch (_) { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (_) {} }
+
+async function montarCardMetas(goal) {
     const p = state.profile;
-    const linhas = [];
-    const barra = pct => `<span class="mt-trilho"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></span>`;
-
-    // objetivo e prazo
-    const obj = OBJETIVOS.find(o => o[0] === p.goal);
-    let topo = '';
-    if (obj || p.goal_details) {
-        let prazo = '';
-        if (p.goal_deadline) {
-            const dt = new Date(p.goal_deadline + 'T12:00:00');
-            const sem = Math.ceil((dt - Date.now()) / (7 * 86400000));
-            prazo = `até ${dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · ${sem > 1 ? `faltam ${sem} semanas` : sem === 1 ? 'última semana' : 'prazo passou, que tal renovar?'}`;
-        }
-        topo = `<div class="mt-topo">
-            <span class="mt-emo">🎯</span>
-            <div><b>${obj ? obj[1] : 'Seu objetivo'}</b>${p.goal_details ? ` · <span class="mt-frase">"${escapeHTML(p.goal_details)}"</span>` : ''}${prazo ? `<small>${prazo}</small>` : ''}</div>
-        </div>`;
-    }
-
-    // treinos na semana (sempre existe)
-    linhas.push(`<div class="mt-linha"><span class="mt-emo">🏋️</span><span class="mt-nome">Treinos na semana</span>${barra(diasSemana / metaSemana * 100)}<span class="mt-val${diasSemana >= metaSemana ? ' ok' : ''}">${diasSemana} de ${metaSemana}</span></div>`);
-
-    // peso (só com meta)
-    if (Number(p.target_weight || 0) > 0) {
-        if (goal && goal.peso_atual) {
-            const pct = Math.max(0, Math.min(100, Number(goal.progresso_pct || 0)));
-            linhas.push(`<div class="mt-linha"><span class="mt-emo">⚖️</span><span class="mt-nome">Peso <small>${kgTxt(Number(goal.peso_atual))} → ${kgTxt(Number(p.target_weight))} kg</small></span>${barra(pct)}<span class="mt-val">${pct}%</span></div>`);
-        } else {
-            linhas.push(`<div class="mt-linha mt-acao" data-act="m-peso"><span class="mt-emo">⚖️</span><span class="mt-nome">Peso <small>meta ${kgTxt(Number(p.target_weight))} kg</small></span><span class="mt-val mt-link">registrar peso ›</span></div>`);
-        }
-    }
-
-    // água e sono (só se a pessoa definiu)
-    const [agua, sono] = await Promise.all([
-        p.water_goal_ml ? aguaDeHoje() : Promise.resolve(null),
-        p.sleep_goal_h ? sb.from('sleep_logs').select('hours, slept_on').eq('user_id', state.session.user.id).order('slept_on', { ascending: false }).limit(1) : Promise.resolve({ data: null }),
-    ]);
-    if (agua) {
-        linhas.push(`<div class="mt-linha"><span class="mt-emo">💧</span><span class="mt-nome">Água hoje</span>${barra(agua.pct)}<span class="mt-val${agua.pct >= 100 ? ' ok' : ''}">${formatLitros(agua.total_ml || 0)} de ${formatLitros(agua.goal_ml)}</span></div>`);
-    }
-    if (p.sleep_goal_h) {
-        const ult = sono && sono.data && sono.data[0];
-        const recente = ult && (Date.now() - new Date(ult.slept_on + 'T12:00:00')) < 2.5 * 86400000;
-        const h = recente ? Number(ult.hours) : null;
-        linhas.push(`<div class="mt-linha"><span class="mt-emo">🌙</span><span class="mt-nome">Sono ontem</span>${barra(h ? h / p.sleep_goal_h * 100 : 0)}<span class="mt-val${h && h >= p.sleep_goal_h ? ' ok' : ''}">${h ? `${String(h).replace('.', ',')} de ${String(p.sleep_goal_h).replace('.', ',')} h` : 'sem registro'}</span></div>`);
-    }
-
-    return `<div class="metas-card" data-act="m-go" data-view="objetivos">
-        <div class="mt-head"><span>Suas metas</span><span class="mt-ajustar">ajustar ›</span></div>
-        ${topo}
-        ${linhas.join('')}
+    const DIA = 86400000;
+    const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
+    const prazo = p.goal_deadline ? new Date(p.goal_deadline + 'T23:59:59') : null;
+    const meta = Number(p.target_weight || 0);
+    const atual = goal && goal.peso_atual ? Number(goal.peso_atual) : null;
+    const inicial = goal && goal.peso_inicial ? Number(goal.peso_inicial) : null;
+    const dataCurta = d => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const aviso = (emo, titulo, texto, botoes, fechar) => `<div class="meta-aviso">
+        ${fechar ? `<button class="dc-x" data-act="meta-fechar" data-chave="${fechar}" aria-label="Fechar">×</button>` : ''}
+        <div class="ma-topo"><span class="ma-emo">${emo}</span><div><b>${titulo}</b>${texto ? `<p>${texto}</p>` : ''}</div></div>
+        <div class="ma-botoes">${botoes}</div>
     </div>`;
+
+    // 1) Meta de peso batida: comemora e convida pra próxima
+    if (meta > 0 && atual != null && inicial != null && Math.abs(inicial - meta) >= 0.5) {
+        const perdendo = meta < inicial;
+        const chegou = perdendo ? atual <= meta + 0.05 : atual >= meta - 0.05;
+        const chave = 'pulso-meta-batida-' + meta;
+        if (chegou && lsGet(chave) !== '1') {
+            return aviso('🎉', `Você chegou nos ${kgTxt(meta)} kg!`, 'Meta batida. Quer definir a próxima?',
+                `<button class="btn-ghost btn-xs" data-act="meta-fechar" data-chave="${chave}">Agora não</button>
+                 <button class="btn-primary-sm" data-act="m-go" data-view="objetivos">Definir próxima meta</button>`, null);
+        }
+    }
+
+    // 2) Prazo vencido: renovar com um toque
+    if (prazo && prazo < hoje0) {
+        return aviso('⏰', `Seu prazo de ${dataCurta(prazo)} passou`, 'Bora renovar? Com um prazo novo o coach volta a calcular seu ritmo.',
+            `<button class="btn-ghost btn-xs" data-act="meta-renovar" data-sem="4">+4 semanas</button>
+             <button class="btn-ghost btn-xs" data-act="meta-renovar" data-sem="8">+8 semanas</button>
+             <button class="btn-primary-sm" data-act="m-go" data-view="objetivos">Ajustar meta</button>`, null);
+    }
+
+    // 3) Reta final: última semana antes do prazo
+    if (prazo) {
+        const dias = Math.ceil((prazo - Date.now()) / DIA);
+        const chave = 'pulso-reta-final-' + p.goal_deadline;
+        if (dias <= 7 && lsGet(chave) !== '1') {
+            const falta = meta > 0 && atual != null ? Math.abs(atual - meta) : null;
+            const txt = falta != null && falta >= 0.1 ? `Faltam ${kgTxt(falta)} kg e ${dias <= 1 ? 'só hoje' : dias + ' dias'}.` : `${dias <= 1 ? 'O prazo é hoje' : 'Faltam ' + dias + ' dias'}. Cada treino conta agora.`;
+            return aviso('🏁', 'Última semana da sua meta', txt,
+                `<button class="btn-primary-sm" data-act="m-go" data-view="progress">Ver meu ritmo</button>`, chave);
+        }
+        return ''; // tudo definido e em andamento: não precisa aparecer
+    }
+
+    // 4) Sem objetivo ou sem prazo (respeita o "Agora não" por 7 dias)
+    const soneca = Number(lsGet('pulso-meta-soneca') || 0);
+    if (Date.now() - soneca < 7 * DIA) return '';
+    const semObjetivo = !p.goal;
+    return aviso('🎯', semObjetivo ? 'Você ainda não definiu um objetivo' : 'Sua meta ainda não tem prazo',
+        semObjetivo ? 'Com um objetivo, o coach monta treinos e dicas pensados pra você.' : 'Com uma data, o coach consegue te dizer se o ritmo está bom.',
+        `<button class="btn-ghost btn-xs" data-act="meta-soneca">Agora não</button>
+         <button class="btn-primary-sm" data-act="m-go" data-view="objetivos">${semObjetivo ? 'Definir objetivo' : 'Definir prazo'}</button>`, null);
 }
 
 // ---- Salvos ----
@@ -8274,7 +8288,7 @@ async function renderProfile() {
     const diasSemana = Number(diasSem || 0);
     const rankTxt = (rkProf && rkProf[0] && rkProf[0].rank) ? rkProf[0].rank + 'º' : '-';
     const metaSemana = state.profile.weekly_goal || 3;
-    const metasHTML = await montarCardMetas(goal, diasSemana, metaSemana);
+    const metasHTML = await montarCardMetas(goal);
 
     const meusDestaques = await carregarDestaques(state.session.user.id);
     const { count: myStoryCount } = await sb.from('stories')
@@ -10154,6 +10168,25 @@ document.addEventListener('click', async e => {
         btn.querySelector('.cfg-check').classList.toggle('on', ocultar);
     } else if (act === 'open-edit-profile') {
         switchView('edit-profile');
+    } else if (act === 'meta-renovar') {
+        e.stopPropagation();
+        const nova = new Date(Date.now() + Number(btn.dataset.sem) * 7 * 86400000);
+        const iso = isoDe(nova);
+        btn.disabled = true;
+        const { error } = await sb.from('profiles').update({ goal_deadline: iso, goal_reviewed_at: new Date().toISOString() }).eq('id', state.session.user.id);
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        state.profile.goal_deadline = iso;
+        state.coachContext = null;
+        toast(`Prazo renovado até ${nova.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`, 'ok');
+        renderProfile();
+    } else if (act === 'meta-soneca') {
+        e.stopPropagation();
+        lsSet('pulso-meta-soneca', String(Date.now()));
+        const av = btn.closest('.meta-aviso'); if (av) av.remove();
+    } else if (act === 'meta-fechar') {
+        e.stopPropagation();
+        lsSet(btn.dataset.chave, '1');
+        const av = btn.closest('.meta-aviso'); if (av) av.remove();
     } else if (act === 'voltar-editavel') {
         switchView(state.voltarEditavel || 'settings');
     } else if (act === 'go-settings-back') {
