@@ -1906,6 +1906,50 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 
 .agua-media{ margin-top:12px; font-size:13px; color:var(--ink-dim); line-height:1.5; }
 .agua-media b{ color:var(--info); font-family:var(--ff-display); }
+
+/* ================= ONDA 12: metas no perfil e telas editáveis ================= */
+.ed-dica-metas{ margin-top:14px; }
+.ed-dica-metas .ia-link{ color:var(--vital); font-weight:600; padding:0; font-size:inherit; }
+
+.metas-card{ margin:14px 0; padding:14px 16px; border-radius:var(--radius-lg); border:1px solid var(--line); background:var(--bg-card); cursor:pointer; }
+.mt-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; font-family:var(--ff-display); font-weight:700; font-size:15px; }
+.mt-ajustar{ font-family:var(--ff-body, inherit); font-weight:500; font-size:12px; color:var(--ink-faint); }
+.mt-topo{ display:flex; gap:10px; padding:6px 0 10px; font-size:13.5px; line-height:1.45; border-bottom:1px solid var(--line); margin-bottom:4px; }
+.mt-topo b{ font-weight:600; }
+.mt-frase{ color:var(--ink-dim); }
+.mt-topo small{ display:block; font-size:12px; color:var(--ink-faint); margin-top:2px; }
+.mt-emo{ width:22px; flex-shrink:0; text-align:center; }
+.mt-linha{ display:grid; grid-template-columns:22px max-content minmax(36px, 1fr) auto; align-items:center; gap:10px; padding:9px 0; font-size:13px; }
+.mt-linha + .mt-linha{ border-top:1px solid var(--line); }
+.mt-nome{ white-space:nowrap; }
+.mt-nome small{ color:var(--ink-faint); font-size:11.5px; margin-left:2px; }
+.mt-trilho{ height:7px; border-radius:5px; background:rgba(255,255,255,.07); overflow:hidden; }
+:root[data-theme="light"] .mt-trilho{ background:rgba(0,0,0,.07); }
+.mt-trilho i{ display:block; height:100%; border-radius:5px; background:var(--vital); }
+.mt-val{ font-size:12.5px; color:var(--ink-dim); white-space:nowrap; font-family:var(--ff-display); font-weight:600; text-align:right; }
+.mt-val.ok{ color:var(--vital); }
+.mt-acao{ grid-template-columns:22px 1fr auto; }
+.mt-link{ color:var(--vital); font-family:inherit; }
+
+/* Campo de data que não vaza no iPhone */
+.data-campo{ position:relative; }
+.data-campo input[type="date"]{ -webkit-appearance:none; appearance:none; display:block; width:100%; min-width:0; max-width:100%; box-sizing:border-box; height:46px; background:var(--bg-input); border:1px solid var(--line); color:var(--ink); padding:0 44px 0 13px; border-radius:12px; font-size:14px; font-family:inherit; text-align:left; }
+.data-campo input[type="date"]::-webkit-date-and-time-value{ text-align:left; }
+.data-campo input[type="date"]:focus{ outline:none; border-color:var(--vital); box-shadow:var(--ring); }
+.data-campo:not(.tem) input[type="date"]{ color:transparent; }
+.data-campo:not(.tem) input[type="date"]::-webkit-datetime-edit{ color:transparent; }
+.data-vazia{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--ink-faint); font-size:14px; pointer-events:none; }
+.data-campo.tem .data-vazia{ display:none; }
+.data-limpar{ position:absolute; right:6px; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; border:none; background:rgba(255,255,255,.07); color:var(--ink-dim); font-size:18px; line-height:1; display:none; }
+.data-campo.tem .data-limpar{ display:grid; place-items:center; }
+
+/* Salvar que só aparece quando algo mudou, sem cobrir o conteúdo */
+.tela-editavel{ padding-bottom:calc(110px + env(safe-area-inset-bottom)); }
+.ed-salvar-topo{ height:32px; padding:0 13px; font-size:13px; }
+.salvar-rodape{ position:fixed; left:0; right:0; bottom:0; z-index:35; padding:12px 20px calc(14px + env(safe-area-inset-bottom)); background:linear-gradient(to top, var(--bg) 60%, transparent); transform:translateY(110%); transition:transform .22s ease; pointer-events:none; }
+.salvar-rodape.on{ transform:none; pointer-events:auto; }
+.salvar-rodape .btn-primary{ width:100%; max-width:560px; margin:0 auto; display:block; }
+.obj-linha .obj-bloco{ min-width:0; }
 </style>
 </head>
 <body>
@@ -4778,6 +4822,12 @@ function renderSettings() {
             </div>
 
             <div class="cfg-grupo">
+                <div class="cfg-titulo">Suas metas e o coach</div>
+                ${linhaConfig('cfg-page', 'alvo', 'Objetivos', p.goal ? escapeHTML((OBJETIVOS.find(o => o[0] === p.goal) || [, ''])[1]) : 'Definir', ' data-page="objetivos"')}
+                ${linhaConfig('cfg-page', 'coach', 'Seu jeito de treinar', `${p.weekly_goal || 3}x por semana`, ' data-page="jeito-treino"')}
+            </div>
+
+            <div class="cfg-grupo">
                 <div class="cfg-titulo">Quem pode ver seu conteúdo</div>
                 ${linhaConfig('cfg-page', 'cadeado', 'Privacidade da conta', p.is_private ? 'Privada' : 'Pública', ' data-page="set-privacy"')}
                 ${linhaConfig('cfg-page', 'storyOculto', 'Ocultar story de', '<span id="cfgOcultos"></span>', ' data-page="set-hide-story"')}
@@ -6411,7 +6461,7 @@ async function hydrateIAEvolucao() {
         slot.innerHTML = `<div class="chart-card ia-card ia-convite">
             <div class="chart-head"><span class="chart-title">Seu treino de hoje</span></div>
             <p class="ia-porque">Me conta o que você gosta de fazer, quanto tempo tem e onde treina, que eu monto seu treino do dia e o plano da semana.</p>
-            <button class="btn-primary-sm" data-act="m-go" data-view="objetivos">Contar pro coach</button>
+            <button class="btn-primary-sm" data-act="m-go" data-view="jeito-treino">Contar pro coach</button>
         </div>`;
         return;
     }
@@ -6952,7 +7002,7 @@ async function renderProgress() {
 
             ${abaHTML('coach', `
                 <div id="iaSlot"></div>
-                <p class="coach-rodape">O coach usa seus objetivos e o seu jeito de treinar. <button class="ia-link" data-act="m-go" data-view="objetivos">Ajustar ›</button></p>
+                <p class="coach-rodape">O coach usa seus <button class="ia-link" data-act="m-go" data-view="objetivos">objetivos</button> e o seu <button class="ia-link" data-act="m-go" data-view="jeito-treino">jeito de treinar</button>.</p>
             `)}
             ${abaHTML('resumo', `
                 <div id="lembretesSlot"></div>
@@ -7369,7 +7419,6 @@ async function renderMenu() {
 
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Seu corpo</div>
-                ${linhaMenu('m-go', 'alvo', 'Objetivos', p.goal ? (OBJETIVOS.find(o => o[0] === p.goal) || [,''])[1] : 'Definir', ' data-view="objetivos"')}
                 ${linhaMenu('m-peso', 'peso', 'Registrar peso')}
                 ${linhaMenu('m-go', 'saude', 'Ficha de saúde', '', ' data-view="health"')}
             </div>
@@ -7416,14 +7465,66 @@ async function renderMenu() {
 const NIVEIS = [['iniciante', 'Iniciante', 'estou começando ou voltando agora'], ['intermediario', 'Intermediário', 'treino com alguma regularidade'], ['avancado', 'Avançado', 'treino há anos, com constância']];
 const LOCAIS = ['Academia', 'Em casa', 'Ao ar livre', 'Esporte coletivo'];
 
+// Monta uma tela de configuração com salvar no topo e no rodapé,
+// que só aparecem quando algo mudou.
+function telaEditavel({ titulo, sub, corpo, coletar, salvar, aoMontar }) {
+    const c = $('#viewContainer');
+    c.innerHTML = `
+        <div class="view cfg-view tela-editavel">
+            <div class="user-topbar">
+                <button class="topbar-back" data-act="voltar-editavel" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+                <div class="topbar-title">${titulo}</div>
+                <button class="ed-salvar ed-salvar-topo" id="salvarTopo" style="visibility:hidden">Salvar</button>
+            </div>
+            ${sub ? `<p class="cfg-sub">${sub}</p>` : ''}
+            ${corpo}
+            <div class="salvar-rodape" id="salvarRodape">
+                <button class="btn-primary" id="salvarBaixo">Salvar alterações</button>
+            </div>
+        </div>`;
+    if (aoMontar) aoMontar(c);
+    const inicial = JSON.stringify(coletar(c));
+    const atualizar = () => {
+        if (!document.getElementById('salvarTopo')) return;
+        const mudou = JSON.stringify(coletar(c)) !== inicial;
+        document.getElementById('salvarTopo').style.visibility = mudou ? 'visible' : 'hidden';
+        document.getElementById('salvarRodape').classList.toggle('on', mudou);
+    };
+    const raiz = c.querySelector('.tela-editavel');
+    raiz.addEventListener('input', atualizar);
+    raiz.addEventListener('change', atualizar);
+    raiz.addEventListener('click', () => setTimeout(atualizar, 0));
+    const fazer = async () => {
+        const bt1 = document.getElementById('salvarTopo'), bt2 = document.getElementById('salvarBaixo');
+        bt1.disabled = bt2.disabled = true; bt2.textContent = 'Salvando...';
+        const dados = coletar(c);
+        const { error } = await sb.from('profiles').update(dados).eq('id', state.session.user.id);
+        bt1.disabled = bt2.disabled = false; bt2.textContent = 'Salvar alterações';
+        if (error) { toast(msgErro(error), 'err'); return; }
+        Object.assign(state.profile, dados);
+        state.coachContext = null;
+        if (salvar) salvar(dados);
+        switchView(state.voltarEditavel || 'settings');
+    };
+    document.getElementById('salvarTopo').onclick = fazer;
+    document.getElementById('salvarBaixo').onclick = fazer;
+}
+// Botões de escolha única e múltipla dentro da tela
+function ligarEscolhas(c, seletor, multipla) {
+    c.querySelectorAll(seletor).forEach(b => b.addEventListener('click', () => {
+        if (multipla) b.classList.toggle('on');
+        else c.querySelectorAll(seletor).forEach(x => x.classList.toggle('on', x === b));
+    }));
+}
+const numOuNull = (v, min, max) => { const n = parseFloat(String(v || '').replace(',', '.')); return n >= min && n <= max ? n : null; };
+
 function renderObjetivos() {
     const p = state.profile;
-    const locais = Array.isArray(p.training_place) ? p.training_place : [];
-    $('#viewContainer').innerHTML = `
-        <div class="view cfg-view">
-            ${cabecalhoConfig('Objetivos', 'go-menu')}
-            <p class="cfg-sub">Quanto mais claro aqui, mais certeiro o coach fica. Ele usa essas respostas em toda conversa e análise.</p>
-
+    const prazo = p.goal_deadline || '';
+    telaEditavel({
+        titulo: 'Objetivos',
+        sub: 'Quanto mais claro aqui, mais certeiro o coach fica. Ele usa essas respostas em toda conversa e análise.',
+        corpo: `
             <div class="obj-bloco">
                 <div class="obj-rotulo">Seu objetivo principal</div>
                 <div class="goal-grid">
@@ -7432,43 +7533,76 @@ function renderObjetivos() {
                     </button>`).join('')}
                 </div>
             </div>
-
             <div class="obj-bloco">
                 <div class="obj-rotulo">Com suas palavras, onde você quer chegar?</div>
                 <textarea id="objTexto" class="obj-input" maxlength="300" rows="3" placeholder="ex: correr 10 km sem parar até dezembro, ou voltar a caber na calça de antes">${escapeHTML(p.goal_details || '')}</textarea>
             </div>
-
-            <div class="obj-linha">
-                <div class="obj-bloco">
-                    <div class="obj-rotulo">Até quando <span class="lbl-opt">opcional</span></div>
-                    <input type="date" id="objPrazo" class="obj-input" value="${p.goal_deadline || ''}">
-                </div>
-                <div class="obj-bloco">
-                    <div class="obj-rotulo">Meta de peso <span class="lbl-opt">opcional</span></div>
-                    <input type="number" id="objPeso" class="obj-input" step="0.1" min="30" max="250" inputmode="decimal" placeholder="kg" value="${p.target_weight || ''}">
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Até quando <span class="lbl-opt">opcional</span></div>
+                <div class="data-campo${prazo ? ' tem' : ''}" id="objPrazoBox">
+                    <input type="date" id="objPrazo" value="${prazo}" min="${hojeISO()}">
+                    <span class="data-vazia">Sem prazo</span>
+                    <button type="button" class="data-limpar" id="objPrazoLimpar" aria-label="Tirar prazo">×</button>
                 </div>
             </div>
+            <div class="obj-bloco">
+                <div class="obj-rotulo">Meta de peso <span class="lbl-opt">opcional</span></div>
+                <input type="number" id="objPeso" class="obj-input" step="0.1" min="30" max="250" inputmode="decimal" placeholder="em kg, deixe vazio se não quiser" value="${p.target_weight || ''}">
+            </div>
+            <div class="obj-linha">
+                <div class="obj-bloco">
+                    <div class="obj-rotulo">Água por dia</div>
+                    <input type="text" id="objAgua" class="obj-input" inputmode="decimal" placeholder="automático" value="${p.water_goal_ml ? String(p.water_goal_ml / 1000).replace('.', ',') : ''}">
+                    <p class="field-hint">Em litros. Vazio usa o automático.</p>
+                </div>
+                <div class="obj-bloco">
+                    <div class="obj-rotulo">Sono por noite</div>
+                    <input type="text" id="objSono" class="obj-input" inputmode="decimal" placeholder="7" value="${p.sleep_goal_h ? String(p.sleep_goal_h).replace('.', ',') : ''}">
+                    <p class="field-hint">Em horas.</p>
+                </div>
+            </div>`,
+        aoMontar: c => {
+            ligarEscolhas(c, '[data-obj-goal]', false);
+            const box = document.getElementById('objPrazoBox'), inp = document.getElementById('objPrazo');
+            const sync = () => box.classList.toggle('tem', !!inp.value);
+            inp.addEventListener('change', sync); inp.addEventListener('input', sync);
+            document.getElementById('objPrazoLimpar').onclick = () => { inp.value = ''; sync(); inp.dispatchEvent(new Event('input', { bubbles: true })); };
+            // mostra quanto é o automático da água
+            sb.rpc('water_today').then(({ data }) => {
+                const auto = data && data[0] && data[0].goal_ml;
+                const campo = document.getElementById('objAgua');
+                if (auto && campo) campo.placeholder = `automático (${formatLitros(auto)})`;
+            });
+        },
+        coletar: c => ({
+            goal: c.querySelector('[data-obj-goal].on') ? c.querySelector('[data-obj-goal].on').dataset.objGoal : null,
+            goal_details: (document.getElementById('objTexto').value || '').trim() || null,
+            goal_deadline: document.getElementById('objPrazo').value || null,
+            target_weight: numOuNull(document.getElementById('objPeso').value, 30, 250),
+            water_goal_ml: (() => { const l = numOuNull(document.getElementById('objAgua').value, 0.5, 6); return l ? Math.round(l * 1000) : null; })(),
+            sleep_goal_h: numOuNull(document.getElementById('objSono').value, 4, 12),
+        }),
+        salvar: () => {
+            sb.from('profiles').update({ goal_reviewed_at: new Date().toISOString() }).eq('id', state.session.user.id).then(() => {});
+            toast('Objetivos salvos. O coach já vai levar isso em conta.', 'ok');
+        },
+    });
+}
 
+function renderJeitoTreino() {
+    const p = state.profile;
+    const locais = Array.isArray(p.training_place) ? p.training_place : [];
+    telaEditavel({
+        titulo: 'Seu jeito de treinar',
+        sub: 'O coach parte do que você gosta e encaixa o que está faltando. Quanto mais você contar, melhor o treino do dia.',
+        corpo: `
             <div class="obj-bloco">
                 <div class="obj-rotulo">Treinos por semana</div>
                 <div class="obj-dias">
                     ${[1, 2, 3, 4, 5, 6, 7].map(n => `<button type="button" class="obj-dia${(p.weekly_goal || 3) === n ? ' on' : ''}" data-obj-dias="${n}">${n}</button>`).join('')}
                 </div>
+                <p class="field-hint">Você ganha +10 pontos toda semana que bater essa meta.</p>
             </div>
-
-            <div class="obj-linha">
-                <div class="obj-bloco">
-                    <div class="obj-rotulo">Água por dia</div>
-                    <input type="number" id="objAgua" class="obj-input" step="0.1" min="0.5" max="6" inputmode="decimal" placeholder="automático" value="${p.water_goal_ml ? String(p.water_goal_ml / 1000).replace('.', ',') : ''}">
-                    <p class="field-hint">Em litros. Vazio = calculado pelo seu peso.</p>
-                </div>
-                <div class="obj-bloco">
-                    <div class="obj-rotulo">Sono por noite</div>
-                    <input type="number" id="objSono" class="obj-input" step="0.5" min="4" max="12" inputmode="decimal" placeholder="7" value="${p.sleep_goal_h || ''}">
-                    <p class="field-hint">Em horas.</p>
-                </div>
-            </div>
-
             <div class="obj-bloco">
                 <div class="obj-rotulo">Seu nível</div>
                 <div class="cfg-grupo obj-grupo">
@@ -7477,22 +7611,13 @@ function renderObjetivos() {
                     </button>`).join('')}
                 </div>
             </div>
-
             <div class="obj-bloco">
                 <div class="obj-rotulo">Onde você treina</div>
-                <div class="chip-row">
-                    ${LOCAIS.map(l => `<button type="button" class="chip${locais.includes(l) ? ' on' : ''}" data-obj-local="${l}">${l}</button>`).join('')}
-                </div>
+                <div class="chip-row">${LOCAIS.map(l => `<button type="button" class="chip${locais.includes(l) ? ' on' : ''}" data-obj-local="${l}">${l}</button>`).join('')}</div>
             </div>
-
-            <div class="obj-secao">Seu jeito de treinar</div>
-            <p class="cfg-sub">O coach usa isso pra montar seu treino do dia: parte do que você gosta e encaixa o que está faltando.</p>
-
             <div class="obj-bloco">
                 <div class="obj-rotulo">O que você curte fazer</div>
-                <div class="chip-row">
-                    ${MODALIDADES.map(m => `<button type="button" class="chip${(p.train_likes || []).includes(m) ? ' on' : ''}" data-obj-gosto="${m}">${m}</button>`).join('')}
-                </div>
+                <div class="chip-row">${MODALIDADES.map(m => `<button type="button" class="chip${(p.train_likes || []).includes(m) ? ' on' : ''}" data-obj-gosto="${m}">${m}</button>`).join('')}</div>
             </div>
             <div class="obj-bloco">
                 <div class="obj-rotulo">O que você prefere evitar <span class="lbl-opt">opcional</span></div>
@@ -7500,111 +7625,51 @@ function renderObjetivos() {
             </div>
             <div class="obj-bloco">
                 <div class="obj-rotulo">Dias que você consegue treinar</div>
-                <div class="obj-dias">
-                    ${DIAS_SEMANA.map(([n, sigla]) => `<button type="button" class="obj-dia${(p.train_days || []).includes(n) ? ' on' : ''}" data-obj-dia-sem="${n}">${sigla}</button>`).join('')}
-                </div>
+                <div class="obj-dias">${DIAS_SEMANA.map(([n, sigla]) => `<button type="button" class="obj-dia${(p.train_days || []).includes(n) ? ' on' : ''}" data-obj-dia-sem="${n}">${sigla}</button>`).join('')}</div>
             </div>
             <div class="obj-bloco">
                 <div class="obj-rotulo">Tempo por treino</div>
-                <div class="chip-row">
-                    ${[20, 30, 45, 60, 90].map(m => `<button type="button" class="chip${p.train_minutes === m ? ' on' : ''}" data-obj-min="${m}">${m === 90 ? '90+ min' : m + ' min'}</button>`).join('')}
-                </div>
+                <div class="chip-row">${[20, 30, 45, 60, 90].map(m => `<button type="button" class="chip${p.train_minutes === m ? ' on' : ''}" data-obj-min="${m}">${m === 90 ? '90+ min' : m + ' min'}</button>`).join('')}</div>
             </div>
             <div class="obj-bloco">
                 <div class="obj-rotulo">Equipamento que você tem em casa <span class="lbl-opt">opcional</span></div>
-                <div class="chip-row">
-                    ${EQUIPAMENTOS.map(e => `<button type="button" class="chip${(p.train_equipment || []).includes(e) ? ' on' : ''}" data-obj-equip="${e}">${e}</button>`).join('')}
-                </div>
+                <div class="chip-row">${EQUIPAMENTOS.map(e => `<button type="button" class="chip${(p.train_equipment || []).includes(e) ? ' on' : ''}" data-obj-equip="${e}">${e}</button>`).join('')}</div>
             </div>
             <div class="obj-bloco">
                 <div class="obj-rotulo">Alguma limitação ou dor? <span class="lbl-opt">opcional</span></div>
                 <input type="text" id="objLimites" class="obj-input" maxlength="160" placeholder="ex: joelho sensível, dor lombar" value="${escapeHTML(p.train_limits || '')}">
                 <p class="field-hint">Só você vê. O coach evita exercícios de risco e, se houver dor, recomenda um profissional.</p>
-            </div>
-
-            <button class="btn-primary obj-salvar" id="objSalvar">Salvar objetivos</button>
-        </div>
-    `;
-
-    const c = $('#viewContainer');
-    c.querySelectorAll('[data-obj-goal]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-goal]').forEach(x => x.classList.toggle('on', x === b)));
-    c.querySelectorAll('[data-obj-dias]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-dias]').forEach(x => x.classList.toggle('on', x === b)));
-    c.querySelectorAll('[data-obj-nivel]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-nivel]').forEach(x => x.classList.toggle('on', x === b)));
-    c.querySelectorAll('[data-obj-local]').forEach(b => b.onclick = () => b.classList.toggle('on'));
-    c.querySelectorAll('[data-obj-gosto], [data-obj-dia-sem], [data-obj-equip]').forEach(b => b.onclick = () => b.classList.toggle('on'));
-    c.querySelectorAll('[data-obj-min]').forEach(b => b.onclick = () => c.querySelectorAll('[data-obj-min]').forEach(x => x.classList.toggle('on', x === b)));
-
-    document.getElementById('objSalvar').onclick = async () => {
-        const btn = document.getElementById('objSalvar');
-        const sel = q => { const el = c.querySelector(q + '.on'); return el ? el : null; };
-        const peso = parseFloat(String(document.getElementById('objPeso').value).replace(',', '.'));
-        const litros = parseFloat(String(document.getElementById('objAgua').value).replace(',', '.'));
-        const sono = parseFloat(String(document.getElementById('objSono').value).replace(',', '.'));
-        const dados = {
-            goal: sel('[data-obj-goal]') ? sel('[data-obj-goal]').dataset.objGoal : null,
-            goal_details: document.getElementById('objTexto').value.trim() || null,
-            goal_deadline: document.getElementById('objPrazo').value || null,
-            target_weight: peso >= 30 && peso <= 250 ? peso : null,
-            weekly_goal: sel('[data-obj-dias]') ? Number(sel('[data-obj-dias]').dataset.objDias) : (p.weekly_goal || 3),
-            training_level: sel('[data-obj-nivel]') ? sel('[data-obj-nivel]').dataset.objNivel : null,
-            training_place: [...c.querySelectorAll('[data-obj-local].on')].map(x => x.dataset.objLocal),
-            train_likes: [...c.querySelectorAll('[data-obj-gosto].on')].map(x => x.dataset.objGosto),
-            train_avoid: document.getElementById('objEvita').value.trim() || null,
-            train_days: [...c.querySelectorAll('[data-obj-dia-sem].on')].map(x => Number(x.dataset.objDiaSem)),
-            train_minutes: c.querySelector('[data-obj-min].on') ? Number(c.querySelector('[data-obj-min].on').dataset.objMin) : null,
-            train_equipment: [...c.querySelectorAll('[data-obj-equip].on')].map(x => x.dataset.objEquip),
-            train_limits: document.getElementById('objLimites').value.trim() || null,
-            water_goal_ml: litros >= 0.5 && litros <= 6 ? Math.round(litros * 1000) : null,
-            sleep_goal_h: sono >= 4 && sono <= 12 ? sono : null,
-            goal_reviewed_at: new Date().toISOString(),
-        };
-        btn.disabled = true; btn.textContent = 'Salvando...';
-        const { error } = await sb.from('profiles').update(dados).eq('id', state.session.user.id);
-        btn.disabled = false; btn.textContent = 'Salvar objetivos';
-        if (error) { toast(msgErro(error), 'err'); return; }
-        Object.assign(state.profile, dados);
-        state.coachContext = null;
-        toast('Objetivos salvos. O coach já vai levar isso em conta.', 'ok');
-        // Preferências mudaram: o treino do dia pode ser refeito
-        state.iaTreinoForcar = true;
-        refreshWeeklyPill();
-        switchView('menu');
-    };
-}
-
-// ---- Lista rolável de posts (ao tocar numa foto do perfil) ----
-async function abrirListaDePosts(ids, inicio) {
-    const old = document.getElementById('postsViewer');
-    if (old) old.remove();
-    const v = document.createElement('div');
-    v.id = 'postsViewer';
-    v.className = 'posts-viewer';
-    v.innerHTML = `<div class="pv-topo">
-            <button class="topbar-back pv-voltar" aria-label="Voltar">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-            </button>
-            <div class="topbar-title">Publicações</div>
-            <div style="width:36px"></div>
-        </div>
-        <div class="pv-lista"><div class="spinner"></div></div>`;
-    document.body.appendChild(v);
-    document.body.style.overflow = 'hidden';
-    const fechar = () => { v.remove(); document.body.style.overflow = ''; };
-    v.querySelector('.pv-voltar').onclick = fechar;
-
-    const { data, error } = await sb.from('posts').select(`
-            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
-            user:profiles!user_id!inner (id, username, display_name, avatar_url),
-            reactions (id, user_id),
-            comments (id)
-        `).in('id', ids);
-    const lista = v.querySelector('.pv-lista');
-    if (!lista) return;
-    if (error) { lista.innerHTML = `<p style="color:var(--danger)">${escapeHTML(msgErro(error))}</p>`; return; }
-    const posts = (data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    lista.innerHTML = posts.map(p => renderPost(p)).join('') || '<div class="log-empty">Nada por aqui.</div>';
-    const alvo = lista.querySelector(`.post[data-post-id="${inicio}"]`);
-    if (alvo) v.scrollTop = alvo.offsetTop - 64;
+            </div>`,
+        aoMontar: c => {
+            ligarEscolhas(c, '[data-obj-dias]', false);
+            ligarEscolhas(c, '[data-obj-nivel]', false);
+            ligarEscolhas(c, '[data-obj-min]', false);
+            ligarEscolhas(c, '[data-obj-local]', true);
+            ligarEscolhas(c, '[data-obj-gosto]', true);
+            ligarEscolhas(c, '[data-obj-dia-sem]', true);
+            ligarEscolhas(c, '[data-obj-equip]', true);
+        },
+        coletar: c => {
+            const um = (sel, campo, conv = x => x) => { const el = c.querySelector(sel + '.on'); return el ? conv(el.dataset[campo]) : null; };
+            const varios = (sel, campo, conv = x => x) => [...c.querySelectorAll(sel + '.on')].map(el => conv(el.dataset[campo]));
+            return {
+                weekly_goal: um('[data-obj-dias]', 'objDias', Number) || p.weekly_goal || 3,
+                training_level: um('[data-obj-nivel]', 'objNivel'),
+                training_place: varios('[data-obj-local]', 'objLocal'),
+                train_likes: varios('[data-obj-gosto]', 'objGosto'),
+                train_avoid: (document.getElementById('objEvita').value || '').trim() || null,
+                train_days: varios('[data-obj-dia-sem]', 'objDiaSem', Number),
+                train_minutes: um('[data-obj-min]', 'objMin', Number),
+                train_equipment: varios('[data-obj-equip]', 'objEquip'),
+                train_limits: (document.getElementById('objLimites').value || '').trim() || null,
+            };
+        },
+        salvar: () => {
+            state.iaTreinoForcar = true;
+            refreshWeeklyPill();
+            toast('Pronto. O coach vai montar seus próximos treinos com isso.', 'ok');
+        },
+    });
 }
 
 // ---- Revisão dos objetivos (a cada 30 dias) ----
@@ -7750,6 +7815,63 @@ async function imagemResumo(r) {
         g.fillStyle = '#8B948C'; g.font = F(500, apertado ? 36 : 40); g.fillText(l, 140, y + (apertado ? 20 : 42));
     });
     return await new Promise(r => cv.toBlob(b => r(b), 'image/jpeg', 0.92));
+}
+
+// ---- Card "Suas metas" no perfil (só a própria pessoa vê) ----
+async function montarCardMetas(goal, diasSemana, metaSemana) {
+    const p = state.profile;
+    const linhas = [];
+    const barra = pct => `<span class="mt-trilho"><i style="width:${Math.max(0, Math.min(100, pct))}%"></i></span>`;
+
+    // objetivo e prazo
+    const obj = OBJETIVOS.find(o => o[0] === p.goal);
+    let topo = '';
+    if (obj || p.goal_details) {
+        let prazo = '';
+        if (p.goal_deadline) {
+            const dt = new Date(p.goal_deadline + 'T12:00:00');
+            const sem = Math.ceil((dt - Date.now()) / (7 * 86400000));
+            prazo = `até ${dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · ${sem > 1 ? `faltam ${sem} semanas` : sem === 1 ? 'última semana' : 'prazo passou, que tal renovar?'}`;
+        }
+        topo = `<div class="mt-topo">
+            <span class="mt-emo">🎯</span>
+            <div><b>${obj ? obj[1] : 'Seu objetivo'}</b>${p.goal_details ? ` · <span class="mt-frase">"${escapeHTML(p.goal_details)}"</span>` : ''}${prazo ? `<small>${prazo}</small>` : ''}</div>
+        </div>`;
+    }
+
+    // treinos na semana (sempre existe)
+    linhas.push(`<div class="mt-linha"><span class="mt-emo">🏋️</span><span class="mt-nome">Treinos na semana</span>${barra(diasSemana / metaSemana * 100)}<span class="mt-val${diasSemana >= metaSemana ? ' ok' : ''}">${diasSemana} de ${metaSemana}</span></div>`);
+
+    // peso (só com meta)
+    if (Number(p.target_weight || 0) > 0) {
+        if (goal && goal.peso_atual) {
+            const pct = Math.max(0, Math.min(100, Number(goal.progresso_pct || 0)));
+            linhas.push(`<div class="mt-linha"><span class="mt-emo">⚖️</span><span class="mt-nome">Peso <small>${kgTxt(Number(goal.peso_atual))} → ${kgTxt(Number(p.target_weight))} kg</small></span>${barra(pct)}<span class="mt-val">${pct}%</span></div>`);
+        } else {
+            linhas.push(`<div class="mt-linha mt-acao" data-act="m-peso"><span class="mt-emo">⚖️</span><span class="mt-nome">Peso <small>meta ${kgTxt(Number(p.target_weight))} kg</small></span><span class="mt-val mt-link">registrar peso ›</span></div>`);
+        }
+    }
+
+    // água e sono (só se a pessoa definiu)
+    const [agua, sono] = await Promise.all([
+        p.water_goal_ml ? aguaDeHoje() : Promise.resolve(null),
+        p.sleep_goal_h ? sb.from('sleep_logs').select('hours, slept_on').eq('user_id', state.session.user.id).order('slept_on', { ascending: false }).limit(1) : Promise.resolve({ data: null }),
+    ]);
+    if (agua) {
+        linhas.push(`<div class="mt-linha"><span class="mt-emo">💧</span><span class="mt-nome">Água hoje</span>${barra(agua.pct)}<span class="mt-val${agua.pct >= 100 ? ' ok' : ''}">${formatLitros(agua.total_ml || 0)} de ${formatLitros(agua.goal_ml)}</span></div>`);
+    }
+    if (p.sleep_goal_h) {
+        const ult = sono && sono.data && sono.data[0];
+        const recente = ult && (Date.now() - new Date(ult.slept_on + 'T12:00:00')) < 2.5 * 86400000;
+        const h = recente ? Number(ult.hours) : null;
+        linhas.push(`<div class="mt-linha"><span class="mt-emo">🌙</span><span class="mt-nome">Sono ontem</span>${barra(h ? h / p.sleep_goal_h * 100 : 0)}<span class="mt-val${h && h >= p.sleep_goal_h ? ' ok' : ''}">${h ? `${String(h).replace('.', ',')} de ${String(p.sleep_goal_h).replace('.', ',')} h` : 'sem registro'}</span></div>`);
+    }
+
+    return `<div class="metas-card" data-act="m-go" data-view="objetivos">
+        <div class="mt-head"><span>Suas metas</span><span class="mt-ajustar">ajustar ›</span></div>
+        ${topo}
+        ${linhas.join('')}
+    </div>`;
 }
 
 // ---- Salvos ----
@@ -8152,6 +8274,7 @@ async function renderProfile() {
     const diasSemana = Number(diasSem || 0);
     const rankTxt = (rkProf && rkProf[0] && rkProf[0].rank) ? rkProf[0].rank + 'º' : '-';
     const metaSemana = state.profile.weekly_goal || 3;
+    const metasHTML = await montarCardMetas(goal, diasSemana, metaSemana);
 
     const meusDestaques = await carregarDestaques(state.session.user.id);
     const { count: myStoryCount } = await sb.from('stories')
@@ -8190,7 +8313,7 @@ async function renderProfile() {
                 </div>
             </div>
             ${destaquesHTML(meusDestaques, state.session.user.id)}
-            ${goalHTML}
+            ${metasHTML}
             <div class="ig-tabs">
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}">Treinos</button>
@@ -9315,44 +9438,7 @@ async function renderEditProfile() {
             <div class="field hidden">
             </div>
 
-            <h3 class="edit-section-title">Seu objetivo</h3>
-            <div class="field">
-                <div class="goal-grid">
-                    ${OBJETIVOS.map(([v, nome, desc]) => `<button type="button" class="goal-btn${p.goal === v ? ' on' : ''}" data-objetivo="${v}">
-                        <span class="goal-nome">${nome}</span><span class="goal-desc">${desc}</span>
-                    </button>`).join('')}
-                </div>
-                <p class="field-hint">É isso que faz o coach falar a sua língua, em vez de dar conselho genérico.</p>
-            </div>
-
-            <h3 class="edit-section-title">Meta de treinos</h3>
-            <div class="field">
-                <label>Quantos treinos por semana você quer fazer?</label>
-                <div class="weekly-goal-picker">
-                    ${(() => {
-                        const g = p.weekly_goal || 3;
-                        const level = g <= 3 ? 'ini' : g <= 5 ? 'mid' : 'adv';
-                        return `
-                            <button type="button" class="wg-btn ${level==='ini'?'on':''}" data-goal="2" data-label="Iniciante">
-                                <span class="wg-emo">🌱</span>
-                                <span class="wg-title">Iniciante</span>
-                                <span class="wg-sub">1 a 3 dias/semana</span>
-                            </button>
-                            <button type="button" class="wg-btn ${level==='mid'?'on':''}" data-goal="4" data-label="Intermediário">
-                                <span class="wg-emo">🔥</span>
-                                <span class="wg-title">Intermediário</span>
-                                <span class="wg-sub">4 ou 5 dias/semana</span>
-                            </button>
-                            <button type="button" class="wg-btn ${level==='adv'?'on':''}" data-goal="6" data-label="Avançado">
-                                <span class="wg-emo">⚡</span>
-                                <span class="wg-title">Avançado</span>
-                                <span class="wg-sub">6 ou 7 dias/semana</span>
-                            </button>
-                        `;
-                    })()}
-                </div>
-                <p class="field-hint">Você ganha +10 pts de bônus toda semana que atingir sua meta.</p>
-            </div>
+            <p class="field-hint ed-dica-metas">Seu objetivo, suas metas e seu jeito de treinar ficam em <button class="ia-link" data-act="cfg-page" data-page="objetivos">Configurações › Objetivos</button>.</p>
 
             <button class="btn-primary" id="edSaveBtn" style="margin-top:16px">Salvar alterações</button>
             <div id="edMsg" style="margin-top:10px"></div>
@@ -9361,8 +9447,6 @@ async function renderEditProfile() {
 
     // Preview do avatar novo
     let newAvatarFile = null;
-    let selectedWeeklyGoal = p.weekly_goal || 3;
-    let objetivoSel = p.goal || null;
 
     // Confere se o usuário novo está livre
     let userOk = true, userTimer = null;
@@ -9383,17 +9467,6 @@ async function renderEditProfile() {
             st.className = 'uname-status ' + (livre ? 'ok' : 'err');
         }, 400);
     });
-    document.querySelectorAll('[data-objetivo]').forEach(b => b.addEventListener('click', e => {
-        objetivoSel = e.currentTarget.dataset.objetivo;
-        document.querySelectorAll('[data-objetivo]').forEach(x => x.classList.toggle('on', x === e.currentTarget));
-    }));
-
-    // Weekly goal picker
-    document.querySelectorAll('.wg-btn').forEach(b => b.addEventListener('click', e => {
-        selectedWeeklyGoal = parseInt(e.currentTarget.dataset.goal);
-        document.querySelectorAll('.wg-btn').forEach(x => x.classList.toggle('on', x === e.currentTarget));
-    }));
-
     $('#editAvatarFile').addEventListener('change', e => {
         const file = e.target.files[0];
         if (!file) return;
@@ -9423,8 +9496,6 @@ async function renderEditProfile() {
                 username: novoUser,
                 bio: $('#edBio').value.trim() || null,
                 city: $('#edCity').value.trim() || null,
-                weekly_goal: selectedWeeklyGoal,
-                goal: objetivoSel,
                 avatar_url: avatarUrl,
             };
             const { error } = await sb.from('profiles').update(updates).eq('id', state.session.user.id);
@@ -9498,8 +9569,11 @@ async function switchView(v, params = {}) {
     const feedPostBtn = document.getElementById('feedPostBtn');
     if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
     // Telas de configuração ocupam a tela toda, sem topo nem menu do app
-    const telaCheia = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos'].includes(v) || v.startsWith('set-');
-    if (v === 'menu' && viewAnterior && viewAnterior !== 'menu' && !viewAnterior.startsWith('set-') && !['settings', 'saved', 'privacy', 'rules', 'install', 'objetivos'].includes(viewAnterior)) {
+    const telaCheia = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino'].includes(v) || v.startsWith('set-');
+    if ((v === 'objetivos' || v === 'jeito-treino') && viewAnterior && viewAnterior !== 'objetivos' && viewAnterior !== 'jeito-treino') {
+        state.voltarEditavel = viewAnterior;
+    }
+    if (v === 'menu' && viewAnterior && viewAnterior !== 'menu' && !viewAnterior.startsWith('set-') && !['settings', 'saved', 'privacy', 'rules', 'install', 'objetivos', 'jeito-treino'].includes(viewAnterior)) {
         state.menuVoltar = viewAnterior;
     }
     document.documentElement.classList.toggle('tela-cheia', telaCheia);
@@ -9519,6 +9593,7 @@ async function switchView(v, params = {}) {
     else if (v === 'settings') renderSettings();
     else if (v === 'menu') await renderMenu();
     else if (v === 'objetivos') renderObjetivos();
+    else if (v === 'jeito-treino') renderJeitoTreino();
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
     else if (v === 'challenge') await renderChallengeDetail(params.id);
@@ -10079,6 +10154,8 @@ document.addEventListener('click', async e => {
         btn.querySelector('.cfg-check').classList.toggle('on', ocultar);
     } else if (act === 'open-edit-profile') {
         switchView('edit-profile');
+    } else if (act === 'voltar-editavel') {
+        switchView(state.voltarEditavel || 'settings');
     } else if (act === 'go-settings-back') {
         switchView('settings');
     } else if (act === 'go-community') {
