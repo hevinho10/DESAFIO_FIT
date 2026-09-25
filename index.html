@@ -1794,6 +1794,38 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .rec-emo{ font-size:18px; }
 .recorde b{ font-family:var(--ff-display); font-size:18px; font-weight:700; }
 .recorde span:last-child{ font-size:11.5px; color:var(--ink-dim); line-height:1.35; }
+
+/* ================= ONDA 9 ================= */
+.goal-convite{ width:100%; margin-top:14px; padding:12px 14px; border-radius:14px; border:1px dashed var(--line); background:transparent; color:var(--ink-dim); font-size:13px; text-align:left; }
+.sv-add{ width:32px; height:32px; margin-right:4px; border-radius:50%; border:none; background:rgba(0,0,0,.35); color:#fff; display:grid; place-items:center; }
+.sv-add svg{ width:18px; height:18px; }
+.selos{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+.selo{ display:inline-flex; align-items:center; gap:4px; padding:6px 10px; border-radius:16px; border:1px solid var(--line); font-size:12.5px; color:var(--ink-dim); }
+.selo b{ color:var(--ink); font-family:var(--ff-display); }
+.btn-ico{ width:18px; height:18px; display:block; }
+
+/* Evolução em abas */
+.evo-abas{ display:flex; border-bottom:1px solid var(--line); margin:2px 0 12px; }
+.evo-aba{ flex:1; padding:11px 0; background:none; border:none; border-bottom:2px solid transparent; color:var(--ink-faint); font-size:13.5px; font-weight:600; margin-bottom:-1px; }
+.evo-aba.on{ color:var(--ink); border-bottom-color:var(--ink); }
+.wtr-btn{ margin-top:12px; }
+
+/* Semana em anel */
+.anel-card{ display:flex; align-items:center; gap:18px; padding:16px; margin-bottom:14px; border-radius:var(--radius-lg); border:1px solid var(--line); background:var(--bg-card); }
+.anel-card.valid{ border-color:rgba(53,225,155,.4); }
+.anel{ position:relative; width:104px; height:104px; flex-shrink:0; }
+.anel svg{ width:100%; height:100%; transform:rotate(-90deg); }
+.anel-trilho{ fill:none; stroke:rgba(255,255,255,.07); stroke-width:10; }
+:root[data-theme="light"] .anel-trilho{ stroke:rgba(0,0,0,.07); }
+.anel-fill{ fill:none; stroke:var(--vital); stroke-width:10; stroke-linecap:round; transition:stroke-dasharray .6s ease; }
+.anel-centro{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.anel-centro b{ font-family:var(--ff-display); font-size:26px; font-weight:700; line-height:1; }
+.anel-centro b small{ font-size:15px; color:var(--ink-dim); font-weight:500; }
+.anel-centro span{ font-size:11px; color:var(--ink-dim); margin-top:3px; }
+.anel-info{ display:flex; flex-direction:column; gap:4px; min-width:0; font-size:12.5px; color:var(--ink-dim); }
+.anel-titulo{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); font-weight:600; }
+.anel-status{ font-family:var(--ff-display); font-size:17px; color:var(--ink); margin-bottom:2px; }
+.anel-card.valid .anel-status{ color:var(--vital); }
 </style>
 </head>
 <body>
@@ -2169,6 +2201,9 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
             <span>Destacar</span>
         </button>
         <button class="sv-del-btn hidden" id="svDelete" aria-label="Apagar story">🗑</button>
+        <button class="sv-add" id="svAdd" aria-label="Novo story">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>
+        </button>
         <button class="close-btn" id="svClose">×</button>
     </div>
     <div class="story-content" id="svContent">
@@ -4395,7 +4430,6 @@ async function renderNotifications() {
         let texto, emo, act = '', extra = '';
         if (n.kind === 'comment') {
             emo = '💬'; texto = `<b>${quem}</b> comentou no seu post`;
-            extra = n.body ? `<div class="notif-quote">${escapeHTML(n.body)}</div>` : '';
             act = ` data-act="view-post" data-id="${n.post_id}"`;
         } else if (n.kind === 'reaction') {
             emo = '❤️'; texto = `<b>${quem}</b> curtiu seu post`;
@@ -5974,7 +6008,7 @@ function barChart(bars, opts = {}) {
         const fill = b.value >= (opts.goal || Infinity) ? 'var(--vital)' : 'var(--bg-elev)';
         const stroke = b.value >= (opts.goal || Infinity) ? 'none' : 'var(--line)';
         return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(2,h).toFixed(1)}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="1"/>
-                ${b.value > 0 ? `<text x="${(x + barW/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--ink-dim)">${b.value}</text>` : ''}
+                ${b.value > 0 ? `<text x="${(x + barW/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--ink-dim)">${b.txt ?? b.value}</text>` : ''}
                 <text x="${(x + barW/2).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="var(--ink-faint)">${b.label}</text>
                 <rect class="tip-hit" x="${(pad.l + i * bw).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H}" fill="transparent" data-tip="${b.tip || (b.label + ': ' + b.value + (opts.unit ? ' ' + opts.unit : ''))}"/>`;
     }).join('');
@@ -6202,29 +6236,78 @@ function montarEvolucao(d) {
         <div class="recordes">${rec.map(([e, v, l]) => `<div class="recorde"><span class="rec-emo">${e}</span><b>${v}</b><span>${l}</span></div>`).join('')}</div>
     </div>` : '';
 
-    // ---- seu mês ----
-    const ini = new Date(); ini.setDate(1); ini.setHours(0, 0, 0, 0);
-    const noMes = t => t >= +ini;
-    const tMes = treinos.filter(p => noMes(+new Date(p.created_at)));
-    const kmMes = tMes.reduce((t, p) => t + Number(p.distance_km || 0), 0);
-    const sonoMes = (d.sonos || []).filter(x => noMes(+new Date(x.slept_on + 'T12:00:00'))).map(x => Number(x.hours));
-    const nomeMes = ini.toLocaleDateString('pt-BR', { month: 'long' });
-    state.resumoMes = {
-        titulo: 'Meu ' + nomeMes, subtitulo: ini.getFullYear() === new Date().getFullYear() ? `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)} de ${ini.getFullYear()}` : '',
-        itens: [
-            [String(diasDe(tMes)), 'dias treinados'],
-            [minDe(tMes) >= 60 ? Math.floor(minDe(tMes) / 60) + 'h' : minDe(tMes) + ' min', 'treinando'],
-            kmMes ? [num1(kmMes) + ' km', 'percorridos'] : [String(ptsDe(noMes)), 'pontos'],
-            [sonoMes.length ? num1(sonoMes.reduce((a, b) => a + b, 0) / sonoMes.length) + ' h' : '-', 'de sono por noite'],
-        ],
-    };
-    const mesHTML = tMes.length ? `<div class="chart-card">
-        <div class="chart-head"><span class="chart-title">Seu mês</span><span class="chart-legend">${nomeMes}</span></div>
-        <div class="mini-stats">${state.resumoMes.itens.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>
-        <button class="btn-secondary resumo-story" data-act="mes-story">Postar como story</button>
-    </div>` : '';
+    // ---- resumo que se adapta ao tempo de uso: semana, mês ou ano ----
+    let mesHTML = '';
+    state.resumoMes = null;
+    if (diasHist >= 7) {
+        const hojeD = new Date();
+        const mes = hojeD.getMonth(), diaM = hojeD.getDate();
+        let iniR, fimR = agora, titulo, legenda, rotuloCard;
+        const nomeMesDe = dt => dt.toLocaleDateString('pt-BR', { month: 'long' });
+        const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+        if ((mes === 11 && diaM >= 15) || (mes === 0 && diaM <= 10)) {
+            const ano = mes === 0 ? hojeD.getFullYear() - 1 : hojeD.getFullYear();
+            iniR = +new Date(ano, 0, 1); fimR = mes === 0 ? +new Date(ano + 1, 0, 1) : agora;
+            titulo = `Meu ${ano}`; rotuloCard = `Seu ${ano}`; legenda = 'retrospectiva do ano';
+        } else if (diasHist < 30) {
+            iniR = agora - 7 * DIA_MS;
+            titulo = 'Minha semana'; rotuloCard = 'Sua semana'; legenda = 'últimos 7 dias';
+        } else if (diaM <= 5) {
+            const a = new Date(hojeD.getFullYear(), mes - 1, 1);
+            iniR = +a; fimR = +new Date(hojeD.getFullYear(), mes, 1);
+            titulo = `Meu ${nomeMesDe(a)}`; rotuloCard = `Seu ${nomeMesDe(a)}`; legenda = 'mês fechado';
+        } else {
+            iniR = +new Date(hojeD.getFullYear(), mes, 1);
+            titulo = `Meu ${nomeMesDe(hojeD)}`; rotuloCard = 'Seu mês'; legenda = `${nomeMesDe(hojeD)} até agora`;
+        }
+        const noR = t => t >= iniR && t < fimR;
+        const tR = treinos.filter(p => noR(+new Date(p.created_at)));
+        const kmR = tR.reduce((t, p) => t + Number(p.distance_km || 0), 0);
+        const minR = minDe(tR);
+        const contagem = {};
+        tR.forEach(p => { const k = p.activity_type || 'Treino'; contagem[k] = (contagem[k] || 0) + 1; });
+        const maisFeito = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0];
+        const sonoR = (d.sonos || []).filter(x => noR(+new Date(x.slept_on + 'T12:00:00'))).map(x => Number(x.hours));
+        const itens = [[String(diasDe(tR)), diasDe(tR) === 1 ? 'dia treinado' : 'dias treinados', true]];
+        if (minR) itens.push([minR >= 60 ? Math.floor(minR / 60) + 'h' + (minR % 60 ? String(minR % 60).padStart(2, '0') : '') : minR + ' min', 'treinando']);
+        if (kmR) itens.push([num1(kmR) + ' km', 'percorridos']);
+        if (maisFeito) itens.push([maisFeito[0], `seu treino mais feito, ${maisFeito[1]}x`]);
+        if (sonoR.length) itens.push([num1(sonoR.reduce((a, b) => a + b, 0) / sonoR.length) + ' h', 'de sono por noite']);
+        if (itens.length < 3) itens.push([String(ptsDe(noR)), 'pontos']);
+        if (tR.length) {
+            state.resumoMes = { titulo, subtitulo: cap(legenda), itens };
+            mesHTML = `<div class="chart-card">
+                <div class="chart-head"><span class="chart-title">${rotuloCard}</span><span class="chart-legend">${legenda}</span></div>
+                <div class="mini-stats">${itens.map(([v, l]) => `<div><b>${escapeHTML(v)}</b><span>${escapeHTML(l)}</span></div>`).join('')}</div>
+                <button class="btn-secondary resumo-story" data-act="mes-story">Postar como story</button>
+            </div>`;
+        }
+    }
 
-    return { periodosHTML, statsHTML, calendarioHTML, pesoHTML, atividadeHTML, tiposHTML, cardioHTML, musculosHTML, refeicoesHTML, pontosHTML, cinturaHTML, recordesHTML, mesHTML };
+    // ---- água: últimos dias contra a meta ----
+    const aguaHistorico = metaMl => {
+        const nd = Math.min(nDias, 14);
+        const porDiaAgua = {};
+        (d.meusPosts || []).filter(p => p.kind === 'water').forEach(p => {
+            const k = diaChave(p.created_at); porDiaAgua[k] = (porDiaAgua[k] || 0) + (p.water_ml || 0);
+        });
+        const barras = [];
+        for (let i = nd - 1; i >= 0; i--) {
+            const dia = new Date(Date.now() - i * DIA_MS);
+            if (+dia < new Date(inicioHist).setHours(0, 0, 0, 0)) continue;
+            const ml = porDiaAgua[diaChave(dia)] || 0;
+            barras.push({
+                label: dia.toLocaleDateString('pt-BR', { day: '2-digit' }),
+                value: Math.round(ml / 100) / 10, txt: ml ? String(Math.round(ml / 100) / 10).replace('.', ',') : '',
+                tip: `${dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}: ${formatLitros(ml)}`,
+            });
+        }
+        if (barras.length < 2) return '';
+        const bateu = barras.filter(b => b.value * 1000 >= metaMl).length;
+        return `<div class="chart-sub">Últimos ${barras.length} dias · meta batida em ${bateu}</div>${barChart(barras, { goal: Math.round(metaMl / 100) / 10, height: 110 })}`;
+    };
+
+    return { periodosHTML, statsHTML, calendarioHTML, pesoHTML, atividadeHTML, tiposHTML, cardioHTML, musculosHTML, refeicoesHTML, pontosHTML, cinturaHTML, recordesHTML, mesHTML, aguaHistorico };
 }
 
 async function renderProgress() {
@@ -6244,7 +6327,7 @@ async function renderProgress() {
         sb.rpc('weight_progress', { uid }),
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
         sb.rpc('count_valid_weeks', { uid }),
-        sb.from('posts').select('kind, created_at, activity_type, duration_min, distance_km, muscle_groups, meal_slot, meal_score')
+        sb.from('posts').select('kind, created_at, activity_type, duration_min, distance_km, muscle_groups, meal_slot, meal_score, water_ml')
             .eq('user_id', uid).in('kind', ['workout', 'water', 'meal', 'weight']).order('created_at', { ascending: true }).limit(3000),
         sb.from('sleep_logs').select('slept_on, hours').eq('user_id', uid).order('slept_on', { ascending: true }).limit(1200),
         sb.from('points_ledger').select('amount, earned_at').eq('user_id', uid).order('earned_at', { ascending: true }).limit(5000),
@@ -6266,24 +6349,17 @@ async function renderProgress() {
     const escudoOk = escudo && escudo[0] && escudo[0].disponivel;
     const totalValid = Number(validWeeks || 0);
 
-    const weeklyCardHTML = `<div class="weekly-card ${isValid ? 'valid' : ''}">
-        <div class="weekly-head">
-            <span class="weekly-title">Sua semana</span>
-            ${isValid ? '<span class="weekly-badge">Meta batida</span>' : ''}
+    const circ = 263.9;
+    const weeklyCardHTML = `<div class="anel-card${isValid ? ' valid' : ''}">
+        <div class="anel">
+            <svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" class="anel-trilho"/>${pctWeek > 0 ? `<circle cx="50" cy="50" r="42" class="anel-fill" stroke-dasharray="${(pctWeek / 100 * circ).toFixed(1)} ${circ}"/>` : ''}</svg>
+            <div class="anel-centro"><b>${days}<small>/${weeklyGoal}</small></b><span>treinos</span></div>
         </div>
-        <div class="weekly-body">
-            <span class="weekly-days">${days}</span>
-            <span class="weekly-days-total">/ ${weeklyGoal} ${weeklyGoal === 1 ? 'dia' : 'dias'} treinados</span>
-        </div>
-        <div class="weekly-track"><div class="weekly-fill" style="width:${pctWeek}%"></div></div>
-        <div class="weekly-hint">
-            ${isValid
-                ? 'Meta atingida - +10 pts creditados essa semana.'
-                : `Falta${falta === 1 ? '' : 'm'} <b style="color:var(--vital)">${falta}</b> ${falta === 1 ? 'dia' : 'dias'} pra bater sua meta.`}
-        </div>
-        <div class="weekly-stats">
-            <span><b>${currentStreak}</b> dias de ofensiva${escudoOk ? ' · escudo pronto 🛡️' : ''}</span>
-            <span><b>${totalValid}</b> semanas com meta batida</span>
+        <div class="anel-info">
+            <span class="anel-titulo">Sua semana</span>
+            <b class="anel-status">${isValid ? 'Meta batida 🎉' : `Falta${falta === 1 ? '' : 'm'} ${falta} ${falta === 1 ? 'dia' : 'dias'}`}</b>
+            <span>🔥 ${currentStreak} ${currentStreak === 1 ? 'dia' : 'dias'} de ofensiva${escudoOk ? ' · escudo 🛡️' : ''}</span>
+            <span>✅ ${totalValid} ${totalValid === 1 ? 'semana' : 'semanas'} com meta batida</span>
         </div>
     </div>`;
 
@@ -6317,45 +6393,57 @@ async function renderProgress() {
     const horas = Math.floor(totalMin / 60);
     const ev = montarEvolucao({ wSeries, aSeries, mSeries, pSeries, meusPosts, sonos, ledger, streak, weightPoints, projecao, goal, weeklyGoal });
 
+    const aba = state.abaEvolucao || 'resumo';
+    const abaHTML = (id, conteudo) => `<div class="evo-painel${aba === id ? '' : ' hidden'}" data-painel="${id}">${conteudo}</div>`;
     c.innerHTML = `
         <div class="view">
             <div class="page-head"><h1 class="screen-title">Evolução</h1><span class="page-sub">progresso ao longo do tempo</span></div>
 
-            <div id="lembretesSlot"></div>
-            ${metaCardHTML(projecao)}
-            ${weeklyCardHTML}
-
-            ${ev.periodosHTML}
-            ${ev.statsHTML}
-            ${ev.calendarioHTML}
-
-            <div class="chart-card water-card" data-act="quick-water">
-                <div class="chart-head">
-                    <span class="chart-title">Água hoje</span>
-                    <span class="chart-legend">${aguaHoje.pct || 0}% da meta</span>
-                </div>
-                <div class="wtr-top">
-                    <span class="wtr-now">${formatLitros(aguaHoje.total_ml || 0)}</span>
-                    <span class="wtr-goal">de ${formatLitros(aguaHoje.goal_ml || 2000)}</span>
-                </div>
-                <div class="wtr-track"><div class="wtr-fill" style="width:${aguaHoje.pct || 0}%"></div></div>
-                <div class="wtr-hint">Toque pra registrar um copo</div>
+            <div class="evo-abas">
+                ${[['resumo', 'Resumo'], ['treinos', 'Treinos'], ['corpo', 'Corpo'], ['habitos', 'Hábitos']].map(([k, n]) =>
+                    `<button class="evo-aba${aba === k ? ' on' : ''}" data-act="evo-aba" data-aba="${k}">${n}</button>`).join('')}
             </div>
+            ${ev.periodosHTML}
 
-            <div class="chart-card" id="sleepCard"></div>
-
-            <div class="chart-card" id="reportCard"></div>
-
-            ${ev.pesoHTML}
-            ${ev.atividadeHTML}
-            ${ev.tiposHTML}
-            ${ev.cardioHTML}
-            ${ev.musculosHTML}
-            ${ev.refeicoesHTML}
-            ${ev.pontosHTML}
-            ${ev.cinturaHTML}
-            ${ev.recordesHTML}
-            ${ev.mesHTML}
+            ${abaHTML('resumo', `
+                <div id="lembretesSlot"></div>
+                ${metaCardHTML(projecao)}
+                ${weeklyCardHTML}
+                ${ev.statsHTML}
+                ${ev.calendarioHTML}
+                ${ev.mesHTML}
+                <div class="chart-card" id="reportCard"></div>
+            `)}
+            ${abaHTML('treinos', `
+                ${ev.atividadeHTML}
+                ${ev.tiposHTML}
+                ${ev.cardioHTML}
+                ${ev.musculosHTML}
+                ${ev.recordesHTML}
+                ${ev.pontosHTML}
+                ${!ev.atividadeHTML && !ev.tiposHTML ? '<div class="chart-card"><div class="chart-convite"><span>Nenhum treino nesse período ainda.</span><button class="btn-mini" data-act="quick-kind" data-kind="workout">Registrar treino</button></div></div>' : ''}
+            `)}
+            ${abaHTML('corpo', `
+                ${ev.pesoHTML}
+                ${ev.cinturaHTML}
+            `)}
+            ${abaHTML('habitos', `
+                <div class="chart-card water-card">
+                    <div class="chart-head">
+                        <span class="chart-title">Água</span>
+                        <span class="chart-legend">hoje: ${aguaHoje.pct || 0}% da meta</span>
+                    </div>
+                    <div class="wtr-top">
+                        <span class="wtr-now">${formatLitros(aguaHoje.total_ml || 0)}</span>
+                        <span class="wtr-goal">de ${formatLitros(aguaHoje.goal_ml || 2000)} hoje</span>
+                    </div>
+                    <div class="wtr-track"><div class="wtr-fill" style="width:${aguaHoje.pct || 0}%"></div></div>
+                    ${ev.aguaHistorico(aguaHoje.goal_ml || 2000)}
+                    <button class="btn-mini wtr-btn" data-act="quick-water">+ Registrar água</button>
+                </div>
+                <div class="chart-card" id="sleepCard"></div>
+                ${ev.refeicoesHTML}
+            `)}
         </div>
     `;
     const cal = c.querySelector('.cal-scroll');
@@ -7036,16 +7124,20 @@ async function imagemResumo(r) {
     g.fillStyle = '#F1F4F1'; g.font = F(700, 104); g.fillText(r.titulo, 90, 400);
     g.fillStyle = '#8B948C'; g.font = F(500, 44);
     if (r.subtitulo) g.fillText(r.subtitulo, 90, 480);
-    const itens = r.itens;
+    const itens = r.itens.slice(0, 5);
+    const passo = itens.length > 4 ? 235 : 270;
     itens.forEach(([n, l, destaque], i) => {
-        const y = 700 + i * 270;
+        const y = 700 + i * passo;
         g.fillStyle = 'rgba(255,255,255,.06)';
-        if (g.roundRect) { g.beginPath(); g.roundRect(90, y - 150, 900, 220, 36); g.fill(); } else g.fillRect(90, y - 150, 900, 220);
+        const alt = passo - 40;
+        if (g.roundRect) { g.beginPath(); g.roundRect(90, y - 150, 900, alt, 36); g.fill(); } else g.fillRect(90, y - 150, 900, alt);
         g.fillStyle = destaque ? '#35E19B' : '#F1F4F1';
-        g.font = F(700, 110); g.fillText(n, 140, y - 12);
-        g.fillStyle = '#8B948C'; g.font = F(500, 40); g.fillText(l, 140, y + 42);
+        let tam = 110; g.font = F(700, tam);
+        while (g.measureText(n).width > 800 && tam > 56) { tam -= 6; g.font = F(700, tam); }
+        const apertado = passo < 250;
+        g.fillText(n, 140, y - (apertado ? 32 : 12));
+        g.fillStyle = '#8B948C'; g.font = F(500, apertado ? 36 : 40); g.fillText(l, 140, y + (apertado ? 20 : 42));
     });
-    g.fillStyle = '#5C655E'; g.font = F(500, 38); g.fillText('desafiofitness.netlify.app', 90, 1820);
     return await new Promise(r => cv.toBlob(b => r(b), 'image/jpeg', 0.92));
 }
 
@@ -7371,7 +7463,12 @@ async function renderProfile() {
     const { data: goalData } = await sb.rpc('weight_progress', { uid: state.session.user.id });
     const goal = goalData?.[0];
     let goalHTML = '';
-    if (goal && goal.peso_inicial && goal.meta) {
+    const temMeta = Number(state.profile.target_weight || (goal && goal.meta) || 0) > 0;
+    if (!temMeta) {
+        goalHTML = '';
+    } else if (!goal || !goal.peso_atual) {
+        goalHTML = `<button class="goal-convite" data-act="m-peso">Registre seu peso pra acompanhar a meta de ${kgTxt(Number(state.profile.target_weight || goal.meta))} kg ›</button>`;
+    } else if (goal && goal.peso_inicial && goal.meta) {
         const delta = Number(goal.delta || 0);
         const pct = Math.max(0, Math.min(100, Number(goal.progresso_pct || 0)));
         const deltaClass = delta > 0 ? 'down' : delta < 0 ? 'up' : '';
@@ -7379,19 +7476,15 @@ async function renderProfile() {
         goalHTML = `<div class="goal-card">
             <div class="goal-card-head">
                 <span class="goal-title">Meta de peso</span>
-                <span class="goal-delta ${deltaClass}">${deltaSign}${Math.abs(delta).toFixed(1)} kg</span>
+                ${Math.abs(delta) >= 0.1 ? `<span class="goal-delta ${deltaClass}">${deltaSign}${kgTxt(delta)} kg</span>` : ''}
             </div>
             <div class="goal-numbers">
-                <div class="goal-num"><span class="v">${Number(goal.peso_inicial).toFixed(1)}</span><span class="l">Inicial</span></div>
-                <div class="goal-num"><span class="v current">${Number(goal.peso_atual).toFixed(1)}</span><span class="l">Atual</span></div>
-                <div class="goal-num"><span class="v">${Number(goal.meta).toFixed(1)}</span><span class="l">Meta (kg)</span></div>
+                <div class="goal-num"><span class="v">${kgTxt(Number(goal.peso_inicial))}</span><span class="l">Inicial</span></div>
+                <div class="goal-num"><span class="v current">${kgTxt(Number(goal.peso_atual))}</span><span class="l">Atual</span></div>
+                <div class="goal-num"><span class="v">${kgTxt(Number(goal.meta))}</span><span class="l">Meta (kg)</span></div>
             </div>
             <div class="goal-track"><div class="goal-fill" style="width:${pct}%"></div></div>
             <div class="goal-pct">${pct}% da meta</div>
-        </div>`;
-    } else {
-        goalHTML = `<div class="goal-card" style="text-align:center; color:var(--ink-dim); font-size:13px;">
-            Defina peso inicial e meta na <b style="color:var(--vital)">Ficha de saúde</b> para acompanhar seu progresso aqui.
         </div>`;
     }
 
@@ -8477,6 +8570,13 @@ async function renderUserProfile(uid) {
     }
     const trancado = !!p.is_private && !iFollow;
     const destaquesDele = trancado ? [] : await carregarDestaques(uid);
+    let treinosMes = 0;
+    if (!trancado) {
+        const ini = new Date(); ini.setDate(1); ini.setHours(0, 0, 0, 0);
+        const { count } = await sb.from('posts').select('*', { count: 'exact', head: true })
+            .eq('user_id', uid).eq('kind', 'workout').gte('created_at', ini.toISOString());
+        treinosMes = count || 0;
+    }
     const txtSeguir = iFollow ? 'Seguindo' : pedi ? 'Solicitado' : 'Seguir';
 
     const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
@@ -8512,11 +8612,15 @@ async function renderUserProfile(uid) {
                 <button class="${(iFollow || pedi) ? 'btn-secondary' : 'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${(iFollow || pedi) ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">
                     ${txtSeguir}
                 </button>
-                ${(p.dm_policy === 'ninguem' || (p.dm_policy === 'seguidores' && !iFollow)) ? '' : `<button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}">💬</button>`}
-                <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções">⋯</button>
+                ${(p.dm_policy === 'ninguem' || (p.dm_policy === 'seguidores' && !iFollow)) ? '' : `<button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}" aria-label="Mensagem"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3L11 13M22 3l-7 19-4-9-9-4 20-6z"/></svg></button>`}
+                <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções"><svg class="btn-ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
             </div>
             ${destaquesHTML(destaquesDele, uid)}
-            ${streak?.current_streak ? `<div class="stat-grid" style="margin-top:14px"><div class="stat-card"><div class="num">${streak.current_streak}</div><div class="lbl">Ofensiva atual</div></div><div class="stat-card"><div class="num">${streak.longest_streak}</div><div class="lbl">Melhor ofensiva</div></div></div>` : ''}
+            ${!trancado && (streak?.current_streak || streak?.longest_streak || treinosMes) ? `<div class="selos">
+                ${streak?.current_streak ? `<span class="selo">🔥 <b>${streak.current_streak}</b> ${streak.current_streak === 1 ? 'dia' : 'dias'} de ofensiva</span>` : ''}
+                ${streak?.longest_streak ? `<span class="selo">🏆 recorde <b>${streak.longest_streak}</b></span>` : ''}
+                ${treinosMes ? `<span class="selo">💪 <b>${treinosMes}</b> ${treinosMes === 1 ? 'treino' : 'treinos'} no mês</span>` : ''}
+            </div>` : ''}
             ${trancado ? `<div class="perfil-privado">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
                 <b>Esta conta é privada</b>
@@ -8968,6 +9072,12 @@ document.addEventListener('click', async e => {
         if (salvar) state.salvos.add(id); else state.salvos.delete(id);
         btn.querySelector('svg').setAttribute('fill', salvar ? 'currentColor' : 'none');
         toast(salvar ? 'Salvo. Fica em Menu › Salvos.' : 'Removido dos salvos', 'ok');
+    } else if (act === 'evo-aba') {
+        state.abaEvolucao = btn.dataset.aba;
+        $$('.evo-aba').forEach(b => b.classList.toggle('on', b === btn));
+        $$('.evo-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== state.abaEvolucao));
+        const cal = document.querySelector('.cal-scroll');
+        if (cal) cal.scrollLeft = cal.scrollWidth;
     } else if (act === 'set-periodo') {
         state.periodo = btn.dataset.p;
         const y = window.scrollY;
@@ -10190,6 +10300,11 @@ function abrirQuemViuStory() {
 }
 
 document.getElementById('svActivity').addEventListener('click', e => { e.stopPropagation(); abrirQuemViuStory(); });
+document.getElementById('svAdd').addEventListener('click', e => {
+    e.stopPropagation();
+    closeStoryViewer();
+    openStoryCreator();
+});
 (function gestoArrastarPraCima() {
     const v = document.getElementById('storyViewer');
     let x0 = 0, y0 = 0;
