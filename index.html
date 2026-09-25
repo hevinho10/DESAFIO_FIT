@@ -1826,6 +1826,22 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .anel-titulo{ font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); font-weight:600; }
 .anel-status{ font-family:var(--ff-display); font-size:17px; color:var(--ink); margin-bottom:2px; }
 .anel-card.valid .anel-status{ color:var(--vital); }
+
+/* ================= ONDA 10: desafios com convite e regras ================= */
+.perfil-linha{ margin:8px 0 2px; font-size:13px; color:var(--ink-dim); }
+.ch-convite{ display:flex; flex-direction:column; gap:10px; padding:12px 14px; margin-top:14px; border-radius:14px; border:1px solid var(--vital); background:var(--vital-dim); font-size:13.5px; }
+.ch-convite-bts{ display:flex; gap:8px; justify-content:flex-end; }
+.ch-regras{ margin-top:14px; }
+.ch-regra-base{ font-size:13px; color:var(--ink-dim); line-height:1.5; margin-bottom:12px; }
+.ch-regras-dono{ padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.035); margin-bottom:12px; }
+.ch-regras-dono span{ font-size:11.5px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.06em; }
+.ch-regras-dono p{ font-size:13.5px; margin-top:4px; line-height:1.5; }
+.ch-pontos{ display:flex; flex-direction:column; }
+.ch-ponto{ display:grid; grid-template-columns:26px 1fr auto; align-items:center; gap:8px; padding:8px 0; font-size:13px; }
+.ch-ponto + .ch-ponto{ border-top:1px solid var(--line); }
+.ch-ponto b{ font-weight:500; }
+.ch-ponto em{ font-style:normal; color:var(--vital); font-size:12.5px; text-align:right; }
+#chRegrasMembro{ margin-top:4px; }
 </style>
 </head>
 <body>
@@ -2318,6 +2334,11 @@ const msgErro = (e) => {
     if (t.includes('timeout')) return 'A internet está lenta. Tente de novo em instantes.';
     if (t.includes('duplicate') || t.includes('23505')) return 'Isso já foi registrado.';
     if (t.includes('row-level security') || t.includes('permission')) return 'Você não tem permissão pra isso.';
+    // Mensagens escritas por nós no banco (em português, sem jargão) aparecem como vieram
+    const original = String((e && e.message) || '');
+    if (original && original.length < 140 && /[áéíóúãõç]|^[A-ZÁÉÍÓÚ][a-záéíóúãõç ]+/.test(original)
+        && !/violates|relation|column|syntax|function|constraint|null value|duplicate key/i.test(original)) return original;
+    console.warn('erro não tratado:', e);
     return 'Não consegui completar agora. Tente de novo em instantes.';
 };
 const plural = (n, sing, plur) => `${n} ${Number(n) === 1 ? sing : plur}`;
@@ -4443,6 +4464,9 @@ async function renderNotifications() {
         } else if (n.kind === 'convite_premiado') {
             emo = '🎁'; texto = `<b>${quem}</b> registrou o primeiro treino. Você ganhou 10 pontos pelo convite`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'desafio_convite') {
+            emo = '🏆'; texto = `<b>${quem}</b> te convidou pro desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
+            act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         } else if (n.kind === 'desafio_aceito') {
             emo = '🏆'; texto = `Seu pedido pra entrar no desafio <b>${escapeHTML(n.challenge_name || '')}</b> foi aceito`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
@@ -4560,7 +4584,7 @@ function renderPrivacy() {
             </div>
             <div class="install-card">
                 <h4>Inteligência artificial</h4>
-                <p class="priv-text">A foto do prato é enviada ao Google Gemini para análise nutricional. Suas conversas com o Coach levam um resumo dos seus números para a resposta fazer sentido. Nada disso é usado para publicidade.</p>
+                <p class="priv-text">A foto do prato é enviada a um serviço de inteligência artificial para análise nutricional. Suas conversas com o Coach levam um resumo dos seus números para a resposta fazer sentido. Nada disso é usado para publicidade.</p>
                 <p class="priv-text">O Coach não é médico nem nutricionista. As sugestões são orientação geral, não substituem profissional de saúde.</p>
             </div>
             <div class="install-card">
@@ -6553,10 +6577,12 @@ async function renderChallengeDetail(cid) {
     const podeVerDentro = ch.im_member || ch.created_by === state.session.user.id || state.profile.is_admin;
     if (!podeVerDentro) { await renderChallengeVitrine(ch); return; }
 
-    const [{ data: ranking }, { data: saude }] = await Promise.all([
+    const [{ data: ranking }, { data: saude }, { data: regrasRow }] = await Promise.all([
         sb.rpc('challenge_ranking', { cid }),
         sb.rpc('challenge_health', { cid }),
+        sb.from('challenges').select('rules').eq('id', cid).maybeSingle(),
     ]);
+    ch.rules = regrasRow ? regrasRow.rules : null;
 
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' });
     const diasFim = Math.max(0, Math.ceil((new Date(ch.ends_at) - new Date()) / 86400000));
@@ -6745,8 +6771,10 @@ async function renderChallengeDetail(cid) {
                     ${meuPedido === 'recusado' ? '<span class="ch-pedido-tag recusado">Pedido não aceito</span>' : ''}
                     ${ch.im_member ? `<button class="btn-secondary" data-act="leave-challenge" data-id="${cid}">Sair</button>` : ''}
                     ${souDono ? `<button class="btn-secondary" data-act="invite-challenge" data-id="${cid}">Convidar</button>` : ''}
+                    <button class="btn-secondary" data-act="ver-regras-desafio">Regras</button>
                     ${souDono ? `<button class="btn-danger" data-act="delete-challenge" data-id="${cid}">Apagar</button>` : ''}
                 </div>
+                <div id="chRegrasMembro" class="hidden">${regrasDesafioHTML(ch)}</div>
             </div>
 
             ${pedidosHTML}
@@ -7260,6 +7288,27 @@ function atualizarTelaDesafio(cid) {
     else renderChallengeDetail(cid);
 }
 
+// O que vale ponto (mostrado no desafio)
+const TABELA_PONTOS = [
+    ['💪', 'Treino', 'até 15 pontos, +3 com foto'],
+    ['🔥', 'Ofensiva', 'até 20 pontos'],
+    ['🎯', 'Meta da semana batida', '10 pontos'],
+    ['⚡', 'Story', '3 pontos por dia'],
+    ['⚖️', 'Pesagem', '3 pontos por semana'],
+    ['📉', 'Perda de peso', '10 pontos por 1%'],
+    ['🍽️', 'Refeição com foto', '1 ponto'],
+];
+function regrasDesafioHTML(ch) {
+    const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    return `<div class="chart-card ch-regras">
+        <div class="chart-head"><span class="chart-title">Regras e pontos</span></div>
+        <p class="ch-regra-base">Vale o que você fizer de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. Seus pontos normais do app continuam valendo, mas o ranking do desafio conta só esse período.</p>
+        ${ch.rules ? `<div class="ch-regras-dono"><span>Combinados de quem criou</span><p>${escapeHTML(ch.rules).replace(/\n/g, '<br>')}</p></div>` : ''}
+        <div class="ch-pontos">${TABELA_PONTOS.map(([e, n, v]) => `<div class="ch-ponto"><span>${e}</span><b>${n}</b><em>${v}</em></div>`).join('')}</div>
+        <button class="btn-mini" data-act="go-rules" style="margin-top:10px">Ver todas as regras de pontos</button>
+    </div>`;
+}
+
 // ---- Vitrine do desafio (pra quem ainda não participa) ----
 async function renderChallengeVitrine(ch) {
     const c = $('#viewContainer');
@@ -7274,6 +7323,12 @@ async function renderChallengeVitrine(ch) {
         const { data: st } = await sb.rpc('my_challenge_request', { cid });
         meuPedido = st || null;
     }
+    const [{ data: convite }, { data: regrasRow }] = await Promise.all([
+        sb.rpc('my_challenge_invite', { cid }),
+        sb.from('challenges').select('rules').eq('id', cid).maybeSingle(),
+    ]);
+    ch.rules = regrasRow ? regrasRow.rules : ch.rules;
+    const convidado = convite && convite.length ? convite[0] : null;
 
     const statusLbl = ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado';
     const statusCls = ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim';
@@ -7294,7 +7349,14 @@ async function renderChallengeVitrine(ch) {
                     <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
                     <span>👥 ${plural(ch.members, 'participante', 'participantes')}</span>
                 </div>
-                <div class="ch-actions">
+                ${convidado && aberto ? `<div class="ch-convite">
+                    <span><b>${escapeHTML(convidado.inviter_name || 'Alguém')}</b> te convidou pra esse desafio</span>
+                    <div class="ch-convite-bts">
+                        <button class="btn-ghost btn-xs" data-act="responder-convite" data-id="${cid}" data-aceitar="0">Recusar</button>
+                        <button class="btn-primary-sm" data-act="responder-convite" data-id="${cid}" data-aceitar="1">Aceitar e entrar</button>
+                    </div>
+                </div>` : ''}
+                <div class="ch-actions${convidado && aberto ? ' hidden' : ''}">
                     ${podeEntrar ? `<button class="btn-primary-sm" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
                     ${podePedir && !meuPedido ? `<button class="btn-primary-sm" data-act="pedir-acesso" data-id="${cid}">Solicitar entrada</button>` : ''}
                     ${meuPedido === 'pendente' ? '<span class="ch-pedido-tag">Pedido enviado, aguardando resposta</span>' : ''}
@@ -7302,6 +7364,8 @@ async function renderChallengeVitrine(ch) {
                     ${(podeEntrar || (podePedir && !meuPedido)) ? '<p class="ch-aviso-privacidade">Entrando, o grupo passa a ver seu percentual de evolução, seus dias treinados e seus pontos. Peso, medidas e refeições continuam privados.</p>' : ''}
                 </div>
             </div>
+
+            ${aberto ? regrasDesafioHTML(ch) : ''}
 
             <div class="ch-locked">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
@@ -7325,7 +7389,8 @@ function openNewChallengeSheet() {
         <h3 class="sheet-title">Criar desafio</h3>
         <p class="sheet-sub">O ranking usa os pontos que cada um ganhar no período.</p>
         <div class="field"><label>Nome</label><input type="text" id="ncName" maxlength="60" placeholder="ex: Setembro Ativo"></div>
-        <div class="field"><label>Descrição (opcional)</label><textarea id="ncDesc" maxlength="200" placeholder="Qual é a regra ou o objetivo?"></textarea></div>
+        <div class="field"><label>Descrição (opcional)</label><textarea id="ncDesc" maxlength="200" placeholder="Qual é o objetivo do desafio?"></textarea></div>
+        <div class="field"><label>Regras do desafio (opcional)</label><textarea id="ncRegras" maxlength="600" placeholder="ex: vale só treino com foto; prêmio pro primeiro lugar; quem sumir 7 dias sai"></textarea></div>
         <div class="field-row">
             <div class="field"><label>Começa</label><input type="date" id="ncStart" value="${hoje}"></div>
             <div class="field"><label>Termina</label><input type="date" id="ncEnd" value="${em30}"></div>
@@ -7360,6 +7425,7 @@ function openNewChallengeSheet() {
         const { data, error } = await sb.from('challenges').insert({
             name: nome,
             description: document.getElementById('ncDesc').value.trim() || null,
+            rules: document.getElementById('ncRegras').value.trim() || null,
             starts_at: new Date(ini + 'T00:00:00').toISOString(),
             ends_at: new Date(fim + 'T23:59:59').toISOString(),
             created_by: state.session.user.id,
@@ -7390,7 +7456,7 @@ function openInviteSheet(cid) {
         <div id="invMsg"></div>
         <div class="sheet-footer">
             <button class="btn-ghost" id="invCancel">Fechar</button>
-            <button class="btn-primary" id="invAdd">Adicionar</button>
+            <button class="btn-primary" id="invAdd">Convidar</button>
         </div>
     </div>`;
     document.body.appendChild(sheet);
@@ -7416,7 +7482,7 @@ function openInviteSheet(cid) {
                     <div class="follow-name">${escapeHTML(u.display_name)}</div>
                     <div class="follow-uname">@${escapeHTML(u.username)}</div>
                 </div>
-                <span class="inv-add">+ Adicionar</span>
+                <span class="inv-add">+ Convidar</span>
             </div>`).join('');
             box.querySelectorAll('[data-inv-user]').forEach(row => row.addEventListener('click', () => {
                 campo.value = row.dataset.invUser;
@@ -7431,12 +7497,13 @@ function openInviteSheet(cid) {
         const uname = document.getElementById('invUser').value.trim().replace('@', '');
         const msg = document.getElementById('invMsg');
         if (!uname) return;
-        btn.disabled = true; btn.textContent = 'Adicionando...';
+        btn.disabled = true; btn.textContent = 'Convidando...';
         const { data, error } = await sb.rpc('add_challenge_member', { cid, uname });
-        btn.disabled = false; btn.textContent = 'Adicionar';
-        if (error) { msg.innerHTML = `<div class="auth-msg err">${error.message}</div>`; return; }
+        btn.disabled = false; btn.textContent = 'Convidar';
+        if (error) { msg.innerHTML = `<div class="auth-msg err">${escapeHTML(msgErro(error))}</div>`; return; }
         if (data === 'nao_encontrado') { msg.innerHTML = '<div class="auth-msg err">Usuário não encontrado.</div>'; return; }
-        msg.innerHTML = `<div class="auth-msg ok">@${escapeHTML(uname)} entrou no desafio!</div>`;
+        if (data === 'ja_participa') { msg.innerHTML = `<div class="auth-msg ok">@${escapeHTML(uname)} já está no desafio.</div>`; return; }
+        msg.innerHTML = `<div class="auth-msg ok">Convite enviado pra @${escapeHTML(uname)}. Ela entra quando aceitar.</div>`;
         document.getElementById('invUser').value = '';
     };
 }
@@ -8608,6 +8675,11 @@ async function renderUserProfile(uid) {
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
+            ${!trancado && (streak?.current_streak || treinosMes) ? `<div class="perfil-linha">${[
+                    streak?.current_streak ? `🔥 ${streak.current_streak} ${streak.current_streak === 1 ? 'dia' : 'dias'} de ofensiva` : '',
+                    streak?.longest_streak > (streak?.current_streak || 0) ? `recorde ${streak.longest_streak}` : '',
+                    treinosMes ? `${treinosMes} ${treinosMes === 1 ? 'treino' : 'treinos'} no mês` : '',
+                ].filter(Boolean).join(' · ')}</div>` : ''}
             <div class="ig-profile-actions">
                 <button class="${(iFollow || pedi) ? 'btn-secondary' : 'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${(iFollow || pedi) ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">
                     ${txtSeguir}
@@ -8616,11 +8688,7 @@ async function renderUserProfile(uid) {
                 <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções"><svg class="btn-ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
             </div>
             ${destaquesHTML(destaquesDele, uid)}
-            ${!trancado && (streak?.current_streak || streak?.longest_streak || treinosMes) ? `<div class="selos">
-                ${streak?.current_streak ? `<span class="selo">🔥 <b>${streak.current_streak}</b> ${streak.current_streak === 1 ? 'dia' : 'dias'} de ofensiva</span>` : ''}
-                ${streak?.longest_streak ? `<span class="selo">🏆 recorde <b>${streak.longest_streak}</b></span>` : ''}
-                ${treinosMes ? `<span class="selo">💪 <b>${treinosMes}</b> ${treinosMes === 1 ? 'treino' : 'treinos'} no mês</span>` : ''}
-            </div>` : ''}
+
             ${trancado ? `<div class="perfil-privado">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
                 <b>Esta conta é privada</b>
@@ -9072,6 +9140,16 @@ document.addEventListener('click', async e => {
         if (salvar) state.salvos.add(id); else state.salvos.delete(id);
         btn.querySelector('svg').setAttribute('fill', salvar ? 'currentColor' : 'none');
         toast(salvar ? 'Salvo. Fica em Menu › Salvos.' : 'Removido dos salvos', 'ok');
+    } else if (act === 'responder-convite') {
+        const aceitar = btn.dataset.aceitar === '1';
+        btn.disabled = true;
+        const { error } = await sb.rpc('respond_challenge_invite', { cid: btn.dataset.id, accept: aceitar });
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        toast(aceitar ? 'Você entrou no desafio!' : 'Convite recusado', 'ok');
+        if (aceitar) renderChallengeDetail(btn.dataset.id); else switchView('challenges');
+    } else if (act === 'ver-regras-desafio') {
+        const el = document.getElementById('chRegrasMembro');
+        if (el) el.classList.toggle('hidden');
     } else if (act === 'evo-aba') {
         state.abaEvolucao = btn.dataset.aba;
         $$('.evo-aba').forEach(b => b.classList.toggle('on', b === btn));
