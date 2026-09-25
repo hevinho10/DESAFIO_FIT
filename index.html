@@ -1658,7 +1658,7 @@ html.tela-cheia .view > .user-topbar .topbar-back svg{ width:20px; height:20px; 
 /* Destaques */
 .destaques{ display:flex; gap:16px; overflow-x:auto; padding:14px 4px 6px; scrollbar-width:none; }
 .destaques::-webkit-scrollbar{ display:none; }
-.destaque{ display:flex; flex-direction:column; align-items:center; gap:6px; background:none; border:none; color:var(--ink); flex-shrink:0; width:66px; }
+.destaques .destaque{ display:flex; flex-direction:column; align-items:center; gap:6px; background:none; border:none; color:var(--ink); flex-shrink:0; width:66px; }
 .destaque-capa{ width:62px; height:62px; border-radius:50%; background-size:cover; background-position:center; border:2px solid var(--bg); box-shadow:0 0 0 1.5px var(--line); }
 .destaque-nome{ font-size:11.5px; max-width:66px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .sv-destacar{ display:flex; align-items:center; gap:5px; height:34px; padding:0 12px; margin-right:6px; border-radius:20px; border:none; background:rgba(0,0,0,.35); color:#fff; font-size:12px; }
@@ -2340,6 +2340,14 @@ const msgErro = (e) => {
         && !/violates|relation|column|syntax|function|constraint|null value|duplicate key/i.test(original)) return original;
     console.warn('erro não tratado:', e);
     return 'Não consegui completar agora. Tente de novo em instantes.';
+};
+// Admin vê o erro técnico completo; os demais, a mensagem amigável
+const erroParaAdmin = (e) => {
+    console.error(e);
+    if (state && state.profile && state.profile.is_admin) {
+        return 'Erro: ' + [e && e.message, e && e.details, e && e.hint, e && e.code].filter(Boolean).join(' | ');
+    }
+    return msgErro(e);
 };
 const plural = (n, sing, plur) => `${n} ${Number(n) === 1 ? sing : plur}`;
 const escapeHTML = s => String(s||'').replace(/[\u2014\u2013]/g, '-').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -4889,8 +4897,10 @@ async function renderWorkoutHistory(uid) {
     if (!body) return;
     body.innerHTML = '<div class="spinner"></div>';
 
+    const iniMes = new Date(); iniMes.setDate(1); iniMes.setHours(0, 0, 0, 0);
+    const { data: ofensiva } = await sb.from('daily_streaks').select('current_streak, longest_streak').eq('user_id', uid).maybeSingle();
     const { data, error } = await sb.from('posts')
-        .select('id, activity_type, duration_min, caption, created_at, image_url, in_feed')
+        .select('id, activity_type, duration_min, distance_km, caption, created_at, image_url, in_feed')
         .eq('user_id', uid).eq('kind', 'workout')
         .order('created_at', { ascending: false })
         .limit(60);
@@ -4917,7 +4927,16 @@ async function renderWorkoutHistory(uid) {
         </div>`;
     }).join('');
 
-    body.innerHTML = `<div class="wk-summary"><b>${data.length}</b> treinos · <b>${horas}h${mins ? String(mins).padStart(2,'0') : ''}</b> de atividade</div>
+    const noMes = data.filter(w => new Date(w.created_at) >= iniMes).length;
+    const kmTotal = data.reduce((t, w) => t + Number(w.distance_km || 0), 0);
+    const partes = [
+        `<b>${noMes}</b> ${noMes === 1 ? 'treino' : 'treinos'} no mês`,
+        `<b>${horas}h${mins ? String(mins).padStart(2,'0') : ''}</b> de atividade`,
+    ];
+    if (kmTotal) partes.push(`<b>${String(Math.round(kmTotal * 10) / 10).replace('.', ',')}</b> km`);
+    if (ofensiva && ofensiva.current_streak) partes.push(`🔥 <b>${ofensiva.current_streak}</b> ${ofensiva.current_streak === 1 ? 'dia' : 'dias'} de ofensiva`);
+    if (ofensiva && ofensiva.longest_streak > (ofensiva.current_streak || 0)) partes.push(`recorde <b>${ofensiva.longest_streak}</b>`);
+    body.innerHTML = `<div class="wk-summary">${partes.join(' · ')}</div>
         <div class="wk-list">${rows}</div>`;
 }
 
@@ -8637,13 +8656,6 @@ async function renderUserProfile(uid) {
     }
     const trancado = !!p.is_private && !iFollow;
     const destaquesDele = trancado ? [] : await carregarDestaques(uid);
-    let treinosMes = 0;
-    if (!trancado) {
-        const ini = new Date(); ini.setDate(1); ini.setHours(0, 0, 0, 0);
-        const { count } = await sb.from('posts').select('*', { count: 'exact', head: true })
-            .eq('user_id', uid).eq('kind', 'workout').gte('created_at', ini.toISOString());
-        treinosMes = count || 0;
-    }
     const txtSeguir = iFollow ? 'Seguindo' : pedi ? 'Solicitado' : 'Seguir';
 
     const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
@@ -8675,11 +8687,7 @@ async function renderUserProfile(uid) {
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
-            ${!trancado && (streak?.current_streak || treinosMes) ? `<div class="perfil-linha">${[
-                    streak?.current_streak ? `🔥 ${streak.current_streak} ${streak.current_streak === 1 ? 'dia' : 'dias'} de ofensiva` : '',
-                    streak?.longest_streak > (streak?.current_streak || 0) ? `recorde ${streak.longest_streak}` : '',
-                    treinosMes ? `${treinosMes} ${treinosMes === 1 ? 'treino' : 'treinos'} no mês` : '',
-                ].filter(Boolean).join(' · ')}</div>` : ''}
+            
             <div class="ig-profile-actions">
                 <button class="${(iFollow || pedi) ? 'btn-secondary' : 'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${(iFollow || pedi) ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">
                     ${txtSeguir}
@@ -9244,13 +9252,13 @@ document.addEventListener('click', async e => {
     } else if (act === 'aprovar-pedido') {
         btn.disabled = true;
         const { error } = await sb.rpc('approve_challenge_request', { cid: btn.dataset.cid, alvo: btn.dataset.uid });
-        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        if (error) { toast(erroParaAdmin(error), 'err'); btn.disabled = false; return; }
         toast('Entrou no desafio', 'ok');
         renderChallengeDetail(btn.dataset.cid);
     } else if (act === 'recusar-pedido') {
         btn.disabled = true;
         const { error } = await sb.rpc('reject_challenge_request', { cid: btn.dataset.cid, alvo: btn.dataset.uid });
-        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        if (error) { toast(erroParaAdmin(error), 'err'); btn.disabled = false; return; }
         toast('Pedido recusado', 'ok');
         renderChallengeDetail(btn.dataset.cid);
     } else if (act === 'join-challenge') {
