@@ -2029,6 +2029,20 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 
 .sc-publicar-grande{ background:#fff; color:#0A0C0B; border-color:rgba(255,255,255,.5); }
 .sc.text-mode .sc-text{ box-sizing:border-box; }
+
+/* ================= ONDA 16: faixa, escolha do resumo, prévia ================= */
+.faixa-selo{ display:inline-block; padding:8px 16px; border-radius:20px; background:var(--vital-dim); color:var(--vital); font-family:var(--ff-display); font-weight:700; font-size:20px; }
+.faixa-txt{ font-size:13.5px; margin-top:10px; line-height:1.5; }
+.faixa-subiu{ font-size:13px; color:var(--vital); font-weight:600; margin-top:6px; }
+.faixa-nota{ font-size:12px; color:var(--ink-faint); margin-top:12px; line-height:1.45; }
+.rs-lista{ max-height:52vh; overflow-y:auto; margin:6px -4px 4px; }
+.rs-item{ padding:10px 4px; border-bottom:1px solid var(--line); }
+.rs-item .cfg-pessoa-txt b{ font-family:var(--ff-display); font-size:16px; }
+.previa-card{ display:flex; flex-direction:column; align-items:center; }
+.previa-img{ width:auto; max-width:100%; max-height:56vh; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+.previa-botoes{ width:100%; display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.previa-linha{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.previa-linha .btn-secondary{ height:44px; }
 </style>
 </head>
 <body>
@@ -5321,8 +5335,9 @@ async function refreshWeeklyPill() {
     const r = rk && rk[0];
     const rankEl = document.getElementById('topRank');
     if (rankEl) {
-        if (r && r.rank) {
-            document.getElementById('topRankN').textContent = r.rank + 'º';
+        const fx = r && faixaRanking(r.rank, r.total);
+        if (fx) {
+            document.getElementById('topRankN').textContent = fx.curto;
             rankEl.classList.remove('hidden');
         } else {
             rankEl.classList.add('hidden');
@@ -6285,6 +6300,120 @@ function barChart(bars, opts = {}) {
 // ============================================================
 // EVOLUÇÃO INDIVIDUAL (aba Progresso)
 // ============================================================
+// ---- O que pode entrar no resumo compartilhável (a pessoa escolhe até 4) ----
+// Treino e constância vêm marcados; água, sono, refeições e pontos ficam desmarcados (mais pessoais). Peso nunca entra.
+function candidatosResumo(d) {
+    const L = [];
+    const hm = m => m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? String(m % 60).padStart(2, '0') : '') : m + ' min';
+    const n1 = n => String(Math.round(n * 10) / 10).replace('.', ',');
+    if (d.dias != null) L.push({ id: 'treinos', valor: d.meta ? `${d.dias}/${d.meta}` : String(d.dias), rotulo: d.meta ? 'treinos na semana' : (d.dias === 1 ? 'dia treinado' : 'dias treinados'), padrao: true, destaque: d.meta ? d.dias >= d.meta : true });
+    if (d.maisFeito) L.push({ id: 'maisfeito', valor: d.maisFeito[0], rotulo: `treino que mais fiz, ${d.maisFeito[1]}x`, padrao: true });
+    if (d.km > 0) L.push({ id: 'km', valor: n1(d.km) + ' km', rotulo: 'percorridos', padrao: true });
+    if (d.ofensiva > 0) L.push({ id: 'ofensiva', valor: `🔥 ${d.ofensiva}`, rotulo: d.ofensiva === 1 ? 'dia de ofensiva' : 'dias de ofensiva', padrao: true });
+    if (d.minutos > 0) L.push({ id: 'tempo', valor: hm(d.minutos), rotulo: 'treinando', padrao: false });
+    if (d.aguaMedia > 0) L.push({ id: 'agua', valor: n1(d.aguaMedia / 1000) + ' L', rotulo: 'de água por dia', padrao: false });
+    if (d.refeicoesBoas > 0) L.push({ id: 'refeicoes', valor: String(d.refeicoesBoas), rotulo: d.refeicoesBoas === 1 ? 'refeição bem avaliada' : 'refeições bem avaliadas', padrao: false });
+    if (d.sono) L.push({ id: 'sono', valor: n1(d.sono) + ' h', rotulo: 'de sono por noite', padrao: false });
+    if (d.pontos > 0) L.push({ id: 'pontos', valor: String(d.pontos), rotulo: 'pontos', padrao: false });
+    // no máximo 4 marcados por padrão
+    let marcados = 0;
+    L.forEach(c => { if (c.padrao && marcados < 4) marcados++; else c.padrao = false; });
+    if (!marcados && L.length) L[0].padrao = true;
+    return L;
+}
+
+// Passo 1: escolher o que mostrar
+function abrirEscolhaResumo(res, nomeArquivo) {
+    const old = document.getElementById('resumoSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'resumoSheet';
+    sheet.className = 'sheet on';
+    const marcados = new Set(res.candidatos.filter(c => c.padrao).map(c => c.id));
+    const pintar = () => {
+        sheet.innerHTML = `<div class="sheet-card">
+            <div class="sheet-handle"></div>
+            <h3 class="sheet-title">O que mostrar no seu story</h3>
+            <p class="sheet-sub">Escolha até 4. O que é mais pessoal começa desmarcado.</p>
+            <div class="rs-lista">${res.candidatos.map(c => `<button type="button" class="cfg-pessoa rs-item${marcados.has(c.id) ? ' on' : ''}" data-id="${c.id}">
+                <span class="cfg-pessoa-txt"><b>${escapeHTML(c.valor)}</b><small>${escapeHTML(c.rotulo)}</small></span>
+                <span class="cfg-check${marcados.has(c.id) ? ' on' : ''}"></span>
+            </button>`).join('')}</div>
+            <div class="sheet-footer">
+                <button class="btn-ghost" id="rsCancelar">Cancelar</button>
+                <button class="btn-primary" id="rsPrevia" ${marcados.size ? '' : 'disabled'}>Ver prévia (${marcados.size}/4)</button>
+            </div>
+        </div>`;
+        sheet.querySelectorAll('.rs-item').forEach(b => b.onclick = () => {
+            const id = b.dataset.id;
+            if (marcados.has(id)) marcados.delete(id);
+            else if (marcados.size < 4) marcados.add(id);
+            else { toast('Até 4 itens. Desmarque um pra trocar.', 'err'); return; }
+            pintar();
+        });
+        sheet.querySelector('#rsCancelar').onclick = () => sheet.remove();
+        sheet.querySelector('#rsPrevia').onclick = async () => {
+            const btn = sheet.querySelector('#rsPrevia');
+            btn.disabled = true; btn.textContent = 'Montando...';
+            const itens = res.candidatos.filter(c => marcados.has(c.id)).map(c => [c.valor, c.rotulo, !!c.destaque]);
+            const blob = await imagemResumo({ titulo: res.titulo, subtitulo: res.subtitulo, itens });
+            sheet.remove();
+            if (!blob) { toast('Não consegui montar a imagem agora.', 'err'); return; }
+            abrirPreviaImagem(blob, nomeArquivo);
+        };
+    };
+    pintar();
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+}
+
+// Passo 2: prévia com Postar no Pulso, Compartilhar e Salvar
+function abrirPreviaImagem(blob, nomeArquivo) {
+    const old = document.getElementById('previaSheet');
+    if (old) old.remove();
+    const url = URL.createObjectURL(blob);
+    const arquivo = new File([blob], nomeArquivo, { type: 'image/jpeg' });
+    const sheet = document.createElement('div');
+    sheet.id = 'previaSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card previa-card">
+        <div class="sheet-handle"></div>
+        <img class="previa-img" src="${url}" alt="Prévia">
+        <div class="previa-botoes">
+            <button class="btn-primary" id="pvPulso">Postar no Pulso</button>
+            <div class="previa-linha">
+                <button class="btn-secondary" id="pvCompartilhar">Compartilhar</button>
+                <button class="btn-secondary" id="pvSalvar">Salvar imagem</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const fechar = () => { sheet.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000); };
+    sheet.addEventListener('click', e => { if (e.target === sheet) fechar(); });
+    document.getElementById('pvPulso').onclick = () => { fechar(); openStoryCreator(); entrarModoFoto(arquivo); };
+    document.getElementById('pvCompartilhar').onclick = () => compartilharImagem(arquivo);
+    document.getElementById('pvSalvar').onclick = () => salvarImagem(blob, nomeArquivo);
+}
+async function compartilharImagem(arquivo) {
+    try {
+        if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
+            await navigator.share({ files: [arquivo], title: 'Pulso' });
+            return;
+        }
+    } catch (e) {
+        if (e && e.name === 'AbortError') return; // a pessoa fechou o menu
+    }
+    toast('Seu celular não abriu o compartilhar. Salvei a imagem pra você postar.', 'ok');
+    salvarImagem(arquivo, arquivo.name);
+}
+function salvarImagem(blob, nome) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nome;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 // ============================================================
 // COACH NA EVOLUÇÃO: treino do dia, plano, carta, alerta
 // (tudo gerado uma vez e guardado; abrir de novo não gera outra vez)
@@ -6954,14 +7083,19 @@ function montarEvolucao(d) {
         tR.forEach(p => { const k = p.activity_type || 'Treino'; contagem[k] = (contagem[k] || 0) + 1; });
         const maisFeito = Object.entries(contagem).sort((a, b) => b[1] - a[1])[0];
         const sonoR = (d.sonos || []).filter(x => noR(+new Date(x.slept_on + 'T12:00:00'))).map(x => Number(x.hours));
-        const itens = [[String(diasDe(tR)), diasDe(tR) === 1 ? 'dia treinado' : 'dias treinados', true]];
-        if (minR) itens.push([minR >= 60 ? Math.floor(minR / 60) + 'h' + (minR % 60 ? String(minR % 60).padStart(2, '0') : '') : minR + ' min', 'treinando']);
-        if (kmR) itens.push([num1(kmR) + ' km', 'percorridos']);
-        if (maisFeito) itens.push([maisFeito[0], `seu treino mais feito, ${maisFeito[1]}x`]);
-        if (sonoR.length) itens.push([num1(sonoR.reduce((a, b) => a + b, 0) / sonoR.length) + ' h', 'de sono por noite']);
-        if (itens.length < 3) itens.push([String(ptsDe(noR)), 'pontos']);
+        const diasR = Math.max(1, Math.ceil((Math.min(fimR, agora) - iniR) / DIA_MS));
+        const aguaR = (d.meusPosts || []).filter(x => x.kind === 'water' && noR(+new Date(x.created_at))).reduce((t, x) => t + (x.water_ml || 0), 0);
+        const candidatos = candidatosResumo({
+            dias: diasDe(tR), meta: null, maisFeito, km: kmR,
+            ofensiva: d.streak && d.streak.current_streak,
+            minutos: minR, aguaMedia: aguaR ? aguaR / diasR : 0,
+            refeicoesBoas: (d.meusPosts || []).filter(x => x.kind === 'meal' && Number(x.meal_score) >= 7 && noR(+new Date(x.created_at))).length,
+            sono: sonoR.length ? sonoR.reduce((a, b) => a + b, 0) / sonoR.length : null,
+            pontos: ptsDe(noR),
+        });
+        const itens = candidatos.filter(c => c.padrao).map(c => [c.valor, c.rotulo]);
         if (tR.length) {
-            state.resumoMes = { titulo, subtitulo: cap(legenda), itens };
+            state.resumoMes = { titulo, subtitulo: cap(legenda), candidatos };
             mesHTML = `<div class="chart-card">
                 <div class="chart-head"><span class="chart-title">${rotuloCard}</span><span class="chart-legend">${legenda}</span></div>
                 <div class="mini-stats">${itens.map(([v, l]) => `<div><b>${escapeHTML(v)}</b><span>${escapeHTML(l)}</span></div>`).join('')}</div>
@@ -7172,7 +7306,7 @@ async function renderChallenges() {
     const [{ lista: challenges, amigos: amigosCh, pedidos: pedidosCh }, { data: summaryData }, { data: top }, { data: myRk }] = await Promise.all([
         dadosDesafios(),
         sb.rpc('community_weekly_summary'),
-        sb.rpc('community_weekly_top', { lim: 10 }),
+        Promise.resolve({ data: null }),
         sb.rpc('my_weekly_rank'),
     ]);
     const mine = myRk && myRk[0];
@@ -7207,16 +7341,17 @@ async function renderChallenges() {
         </div>`;
     }).join('') || `<div class="feed-empty"><span class="emo">🏆</span><h3>Nenhum desafio ainda</h3><p>${podeCriarDesafio() ? 'Crie o primeiro no botão acima.' : 'Fique de olho, logo aparece um por aqui.'}</p></div>`;
 
-    const rankRows = (top || []).map((u, i) => {
-        const medal = ['🥇','🥈','🥉'][i] || (i+1)+'º';
-        const isMe = u.user_id === state.session.user.id;
-        return `<div class="cw-rank-item${isMe?' me':''}" data-act="view-user" data-uid="${u.user_id}">
-            <span class="cw-rank-medal">${medal}</span>
-            ${avatarHTML(u, 'sm')}
-            <span class="cw-rank-name">${isMe?'Você':escapeHTML(u.display_name)}</span>
-            <span class="cw-rank-pts">${plural(Math.round(u.points), 'pt', 'pts')}</span>
-        </div>`;
-    }).join('') || '<div class="log-empty">Ninguém pontuou essa semana ainda.</div>';
+    const fx = mine ? faixaRanking(mine.rank, mine.total) : null;
+    // Compara com a faixa da semana passada (guardada no aparelho)
+    const semKey = d => 'pulso-faixa-' + isoDe(segundaDe(d));
+    let subiu = '';
+    if (fx) {
+        lsSet(semKey(new Date()), JSON.stringify(fx));
+        try {
+            const ant = JSON.parse(lsGet(semKey(new Date(Date.now() - 7 * 86400000))) || 'null');
+            if (ant && ant.nivel > fx.nivel) subiu = `Subiu de ${ant.curto} pra ${fx.curto} 🚀`;
+        } catch (_) {}
+    }
 
     c.innerHTML = `
         <div class="view">
@@ -7241,12 +7376,11 @@ async function renderChallenges() {
                 <div class="stat-card"><div class="num">${s.usuarios_ativos||0}</div><div class="lbl">Pessoas ativas</div></div>
                 <div class="stat-card"><div class="num">${s.total_treinos||0}</div><div class="lbl">Treinos</div></div>
             </div>
-            <div class="chart-card" style="margin-top:12px">
-                <div class="chart-head"><span class="chart-title">Ranking da semana</span></div>
-                ${mine && mine.rank
-                    ? `<div class="cw-my-rank">Você está em <b>${mine.rank}º</b> de ${mine.total}</div>`
-                    : `<div class="cw-my-rank">Você ainda não pontuou essa semana. Registre um treino pra entrar no ranking!</div>`}
-                <div class="cw-rank-list">${rankRows}</div>
+            <div class="chart-card faixa-card" style="margin-top:12px">
+                <div class="chart-head"><span class="chart-title">Sua faixa na semana</span></div>
+                ${fx ? `<div class="faixa-selo">${fx.curto}</div><p class="faixa-txt">${fx.longo}</p>${subiu ? `<p class="faixa-subiu">${subiu}</p>` : ''}`
+                    : '<p class="faixa-txt">Você ainda não pontuou essa semana. Registre um treino pra aparecer aqui.</p>'}
+                <p class="faixa-nota">Fora dos desafios, ninguém vê a posição nem os pontos de ninguém. Pra competir de verdade, entre num desafio.</p>
             </div>
         </div>
     `;
@@ -7826,8 +7960,8 @@ async function dadosDaSemana() {
     const fim = new Date(ini.getTime() + 7 * 86400000);
     const iniAnt = new Date(ini.getTime() - 7 * 86400000);
     const [{ data: posts }, { data: sonos }, { data: pts }] = await Promise.all([
-        sb.from('posts').select('kind, water_ml, duration_min, created_at').eq('user_id', uid)
-            .in('kind', ['workout', 'water']).gte('created_at', iniAnt.toISOString()).lt('created_at', fim.toISOString()),
+        sb.from('posts').select('kind, water_ml, duration_min, distance_km, activity_type, meal_score, created_at').eq('user_id', uid)
+            .in('kind', ['workout', 'water', 'meal']).gte('created_at', iniAnt.toISOString()).lt('created_at', fim.toISOString()),
         sb.from('sleep_logs').select('hours, slept_on').eq('user_id', uid)
             .gte('slept_on', ini.toISOString().split('T')[0]).lt('slept_on', fim.toISOString().split('T')[0]),
         sb.from('points_ledger').select('amount, earned_at').eq('user_id', uid)
@@ -7839,7 +7973,26 @@ async function dadosDaSemana() {
     const agua = atual.filter(x => x.kind === 'water').reduce((t, x) => t + (x.water_ml || 0), 0);
     const somaPts = (a, b) => Math.round(naSemana(pts, 'earned_at', a, b).reduce((t, x) => t + Number(x.amount || 0), 0));
     const horas = (sonos || []).map(x => Number(x.hours)).filter(h => h > 0);
+    const { data: ofe } = await sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle();
+    const treinosSem = atual.filter(x => x.kind === 'workout');
+    const cont = {};
+    treinosSem.forEach(x => { const k = x.activity_type || 'Treino'; cont[k] = (cont[k] || 0) + 1; });
+    const maisFeito = Object.entries(cont).sort((a, b) => b[1] - a[1])[0] || null;
+    const fimSem = new Date(ini.getTime() + 6 * 86400000);
+    const candidatos = candidatosResumo({
+        dias: diasTreino(atual), meta: state.profile.weekly_goal || 3, maisFeito,
+        km: treinosSem.reduce((t, x) => t + Number(x.distance_km || 0), 0),
+        ofensiva: ofe && ofe.current_streak,
+        minutos: treinosSem.reduce((t, x) => t + (x.duration_min || 0), 0),
+        aguaMedia: agua ? agua / 7 : 0,
+        refeicoesBoas: atual.filter(x => x.kind === 'meal' && Number(x.meal_score) >= 7).length,
+        sono: horas.length ? horas.reduce((a, b) => a + b, 0) / horas.length : null,
+        pontos: somaPts(ini, fim),
+    });
     return {
+        titulo: 'Minha semana',
+        subtitulo: `${ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fimSem.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
+        candidatos,
         ini, treinos: diasTreino(atual), treinosAnt: diasTreino(ant),
         minutos: atual.filter(x => x.kind === 'workout').reduce((t, x) => t + (x.duration_min || 0), 0),
         aguaMediaL: Math.round((agua / 7) / 100) / 10,
@@ -8065,6 +8218,8 @@ async function hydrateDesafiosFeed() {
         const r = rk || [];
         if (!r.length) continue;
         const minhaPos = r.findIndex(u => u.user_id === state.session.user.id) + 1;
+        state.podios = state.podios || {};
+        state.podios[ch.id] = { nome: ch.name, r, minhaPos };
         const medalhas = ['🥇', '🥈', '🥉'];
         html += `<div class="dc-card dc-podio" data-act="open-challenge" data-id="${ch.id}">
             <button class="dc-x" data-act="dispensar-card" data-chave="pulso-podio-${ch.id}" aria-label="Fechar">×</button>
@@ -8074,6 +8229,7 @@ async function hydrateDesafiosFeed() {
                 <span class="dc-podio-nome">${u.user_id === state.session.user.id ? 'Você' : escapeHTML(String(u.display_name || '').split(' ')[0])}</span>
                 <span class="dc-podio-pts">${Math.round(u.points)}</span>
             </div>`).join('')}</div>
+            <button class="btn-secondary resumo-story" data-act="podio-compartilhar" data-id="${ch.id}">Compartilhar resultado</button>
         </div>`;
     }
 
@@ -8122,6 +8278,22 @@ function regrasDesafioHTML(ch) {
         <div class="ch-pontos">${TABELA_PONTOS.map(([e, n, v]) => `<div class="ch-ponto"><span>${e}</span><b>${n}</b><em>${v}</em></div>`).join('')}</div>
         <button class="btn-mini" data-act="go-rules" style="margin-top:10px">Ver todas as regras de pontos</button>
     </div>`;
+}
+
+// ---- Ranking global por faixa (fora de desafio ninguém vê posição nem pontos dos outros) ----
+const FAIXAS = [[0.05, 'Top 5%'], [0.10, 'Top 10%'], [0.25, 'Top 25%'], [0.50, 'Top 50%']];
+function faixaRanking(rank, total) {
+    if (!rank || !total) return null;
+    const pct = rank / total;
+    if (total < 20) {
+        return pct <= 0.3
+            ? { nivel: 1, curto: 'Destaque', longo: 'Você está entre os mais ativos essa semana' }
+            : { nivel: 5, curto: 'Ativo', longo: 'Você está em movimento essa semana. Cada registro conta.' };
+    }
+    const i = FAIXAS.findIndex(([lim]) => pct <= lim);
+    if (i === -1) return { nivel: 5, curto: 'Ativo', longo: 'Você está em movimento essa semana. Cada registro conta.' };
+    const nome = FAIXAS[i][1];
+    return { nivel: i + 1, curto: nome, longo: `Você está entre os ${nome.replace('Top ', '')} mais ativos essa semana` };
 }
 
 // ---- Vitrine do desafio (pra quem ainda não participa) ----
@@ -8382,7 +8554,8 @@ async function renderProfile() {
         sb.rpc('my_weekly_rank'),
     ]);
     const diasSemana = Number(diasSem || 0);
-    const rankTxt = (rkProf && rkProf[0] && rkProf[0].rank) ? rkProf[0].rank + 'º' : '-';
+    const fxProf = rkProf && rkProf[0] ? faixaRanking(rkProf[0].rank, rkProf[0].total) : null;
+    const rankTxt = fxProf ? fxProf.curto : '-';
     const metaSemana = state.profile.weekly_goal || 3;
     const metasHTML = await montarCardMetas(goal);
 
@@ -9955,22 +10128,22 @@ document.addEventListener('click', async e => {
     } else if (act === 'mes-story') {
         e.stopPropagation();
         if (!state.resumoMes) return;
-        btn.disabled = true; btn.textContent = 'Montando a imagem...';
-        const blob = await imagemResumo(state.resumoMes);
-        btn.disabled = false; btn.textContent = 'Postar como story';
-        if (!blob) { toast('Não consegui montar a imagem agora.', 'err'); return; }
-        openStoryCreator();
-        entrarModoFoto(new File([blob], 'meu-mes.jpg', { type: 'image/jpeg' }));
+        abrirEscolhaResumo(state.resumoMes, 'pulso-resumo.jpg');
     } else if (act === 'resumo-story') {
         e.stopPropagation();
-        btn.disabled = true; btn.textContent = 'Montando a imagem...';
         const d = state.resumoSemana || await dadosDaSemana();
-        const blob = await imagemResumoSemana(d);
-        btn.disabled = false; btn.textContent = 'Postar como story';
-        if (!blob) { toast('Não consegui montar a imagem agora.', 'err'); return; }
-        const arquivo = new File([blob], 'minha-semana.jpg', { type: 'image/jpeg' });
-        openStoryCreator();
-        entrarModoFoto(arquivo);
+        abrirEscolhaResumo(d, 'pulso-minha-semana.jpg');
+    } else if (act === 'podio-compartilhar') {
+        e.stopPropagation();
+        const pd = state.podios && state.podios[btn.dataset.id];
+        if (!pd) return;
+        btn.disabled = true;
+        const medalhas = ['🥇', '🥈', '🥉'];
+        const itens = pd.r.slice(0, 3).map((u, i) => [`${medalhas[i]} ${u.user_id === state.session.user.id ? 'Eu' : String(u.display_name || '').split(' ')[0]}`, `${Math.round(u.points)} pontos no desafio`, u.user_id === state.session.user.id]);
+        if (pd.minhaPos > 3) itens.push([`${pd.minhaPos}º lugar`, `minha posição, entre ${pd.r.length}`, true]);
+        const blob = await imagemResumo({ titulo: pd.nome, subtitulo: 'Resultado final do desafio', itens });
+        btn.disabled = false;
+        if (blob) abrirPreviaImagem(blob, 'pulso-desafio.jpg');
     } else if (act === 'dispensar-card') {
         e.stopPropagation();
         try { localStorage.setItem(btn.dataset.chave, '1'); } catch (_) {}
