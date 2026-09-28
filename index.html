@@ -1988,6 +1988,47 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .sc-dot{ box-shadow:0 0 0 1px rgba(0,0,0,.35); }
 .sc-swatch{ box-shadow:0 0 0 1px rgba(0,0,0,.25); }
 .sc-sticker, .sv-sticker{ white-space:normal; text-align:center; line-height:1.35; max-width:86%; text-overflow:clip; }
+
+/* ================= ONDA 15: modo texto do story estilo "Criar" ================= */
+.sc-coluna, .sc-paleta, .sc-publicar-grande{ display:none; }
+.sc.text-mode .sc-coluna{ display:flex; }
+.sc.text-mode .sc-publicar-grande{ display:grid; }
+.sc.text-mode .sc-paleta:not(.hidden){ display:flex; }
+.sc.text-mode .sc-bottom{ display:none !important; }
+.sc.on{ border-radius:0; }
+.sc-coluna{ position:absolute; right:12px; top:50%; transform:translateY(-58%); z-index:4; flex-direction:column; gap:8px; align-items:flex-end; }
+.sc-col-item{ display:flex; align-items:center; gap:10px; background:none; border:none; color:#fff; padding:2px 0; }
+.sc-col-nome{ font-size:14px; font-weight:600; text-shadow:0 1px 6px rgba(0,0,0,.45); transition:opacity .18s; }
+.sc-col-ico{ width:42px; height:42px; border-radius:50%; background:rgba(0,0,0,.3); display:grid; place-items:center; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+.sc-col-ico svg{ width:21px; height:21px; }
+.sc-col-ico .sc-aa{ font-size:15px; }
+.sc-col-seta svg{ transition:transform .2s; }
+.sc-coluna.recolhida .sc-col-nome{ opacity:0; pointer-events:none; }
+.sc-coluna.recolhida .sc-col-seta svg{ transform:rotate(180deg); }
+.sc-paleta{ position:absolute; left:0; right:0; bottom:calc(112px + env(safe-area-inset-bottom)); z-index:4; flex-direction:column; align-items:center; gap:10px; }
+.sc-paleta-alvo{ display:flex; gap:4px; padding:3px; border-radius:18px; background:rgba(0,0,0,.35); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); }
+.sc-paleta-alvo button{ height:30px; padding:0 14px; border-radius:15px; border:none; background:none; color:#fff; font-size:13px; font-weight:600; }
+.sc-paleta-alvo button.on{ background:#fff; color:#0A0C0B; }
+.sc-paleta-cores{ display:flex; gap:12px; overflow-x:auto; max-width:100%; padding:6px 20px; scrollbar-width:none; }
+.sc-paleta-cores::-webkit-scrollbar{ display:none; }
+.sc-paleta-cores .sc-swatch{ flex:none; width:30px; height:30px; }
+.sc-swatch.sc-auto{ background:rgba(0,0,0,.35); color:#fff; font-weight:800; font-size:12px; border:2px solid #fff; }
+.sc-publicar-grande{ position:absolute; left:50%; bottom:calc(26px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:4; width:74px; height:74px; border-radius:50%; border:4px solid rgba(255,255,255,.85); background:#35E19B; color:#08110C; place-items:center; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:opacity .2s, transform .15s; }
+.sc-publicar-grande svg{ width:32px; height:32px; }
+.sc-publicar-grande:disabled{ opacity:.35; }
+.sc-publicar-grande:active:not(:disabled){ transform:translateX(-50%) scale(.94); }
+.sc-publicar-grande.enviando svg{ animation:girar 1s linear infinite; }
+.sc.text-mode .sc-text{ max-width:calc(100% - 150px); margin-right:70px; }
+.sc.text-mode.alinhar-left .sc-text{ text-align:left; }
+.sc.text-mode.alinhar-right .sc-text{ text-align:right; }
+.sc.text-mode.fundo-escuro .sc-text{ background:rgba(0,0,0,.6); color:#fff !important; padding:8px 14px; border-radius:14px; }
+.sc.text-mode.fundo-claro .sc-text{ background:rgba(255,255,255,.92); color:#0A0C0B !important; padding:8px 14px; border-radius:14px; }
+.story-content .text-body .marcador-escuro, .story-content .text-body .marcador-claro{ padding:3px 10px; border-radius:10px; -webkit-box-decoration-break:clone; box-decoration-break:clone; line-height:1.6; }
+.story-content .text-body .marcador-escuro{ background:rgba(0,0,0,.6); color:#fff; }
+.story-content .text-body .marcador-claro{ background:rgba(255,255,255,.92); color:#0A0C0B; }
+
+.sc-publicar-grande{ background:#fff; color:#0A0C0B; border-color:rgba(255,255,255,.5); }
+.sc.text-mode .sc-text{ box-sizing:border-box; }
 </style>
 </head>
 <body>
@@ -2345,6 +2386,25 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
         <textarea id="scText" class="sc-text hidden fonte-classico" maxlength="300" rows="1" placeholder="Escreva algo"></textarea>
         <div id="scSticker" class="sc-sticker hidden"></div>
     </div>
+
+    <div class="sc-coluna" id="scColuna">
+        <button type="button" class="sc-col-item" id="scColEstilo"><span class="sc-col-nome">Estilo</span><span class="sc-col-ico"><b class="sc-aa">Aa</b></span></button>
+        <button type="button" class="sc-col-item" id="scColCor"><span class="sc-col-nome">Cor</span><span class="sc-col-ico"><span class="sc-dot" id="scColDot"></span></span></button>
+        <button type="button" class="sc-col-item" id="scColAlinhar"><span class="sc-col-nome">Alinhar</span><span class="sc-col-ico" id="scColAlinharIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M8 12h8M5 18h14"/></svg></span></button>
+        <button type="button" class="sc-col-item" id="scColMarcador"><span class="sc-col-nome">Marcador</span><span class="sc-col-ico"><span class="sc-fundo-ico modo-nenhum" id="scColMarcadorIco">A</span></span></button>
+        <button type="button" class="sc-col-item" id="scColTreino"><span class="sc-col-nome">Treino de hoje</span><span class="sc-col-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg></span></button>
+        <button type="button" class="sc-col-item" id="scColFechar"><span class="sc-col-nome" id="scColFecharNome">Fechar</span><span class="sc-col-ico sc-col-seta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></span></button>
+    </div>
+    <div class="sc-paleta hidden" id="scPaleta">
+        <div class="sc-paleta-alvo">
+            <button type="button" class="on" data-alvo="fundo">Fundo</button>
+            <button type="button" data-alvo="letra">Letra</button>
+        </div>
+        <div class="sc-paleta-cores" id="scPaletaCores"></div>
+    </div>
+    <button type="button" class="sc-publicar-grande" id="scPublicarGrande" aria-label="Publicar" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+    </button>
     <div class="sc-bottom hidden" id="scBottom">
         <div class="sc-swatches hidden" id="scSwatches"></div>
         <div class="sc-tools">
@@ -10589,7 +10649,7 @@ const STORY_DEGRADES = [
 ];
 const FONTES_STORY = [['classico', 'Clássico'], ['forte', 'Forte'], ['manuscrito', 'Escrito']];
 const bgPadraoStory = () => document.documentElement.getAttribute('data-theme') === 'light' ? '#FFFFFF' : '#000000';
-const sc = { mode: null, file: null, bg: '#000000', busy: false, fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null };
+const sc = { mode: null, file: null, bg: '#000000', busy: false, fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo' };
 
 function corDeTextoPara(bg) {
     const b = (bg || '').toLowerCase();
@@ -10610,7 +10670,10 @@ function estiloTextoStory(st, len, emFoto) {
 }
 
 function openStoryCreator() {
-    Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null });
+    Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo' });
+    $('#scPaleta').classList.add('hidden');
+    $('#scColuna').classList.remove('recolhida');
+    $('#scText').style.textAlign = '';
     $('#scCam').value = ''; $('#scGal').value = '';
     const txt = $('#scText');
     txt.value = ''; txt.classList.add('hidden'); txt.style.height = ''; txt.style.left = ''; txt.style.top = '';
@@ -10621,7 +10684,7 @@ function openStoryCreator() {
     $('#scBottom').classList.add('hidden');
     $('#scSwatches').classList.add('hidden');
     $('#scStage').style.background = '';
-    $('#storyCreator').classList.remove('text-mode', 'photo-mode', 'fundo-escuro', 'fundo-claro');
+    $('#storyCreator').classList.remove('text-mode', 'photo-mode', 'fundo-escuro', 'fundo-claro', 'alinhar-left', 'alinhar-right');
     $('#scSwatches').innerHTML = [...STORY_CORES, ...STORY_DEGRADES].map(c =>
         `<button type="button" class="sc-swatch" data-color="${c}" style="background:${c}" aria-label="Cor"></button>`).join('');
     $$('.sc-swatch').forEach(b => b.addEventListener('click', e => {
@@ -10652,13 +10715,35 @@ function ajustarAlturaTextoStory() {
 function atualizarBotaoPublicarStory() {
     const temTexto = $('#scText').value.trim().length > 0;
     const pronto = (sc.mode === 'photo' && sc.file) || (sc.mode === 'text' && (temTexto || sc.adesivo));
-    $('#scPublish').classList.toggle('hidden', !pronto);
+    $('#scPublish').classList.toggle('hidden', !pronto || sc.mode === 'text');
+    $('#scPublicarGrande').disabled = !(sc.mode === 'text' && pronto);
 }
 function aplicarCorStory() {
     $('#scStage').style.background = sc.bg;
-    $('#scText').style.color = corDeTextoPara(sc.bg);
+    const letra = sc.corLetra || corDeTextoPara(sc.bg);
+    $('#scText').style.color = letra;
     $('#scDot').style.background = sc.bg;
+    $('#scColDot').style.background = sc.alvoCor === 'letra' ? letra : sc.bg;
     $$('.sc-swatch').forEach(x => x.classList.toggle('on', x.dataset.color === sc.bg));
+    montarPaletaTexto();
+}
+// Paleta do modo texto: uma linha que rola, pintando fundo ou letra
+function montarPaletaTexto() {
+    const box = document.getElementById('scPaletaCores');
+    if (!box) return;
+    const cores = sc.alvoCor === 'fundo' ? [...STORY_CORES, ...STORY_DEGRADES] : STORY_CORES;
+    const atual = sc.alvoCor === 'fundo' ? sc.bg : (sc.corLetra || corDeTextoPara(sc.bg));
+    box.innerHTML = (sc.alvoCor === 'letra' ? `<button type="button" class="sc-swatch sc-auto${!sc.corLetra ? ' on' : ''}" data-auto="1" aria-label="Automático">A</button>` : '')
+        + cores.map(c => `<button type="button" class="sc-swatch${(c === atual && !(sc.alvoCor === 'letra' && !sc.corLetra)) ? ' on' : ''}" data-color="${c}" style="background:${c}" aria-label="Cor"></button>`).join('');
+    document.querySelectorAll('.sc-paleta-alvo button').forEach(b => b.classList.toggle('on', b.dataset.alvo === sc.alvoCor));
+}
+function aplicarAlinhamento() {
+    const cr = $('#storyCreator');
+    cr.classList.toggle('alinhar-left', sc.alinhar === 'left');
+    cr.classList.toggle('alinhar-right', sc.alinhar === 'right');
+    const linhas = { center: '<path d="M5 6h14M8 12h8M5 18h14"/>', left: '<path d="M5 6h14M5 12h9M5 18h14"/>', right: '<path d="M5 6h14M10 12h9M5 18h14"/>' };
+    $('#scColAlinharIco').innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">${linhas[sc.alinhar]}</svg>`;
+    requestAnimationFrame(ajustarAlturaTextoStory);
 }
 function aplicarFonteStory() {
     const t = $('#scText');
@@ -10673,6 +10758,8 @@ function aplicarFundoTexto() {
     cr.classList.toggle('fundo-escuro', sc.fundoTxt === 'escuro');
     cr.classList.toggle('fundo-claro', sc.fundoTxt === 'claro');
     $('#scFundoTxt').querySelector('.sc-fundo-ico').className = 'sc-fundo-ico modo-' + sc.fundoTxt;
+    $('#scColMarcadorIco').className = 'sc-fundo-ico modo-' + sc.fundoTxt;
+    requestAnimationFrame(ajustarAlturaTextoStory);
 }
 function posicionar(el, pos) {
     if (!pos) { el.style.left = ''; el.style.top = ''; return; }
@@ -10684,10 +10771,7 @@ function entrarModoTexto() {
     const cr = $('#storyCreator');
     cr.classList.add('text-mode'); cr.classList.remove('photo-mode', 'fundo-escuro', 'fundo-claro');
     $('#scChoose').classList.add('hidden');
-    $('#scBottom').classList.remove('hidden');
-    $('#scAddText').classList.add('hidden');
-    $('#scFundoTxt').classList.add('hidden');
-    $('#scColorBtn').classList.remove('hidden');
+    $('#scBottom').classList.add('hidden');
     const t = $('#scText');
     t.readOnly = false;
     t.classList.remove('hidden');
@@ -10695,6 +10779,8 @@ function entrarModoTexto() {
     t.placeholder = 'Escreva algo';
     aplicarCorStory();
     aplicarFonteStory();
+    aplicarAlinhamento();
+    aplicarFundoTexto();
     setTimeout(() => t.focus(), 60);
     atualizarBotaoPublicarStory();
 }
@@ -10714,6 +10800,9 @@ function entrarModoFoto(file) {
     $('#scFundoTxt').classList.remove('hidden');
     $('#scColorBtn').classList.add('hidden');
     $('#scSwatches').classList.add('hidden');
+    $('#scPaleta').classList.add('hidden');
+    sc.corLetra = null; sc.alinhar = 'center';
+    cr.classList.remove('alinhar-left', 'alinhar-right');
     const t = $('#scText');
     t.style.color = '#fff';
     t.placeholder = 'Escreva por cima da foto';
@@ -10783,6 +10872,38 @@ $('#scAddText').addEventListener('click', () => {
     t.focus();
 });
 $('#scColorBtn').addEventListener('click', () => $('#scSwatches').classList.toggle('hidden'));
+$('#scColEstilo').addEventListener('click', e => { e.stopPropagation(); $('#scFonte').click(); });
+$('#scColCor').addEventListener('click', e => { e.stopPropagation(); $('#scPaleta').classList.toggle('hidden'); montarPaletaTexto(); });
+$('#scColAlinhar').addEventListener('click', e => {
+    e.stopPropagation();
+    const ordem = ['center', 'left', 'right'];
+    sc.alinhar = ordem[(ordem.indexOf(sc.alinhar) + 1) % 3];
+    aplicarAlinhamento();
+});
+$('#scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
+$('#scColTreino').addEventListener('click', e => { e.stopPropagation(); $('#scAdesivo').click(); });
+$('#scColFechar').addEventListener('click', e => {
+    e.stopPropagation();
+    const col = $('#scColuna');
+    col.classList.toggle('recolhida');
+    $('#scColFecharNome').textContent = col.classList.contains('recolhida') ? 'Abrir' : 'Fechar';
+});
+document.querySelectorAll('.sc-paleta-alvo button').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    sc.alvoCor = b.dataset.alvo;
+    montarPaletaTexto();
+    $('#scColDot').style.background = sc.alvoCor === 'letra' ? (sc.corLetra || corDeTextoPara(sc.bg)) : sc.bg;
+}));
+$('#scPaletaCores').addEventListener('click', e => {
+    const b = e.target.closest('.sc-swatch');
+    if (!b) return;
+    e.stopPropagation();
+    if (sc.alvoCor === 'letra') sc.corLetra = b.dataset.auto ? null : b.dataset.color;
+    else sc.bg = b.dataset.color;
+    aplicarCorStory();
+});
+$('#scPaleta').addEventListener('click', e => e.stopPropagation());
+$('#scPublicarGrande').addEventListener('click', () => $('#scPublish').click());
 $('#scFonte').addEventListener('click', () => {
     const i = FONTES_STORY.findIndex(f => f[0] === sc.fonte);
     sc.fonte = FONTES_STORY[(i + 1) % FONTES_STORY.length][0];
@@ -10818,6 +10939,7 @@ $('#scAdesivo').addEventListener('click', async () => {
 $('#scStage').addEventListener('click', e => {
     if (sc.mode === 'text' && e.target.id === 'scStage') $('#scText').focus();
     $('#scSwatches').classList.add('hidden');
+    $('#scPaleta').classList.add('hidden');
 });
 
 $('#scPublish').addEventListener('click', async () => {
@@ -10828,6 +10950,7 @@ $('#scPublish').addEventListener('click', async () => {
     if (sc.mode === 'photo' && !sc.file) return;
     sc.busy = true;
     btn.disabled = true;
+    $('#scPublicarGrande').classList.add('enviando');
     btn.textContent = sc.file ? 'Enviando...' : 'Publicando...';
     let imageUrl = null;
     try {
@@ -10843,8 +10966,9 @@ $('#scPublish').addEventListener('click', async () => {
                 }
             } catch (e) { console.warn('moderação indisponível', e); }
         }
-        const style = { font: sc.fonte };
-        if (sc.mode === 'photo') { style.pos = sc.pos; style.fundo = sc.fundoTxt; }
+        const style = { font: sc.fonte, fundo: sc.fundoTxt };
+        if (sc.mode === 'photo') style.pos = sc.pos;
+        if (sc.mode === 'text') { style.align = sc.alinhar; if (sc.corLetra) style.color = sc.corLetra; }
         if (sc.adesivo) { style.sticker = sc.adesivo; style.stickerPos = sc.adesivoPos; }
 
         const { data: story, error } = await sb.from('stories').insert({
@@ -10869,6 +10993,7 @@ $('#scPublish').addEventListener('click', async () => {
     } finally {
         sc.busy = false;
         btn.disabled = false;
+        $('#scPublicarGrande').classList.remove('enviando');
         btn.textContent = 'Publicar';
     }
 });
@@ -10997,7 +11122,9 @@ function showCurrentStory() {
         const fundo = item.background_color || STORY_BG_PADRAO;
         content.style.background = fundo;
         const e = estiloTextoStory(st, (item.caption || '').length, false);
-        content.innerHTML = `${item.caption ? `<div class="text-body ${e.cls}" style="color:${corDeTextoPara(fundo)};font-size:${e.size}px">${escapeHTML(item.caption)}</div>` : ''}
+        const alin = st.align || 'center';
+        const marca = st.fundo && st.fundo !== 'nenhum' ? st.fundo : null;
+        content.innerHTML = `${item.caption ? `<div class="text-body ${e.cls}" style="color:${st.color || corDeTextoPara(fundo)};font-size:${e.size}px;text-align:${alin}">${marca ? `<span class="marcador-${marca}">${escapeHTML(item.caption)}</span>` : escapeHTML(item.caption)}</div>` : ''}
             ${adesivoHTML}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     }
