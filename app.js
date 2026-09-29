@@ -3638,6 +3638,7 @@ async function hydrateCoachCard() {
 // VIEWS
 // ============================================================
 async function renderFeed() {
+    sincronizarModoTela();
     const c = $('#viewContainer');
     c.innerHTML = '<div class="view feed-view"><div class="spinner"></div></div>';
 
@@ -4846,6 +4847,7 @@ function montarEvolucao(d) {
 }
 
 async function renderProgress() {
+    sincronizarModoTela();
     const c = $('#viewContainer');
     c.innerHTML = '<div class="view"><h1 class="screen-title">Evolução</h1><div class="spinner"></div></div>';
 
@@ -6199,6 +6201,7 @@ function openInviteSheet(cid) {
 }
 
 async function renderProfile() {
+    sincronizarModoTela();
     const c = $('#viewContainer');
     const p = state.profile;
     const [{ count: postCount }, { data: streak }, { data: followersCount }, { data: followingCount }] = await Promise.all([
@@ -7298,6 +7301,7 @@ async function renderActivityLog() {
 }
 
 async function renderUserProfile(uid) {
+    sincronizarModoTela();
     const c = $('#viewContainer');
     c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
 
@@ -7533,6 +7537,26 @@ if (window.visualViewport) {
     window.visualViewport.addEventListener('scroll', syncLayoutVars);
 }
 
+// Quais telas escondem o topo e o menu do app
+const TELAS_CHEIAS = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino', 'termos', 'politica-privacidade'];
+function ehTelaCheia(v) { return !!v && (TELAS_CHEIAS.includes(v) || v.startsWith('set-')); }
+// Garante que topo e menu batem com a tela atual (evita ficar "preso" sem topo/menu)
+function sincronizarModoTela() {
+    const html = document.documentElement;
+    html.classList.remove('kb-open');
+    html.classList.toggle('tela-cheia', ehTelaCheia(state.view));
+    if (!document.querySelector('.sheet.on, .sc.on, .story-viewer.on, .posts-viewer')) document.body.style.overflow = '';
+}
+window.addEventListener('pageshow', () => sincronizarModoTela());
+// iPhone: depois de teclado, câmera ou galeria, às vezes o topo e o menu ficam deslocados.
+// Um "empurrão" na rolagem faz o Safari recalcular a posição deles.
+function realinharTela() {
+    setTimeout(() => { window.scrollTo(window.scrollX, window.scrollY); syncLayoutVars && syncLayoutVars(); }, 60);
+}
+document.addEventListener('focusout', realinharTela);
+document.addEventListener('change', e => { if (e.target && e.target.type === 'file') realinharTela(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) sincronizarModoTela(); });
+
 async function switchView(v, params = {}) {
     const viewAnterior = state.view;
     closeDynamicSheets();
@@ -7555,7 +7579,7 @@ async function switchView(v, params = {}) {
     const feedPostBtn = document.getElementById('feedPostBtn');
     if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
     // Telas de configuração ocupam a tela toda, sem topo nem menu do app
-    const telaCheia = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino', 'termos', 'politica-privacidade'].includes(v) || v.startsWith('set-');
+    const telaCheia = ehTelaCheia(v);
     if ((v === 'objetivos' || v === 'jeito-treino') && viewAnterior && viewAnterior !== 'objetivos' && viewAnterior !== 'jeito-treino') {
         state.voltarEditavel = viewAnterior;
     }
@@ -8601,6 +8625,7 @@ function openStoryCreator() {
 function closeStoryCreator() {
     $('#storyCreator').classList.remove('on');
     document.body.style.overflow = '';
+    sincronizarModoTela();
     $('#scText').blur();
 }
 
@@ -8911,6 +8936,7 @@ async function openStoryViewer(groupIdx) {
 
 function closeStoryViewer() {
     $('#storyViewer').classList.remove('on', 'paused');
+    setTimeout(sincronizarModoTela, 0);
     state.storyAtual = null;
     document.body.style.overflow = '';
     clearTimeout(state.storyTimer);
