@@ -6141,6 +6141,9 @@ async function renderPainelDesafio(cidEscolhido) {
             ${mostraEu ? `<div class="pd-rank-sep">···</div>${linhaRank(eu, i)}` : ''}
         </div>` : ''}
 
+        <div id="pdMarco"></div>
+        <div id="pdGrupoTotais"></div>
+        <div id="pdDestaque"></div>
         <div id="chNarracao"></div>
 
         <div class="chart-card">
@@ -6158,6 +6161,96 @@ async function renderPainelDesafio(cidEscolhido) {
 
     if (!futuro) hydrateNarracaoDesafio(ch, r);
     hydrateGrupoHoje(ch, r);
+    if (!futuro) { hydrateTotaisGrupo(ch); hydrateDestaqueSemana(ch); }
+}
+
+// ---- Conquistas do grupo, meta coletiva e marcos ----
+const MARCOS_GRUPO = {
+    treinos: [25, 50, 100, 200, 300, 500, 750, 1000, 2000],
+    km: [25, 50, 100, 250, 500, 1000, 2000],
+    horas: [10, 25, 50, 100, 250, 500],
+    kg: [5, 10, 20, 30, 50, 100],
+};
+const NOME_MARCO = { treinos: 'treinos', km: 'km', horas: 'horas de treino', kg: 'kg perdidos' };
+function numBR(n, casas = 0) { return Number(n).toLocaleString('pt-BR', { maximumFractionDigits: casas }); }
+
+async function hydrateTotaisGrupo(ch) {
+    const box = document.getElementById('pdGrupoTotais');
+    if (!box) return;
+    const [{ data: t }, { data: optout }] = await Promise.all([
+        sb.rpc('challenge_group_totals', { cid: ch.id }),
+        sb.rpc('my_challenge_weight_optout', { cid: ch.id }),
+    ]);
+    if (!t || !document.getElementById('pdGrupoTotais')) return;
+    state.totaisGrupo = state.totaisGrupo || {};
+    state.totaisGrupo[ch.id] = t;
+    const horas = Math.round(Number(t.minutos || 0) / 60);
+    const valores = { treinos: Number(t.treinos || 0), km: Number(t.km || 0), horas, kg: t.kg_perdidos != null ? Number(t.kg_perdidos) : null };
+
+    // meta coletiva
+    let metaHTML = '';
+    if (t.meta_tipo && Number(t.meta_valor) > 0) {
+        const atual = valores[t.meta_tipo] || 0;
+        const alvo = Number(t.meta_valor);
+        const pct = Math.min(100, atual / alvo * 100);
+        metaHTML = `<div class="gm-meta${pct >= 100 ? ' batida' : ''}">
+            <div class="gm-meta-topo"><span>Meta do grupo</span><b>${numBR(atual, 1)} de ${numBR(alvo)} ${NOME_MARCO[t.meta_tipo]}</b></div>
+            <div class="gm-trilho"><i style="width:${Math.max(2, pct)}%"></i></div>
+            <small>${pct >= 100 ? '🎉 Meta batida! Todo mundo junto.' : `Faltam ${numBR(Math.max(0, alvo - atual), 1)} ${NOME_MARCO[t.meta_tipo]}. Cada treino conta pro grupo.`}</small>
+        </div>`;
+    }
+    box.innerHTML = `<div class="chart-card gm-card">
+        <div class="chart-head"><span class="chart-title">Conquistas do grupo</span></div>
+        ${metaHTML}
+        <div class="gm-grade">
+            <div><b>${numBR(valores.treinos)}</b><span>treinos</span></div>
+            <div><b>${numBR(valores.horas)}h</b><span>treinando</span></div>
+            ${valores.km ? `<div><b>${numBR(valores.km, 1)}</b><span>km juntos</span></div>` : ''}
+            ${valores.kg ? `<div><b>${numBR(valores.kg, 1)} kg</b><span>a menos, juntos</span></div>` : ''}
+            <div><b>🔥 ${numBR(t.ofensiva_soma || 0)}</b><span>dias de ofensiva somados</span></div>
+        </div>
+        <p class="gm-nota">${valores.kg == null ? 'O total de kg aparece quando pelo menos 3 pessoas registrarem peso no período. ' : ''}Ninguém vê o peso de ninguém, só a soma.
+        <button class="ia-link" data-act="peso-grupo-toggle" data-id="${ch.id}" data-sair="${optout ? '0' : '1'}">${optout ? 'Incluir meu peso no total' : 'Tirar meu peso do total'}</button></p>
+    </div>`;
+
+    // marcos: compara com o que este aparelho já tinha visto
+    const chave = 'pulso-marcos-' + ch.id;
+    let vistos = {};
+    try { vistos = JSON.parse(lsGet(chave) || '{}'); } catch (_) {}
+    let celebrar = null;
+    Object.entries(MARCOS_GRUPO).forEach(([k, lista]) => {
+        const v = valores[k];
+        if (v == null) return;
+        const passou = lista.filter(x => v >= x).pop();
+        if (passou && (vistos[k] || 0) < passou) {
+            if (vistos[k] !== undefined) celebrar = celebrar || { k, passou };
+            vistos[k] = passou;
+        } else if (vistos[k] === undefined) vistos[k] = passou || 0;
+    });
+    lsSet(chave, JSON.stringify(vistos));
+    if (celebrar) {
+        const m = document.getElementById('pdMarco');
+        if (m) m.innerHTML = `<div class="gm-marco">🎉 <b>O grupo acabou de passar de ${numBR(celebrar.passou)} ${NOME_MARCO[celebrar.k]}!</b><button class="dc-x" data-act="fechar-marco" aria-label="Fechar">×</button></div>`;
+    }
+}
+
+async function hydrateDestaqueSemana(ch) {
+    const box = document.getElementById('pdDestaque');
+    if (!box) return;
+    // só a partir da 2ª semana do desafio
+    if (Date.now() - new Date(ch.starts_at) < 7 * 86400000) return;
+    const { data } = await sb.rpc('challenge_destaque_semana', { cid: ch.id });
+    const d = data && data[0];
+    if (!d || !d.dias || !document.getElementById('pdDestaque')) return;
+    const eu = d.user_id === state.session.user.id;
+    box.innerHTML = `<div class="chart-card gm-destaque">
+        <span class="gm-dest-tag">⭐ Destaque da semana passada</span>
+        <div class="gm-dest-linha">
+            ${avatarHTML({ id: d.user_id, display_name: d.display_name, avatar_url: d.avatar_url }, 'md')}
+            <div><b>${eu ? 'Você!' : escapeHTML(d.display_name)}</b><span>${d.dias} ${d.dias === 1 ? 'dia' : 'dias'} de treino · ${String(Math.round(d.minutos / 60 * 10) / 10).replace('.', ',')}h no total</span></div>
+            ${eu ? '' : `<button class="pd-aplauso" data-act="incentivar" data-cid="${ch.id}" data-uid="${d.user_id}" data-nome="${escapeHTML(String(d.display_name).split(' ')[0])}" aria-label="Aplaudir">👏</button>`}
+        </div>
+    </div>`;
 }
 
 // O que os participantes fizeram hoje (só treino e ofensiva; nunca peso nem refeição)
@@ -6409,6 +6502,13 @@ function openNewChallengeSheet() {
         <div class="field"><label>Nome</label><input type="text" id="ncName" maxlength="60" placeholder="ex: Setembro Ativo"></div>
         <div class="field"><label>Descrição (opcional)</label><textarea id="ncDesc" maxlength="200" placeholder="Qual é o objetivo do desafio?"></textarea></div>
         <div class="field"><label>Regras do desafio (opcional)</label><textarea id="ncRegras" maxlength="600" placeholder="ex: vale só treino com foto; prêmio pro primeiro lugar; quem sumir 7 dias sai"></textarea></div>
+        <div class="field"><label>Meta coletiva (opcional)</label>
+            <div class="nc-meta">
+                <input type="number" id="ncMetaValor" min="1" max="100000" inputmode="numeric" placeholder="ex: 500">
+                <select id="ncMetaTipo"><option value="">sem meta</option><option value="km">km juntos</option><option value="treinos">treinos juntos</option><option value="horas">horas juntos</option></select>
+            </div>
+            <p class="field-hint">Um número que o grupo todo persegue junto, além da competição.</p>
+        </div>
         <div class="field-row">
             <div class="field"><label>Começa</label><input type="date" id="ncStart" value="${hoje}"></div>
             <div class="field"><label>Termina</label><input type="date" id="ncEnd" value="${em30}"></div>
@@ -6444,6 +6544,8 @@ function openNewChallengeSheet() {
             name: nome,
             description: document.getElementById('ncDesc').value.trim() || null,
             rules: document.getElementById('ncRegras').value.trim() || null,
+            group_goal_type: (document.getElementById('ncMetaTipo').value && Number(document.getElementById('ncMetaValor').value) > 0) ? document.getElementById('ncMetaTipo').value : null,
+            group_goal_value: (document.getElementById('ncMetaTipo').value && Number(document.getElementById('ncMetaValor').value) > 0) ? Number(document.getElementById('ncMetaValor').value) : null,
             starts_at: new Date(ini + 'T00:00:00').toISOString(),
             ends_at: new Date(fim + 'T23:59:59').toISOString(),
             created_by: state.session.user.id,
@@ -8209,6 +8311,15 @@ document.addEventListener('click', async e => {
     } else if (act === 'open-painel-desafio') {
         state.desafioAtual = btn.dataset.id;
         switchView('desafio', { id: btn.dataset.id });
+    } else if (act === 'peso-grupo-toggle') {
+        const sair = btn.dataset.sair === '1';
+        if (sair && !confirm('Tirar seu peso do total do grupo? Ninguém vê seu peso de qualquer forma, isso só não soma você no total.')) return;
+        const { error } = await sb.rpc('set_challenge_weight_optout', { cid: btn.dataset.id, sair });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast(sair ? 'Seu peso não entra mais no total do grupo' : 'Seu peso volta a somar no total do grupo', 'ok');
+        hydrateTotaisGrupo({ id: btn.dataset.id });
+    } else if (act === 'fechar-marco') {
+        const m = document.getElementById('pdMarco'); if (m) m.innerHTML = '';
     } else if (act === 'pd-trocar') {
         state.desafioAtual = btn.dataset.id;
         renderPainelDesafio(btn.dataset.id);
@@ -8248,6 +8359,15 @@ document.addEventListener('click', async e => {
         const medalhas = ['🥇', '🥈', '🥉'];
         const itens = pd.r.slice(0, 3).map((u, i) => [`${medalhas[i]} ${u.user_id === state.session.user.id ? 'Eu' : String(u.display_name || '').split(' ')[0]}`, `${Math.round(u.points)} pontos no desafio`, u.user_id === state.session.user.id]);
         if (pd.minhaPos > 3) itens.push([`${pd.minhaPos}º lugar`, `minha posição, entre ${pd.r.length}`, true]);
+        try {
+            const { data: t } = await sb.rpc('challenge_group_totals', { cid: btn.dataset.id });
+            if (t && itens.length < 5) {
+                const partes = [`${numBR(t.treinos || 0)} treinos`];
+                if (Number(t.km) > 0) partes.push(`${numBR(t.km, 1)} km`);
+                if (t.kg_perdidos != null && Number(t.kg_perdidos) > 0) partes.push(`${numBR(t.kg_perdidos, 1)} kg a menos`);
+                itens.push(['Juntos', partes.join(' · ')]);
+            }
+        } catch (_) {}
         const blob = await imagemResumo({ titulo: pd.nome, subtitulo: 'Resultado final do desafio', itens });
         btn.disabled = false;
         if (blob) abrirPreviaImagem(blob, 'pulso-desafio.jpg');
