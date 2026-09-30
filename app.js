@@ -5859,6 +5859,41 @@ async function montarCardMetas(goal) {
          <button class="btn-primary-sm" data-act="m-go" data-view="objetivos">${semObjetivo ? 'Definir objetivo' : 'Definir prazo'}</button>`, null);
 }
 
+// ---- Lista rolável de posts (ao tocar numa foto do perfil ou dos salvos) ----
+async function abrirListaDePosts(ids, inicio) {
+    const old = document.getElementById('postsViewer');
+    if (old) old.remove();
+    const v = document.createElement('div');
+    v.id = 'postsViewer';
+    v.className = 'posts-viewer';
+    v.innerHTML = `<div class="pv-topo">
+            <button class="topbar-back pv-voltar" aria-label="Voltar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="topbar-title">Publicações</div>
+            <div style="width:36px"></div>
+        </div>
+        <div class="pv-lista"><div class="spinner"></div></div>`;
+    document.body.appendChild(v);
+    document.body.style.overflow = 'hidden';
+    const fechar = () => { v.remove(); document.body.style.overflow = ''; };
+    v.querySelector('.pv-voltar').onclick = fechar;
+
+    const { data, error } = await sb.from('posts').select(`
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, meal_analysis, achievement_code,
+            user:profiles!user_id!inner (id, username, display_name, avatar_url),
+            reactions (id, user_id),
+            comments (id)
+        `).in('id', ids);
+    const lista = v.querySelector('.pv-lista');
+    if (!lista) return;
+    if (error) { lista.innerHTML = `<p style="color:var(--danger)">${escapeHTML(msgErro(error))}</p>`; return; }
+    const posts = (data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    lista.innerHTML = posts.map(p => renderPost(p)).join('') || '<div class="log-empty">Nada por aqui.</div>';
+    const alvo = lista.querySelector(`.post[data-post-id="${inicio}"]`);
+    if (alvo) v.scrollTop = alvo.offsetTop - 64;
+}
+
 // ---- Salvos ----
 async function carregarSalvos() {
     const { data } = await sb.from('saved_posts').select('post_id').eq('user_id', state.session.user.id);
