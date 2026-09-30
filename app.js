@@ -2404,6 +2404,12 @@ async function renderNotifications() {
         } else if (n.kind === 'convite_premiado') {
             emo = '🎁'; texto = `<b>${quem}</b> registrou o primeiro treino. Você ganhou 10 pontos pelo convite`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'resposta') {
+            emo = '↩️'; texto = `<b>${quem}</b> respondeu seu comentário`;
+            act = ` data-act="abrir-comentarios" data-id="${n.post_id}"`;
+        } else if (n.kind === 'mencao') {
+            emo = '@'; texto = `<b>${quem}</b> mencionou você num comentário`;
+            act = ` data-act="abrir-comentarios" data-id="${n.post_id}"`;
         } else if (n.kind === 'depoimento') {
             emo = '✍️'; texto = `<b>${quem}</b> deixou um depoimento pra você`;
             act = ` data-act="abrir-depoimentos"`;
@@ -8120,7 +8126,10 @@ document.addEventListener('click', async e => {
         openCommentSheet(id);
     } else if (act === 'view-user') {
         const uid = btn.dataset.uid;
-        switchView('user-profile', { uid });
+        if (!uid || uid === 'undefined') return;
+        fecharJanelasAbertas();
+        if (uid === state.session.user.id) switchView('profile');
+        else switchView('user-profile', { uid });
     } else if (act === 'post-menu') {
         showPostMenu(id, btn);
     } else if (act === 'quick-follow') {
@@ -8405,12 +8414,44 @@ document.addEventListener('click', async e => {
     } else if (act === 'curtir-comentario') {
         const id = btn.dataset.id;
         const curtido = btn.dataset.curtido === '1';
+        btn.disabled = true;
         if (curtido) await sb.from('comment_likes').delete().match({ comment_id: id, user_id: state.session.user.id });
         else await sb.from('comment_likes').insert({ comment_id: id, user_id: state.session.user.id });
         const sheet = document.getElementById('commentSheet');
         if (sheet && sheet.dataset.postId) loadComments(sheet.dataset.postId);
+    } else if (act === 'comentario-menu') {
+        e.stopPropagation();
+        menuComentario(btn);
+    } else if (act === 'apagar-comentario') {
+        hidePostMenu();
+        apagarComentarioComDesfazer(btn.dataset.id, btn.dataset.respostas || '0');
+    } else if (act === 'ocultar-comentario') {
+        hidePostMenu();
+        const ocultar = btn.dataset.ocultar === '1';
+        const { error } = await sb.rpc('ocultar_comentario', { cid: btn.dataset.id, ocultar });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast(ocultar ? 'Comentário oculto. Só você e quem escreveu ainda veem.' : 'Comentário visível de novo', 'ok');
+        const sheet = document.getElementById('commentSheet');
+        if (sheet && sheet.dataset.postId) loadComments(sheet.dataset.postId);
+    } else if (act === 'quem-curtiu-comentario') {
+        quemCurtiuComentario(btn.dataset.id);
+    } else if (act === 'toggle-comentarios-post') {
+        hidePostMenu();
+        const { data: atualPost } = await sb.from('posts').select('comments_off').eq('id', btn.dataset.id).maybeSingle();
+        const desligar = !(atualPost && atualPost.comments_off);
+        const { error } = await sb.from('posts').update({ comments_off: desligar }).eq('id', btn.dataset.id).eq('user_id', state.session.user.id);
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast(desligar ? 'Comentários desativados neste post' : 'Comentários ativados de novo', 'ok');
+    } else if (act === 'abrir-comentarios') {
+        fecharJanelasAbertas();
+        openCommentSheet(btn.dataset.id);
     } else if (act === 'responder-comentario') {
         state.respondendo = btn.dataset.id;
+        const campoResp = document.getElementById('commentInput');
+        if (campoResp && btn.dataset.user && btn.dataset.user !== (state.profile && state.profile.username)) {
+            const mencao = '@' + btn.dataset.user + ' ';
+            if (!campoResp.value.startsWith(mencao)) campoResp.value = mencao + campoResp.value.replace(/^@\S+\s/, '');
+        }
         const slot = document.getElementById('respondendoSlot');
         if (slot) {
             slot.innerHTML = `<div class="respondendo-tag" id="respondendoTag">
@@ -8862,6 +8903,7 @@ function showPostMenu(postId, anchor) {
     menu.innerHTML = `
         <button class="post-menu-item" data-act="edit-post" data-id="${postId}">${icon('editar')}Editar</button>
         <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">${icon('olho')}Quem pode ver</button>
+        <button class="post-menu-item" data-act="toggle-comentarios-post" data-id="${postId}">${icon('comentario')}Ativar ou desativar comentários</button>
         <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">${icon('lixo')}Apagar post</button>
     `;
     const rect = anchor.getBoundingClientRect();
@@ -8939,6 +8981,20 @@ async function openCommentSheet(postId) {
     // clique fora fecha
     sheet.onclick = e => { if (e.target === sheet) closeCommentSheet(); };
 
+    // quem é o dono do post e se os comentários estão desligados
+    const { data: pInfo } = await sb.from('posts').select('user_id, comments_off').eq('id', postId).maybeSingle();
+    state.comentPost = { id: postId, dono: pInfo ? pInfo.user_id : null, off: !!(pInfo && pInfo.comments_off) };
+    const composer = sheet.querySelector('.comment-composer');
+    let avisoOff = sheet.querySelector('.comments-off');
+    if (state.comentPost.off) {
+        composer.classList.add('hidden');
+        if (!avisoOff) { avisoOff = document.createElement('p'); avisoOff.className = 'comments-off'; composer.after(avisoOff); }
+        avisoOff.textContent = 'Os comentários deste post estão desativados.';
+    } else {
+        composer.classList.remove('hidden');
+        if (avisoOff) avisoOff.remove();
+    }
+
     await loadComments(postId);
 
     document.getElementById('commentSendBtn').onclick = async () => {
@@ -8951,6 +9007,10 @@ async function openCommentSheet(postId) {
             post_id: postId, user_id: state.session.user.id, body,
             parent_id: state.respondendo || null,
         });
+        if (error && String(error.message || '').toLowerCase().includes('row-level') && state.comentPost && state.comentPost.off) {
+            btn.disabled = false; btn.textContent = 'Enviar';
+            toast('Os comentários deste post estão desativados.', 'err'); return;
+        }
         btn.disabled = false; btn.textContent = 'Enviar';
         if (error) {
             const t = String(error.message || '').toLowerCase();
@@ -8971,31 +9031,34 @@ async function openCommentSheet(postId) {
 async function loadComments(postId) {
     const list = document.getElementById('commentsList');
     list.innerHTML = '<div class="spinner"></div>';
-    const { data: comments, error } = await sb.rpc('post_comments', { pid: postId });
-    if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+    let { data: comments, error } = await sb.rpc('post_comments_v2', { pid: postId });
+    if (error) ({ data: comments, error } = await sb.rpc('post_comments', { pid: postId }));
+    if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${escapeHTML(error.message)}</p>`; return; }
     if (!comments || comments.length === 0) {
         list.innerHTML = '<p class="comments-empty">Nenhum comentário ainda. Seja o primeiro!</p>';
         return;
     }
-
+    const eu = state.session.user.id;
+    const souDonoDoPost = state.comentPost && state.comentPost.dono === eu;
     const raiz = comments.filter(c => !c.parent_id);
     const respostas = comments.filter(c => c.parent_id);
 
-    const linha = (cm, ehResposta) => {
-        const meu = cm.user_id === state.session.user.id;
+    const linha = (cm, ehResposta, raizId) => {
+        const meu = cm.user_id === eu;
         const autor = { id: cm.user_id, display_name: cm.display_name, username: cm.username, avatar_url: cm.avatar_url };
+        const n = Number(cm.curtidas || 0);
+        const curtidasTxt = n > 0 ? `<button class="cm-acao cm-contagem" data-act="quem-curtiu-comentario" data-id="${cm.id}">${n} ${n === 1 ? 'curtida' : 'curtidas'}</button>` : '';
         return `
-            <div class="comment-item${ehResposta ? ' resposta' : ''}">
+            <div class="comment-item${ehResposta ? ' resposta' : ''}${cm.hidden ? ' oculto' : ''}" data-comment-id="${cm.id}">
                 <span data-act="view-user" data-uid="${cm.user_id}">${avatarHTML(autor, 'sm')}</span>
                 <div class="comment-body">
-                    <div class="comment-name">${escapeHTML(cm.display_name)} <span class="comment-time">${timeAgo(cm.created_at)}</span></div>
-                    <div class="comment-text">${escapeHTML(cm.body)}</div>
+                    <div class="comment-name"><span class="cm-nome" data-act="view-user" data-uid="${cm.user_id}">${escapeHTML(cm.display_name)}</span> <span class="comment-time">${timeAgo(cm.created_at)}</span>${cm.hidden ? ' <span class="cm-oculto-tag">oculto</span>' : ''}</div>
+                    <div class="comment-text">${escapeHTML(cm.body).replace(/(^|\s)@([a-zA-Z0-9_.]{2,30})/g, '$1<b class="cm-mencao">@$2</b>')}</div>
                     <div class="comment-acoes">
-                        <button class="cm-acao${cm.eu_curti ? ' on' : ''}" data-act="curtir-comentario" data-id="${cm.id}" data-curtido="${cm.eu_curti ? '1' : '0'}">
-                            ${cm.eu_curti ? 'Curtido' : 'Curtir'}${cm.curtidas > 0 ? ` · ${cm.curtidas}` : ''}
-                        </button>
-                        ${!ehResposta ? `<button class="cm-acao" data-act="responder-comentario" data-id="${cm.id}" data-nome="${escapeHTML(cm.display_name)}">Responder</button>` : ''}
-                        ${meu ? `<button class="cm-acao apagar" data-act="delete-comment" data-id="${cm.id}">Apagar</button>` : ''}
+                        ${meu ? '' : `<button class="cm-acao${cm.eu_curti ? ' on' : ''}" data-act="curtir-comentario" data-id="${cm.id}" data-curtido="${cm.eu_curti ? '1' : '0'}">${cm.eu_curti ? 'Curtido' : 'Curtir'}</button>`}
+                        ${curtidasTxt}
+                        ${state.comentPost && state.comentPost.off ? '' : `<button class="cm-acao" data-act="responder-comentario" data-id="${raizId}" data-nome="${escapeHTML(cm.display_name)}" data-user="${escapeHTML(cm.username || '')}">Responder</button>`}
+                        <button class="cm-acao cm-mais" data-act="comentario-menu" data-id="${cm.id}" data-uid="${cm.user_id}" data-nome="${escapeHTML(cm.display_name)}" data-oculto="${cm.hidden ? '1' : '0'}" data-respostas="${ehResposta ? 0 : respostas.filter(r => r.parent_id === cm.id).length}" aria-label="Mais">···</button>
                     </div>
                 </div>
             </div>`;
@@ -9003,8 +9066,101 @@ async function loadComments(postId) {
 
     list.innerHTML = raiz.map(c => {
         const filhas = respostas.filter(r => r.parent_id === c.id);
-        return linha(c, false) + filhas.map(f => linha(f, true)).join('');
+        return linha(c, false, c.id) + filhas.map(f => linha(f, true, c.id)).join('');
     }).join('');
+}
+
+// Menu ··· do comentário: apagar (dono do post ou autor), ocultar (dono do post), denunciar
+function menuComentario(btn) {
+    hidePostMenu();
+    const eu = state.session.user.id;
+    const meu = btn.dataset.uid === eu;
+    const donoPost = state.comentPost && state.comentPost.dono === eu;
+    const opcoes = [];
+    if (meu || donoPost) opcoes.push(`<button class="post-menu-item danger" data-act="apagar-comentario" data-id="${btn.dataset.id}" data-respostas="${btn.dataset.respostas}">${icon('lixo')}Apagar</button>`);
+    if (donoPost && !meu) opcoes.push(`<button class="post-menu-item" data-act="ocultar-comentario" data-id="${btn.dataset.id}" data-ocultar="${btn.dataset.oculto === '1' ? '0' : '1'}">${icon('olho')}${btn.dataset.oculto === '1' ? 'Mostrar de novo' : 'Ocultar'}</button>`);
+    if (!meu) opcoes.push(`<button class="post-menu-item" data-act="report-user" data-uid="${btn.dataset.uid}" data-name="${btn.dataset.nome}">${icon('bloquear')}Denunciar</button>`);
+    const menu = document.createElement('div');
+    menu.id = 'floatingPostMenu';
+    menu.className = 'post-menu cm-menu';
+    menu.innerHTML = opcoes.join('');
+    const rect = btn.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = Math.min(window.innerHeight - 150, rect.bottom + 4) + 'px';
+    menu.style.left = Math.max(12, rect.left - 120) + 'px';
+    menu.style.zIndex = 120;
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+}
+
+// Apagar com "Desfazer": some na hora e só apaga de verdade depois de 5 segundos
+function apagarComentarioComDesfazer(id, respostas) {
+    if (Number(respostas) > 0 && !confirm(`Esse comentário tem ${respostas} ${respostas === '1' ? 'resposta' : 'respostas'}, que também serão apagadas. Continuar?`)) return;
+    const item = document.querySelector(`.comment-item[data-comment-id="${id}"]`);
+    const filhas = [];
+    if (item) {
+        let prox = item.nextElementSibling;
+        while (prox && prox.classList.contains('resposta')) { filhas.push(prox); prox = prox.nextElementSibling; }
+        [item, ...(Number(respostas) > 0 ? filhas : [])].forEach(el => el.classList.add('sumindo'));
+    }
+    let desfeito = false;
+    const t = toastComAcao('Comentário apagado', 'Desfazer', () => {
+        desfeito = true;
+        document.querySelectorAll('.comment-item.sumindo').forEach(el => el.classList.remove('sumindo'));
+    });
+    setTimeout(async () => {
+        if (desfeito) return;
+        const { error } = await sb.rpc('apagar_comentario', { cid: id });
+        if (error) { toast(msgErro(error), 'err'); document.querySelectorAll('.comment-item.sumindo').forEach(el => el.classList.remove('sumindo')); return; }
+        const sheet = document.getElementById('commentSheet');
+        if (sheet && sheet.dataset.postId) {
+            loadComments(sheet.dataset.postId);
+            const countSpan = document.querySelector(`.post[data-post-id="${sheet.dataset.postId}"] [data-act="comment"] span`);
+            if (countSpan) countSpan.textContent = String(Math.max(0, Number(countSpan.textContent) - 1 - (Number(respostas) || 0)));
+        }
+    }, 5000);
+}
+// Aviso com um botão (ex: Desfazer)
+function toastComAcao(texto, acao, aoClicar) {
+    const el = document.createElement('div');
+    el.className = 'toast toast-acao';
+    el.innerHTML = `<span>${escapeHTML(texto)}</span><button>${escapeHTML(acao)}</button>`;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('on'));
+    el.querySelector('button').onclick = () => { aoClicar(); el.remove(); };
+    setTimeout(() => el.remove(), 5000);
+    return el;
+}
+
+// Quem curtiu um comentário
+async function quemCurtiuComentario(id) {
+    const { data: likes } = await sb.from('comment_likes').select('user_id, created_at').eq('comment_id', id).order('created_at', { ascending: false });
+    const ids = (likes || []).map(l => l.user_id);
+    const { data: perfis } = ids.length ? await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', ids) : { data: [] };
+    const old = document.getElementById('peopleSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'peopleSheet';
+    sheet.className = 'sheet on sheet-over-story';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Curtiram o comentário</h3>
+        <div class="follow-list">${(perfis || []).map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
+            ${avatarHTML(u, 'sm')}
+            <div style="flex:1;min-width:0"><div class="follow-name">${escapeHTML(u.display_name)}</div><div class="follow-uname">@${escapeHTML(u.username)}</div></div>
+        </div>`).join('') || '<div class="log-empty">Ninguém ainda.</div>'}</div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.onclick = e => { if (e.target === sheet) sheet.remove(); };
+}
+
+// Fecha tudo que estiver por cima (comentários, listas, visualizador de posts) antes de navegar
+function fecharJanelasAbertas() {
+    closeCommentSheet();
+    ['peopleSheet', 'postsViewer', 'postViewSheet', 'likersSheet'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+    document.querySelectorAll('.sheet.on').forEach(sh => { if (sh.id !== 'termsSheet') sh.classList.remove('on'); });
+    hidePostMenu();
+    document.body.style.overflow = '';
 }
 
 function closeCommentSheet() {
@@ -9013,15 +9169,6 @@ function closeCommentSheet() {
     document.body.style.overflow = '';
 }
 
-// Delete comment
-document.addEventListener('click', async e => {
-    const btn = e.target.closest('[data-act="delete-comment"]');
-    if (!btn) return;
-    if (!confirm('Apagar comentário?')) return;
-    await sb.from('comments').delete().eq('id', btn.dataset.id);
-    const sheet = document.getElementById('commentSheet');
-    if (sheet && sheet.dataset.postId) loadComments(sheet.dataset.postId);
-});
 
 // Cliques na barra de stories
 document.addEventListener('click', async e => {
