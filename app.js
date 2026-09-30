@@ -1807,7 +1807,7 @@ async function loadMoreFeed() {
     const de = state.feedOffset || 0;
     const { data: posts, error } = await sb.from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, meal_analysis, achievement_code,
             user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -2404,6 +2404,15 @@ async function renderNotifications() {
         } else if (n.kind === 'convite_premiado') {
             emo = '🎁'; texto = `<b>${quem}</b> registrou o primeiro treino. Você ganhou 10 pontos pelo convite`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'depoimento') {
+            emo = '✍️'; texto = `<b>${quem}</b> deixou um depoimento pra você`;
+            act = ` data-act="abrir-depoimentos"`;
+        } else if (n.kind === 'depoimento_publicado') {
+            emo = '✨'; texto = `<b>${quem}</b> publicou o seu depoimento no perfil`;
+            act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'desafio_ultrapassado') {
+            emo = '🏁'; texto = `<b>${quem}</b> te passou no desafio <b>${escapeHTML(n.challenge_name || '')}</b>. Bora retomar?`;
+            act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
         } else if (n.kind === 'desafio_convite') {
             emo = '🏆'; texto = `<b>${quem}</b> te convidou pro desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
@@ -2941,7 +2950,7 @@ async function openPostSheet(id) {
     const old = document.getElementById('postViewSheet');
     if (old) old.remove();
     const { data: p, error } = await sb.from('posts')
-        .select(`id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
+        .select(`id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, meal_analysis, achievement_code,
             user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)`)
@@ -3652,7 +3661,7 @@ async function renderFeed() {
     const postsPromise = sb
         .from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meal_analysis, achievement_code,
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, meal_analysis, achievement_code,
             user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -3801,6 +3810,14 @@ function renderPost(p) {
         }
     } else if (p.kind === 'weight') {
         badge = `<div class="post-badge">Pesagem · <b>${p.weight_kg} kg</b></div>`;
+    } else if (p.kind === 'text' && p.meta && p.meta.depoimento) {
+        const dep = p.meta.depoimento;
+        badge = `<div class="dep-card-feed">
+            <span class="dep-aspas">“</span>
+            <p>${escapeHTML(p.caption || '')}</p>
+            <span class="dep-autor" data-act="view-user" data-uid="${dep.autor_id}">Depoimento de <b>${escapeHTML(dep.autor_nome || '')}</b> <small>@${escapeHTML(dep.autor_username || '')}</small></span>
+        </div>`;
+        p = Object.assign({}, p, { caption: null });
     } else if (p.kind === 'achievement') {
         const partes = String(p.caption || '').split('|');
         if (partes.length === 3) {
@@ -6001,6 +6018,280 @@ function faixaRanking(rank, total) {
     return { nivel: i + 1, curto: nome, longo: `Você está entre os ${nome.replace('Top ', '')} mais ativos essa semana` };
 }
 
+// ============================================================
+// ABA DESAFIO: painel ao vivo do desafio em que a pessoa está
+// ============================================================
+const posChave = (cid, dia) => `pulso-pos-${cid}-${dia}`;
+function ontemISO() { return isoDe(new Date(Date.now() - 86400000)); }
+
+async function meusDesafiosAtivos() {
+    const { data } = await sb.rpc('list_challenges');
+    return (data || []).filter(ch => ch.im_member && ch.status !== 'encerrado')
+        .sort((a, b) => (a.status === 'ativo' ? 0 : 1) - (b.status === 'ativo' ? 0 : 1) || new Date(a.ends_at) - new Date(b.ends_at));
+}
+
+async function renderPainelDesafio(cidEscolhido) {
+    const c = $('#viewContainer');
+    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+    const meus = await meusDesafiosAtivos();
+    if (!meus.length) { await renderChallenges(); return; }
+    const ch = meus.find(x => x.id === (cidEscolhido || state.desafioAtual)) || meus[0];
+    state.desafioAtual = ch.id;
+    const uid = state.session.user.id;
+    const [{ data: ranking }, { data: regrasRow }] = await Promise.all([
+        sb.rpc('challenge_ranking', { cid: ch.id }),
+        sb.from('challenges').select('rules').eq('id', ch.id).maybeSingle(),
+    ]);
+    ch.rules = regrasRow ? regrasRow.rules : null;
+    const r = ranking || [];
+    const i = r.findIndex(u => u.user_id === uid);
+    const eu = i >= 0 ? r[i] : null;
+    const pos = i + 1;
+
+    // posição de ontem x hoje (guardada no aparelho)
+    const hoje = hojeISO();
+    if (pos) { lsSet(posChave(ch.id, hoje), String(pos)); lsSet('pulso-pos-visto-' + ch.id, String(pos)); }
+    const ontem = Number(lsGet(posChave(ch.id, ontemISO())) || 0);
+    let movimento = '';
+    if (pos && ontem && ontem !== pos) movimento = ontem > pos ? `▲ subiu ${ontem - pos} ${ontem - pos === 1 ? 'posição' : 'posições'} desde ontem` : `▼ caiu ${pos - ontem} ${pos - ontem === 1 ? 'posição' : 'posições'} desde ontem`;
+    atualizarBadgeDesafio();
+
+    const agora = Date.now();
+    const ini = new Date(ch.starts_at), fim = new Date(ch.ends_at);
+    const futuro = ch.status === 'futuro';
+    const diasFaltam = Math.max(0, Math.ceil(((futuro ? ini : fim) - agora) / 86400000));
+    const pctTempo = futuro ? 0 : Math.max(0, Math.min(100, (agora - ini) / (fim - ini) * 100));
+    const primeiroNome = u => u.user_id === uid ? 'Você' : escapeHTML(String(u.display_name || '').split(' ')[0]);
+    const maxPts = r.length ? Math.max(1, ...r.map(u => Number(u.points))) : 1;
+    const medalha = k => ['🥇', '🥈', '🥉'][k] || `${k + 1}º`;
+    let proximo = '';
+    if (i > 0) {
+        const gap = Math.max(1, Math.ceil(Number(r[i - 1].points) - Number(eu.points)));
+        proximo = `Faltam <b>${gap} pts</b> pra passar ${primeiroNome(r[i - 1])}`;
+    } else if (i === 0 && r.length > 1) {
+        const gap = Math.floor(Number(eu.points) - Number(r[1].points));
+        proximo = gap > 0 ? `Você lidera por <b>${gap} pts</b>. Segura!` : 'Empatado na liderança. Um treino decide!';
+    }
+    const topo = r.slice(0, 4);
+    const mostraEu = eu && i >= 4;
+    const linhaRank = (u, k) => `<div class="pd-rank${u.user_id === uid ? ' eu' : ''}">
+        <span class="pd-rank-pos">${medalha(k)}</span>
+        ${avatarHTML({ id: u.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}
+        <span class="pd-rank-nome">${primeiroNome(u)}</span>
+        <span class="pd-rank-barra"><i style="width:${Math.max(4, Number(u.points) / maxPts * 100)}%"></i></span>
+        <span class="pd-rank-pts">${Math.round(u.points)}</span>
+    </div>`;
+
+    c.innerHTML = `<div class="view painel-desafio">
+        ${meus.length > 1 ? `<div class="pd-chips">${meus.map(m => `<button class="pd-chip${m.id === ch.id ? ' on' : ''}" data-act="pd-trocar" data-id="${m.id}">${escapeHTML(m.name)}</button>`).join('')}</div>` : ''}
+        <div class="pd-head">
+            <div><h1 class="pd-nome">${escapeHTML(ch.name)}</h1>
+            <span class="pd-quando${!futuro && diasFaltam <= 3 ? ' reta' : ''}">${futuro ? (diasFaltam <= 1 ? 'Começa amanhã' : `Começa em ${diasFaltam} dias`) : diasFaltam <= 0 ? 'Último dia!' : diasFaltam <= 3 ? `🏁 Reta final: faltam ${diasFaltam} dias` : `Faltam ${diasFaltam} dias`}</span></div>
+            <button class="ia-link" data-act="open-challenge" data-id="${ch.id}">detalhes ›</button>
+        </div>
+        <div class="pd-tempo"><i style="width:${pctTempo}%"></i></div>
+
+        ${futuro ? `<div class="pd-destaque"><span class="pd-rotulo">O desafio ainda não começou</span><b class="pd-pos">${r.length}</b><span class="pd-sub">${r.length === 1 ? 'participante confirmado' : 'participantes confirmados'}</span><p class="pd-prox">Seus pontos passam a contar a partir de ${ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}.</p></div>`
+        : eu ? `<div class="pd-destaque">
+            <span class="pd-rotulo">Você está em</span>
+            <b class="pd-pos">${pos}º</b>
+            <span class="pd-sub">de ${r.length} · ${Math.round(eu.points)} pontos</span>
+            ${movimento ? `<span class="pd-mov ${movimento.startsWith('▲') ? 'sobe' : 'desce'}">${movimento}</span>` : ''}
+            ${proximo ? `<p class="pd-prox">${proximo}</p>` : ''}
+        </div>` : ''}
+
+        ${!futuro && r.length ? `<div class="chart-card">
+            <div class="chart-head"><span class="chart-title">Ranking</span><button class="ia-link" data-act="open-challenge" data-id="${ch.id}">ver completo ›</button></div>
+            ${topo.map(linhaRank).join('')}
+            ${mostraEu ? `<div class="pd-rank-sep">···</div>${linhaRank(eu, i)}` : ''}
+        </div>` : ''}
+
+        <div id="chNarracao"></div>
+
+        <div class="chart-card">
+            <div class="chart-head"><span class="chart-title">Hoje no grupo</span></div>
+            <div id="pdGrupo"><div class="spinner"></div></div>
+        </div>
+
+        <div class="pd-acoes">
+            <button class="btn-secondary" data-act="ver-regras-desafio">Regras</button>
+            ${(ch.created_by === uid || state.profile.is_admin) ? `<button class="btn-secondary" data-act="invite-challenge" data-id="${ch.id}">Convidar</button>` : ''}
+            <button class="btn-secondary" data-act="go-challenges-lista">Outros desafios</button>
+        </div>
+        <div id="chRegrasMembro" class="hidden">${regrasDesafioHTML(ch)}</div>
+    </div>`;
+
+    if (!futuro) hydrateNarracaoDesafio(ch, r);
+    hydrateGrupoHoje(ch, r);
+}
+
+// O que os participantes fizeram hoje (só treino e ofensiva; nunca peso nem refeição)
+async function hydrateGrupoHoje(ch, ranking) {
+    const box = document.getElementById('pdGrupo');
+    if (!box) return;
+    const ids = (ranking || []).map(u => u.user_id);
+    if (!ids.length) { box.innerHTML = '<p class="faixa-nota">Ninguém no grupo ainda.</p>'; return; }
+    const ini = new Date(); ini.setHours(0, 0, 0, 0);
+    const [{ data: treinos }, { data: ofensivas }] = await Promise.all([
+        sb.from('posts').select('user_id, activity_type, duration_min, distance_km, created_at')
+            .in('user_id', ids).eq('kind', 'workout').gte('created_at', ini.toISOString()).order('created_at', { ascending: false }).limit(30),
+        sb.from('daily_streaks').select('user_id, current_streak').in('user_id', ids),
+    ]);
+    if (!document.getElementById('pdGrupo')) return;
+    const nome = id => { const u = ranking.find(x => x.user_id === id); return id === state.session.user.id ? 'Você' : escapeHTML(String((u && u.display_name) || '').split(' ')[0]); };
+    const avatar = id => { const u = ranking.find(x => x.user_id === id) || {}; return avatarHTML({ id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm'); };
+    const itens = [];
+    (treinos || []).forEach(t => {
+        const km = Number(t.distance_km || 0);
+        itens.push({ id: t.user_id, quando: t.created_at, txt: `${WORKOUT_EMOJI[t.activity_type] || '💪'} ${nome(t.user_id)} ${t.activity_type === 'Corrida' ? 'correu' : 'treinou'} ${km ? String(km).replace('.', ',') + ' km · ' : ''}${t.duration_min || 0} min` });
+    });
+    const MARCOS = [3, 7, 14, 21, 30, 60, 100];
+    (ofensivas || []).filter(o => MARCOS.includes(o.current_streak)).forEach(o => {
+        itens.push({ id: o.user_id, quando: null, txt: `🔥 ${nome(o.user_id)} ${o.user_id === state.session.user.id ? 'chegou' : 'chegou'} a ${o.current_streak} dias de ofensiva` });
+    });
+    box.innerHTML = itens.length ? itens.slice(0, 12).map(it => `<div class="pd-grupo-item">
+        ${avatar(it.id)}
+        <span class="pd-grupo-txt">${it.txt}${it.quando ? `<small>${timeAgo(it.quando)}</small>` : ''}</span>
+        ${it.id !== state.session.user.id ? `<button class="pd-aplauso" data-act="incentivar" data-cid="${ch.id}" data-uid="${it.id}" data-nome="${nome(it.id)}" aria-label="Aplaudir">👏</button>` : ''}
+    </div>`).join('') : '<p class="faixa-nota">Ninguém treinou hoje ainda. Que tal ser o primeiro?</p>';
+}
+
+// Bolinha no botão Desafio quando a posição mudou desde a última visita
+async function atualizarBadgeDesafio() {
+    const dot = document.getElementById('navDesafioDot');
+    if (!dot || !state.session) return;
+    try {
+        const meus = (await meusDesafiosAtivos()).filter(ch => ch.status === 'ativo').slice(0, 3);
+        let mudou = false;
+        for (const ch of meus) {
+            const { data: r } = await sb.rpc('challenge_ranking', { cid: ch.id });
+            const pos = (r || []).findIndex(u => u.user_id === state.session.user.id) + 1;
+            const visto = Number(lsGet('pulso-pos-visto-' + ch.id) || 0);
+            lsSet(posChave(ch.id, hojeISO()), String(pos || ''));
+            if (pos && visto && pos !== visto && state.view !== 'desafio') mudou = true;
+            state.posDesafio = state.posDesafio || {};
+            state.posDesafio[ch.id] = { pos, nome: ch.name, pts: r && r[pos - 1] ? Number(r[pos - 1].points) : 0 };
+        }
+        dot.classList.toggle('hidden', !mudou);
+    } catch (_) {}
+}
+
+// Depois de registrar um treino: mostra o efeito no desafio
+async function efeitoNoDesafio() {
+    try {
+        const antes = { ...(state.posDesafio || {}) };
+        await atualizarBadgeDesafio();
+        const depois = state.posDesafio || {};
+        for (const cid of Object.keys(depois)) {
+            const a = antes[cid], d = depois[cid];
+            if (!d || !d.pos) continue;
+            const ganho = a ? Math.round(d.pts - a.pts) : 0;
+            if (a && a.pos && d.pos < a.pos) { toast(`${ganho > 0 ? '+' + ganho + ' no ' : ''}${d.nome} · você subiu pra ${d.pos}º 🚀`, 'ok'); return; }
+            if (ganho > 0) { toast(`+${ganho} no ${d.nome} · você está em ${d.pos}º`, 'ok'); return; }
+        }
+    } catch (_) {}
+}
+
+// ============================================================
+// DEPOIMENTOS (até 140 caracteres; quem recebe decide publicar)
+// ============================================================
+const PALAVRAS_BLOQUEADAS = ['porra', 'caralho', 'puta', 'merda', 'fdp', 'buceta', 'cacete', 'arrombado', 'arrombada', 'viado', 'otário', 'otario', 'vagabundo', 'vagabunda', 'desgraçado', 'desgraçada', 'lixo', 'nojento', 'nojenta', 'gorda', 'gordo', 'baleia', 'feio', 'feia'];
+function textoOfensivo(t) {
+    const norm = ' ' + String(t || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ') + ' ';
+    return PALAVRAS_BLOQUEADAS.some(p => norm.includes(' ' + p + ' '));
+}
+
+async function renderDepoimentos(uid, euSigo, nomeAlvo) {
+    const body = $('#profileTabBody');
+    if (!body) return;
+    body.innerHTML = '<div class="spinner"></div>';
+    const eu = state.session.user.id;
+    const meu = uid === eu;
+    const { data, error } = await sb.from('depoimentos')
+        .select('id, author_id, target_id, texto, status, created_at, published_at, autor:profiles!author_id (id, username, display_name, avatar_url)')
+        .eq('target_id', uid).order('created_at', { ascending: false }).limit(60);
+    if (!document.getElementById('profileTabBody')) return;
+    if (error) { body.innerHTML = `<p class="faixa-nota">Não consegui carregar: ${escapeHTML(msgErro(error))}</p>`; return; }
+    const lista = data || [];
+    const pendentes = meu ? lista.filter(x => x.status === 'pendente') : [];
+    const publicados = lista.filter(x => x.status === 'publicado');
+    const jaMandei = !meu && lista.some(x => x.author_id === eu && x.status === 'pendente');
+
+    const cartao = (x, pendente) => {
+        const a = x.autor || {};
+        const podeApagar = meu || x.author_id === eu;
+        return `<div class="dep-item${pendente ? ' pendente' : ''}">
+            <div class="dep-topo">
+                <span data-act="view-user" data-uid="${a.id}">${avatarHTML(a, 'sm')}</span>
+                <div class="dep-quem" data-act="view-user" data-uid="${a.id}"><b>${escapeHTML(a.display_name || '')}</b><small>@${escapeHTML(a.username || '')} · ${timeAgo(x.published_at || x.created_at)}</small></div>
+                ${!pendente && podeApagar ? `<button class="dep-mini" data-act="dep-apagar" data-id="${x.id}">Apagar</button>` : ''}
+                ${!pendente && !podeApagar ? `<button class="dep-mini" data-act="report-user" data-uid="${a.id}" data-name="${escapeHTML(a.display_name || '')}">Denunciar</button>` : ''}
+            </div>
+            <p class="dep-texto">“${escapeHTML(x.texto)}”</p>
+            ${pendente ? `<div class="dep-decidir">
+                <label class="dep-feed"><input type="checkbox" id="depFeed-${x.id}"> também postar no feed</label>
+                <div class="dep-bts">
+                    <button class="btn-ghost btn-xs" data-act="dep-responder" data-id="${x.id}" data-pub="0">Recusar</button>
+                    <button class="btn-primary-sm" data-act="dep-responder" data-id="${x.id}" data-pub="1">Publicar</button>
+                </div>
+            </div>` : ''}
+        </div>`;
+    };
+
+    let topo = '';
+    if (!meu) {
+        if (euSigo && !jaMandei) topo = `<button class="dep-escrever" data-act="dep-escrever" data-uid="${uid}" data-nome="${escapeHTML(nomeAlvo || '')}">✍️ Deixar um depoimento pra ${escapeHTML(String(nomeAlvo || '').split(' ')[0])}</button>`;
+        else if (jaMandei) topo = '<p class="faixa-nota dep-aviso">Seu depoimento está esperando a pessoa aprovar.</p>';
+        else topo = '<p class="faixa-nota dep-aviso">Siga essa pessoa pra poder deixar um depoimento.</p>';
+    }
+    body.innerHTML = `
+        ${topo}
+        ${pendentes.length ? `<div class="dep-secao">Esperando sua aprovação (${pendentes.length})</div>${pendentes.map(x => cartao(x, true)).join('')}` : ''}
+        ${publicados.length ? `${pendentes.length ? '<div class="dep-secao">Publicados</div>' : ''}${publicados.map(x => cartao(x, false)).join('')}`
+            : `<div class="grid-empty">${meu ? 'Quando alguém deixar um depoimento pra você, ele aparece aqui pra você aprovar.' : 'Nenhum depoimento ainda.'}</div>`}
+    `;
+}
+
+function abrirEscreverDepoimento(uid, nome) {
+    const old = document.getElementById('depSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'depSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Depoimento pra ${escapeHTML(String(nome || '').split(' ')[0])}</h3>
+        <p class="sheet-sub">Ela lê e decide se publica no perfil. Seja gentil e verdadeiro.</p>
+        <textarea id="depTexto" class="obj-input dep-campo" maxlength="140" rows="4" placeholder="O que te inspira nessa pessoa?"></textarea>
+        <div class="dep-contador"><span id="depConta">0</span>/140</div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="depCancelar">Cancelar</button>
+            <button class="btn-primary" id="depEnviar" disabled>Enviar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const campo = sheet.querySelector('#depTexto'), enviar = sheet.querySelector('#depEnviar');
+    campo.addEventListener('input', () => {
+        const n = campo.value.length;
+        sheet.querySelector('#depConta').textContent = n;
+        enviar.disabled = !campo.value.trim();
+    });
+    setTimeout(() => campo.focus(), 80);
+    sheet.querySelector('#depCancelar').onclick = () => sheet.remove();
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    enviar.onclick = async () => {
+        const texto = campo.value.trim();
+        if (textoOfensivo(texto)) { toast('Esse texto tem palavras que não combinam com um depoimento. Que tal reescrever?', 'err'); return; }
+        enviar.disabled = true; enviar.textContent = 'Enviando...';
+        const { error } = await sb.rpc('enviar_depoimento', { alvo: uid, texto });
+        if (error) { toast(msgErro(error), 'err'); enviar.disabled = false; enviar.textContent = 'Enviar'; return; }
+        sheet.remove();
+        toast('Depoimento enviado. Agora é com ela!', 'ok');
+        const aba = document.querySelector('.ig-tab[data-tab="depoimentos"]');
+        if (aba) aba.click();
+    };
+}
+
 // ---- Vitrine do desafio (pra quem ainda não participa) ----
 async function renderChallengeVitrine(ch) {
     const c = $('#viewContainer');
@@ -6307,6 +6598,7 @@ async function renderProfile() {
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}">Treinos</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${state.session.user.id}">Refeições</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="depoimentos" data-uid="${state.session.user.id}">Depoimentos</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${state.session.user.id}">Conquistas</button>
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
@@ -6314,6 +6606,11 @@ async function renderProfile() {
     `;
 
     $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
+    if (state.abrirAbaPerfil) {
+        const aba = document.querySelector(`.ig-tab[data-tab="${state.abrirAbaPerfil}"]`);
+        state.abrirAbaPerfil = null;
+        if (aba) aba.click();
+    }
 }
 
 // ============================================================
@@ -7382,6 +7679,7 @@ async function renderUserProfile(uid) {
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}">Treinos</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}">Refeições</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="depoimentos" data-uid="${uid}" data-segue="${iFollow ? '1' : '0'}" data-nome="${escapeHTML(p.display_name)}">Depoimentos</button>
                 ${mostraBadges ? `<button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${uid}">Conquistas</button>` : ''}
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>`}
@@ -7568,7 +7866,7 @@ async function switchView(v, params = {}) {
     state.view = v;
     state.viewParams = params;
     // Coach e conversas ficam sob a aba Chat na navegação
-    const navView = (v === 'coach' || v === 'chat') ? 'messages' : v;
+    const navView = (v === 'challenge' || v === 'challenges') ? 'desafio' : v;
     const topoUser = document.getElementById('topbarUser');
     if (topoUser) {
         const noPerfil = v === 'profile' && state.profile;
@@ -7578,6 +7876,9 @@ async function switchView(v, params = {}) {
     }
     const feedPostBtn = document.getElementById('feedPostBtn');
     if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
+    // No perfil o @usuário fica no centro do topo: a busca sai pra não apertar
+    const buscaBtn = document.querySelector('.topbar [data-act="go-search"]');
+    if (buscaBtn) buscaBtn.classList.toggle('hidden', v === 'profile');
     // Telas de configuração ocupam a tela toda, sem topo nem menu do app
     const telaCheia = ehTelaCheia(v);
     if ((v === 'objetivos' || v === 'jeito-treino') && viewAnterior && viewAnterior !== 'objetivos' && viewAnterior !== 'jeito-treino') {
@@ -7609,6 +7910,7 @@ async function switchView(v, params = {}) {
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
     else if (v === 'challenge') await renderChallengeDetail(params.id);
+    else if (v === 'desafio') await renderPainelDesafio(params.id);
     else if (v === 'install') renderInstall();
     else if (v === 'search') renderSearch();
     else if (v === 'notifications') await renderNotifications();
@@ -7748,6 +8050,7 @@ document.addEventListener('click', async e => {
         if (btn.dataset.tab === 'workouts') renderWorkoutHistory(btn.dataset.uid);
         else if (btn.dataset.tab === 'meals') renderMealHistory(btn.dataset.uid);
         else if (btn.dataset.tab === 'badges') renderAchievements(btn.dataset.uid);
+        else if (btn.dataset.tab === 'depoimentos') renderDepoimentos(btn.dataset.uid, btn.dataset.segue === '1', btn.dataset.nome);
         else $('#profileTabBody').innerHTML = `<div class="ig-grid">${state.profileGridHTML || ''}</div>`;
     } else if (act === 'open-challenge') {
         switchView('challenge', { id: btn.dataset.id });
@@ -7777,6 +8080,8 @@ document.addEventListener('click', async e => {
         const s = document.getElementById('conviteSheet');
         if (s) { s.remove(); document.body.style.overflow = ''; }
         switchView('feed');
+    } else if (act === 'go-messages') {
+        switchView('messages');
     } else if (act === 'topbar-menu') {
         switchView('menu');
     } else if (act === 'go-menu') {
@@ -7847,6 +8152,33 @@ document.addEventListener('click', async e => {
         salvarImagem(blob, nome);
         const info = document.getElementById('backupInfo');
         if (info) info.textContent = `Backup gerado (${Math.round(texto.length / 1024)} KB). Guarde o arquivo ${nome} num lugar seguro.`;
+    } else if (act === 'dep-escrever') {
+        abrirEscreverDepoimento(btn.dataset.uid, btn.dataset.nome);
+    } else if (act === 'dep-responder') {
+        const publicar = btn.dataset.pub === '1';
+        const ck = document.getElementById('depFeed-' + btn.dataset.id);
+        btn.disabled = true;
+        const { error } = await sb.rpc('responder_depoimento', { did: btn.dataset.id, publicar, no_feed: !!(publicar && ck && ck.checked) });
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        toast(publicar ? (ck && ck.checked ? 'Publicado no perfil e no feed ✨' : 'Publicado no seu perfil ✨') : 'Depoimento recusado', 'ok');
+        renderDepoimentos(state.session.user.id, false, '');
+    } else if (act === 'dep-apagar') {
+        if (!confirm('Apagar este depoimento? Se ele foi pro feed, o post também sai.')) return;
+        const { error } = await sb.rpc('apagar_depoimento', { did: btn.dataset.id });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        const item = btn.closest('.dep-item'); if (item) item.remove();
+        toast('Depoimento apagado', 'ok');
+    } else if (act === 'abrir-depoimentos') {
+        state.abrirAbaPerfil = 'depoimentos';
+        switchView('profile');
+    } else if (act === 'open-painel-desafio') {
+        state.desafioAtual = btn.dataset.id;
+        switchView('desafio', { id: btn.dataset.id });
+    } else if (act === 'pd-trocar') {
+        state.desafioAtual = btn.dataset.id;
+        renderPainelDesafio(btn.dataset.id);
+    } else if (act === 'go-challenges-lista') {
+        switchView('challenges');
     } else if (act === 'evo-aba') {
         state.abaEvolucao = btn.dataset.aba;
         $$('.evo-aba').forEach(b => b.classList.toggle('on', b === btn));
@@ -9992,6 +10324,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         closeComposer();
         setTimeout(() => checarConquistas(false), 1200);
         if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
+        if (created) setTimeout(efeitoNoDesafio, 3200);
 
         let msg = `+${ptsToCredit} pontos!`;
         if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
@@ -10092,6 +10425,7 @@ async function boot() {
     await carregarBlocked();
     carregarSalvos();
     setTimeout(enviarFilaOffline, 3000);
+    setTimeout(atualizarBadgeDesafio, 2500);
     checkDailyReminder();
     setTimeout(checarRevisaoObjetivo, 2500);
 
