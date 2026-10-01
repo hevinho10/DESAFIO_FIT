@@ -789,6 +789,9 @@ async function renderAdmin() {
                 </div>
             </div>
 
+            <h3 class="edit-section-title" style="margin-top:22px">Novos cadastros</h3>
+            <div id="cadastrosBox"><div class="spinner"></div></div>
+
             <h3 class="edit-section-title" style="margin-top:22px">Uso do app (30 dias)</h3>
             <div id="metricasBox"><div class="spinner"></div></div>
 
@@ -806,6 +809,8 @@ async function renderAdmin() {
             <div class="admin-user-list">${usersHTML}</div>
         </div>
     `;
+
+    hydrateNovosCadastros();
 
     // Métricas de uso
     sb.rpc('admin_metrics').then(({ data: m, error }) => {
@@ -2427,6 +2432,9 @@ async function renderNotifications() {
         } else if (n.kind === 'convite_premiado') {
             emo = '🎁'; texto = `<b>${quem}</b> registrou o primeiro treino. Você ganhou 10 pontos pelo convite`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'cadastro_pendente') {
+            emo = '🆕'; texto = `<b>${quem}</b> se cadastrou e está esperando você liberar o acesso`;
+            act = ` data-act="m-go" data-view="admin"`;
         } else if (n.kind === 'resposta') {
             emo = '↩️'; texto = `<b>${quem}</b> respondeu seu comentário`;
             act = ` data-act="abrir-comentarios" data-id="${n.post_id}"`;
@@ -5441,7 +5449,7 @@ async function renderMenu() {
 
             ${p.is_admin ? `<div class="cfg-grupo">
                 <div class="cfg-titulo">Admin</div>
-                ${linhaMenu('m-go', 'admin', 'Painel Admin', '', ' data-view="admin"')}
+                ${linhaMenu('m-go', 'admin', 'Painel Admin', '', ' data-view="admin" id="menuAdminLinha"')}
             </div>` : ''}
 
             <div class="cfg-grupo">
@@ -5990,6 +5998,76 @@ async function renderArquivados() {
         ${gridThumb(p).replace('data-act="view-post"', '')}
         <button class="btn-mini" data-act="desarquivar-post" data-id="${p.id}">Restaurar</button>
     </div>`).join('')}</div>` : '<div class="log-empty">Nenhum post arquivado.</div>';
+}
+
+// ---- Tela pra quem ainda não foi liberado pelo administrador ----
+function mostrarTelaAguardandoAcesso(status) {
+    $('#authScreen').style.display = 'none';
+    $('#app').classList.remove('on');
+    let tela = document.getElementById('telaEspera');
+    if (!tela) { tela = document.createElement('div'); tela.id = 'telaEspera'; tela.className = 'tela-espera'; document.body.appendChild(tela); }
+    const bloqueado = status === 'bloqueado';
+    tela.innerHTML = `<div class="te-card">
+        <div class="te-logo">Pulso<span>.</span></div>
+        <div class="te-emo">${bloqueado ? '🔒' : '⏳'}</div>
+        <h2>${bloqueado ? 'Seu acesso não foi liberado' : 'Seu cadastro foi recebido!'}</h2>
+        <p>${bloqueado
+            ? 'No momento, o seu acesso ao Pulso não foi liberado. Se achar que é um engano, fale com quem te convidou.'
+            : 'Estamos liberando o acesso aos poucos. Assim que o administrador aprovar, você entra no app normalmente.'}</p>
+        ${bloqueado ? '' : '<button class="btn-primary" id="teVerificar">Verificar de novo</button>'}
+        <button class="btn-ghost" id="teSair">Sair</button>
+    </div>`;
+    const ver = document.getElementById('teVerificar');
+    if (ver) ver.onclick = async () => {
+        ver.disabled = true; ver.textContent = 'Verificando...';
+        const { data } = await sb.from('profiles').select('access_status').eq('id', state.session.user.id).maybeSingle();
+        if (data && data.access_status === 'aprovado') { tela.remove(); boot(); return; }
+        ver.disabled = false; ver.textContent = 'Verificar de novo';
+        toast('Ainda aguardando a liberação. Tente mais tarde.', 'ok');
+    };
+    document.getElementById('teSair').onclick = async () => { await sb.auth.signOut(); tela.remove(); location.reload(); };
+}
+
+// ---- Painel Admin: novos cadastros ----
+async function contarPendentesMenu() {
+    if (!state.profile || !state.profile.is_admin) return;
+    const { data } = await sb.rpc('admin_pending_users');
+    const n = (data || []).filter(u => u.access_status === 'pendente').length;
+    const linha = document.getElementById('menuAdminLinha');
+    if (linha && n && !linha.querySelector('.cfg-aviso')) {
+        const seta = linha.querySelector('.cfg-seta');
+        if (seta) seta.insertAdjacentHTML('beforebegin', `<span class="cfg-aviso">${n > 9 ? '9+' : n}</span>`);
+    }
+}
+async function hydrateNovosCadastros() {
+    const box = document.getElementById('cadastrosBox');
+    if (!box) return;
+    const [{ data: cfg }, { data: lista, error }] = await Promise.all([
+        sb.rpc('admin_get_settings'),
+        sb.rpc('admin_pending_users'),
+    ]);
+    if (!document.getElementById('cadastrosBox')) return;
+    if (error) { box.innerHTML = `<p class="faixa-nota">Não consegui carregar: ${escapeHTML(error.message)}</p>`; return; }
+    const exige = !!(cfg && cfg.exigir_aprovacao);
+    const pend = (lista || []).filter(u => u.access_status === 'pendente');
+    const bloq = (lista || []).filter(u => u.access_status === 'bloqueado');
+    const linha = u => `<div class="nc-user">
+        ${avatarHTML(u, 'sm')}
+        <div class="nc-info"><b>${escapeHTML(u.display_name || '')}</b><small>@${escapeHTML(u.username || '')}${u.email ? ' · ' + escapeHTML(u.email) : ''}</small><small>${new Date(u.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</small></div>
+        <div class="nc-bts">
+            ${u.access_status !== 'bloqueado' ? `<button class="btn-ghost btn-xs" data-act="admin-acesso" data-uid="${u.id}" data-status="bloqueado">Recusar</button>` : ''}
+            <button class="btn-primary-sm" data-act="admin-acesso" data-uid="${u.id}" data-status="aprovado">Aprovar</button>
+        </div>
+    </div>`;
+    box.innerHTML = `<div class="chart-card">
+        <div class="nc-topo">
+            <div><b>Exigir minha aprovação</b><small>${exige ? 'Quem se cadastra espera você liberar.' : 'Quem se cadastra entra direto.'}</small></div>
+            <button class="nc-toggle" data-act="admin-exigir-aprovacao" data-on="${exige ? '1' : '0'}" aria-label="Exigir aprovação"><span class="cfg-switch${exige ? ' on' : ''}"><i></i></span></button>
+        </div>
+        <div class="dep-secao">Aguardando aprovação (${pend.length})</div>
+        ${pend.length ? pend.map(linha).join('') : '<p class="faixa-nota">Ninguém esperando agora.</p>'}
+        ${bloq.length ? `<details class="ia-blocos"><summary>Recusados (${bloq.length})</summary>${bloq.map(linha).join('')}</details>` : ''}
+    </div>`;
 }
 
 // ---- Salvos ----
@@ -8111,6 +8189,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) sinc
 
 async function switchView(v, params = {}) {
     const viewAnterior = state.view;
+    const paramsAnteriores = state.viewParams || {};
     closeDynamicSheets();
     const noChat = (v === 'chat' || v === 'coach');
     document.documentElement.classList.toggle('chat-mode', noChat);
@@ -8138,8 +8217,10 @@ async function switchView(v, params = {}) {
     if ((v === 'objetivos' || v === 'jeito-treino') && viewAnterior && viewAnterior !== 'objetivos' && viewAnterior !== 'jeito-treino') {
         state.voltarEditavel = viewAnterior;
     }
-    if (v === 'menu' && viewAnterior && viewAnterior !== 'menu' && !viewAnterior.startsWith('set-') && !['settings', 'saved', 'privacy', 'rules', 'install', 'objetivos', 'jeito-treino'].includes(viewAnterior)) {
+    const TELAS_PRINCIPAIS = ['feed', 'progress', 'desafio', 'profile', 'user-profile', 'challenges', 'challenge', 'messages', 'notifications', 'search', 'chat', 'coach'];
+    if (v === 'menu' && viewAnterior && TELAS_PRINCIPAIS.includes(viewAnterior)) {
         state.menuVoltar = viewAnterior;
+        state.menuVoltarParams = paramsAnteriores;
     }
     // Ao entrar ou sair de uma tela cheia, limpa o conteúdo antigo na hora
     // (evita aparecer, por um instante, a tela anterior com o topo errado)
@@ -8163,7 +8244,7 @@ async function switchView(v, params = {}) {
     else if (v === 'admin') await renderAdmin();
     else if (v === 'messages') await renderMessages();
     else if (v === 'settings') renderSettings();
-    else if (v === 'menu') await renderMenu();
+    else if (v === 'menu') { await renderMenu(); contarPendentesMenu(); }
     else if (v === 'objetivos') renderObjetivos();
     else if (v === 'jeito-treino') renderJeitoTreino();
     else if (v === 'termos') renderTermos();
@@ -8406,7 +8487,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'go-menu') {
         switchView('menu');
     } else if (act === 'menu-voltar') {
-        switchView(state.menuVoltar || 'feed');
+        switchView(state.menuVoltar || 'feed', state.menuVoltarParams || {});
     } else if (act === 'm-go') {
         switchView(btn.dataset.view);
     } else if (act === 'm-peso') {
@@ -8460,6 +8541,18 @@ document.addEventListener('click', async e => {
         btn.textContent = 'refazendo...';
         try { await obterPlanoSemana(true); } catch (err) { toast('Não consegui refazer agora.', 'err'); }
         hydrateIAEvolucao();
+    } else if (act === 'admin-acesso') {
+        btn.disabled = true;
+        const { error } = await sb.rpc('admin_set_access', { alvo: btn.dataset.uid, status: btn.dataset.status });
+        if (error) { toast(erroParaAdmin(error), 'err'); btn.disabled = false; return; }
+        toast(btn.dataset.status === 'aprovado' ? 'Acesso liberado ✓' : 'Cadastro recusado (fica bloqueado)', 'ok');
+        hydrateNovosCadastros();
+    } else if (act === 'admin-exigir-aprovacao') {
+        const ligar = btn.dataset.on !== '1';
+        const { error } = await sb.rpc('admin_set_require_approval', { exigir: ligar });
+        if (error) { toast(erroParaAdmin(error), 'err'); return; }
+        toast(ligar ? 'Novos cadastros agora esperam sua aprovação' : 'Novos cadastros entram direto', 'ok');
+        hydrateNovosCadastros();
     } else if (act === 'admin-backup') {
         btn.disabled = true; btn.textContent = 'Gerando...';
         const { data, error } = await sb.rpc('admin_backup');
@@ -10985,6 +11078,14 @@ async function boot() {
         prof = insert.data;
     }
     state.profile = prof;
+
+    // Cadastro esperando liberação do administrador
+    if (prof && prof.access_status && prof.access_status !== 'aprovado' && !prof.is_admin) {
+        mostrarTelaAguardandoAcesso(prof.access_status);
+        return;
+    }
+    const espera = document.getElementById('telaEspera');
+    if (espera) espera.remove();
 
     $('#authScreen').style.display = 'none';
     $('#app').classList.add('on');
