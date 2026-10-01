@@ -2282,6 +2282,33 @@ async function refreshMealSlots() {
 }
 
 // ---- Buscar pessoas ----
+// ---- Busca com histórico das últimas 10 pessoas (fica só neste aparelho) ----
+const chaveHistBusca = () => 'pulso-busca-' + (state.session ? state.session.user.id : '');
+function lerHistBusca() { try { return JSON.parse(lsGet(chaveHistBusca()) || '[]'); } catch (_) { return []; } }
+function salvarNoHistBusca(u) {
+    if (!u || !u.id) return;
+    const lista = lerHistBusca().filter(x => x.id !== u.id);
+    lista.unshift({ id: u.id, username: u.username, display_name: u.display_name, avatar_url: u.avatar_url || null });
+    lsSet(chaveHistBusca(), JSON.stringify(lista.slice(0, 10)));
+}
+function linhaPessoaBusca(u, comX) {
+    return `<div class="follow-row busca-row" data-act="busca-abrir" data-uid="${u.id}" data-username="${escapeHTML(u.username || '')}" data-nome="${escapeHTML(u.display_name || '')}" data-avatar="${u.avatar_url || ''}">
+        ${avatarHTML(u, 'sm')}
+        <div style="flex:1;min-width:0">
+            <div class="follow-name">${escapeHTML(u.display_name || '')}</div>
+            <div class="follow-uname">@${escapeHTML(u.username || '')}</div>
+        </div>
+        ${comX ? `<button class="busca-x" data-act="busca-remover" data-uid="${u.id}" aria-label="Tirar do histórico">×</button>` : ''}
+    </div>`;
+}
+function mostrarHistBusca() {
+    const box = document.getElementById('searchResults');
+    if (!box) return;
+    const lista = lerHistBusca();
+    box.innerHTML = lista.length
+        ? `<div class="busca-topo"><span>Recentes</span><button class="ia-link" data-act="busca-limpar">Limpar tudo</button></div>${lista.map(u => linhaPessoaBusca(u, true)).join('')}`
+        : '<div class="log-empty">Digite pra encontrar gente no Pulso.</div>';
+}
 function renderSearch() {
     $('#viewContainer').innerHTML = `
         <div class="view">
@@ -2294,9 +2321,10 @@ function renderSearch() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
                 <input type="text" id="searchInput" placeholder="Nome ou @usuario" autocapitalize="off" autocomplete="off">
             </div>
-            <div id="searchResults"><div class="log-empty">Digite pra encontrar gente no Pulso.</div></div>
+            <div id="searchResults"></div>
         </div>
     `;
+    mostrarHistBusca();
     const input = $('#searchInput');
     input.focus();
     let timer = null;
@@ -2304,20 +2332,15 @@ function renderSearch() {
         clearTimeout(timer);
         const q = input.value.trim();
         const box = $('#searchResults');
+        if (!q) { mostrarHistBusca(); return; }
         if (q.length < 2) { box.innerHTML = '<div class="log-empty">Digite pelo menos 2 letras.</div>'; return; }
         box.innerHTML = '<div class="spinner"></div>';
         timer = setTimeout(async () => {
             const { data, error } = await sb.rpc('search_profiles', { q });
             if (!$('#searchResults')) return;
-            if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
+            if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${escapeHTML(error.message)}</p>`; return; }
             if (!data || data.length === 0) { box.innerHTML = '<div class="log-empty">Ninguém encontrado com esse nome.</div>'; return; }
-            box.innerHTML = data.map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
-                ${avatarHTML(u, 'sm')}
-                <div style="flex:1;min-width:0">
-                    <div class="follow-name">${escapeHTML(u.display_name)}</div>
-                    <div class="follow-uname">@${escapeHTML(u.username)}</div>
-                </div>
-            </div>`).join('');
+            box.innerHTML = data.map(u => linhaPessoaBusca(u, false)).join('');
         }, 350);
     });
 }
@@ -2477,12 +2500,13 @@ function renderRules() {
             <div class="rule-card">
                 <div class="rule-head"><span class="rule-emo">⚖️</span><div><h4>Pesagem</h4><span class="rule-pts">3 pontos por semana</span></div></div>
                 <p class="rule-text">Pode registrar o peso quando quiser, todo dia se preferir, pra acompanhar a curva. A pontuação entra uma vez por semana.</p>
-                <p class="rule-note">Seu peso é privado. Ninguém vê, a não ser dentro de um desafio que você escolher entrar.</p>
+                <p class="rule-note">Seu peso é privado. Ninguém vê. Nos desafios, ele só entra na soma do grupo ("o grupo perdeu X kg"), e você pode tirar o seu dessa soma.</p>
             </div>
 
             <div class="rule-card destaque">
-                <div class="rule-head"><span class="rule-emo">📉</span><div><h4>Perda de peso</h4><span class="rule-pts">10 pontos por 1%</span></div></div>
-                <p class="rule-text">A conta é proporcional ao seu peso inicial, então é justa pra qualquer ponto de partida. Cada 1% perdido vale 10 pontos, pagos uma única vez por marco.</p>
+                <div class="rule-head"><span class="rule-emo">📉</span><div><h4>Perda de peso</h4><span class="rule-pts">25 pontos por 1% + bônus</span></div></div>
+                <p class="rule-text">A conta é proporcional ao seu peso inicial, então é justa pra qualquer ponto de partida. Cada 1% perdido vale <b>25 pontos</b>, pagos uma única vez por marco. Ao chegar em <b>5%</b>, bônus de <b>+50</b>; em <b>10%</b>, bônus de <b>+100</b>.</p>
+                <p class="rule-text">Pra cuidar da sua saúde, a pontuação acompanha um ritmo seguro: no máximo <b>1% por semana</b>. Se você perder mais rápido, nada se perde: o restante é pago nas semanas seguintes, conforme você registra o peso.</p>
                 <p class="rule-note">Se o peso subir e descer de novo, você não perde o que já conquistou.</p>
             </div>
 
@@ -6029,7 +6053,7 @@ const TABELA_PONTOS = [
     ['🎯', 'Meta da semana batida', '10 pontos'],
     ['⚡', 'Story', '3 pontos por dia'],
     ['⚖️', 'Pesagem', '3 pontos por semana'],
-    ['📉', 'Perda de peso', '10 pontos por 1%'],
+    ['📉', 'Perda de peso', '25 pontos por 1% + bônus'],
     ['🍽️', 'Refeição com foto', '1 ponto'],
 ];
 function regrasDesafioHTML(ch) {
@@ -8124,6 +8148,19 @@ document.addEventListener('click', async e => {
         }
     } else if (act === 'comment') {
         openCommentSheet(id);
+    } else if (act === 'busca-remover') {
+        e.stopPropagation();
+        lsSet(chaveHistBusca(), JSON.stringify(lerHistBusca().filter(x => x.id !== btn.dataset.uid)));
+        mostrarHistBusca();
+    } else if (act === 'busca-limpar') {
+        if (!confirm('Limpar todo o histórico de busca?')) return;
+        lsSet(chaveHistBusca(), '[]');
+        mostrarHistBusca();
+    } else if (act === 'busca-abrir') {
+        const uid = btn.dataset.uid;
+        salvarNoHistBusca({ id: uid, username: btn.dataset.username, display_name: btn.dataset.nome, avatar_url: btn.dataset.avatar || null });
+        if (uid === state.session.user.id) switchView('profile');
+        else switchView('user-profile', { uid });
     } else if (act === 'view-user') {
         const uid = btn.dataset.uid;
         if (!uid || uid === 'undefined') return;
@@ -8433,6 +8470,23 @@ document.addEventListener('click', async e => {
         toast(ocultar ? 'Comentário oculto. Só você e quem escreveu ainda veem.' : 'Comentário visível de novo', 'ok');
         const sheet = document.getElementById('commentSheet');
         if (sheet && sheet.dataset.postId) loadComments(sheet.dataset.postId);
+    } else if (act === 'editar-comentario') {
+        hidePostMenu();
+        editarComentario(btn.dataset.id);
+    } else if (act === 'fixar-comentario') {
+        hidePostMenu();
+        const fixar = btn.dataset.fixar === '1';
+        const pid = state.comentPost && state.comentPost.id;
+        const { error } = await sb.rpc('fixar_comentario', { pid, cid: fixar ? btn.dataset.id : null });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        state.comentPost.fixado = fixar ? btn.dataset.id : null;
+        toast(fixar ? 'Comentário fixado no topo 📌' : 'Comentário desafixado', 'ok');
+        loadComments(pid);
+    } else if (act === 'ver-mais-respostas') {
+        state.fiosAbertos = state.fiosAbertos || new Set();
+        state.fiosAbertos.add(btn.dataset.id);
+        const cs = document.getElementById('commentSheet');
+        if (cs && cs.dataset.postId) loadComments(cs.dataset.postId);
     } else if (act === 'quem-curtiu-comentario') {
         quemCurtiuComentario(btn.dataset.id);
     } else if (act === 'toggle-comentarios-post') {
@@ -8966,6 +9020,10 @@ async function openCommentSheet(postId) {
                 <h3 class="sheet-title">Comentários</h3>
                 <div id="commentsList" class="comments-list"></div>
                 <div id="respondendoSlot"></div>
+                <div class="cm-sugestoes hidden" id="cmSugestoes"></div>
+                <div class="cm-reacoes" id="cmReacoes">
+                    ${['🔥', '💪', '👏', '😍', '🙌', '🚀'].map(e => `<button type="button" data-emo="${e}">${e}</button>`).join('')}
+                </div>
                 <div class="comment-composer">
                     <textarea id="commentInput" placeholder="Escreva um comentário..." maxlength="500"></textarea>
                     <button class="btn-primary" id="commentSendBtn">Enviar</button>
@@ -8982,10 +9040,12 @@ async function openCommentSheet(postId) {
     sheet.onclick = e => { if (e.target === sheet) closeCommentSheet(); };
 
     // quem é o dono do post e se os comentários estão desligados
-    const { data: pInfo } = await sb.from('posts').select('user_id, comments_off').eq('id', postId).maybeSingle();
-    state.comentPost = { id: postId, dono: pInfo ? pInfo.user_id : null, off: !!(pInfo && pInfo.comments_off) };
+    let { data: pInfo, error: pErr } = await sb.from('posts').select('user_id, comments_off, pinned_comment_id').eq('id', postId).maybeSingle();
+    if (pErr) ({ data: pInfo } = await sb.from('posts').select('user_id, comments_off').eq('id', postId).maybeSingle());
+    state.comentPost = { id: postId, dono: pInfo ? pInfo.user_id : null, off: !!(pInfo && pInfo.comments_off), fixado: pInfo ? pInfo.pinned_comment_id : null };
     const composer = sheet.querySelector('.comment-composer');
     let avisoOff = sheet.querySelector('.comments-off');
+    sheet.querySelector('#cmReacoes').classList.toggle('hidden', state.comentPost.off);
     if (state.comentPost.off) {
         composer.classList.add('hidden');
         if (!avisoOff) { avisoOff = document.createElement('p'); avisoOff.className = 'comments-off'; composer.after(avisoOff); }
@@ -8996,6 +9056,7 @@ async function openCommentSheet(postId) {
     }
 
     await loadComments(postId);
+    ligarAjudasDoComentario();
 
     document.getElementById('commentSendBtn').onclick = async () => {
         const input = document.getElementById('commentInput');
@@ -9043,8 +9104,10 @@ async function loadComments(postId) {
     const raiz = comments.filter(c => !c.parent_id);
     const respostas = comments.filter(c => c.parent_id);
 
+    const idFixado = state.comentPost && state.comentPost.fixado;
     const linha = (cm, ehResposta, raizId) => {
         const meu = cm.user_id === eu;
+        const fixado = !ehResposta && cm.id === idFixado;
         const autor = { id: cm.user_id, display_name: cm.display_name, username: cm.username, avatar_url: cm.avatar_url };
         const n = Number(cm.curtidas || 0);
         const curtidasTxt = n > 0 ? `<button class="cm-acao cm-contagem" data-act="quem-curtiu-comentario" data-id="${cm.id}">${n} ${n === 1 ? 'curtida' : 'curtidas'}</button>` : '';
@@ -9052,22 +9115,110 @@ async function loadComments(postId) {
             <div class="comment-item${ehResposta ? ' resposta' : ''}${cm.hidden ? ' oculto' : ''}" data-comment-id="${cm.id}">
                 <span data-act="view-user" data-uid="${cm.user_id}">${avatarHTML(autor, 'sm')}</span>
                 <div class="comment-body">
-                    <div class="comment-name"><span class="cm-nome" data-act="view-user" data-uid="${cm.user_id}">${escapeHTML(cm.display_name)}</span> <span class="comment-time">${timeAgo(cm.created_at)}</span>${cm.hidden ? ' <span class="cm-oculto-tag">oculto</span>' : ''}</div>
+                    <div class="comment-name">${fixado ? '<span class="cm-fixado">📌 Fixado</span> ' : ''}<span class="cm-nome" data-act="view-user" data-uid="${cm.user_id}">${escapeHTML(cm.display_name)}</span> <span class="comment-time">${timeAgo(cm.created_at)}${cm.edited_at ? ' · editado' : ''}</span>${cm.hidden ? ' <span class="cm-oculto-tag">oculto</span>' : ''}</div>
                     <div class="comment-text">${escapeHTML(cm.body).replace(/(^|\s)@([a-zA-Z0-9_.]{2,30})/g, '$1<b class="cm-mencao">@$2</b>')}</div>
                     <div class="comment-acoes">
                         ${meu ? '' : `<button class="cm-acao${cm.eu_curti ? ' on' : ''}" data-act="curtir-comentario" data-id="${cm.id}" data-curtido="${cm.eu_curti ? '1' : '0'}">${cm.eu_curti ? 'Curtido' : 'Curtir'}</button>`}
                         ${curtidasTxt}
-                        ${state.comentPost && state.comentPost.off ? '' : `<button class="cm-acao" data-act="responder-comentario" data-id="${raizId}" data-nome="${escapeHTML(cm.display_name)}" data-user="${escapeHTML(cm.username || '')}">Responder</button>`}
-                        <button class="cm-acao cm-mais" data-act="comentario-menu" data-id="${cm.id}" data-uid="${cm.user_id}" data-nome="${escapeHTML(cm.display_name)}" data-oculto="${cm.hidden ? '1' : '0'}" data-respostas="${ehResposta ? 0 : respostas.filter(r => r.parent_id === cm.id).length}" aria-label="Mais">···</button>
+                        ${(state.comentPost && state.comentPost.off) || meu ? '' : `<button class="cm-acao" data-act="responder-comentario" data-id="${raizId}" data-nome="${escapeHTML(cm.display_name)}" data-user="${escapeHTML(cm.username || '')}">Responder</button>`}
+                        <button class="cm-acao cm-mais" data-act="comentario-menu" data-id="${cm.id}" data-uid="${cm.user_id}" data-nome="${escapeHTML(cm.display_name)}" data-oculto="${cm.hidden ? '1' : '0'}" data-raiz="${ehResposta ? '0' : '1'}" data-fixado="${fixado ? '1' : '0'}" data-respostas="${ehResposta ? 0 : respostas.filter(r => r.parent_id === cm.id).length}" aria-label="Mais">···</button>
                     </div>
                 </div>
             </div>`;
     };
 
+    // comentário fixado vai pro topo
+    raiz.sort((a, b) => (b.id === idFixado) - (a.id === idFixado));
+    state.comentariosCache = comments;
     list.innerHTML = raiz.map(c => {
         const filhas = respostas.filter(r => r.parent_id === c.id);
-        return linha(c, false, c.id) + filhas.map(f => linha(f, true, c.id)).join('');
+        const aberto = state.fiosAbertos && state.fiosAbertos.has(c.id);
+        const mostrar = (filhas.length > 2 && !aberto) ? filhas.slice(-2) : filhas;
+        const escondidas = filhas.length - mostrar.length;
+        return linha(c, false, c.id)
+            + (escondidas > 0 ? `<button class="cm-ver-mais" data-act="ver-mais-respostas" data-id="${c.id}">Ver mais ${escondidas} ${escondidas === 1 ? 'resposta' : 'respostas'}</button>` : '')
+            + mostrar.map(f => linha(f, true, c.id)).join('');
     }).join('');
+}
+
+// Reações rápidas e sugestão de @ enquanto digita
+function ligarAjudasDoComentario() {
+    const campo = document.getElementById('commentInput');
+    const reac = document.getElementById('cmReacoes');
+    const sug = document.getElementById('cmSugestoes');
+    if (!campo || campo.dataset.ligado) return;
+    campo.dataset.ligado = '1';
+    reac.addEventListener('click', e => {
+        const b = e.target.closest('[data-emo]');
+        if (!b) return;
+        const pos = campo.selectionStart ?? campo.value.length;
+        campo.value = campo.value.slice(0, pos) + b.dataset.emo + campo.value.slice(pos);
+        campo.focus();
+        campo.setSelectionRange(pos + b.dataset.emo.length, pos + b.dataset.emo.length);
+    });
+    let timer = null;
+    campo.addEventListener('input', () => {
+        clearTimeout(timer);
+        const antes = campo.value.slice(0, campo.selectionStart ?? campo.value.length);
+        const m = antes.match(/(^|\s)@([A-Za-z0-9_.]{0,30})$/);
+        if (!m) { sug.classList.add('hidden'); return; }
+        const termo = m[2].toLowerCase();
+        timer = setTimeout(async () => {
+            if (!state.seguindoCache) {
+                const { data } = await sb.from('follows').select('following:profiles!following_id (id, username, display_name, avatar_url)').eq('follower_id', state.session.user.id).limit(300);
+                state.seguindoCache = (data || []).map(x => x.following).filter(Boolean);
+            }
+            const lista = state.seguindoCache.filter(u => !termo || (u.username || '').toLowerCase().includes(termo) || (u.display_name || '').toLowerCase().includes(termo)).slice(0, 6);
+            if (!lista.length) { sug.classList.add('hidden'); return; }
+            sug.innerHTML = lista.map(u => `<button type="button" class="cm-sug" data-user="${escapeHTML(u.username)}">${avatarHTML(u, 'sm')}<span><b>${escapeHTML(u.display_name)}</b><small>@${escapeHTML(u.username)}</small></span></button>`).join('');
+            sug.classList.remove('hidden');
+        }, 150);
+    });
+    sug.addEventListener('click', e => {
+        const b = e.target.closest('[data-user]');
+        if (!b) return;
+        const pos = campo.selectionStart ?? campo.value.length;
+        const antes = campo.value.slice(0, pos).replace(/@([A-Za-z0-9_.]{0,30})$/, '@' + b.dataset.user + ' ');
+        campo.value = antes + campo.value.slice(pos);
+        campo.focus();
+        campo.setSelectionRange(antes.length, antes.length);
+        sug.classList.add('hidden');
+    });
+}
+
+// Editar o próprio comentário
+function editarComentario(id) {
+    const cm = (state.comentariosCache || []).find(c => c.id === id);
+    if (!cm) return;
+    const old = document.getElementById('editCmSheet');
+    if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'editCmSheet';
+    sheet.className = 'sheet on sheet-over-story';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Editar comentário</h3>
+        <textarea id="editCmTexto" class="obj-input" maxlength="500" rows="3">${escapeHTML(cm.body)}</textarea>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="editCmCancelar">Cancelar</button>
+            <button class="btn-primary" id="editCmSalvar">Salvar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const campo = sheet.querySelector('#editCmTexto');
+    setTimeout(() => { campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length); }, 60);
+    sheet.querySelector('#editCmCancelar').onclick = () => sheet.remove();
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    sheet.querySelector('#editCmSalvar').onclick = async () => {
+        const texto = campo.value.trim();
+        if (!texto) { toast('O comentário não pode ficar vazio', 'err'); return; }
+        const { error } = await sb.rpc('editar_comentario', { cid: id, texto });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        sheet.remove();
+        toast('Comentário editado', 'ok');
+        const cs = document.getElementById('commentSheet');
+        if (cs && cs.dataset.postId) loadComments(cs.dataset.postId);
+    };
 }
 
 // Menu ··· do comentário: apagar (dono do post ou autor), ocultar (dono do post), denunciar
@@ -9077,6 +9228,8 @@ function menuComentario(btn) {
     const meu = btn.dataset.uid === eu;
     const donoPost = state.comentPost && state.comentPost.dono === eu;
     const opcoes = [];
+    if (meu) opcoes.push(`<button class="post-menu-item" data-act="editar-comentario" data-id="${btn.dataset.id}">${icon('editar')}Editar</button>`);
+    if (donoPost && btn.dataset.raiz === '1') opcoes.push(`<button class="post-menu-item" data-act="fixar-comentario" data-id="${btn.dataset.id}" data-fixar="${btn.dataset.fixado === '1' ? '0' : '1'}">📌 ${btn.dataset.fixado === '1' ? 'Desafixar' : 'Fixar no topo'}</button>`);
     if (meu || donoPost) opcoes.push(`<button class="post-menu-item danger" data-act="apagar-comentario" data-id="${btn.dataset.id}" data-respostas="${btn.dataset.respostas}">${icon('lixo')}Apagar</button>`);
     if (donoPost && !meu) opcoes.push(`<button class="post-menu-item" data-act="ocultar-comentario" data-id="${btn.dataset.id}" data-ocultar="${btn.dataset.oculto === '1' ? '0' : '1'}">${icon('olho')}${btn.dataset.oculto === '1' ? 'Mostrar de novo' : 'Ocultar'}</button>`);
     if (!meu) opcoes.push(`<button class="post-menu-item" data-act="report-user" data-uid="${btn.dataset.uid}" data-name="${btn.dataset.nome}">${icon('bloquear')}Denunciar</button>`);
