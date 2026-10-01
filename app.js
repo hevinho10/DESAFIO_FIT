@@ -2298,7 +2298,7 @@ function linhaPessoaBusca(u, comX) {
             <div class="follow-name">${escapeHTML(u.display_name || '')}</div>
             <div class="follow-uname">@${escapeHTML(u.username || '')}</div>
         </div>
-        ${comX ? `<button class="busca-x" data-act="busca-remover" data-uid="${u.id}" aria-label="Tirar do histórico">×</button>` : ''}
+        ${comX ? `<button class="busca-x" data-act="busca-remover" data-uid="${u.id}" aria-label="Tirar do histórico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg></button>` : ''}
     </div>`;
 }
 function mostrarHistBusca() {
