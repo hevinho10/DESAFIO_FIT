@@ -9021,9 +9021,6 @@ async function openCommentSheet(postId) {
                 <div id="commentsList" class="comments-list"></div>
                 <div id="respondendoSlot"></div>
                 <div class="cm-sugestoes hidden" id="cmSugestoes"></div>
-                <div class="cm-reacoes" id="cmReacoes">
-                    ${['🔥', '💪', '👏', '😍', '🙌', '🚀'].map(e => `<button type="button" data-emo="${e}">${e}</button>`).join('')}
-                </div>
                 <div class="comment-composer">
                     <textarea id="commentInput" placeholder="Escreva um comentário..." maxlength="500"></textarea>
                     <button class="btn-primary" id="commentSendBtn">Enviar</button>
@@ -9045,7 +9042,6 @@ async function openCommentSheet(postId) {
     state.comentPost = { id: postId, dono: pInfo ? pInfo.user_id : null, off: !!(pInfo && pInfo.comments_off), fixado: pInfo ? pInfo.pinned_comment_id : null };
     const composer = sheet.querySelector('.comment-composer');
     let avisoOff = sheet.querySelector('.comments-off');
-    sheet.querySelector('#cmReacoes').classList.toggle('hidden', state.comentPost.off);
     if (state.comentPost.off) {
         composer.classList.add('hidden');
         if (!avisoOff) { avisoOff = document.createElement('p'); avisoOff.className = 'comments-off'; composer.after(avisoOff); }
@@ -9144,18 +9140,9 @@ async function loadComments(postId) {
 // Reações rápidas e sugestão de @ enquanto digita
 function ligarAjudasDoComentario() {
     const campo = document.getElementById('commentInput');
-    const reac = document.getElementById('cmReacoes');
     const sug = document.getElementById('cmSugestoes');
     if (!campo || campo.dataset.ligado) return;
     campo.dataset.ligado = '1';
-    reac.addEventListener('click', e => {
-        const b = e.target.closest('[data-emo]');
-        if (!b) return;
-        const pos = campo.selectionStart ?? campo.value.length;
-        campo.value = campo.value.slice(0, pos) + b.dataset.emo + campo.value.slice(pos);
-        campo.focus();
-        campo.setSelectionRange(pos + b.dataset.emo.length, pos + b.dataset.emo.length);
-    });
     let timer = null;
     campo.addEventListener('input', () => {
         clearTimeout(timer);
