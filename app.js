@@ -5965,6 +5965,17 @@ async function abrirListaDePosts(ids, inicio) {
     if (alvo) v.scrollTop = alvo.offsetTop - 64;
 }
 
+// Depois de arquivar/apagar um post: tira de todo lugar e atualiza a tela de trás
+function aposRemoverPost(id) {
+    document.querySelectorAll(`.post[data-post-id="${id}"], .grid-item[data-id="${id}"]`).forEach(el => el.remove());
+    const viewer = document.getElementById('postsViewer');
+    if (viewer && !viewer.querySelector('.post')) { viewer.remove(); document.body.style.overflow = ''; }
+    const pvs = document.getElementById('postViewSheet');
+    if (pvs) { pvs.remove(); document.body.style.overflow = ''; }
+    // recarrega o perfil por trás (contagem de posts, grade, fixados)
+    if (state.view === 'profile') renderProfile();
+}
+
 // ---- Posts arquivados (só a própria pessoa vê) ----
 async function renderArquivados() {
     const c = $('#viewContainer');
@@ -8130,6 +8141,13 @@ async function switchView(v, params = {}) {
     if (v === 'menu' && viewAnterior && viewAnterior !== 'menu' && !viewAnterior.startsWith('set-') && !['settings', 'saved', 'privacy', 'rules', 'install', 'objetivos', 'jeito-treino'].includes(viewAnterior)) {
         state.menuVoltar = viewAnterior;
     }
+    // Ao entrar ou sair de uma tela cheia, limpa o conteúdo antigo na hora
+    // (evita aparecer, por um instante, a tela anterior com o topo errado)
+    if (document.documentElement.classList.contains('tela-cheia') !== telaCheia) {
+        const vc = document.getElementById('viewContainer');
+        if (vc) vc.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+        window.scrollTo(0, 0);
+    }
     document.documentElement.classList.toggle('tela-cheia', telaCheia);
     document.documentElement.classList.remove('nav-compacta');
     $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === navView));
@@ -8278,9 +8296,10 @@ document.addEventListener('click', async e => {
         hidePostMenu();
         const { error } = await sb.from('posts').update({ archived: true }).eq('id', id).eq('user_id', state.session.user.id);
         if (error) { toast(msgErro(error), 'err'); return; }
-        const el = document.querySelector(`.post[data-post-id="${id}"]`); if (el) el.remove();
-        toastComAcao('Post arquivado. Só você vê em Menu › Arquivados.', 'Desfazer', async () => {
+        aposRemoverPost(id);
+        toastComAcao('Post arquivado. Está em Menu › Arquivados.', 'Desfazer', async () => {
             await sb.from('posts').update({ archived: false }).eq('id', id);
+            toast('Post de volta', 'ok');
             if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile();
         });
     } else if (act === 'desarquivar-post') {
@@ -9052,20 +9071,11 @@ document.addEventListener('click', async e => {
         await sb.from('posts').delete().eq('id', postId);
         if (velho && velho.image_url) removeStoredImage(velho.image_url);
         toast('Post apagado', 'ok');
-        // remove do DOM se estiver no feed
-        const postEl = document.querySelector(`[data-post-id="${postId}"]`);
-        if (postEl) postEl.remove();
         // remove do histórico se estiver na tela de log
         const logEl = btn.closest('.log-item');
         if (logEl) logEl.remove();
         hidePostMenu();
-        const pvs = document.getElementById('postViewSheet');
-        if (pvs) {
-            pvs.remove();
-            document.body.style.overflow = '';
-            if (state.view === 'profile') renderProfile();
-            else if (state.view === 'user-profile') renderUserProfile(state.viewParams.uid);
-        }
+        aposRemoverPost(postId);
     }
 });
 
