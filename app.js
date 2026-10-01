@@ -2504,8 +2504,8 @@ function renderRules() {
             </div>
 
             <div class="rule-card destaque">
-                <div class="rule-head"><span class="rule-emo">📉</span><div><h4>Perda de peso</h4><span class="rule-pts">25 pontos por 1% + bônus</span></div></div>
-                <p class="rule-text">A conta é proporcional ao seu peso inicial, então é justa pra qualquer ponto de partida. Cada 1% perdido vale <b>25 pontos</b>, pagos uma única vez por marco. Ao chegar em <b>5%</b>, bônus de <b>+50</b>; em <b>10%</b>, bônus de <b>+100</b>.</p>
+                <div class="rule-head"><span class="rule-emo">📉</span><div><h4>Perda de peso</h4><span class="rule-pts">25 pontos por 1%</span></div></div>
+                <p class="rule-text">A conta é proporcional ao seu peso inicial, então é justa pra qualquer ponto de partida. Cada 1% perdido vale <b>25 pontos</b>, pagos uma única vez por marco.</p>
                 <p class="rule-text">Pra cuidar da sua saúde, a pontuação acompanha um ritmo seguro: no máximo <b>1% por semana</b>. Se você perder mais rápido, nada se perde: o restante é pago nas semanas seguintes, conforme você registra o peso.</p>
                 <p class="rule-note">Se o peso subir e descer de novo, você não perde o que já conquistou.</p>
             </div>
@@ -6053,7 +6053,7 @@ const TABELA_PONTOS = [
     ['🎯', 'Meta da semana batida', '10 pontos'],
     ['⚡', 'Story', '3 pontos por dia'],
     ['⚖️', 'Pesagem', '3 pontos por semana'],
-    ['📉', 'Perda de peso', '25 pontos por 1% + bônus'],
+    ['📉', 'Perda de peso', '25 pontos por 1%'],
     ['🍽️', 'Refeição com foto', '1 ponto'],
 ];
 function regrasDesafioHTML(ch) {
