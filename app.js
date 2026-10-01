@@ -1465,7 +1465,7 @@ async function renderCompare() {
         if (x == null || y == null) return '';
         const d = y - x;
         if (Math.abs(d) < 0.05) return `<span class="cmp-delta">sem mudança</span>`;
-        return `<span class="cmp-delta ${d < 0 ? 'down' : 'up'}">${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(1)} ${un}</span>`;
+        return `<span class="cmp-delta ${d < 0 ? 'down' : 'up'}">${d < 0 ? '−' : '+'}${br(Math.abs(d))} ${un}</span>`;
     };
 
     c.innerHTML = `
@@ -1479,12 +1479,12 @@ async function renderCompare() {
                 <div class="cmp-lado">
                     <img src="${a.image_url}" loading="lazy">
                     <div class="cmp-data">${fmt(a.created_at)}</div>
-                    ${pesoA != null ? `<div class="cmp-num">${pesoA.toFixed(1)} kg</div>` : ''}
+                    ${pesoA != null ? `<div class="cmp-num">${br(pesoA)} kg</div>` : ''}
                 </div>
                 <div class="cmp-lado">
                     <img src="${b.image_url}" loading="lazy">
                     <div class="cmp-data">${fmt(b.created_at)}</div>
-                    ${pesoB != null ? `<div class="cmp-num">${pesoB.toFixed(1)} kg</div>` : ''}
+                    ${pesoB != null ? `<div class="cmp-num">${br(pesoB)} kg</div>` : ''}
                 </div>
             </div>
 
@@ -2855,7 +2855,7 @@ async function renderMealHistory(uid) {
                 ${m.meal_analysis ? `<div class="wk-sub">${escapeHTML(m.meal_analysis.slice(0, 80))}</div>` : ''}
             </div>
             <div class="ml-side">
-                ${sc != null ? `<span class="ml-score" style="color:${cor}">${sc.toFixed(1)}</span>` : ''}
+                ${sc != null ? `<span class="ml-score" style="color:${cor}">${br(sc)}</span>` : ''}
                 <span class="wk-date">${dia}</span>
             </div>
         </div>`;
@@ -3119,7 +3119,7 @@ async function renderMessages() {
             <div class="feed-empty" style="margin-top:0">
                 <span class="emo">💬</span>
                 <h3>Nenhuma conversa ainda</h3>
-                <p>Vai no perfil de alguém e toca no 💬 pra começar a falar.</p>
+                <p>Vai no perfil de alguém e toca no ícone de mensagem (o aviãozinho) pra começar a falar.</p>
             </div>`;
     } else {
         html += `<div class="conv-section-label">Pessoas</div>`;
@@ -3816,13 +3816,23 @@ async function renderFeed() {
     hydrateDesafiosFeed();
 }
 
+// Ícone de linha da privacidade do post (no lugar dos emojis)
+const ICONE_VIS = {
+    public: '<svg class="vis-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>',
+    followers: '<svg class="vis-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>',
+    private: '<svg class="vis-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>',
+};
+const ICONE_LIXO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>';
+// Número com vírgula (padrão brasileiro)
+const br = (n, casas = 1) => (n == null || isNaN(Number(n))) ? '-' : Number(n).toFixed(casas).replace('.', ',');
+
 function renderPost(p) {
     const user = p.user || { display_name:'?', username:'?' };
     const reacted = p.reactions?.some(r => r.user_id === state.session.user.id);
     const rCount = p.reactions?.length || 0;
     const cCount = p.comments?.length || 0;
 
-    const privacyIcon = { public:'🌍', followers:'👥', private:'🔒' }[p.visibility || 'public'];
+    const privacyIcon = ICONE_VIS[p.visibility || 'public'] || ICONE_VIS.public;
     const privacyLabel = { public:'Público', followers:'Seguidores', private:'Só eu' }[p.visibility || 'public'];
     const privacyBadge = `<span class="post-privacy-badge">${privacyIcon} ${privacyLabel}</span>`;
 
@@ -3832,7 +3842,7 @@ function renderPost(p) {
     } else if (p.kind === 'meal') {
         const slotName = {cafe:'Café da manhã',almoco:'Almoço',jantar:'Jantar',lanche:'Lanche'}[p.meal_slot] || 'Refeição';
         const scoreTag = p.meal_score != null
-            ? ` · <b style="color:${p.meal_score >= 8 ? 'var(--vital)' : p.meal_score >= 5 ? 'var(--gold)' : 'var(--effort)'}">${Number(p.meal_score).toFixed(1)}/10</b>`
+            ? ` · <b style="color:${p.meal_score >= 8 ? 'var(--vital)' : p.meal_score >= 5 ? 'var(--gold)' : 'var(--effort)'}">${br(p.meal_score)}/10</b>`
             : '';
         badge = `<div class="post-badge"><span class="emo">🍽️</span>${slotName}${scoreTag}</div>`;
         if (p.meal_analysis) {
@@ -3926,7 +3936,7 @@ function lineChart(points, opts = {}) {
     }
     if (points.length === 1) {
         return `<div class="chart-single">
-            <span class="cs-val">${points[0].y.toFixed(1)}</span>
+            <span class="cs-val">${br(points[0].y)}</span>
             <span class="cs-hint">${opts.unit || ''} - registre mais para ver a curva</span>
         </div>`;
     }
@@ -3969,7 +3979,7 @@ function lineChart(points, opts = {}) {
     const ticks = [yMin + span * 0.12, (yMin + yMax) / 2, yMax - span * 0.12];
     const yAxis = ticks.map(t => `
         <line x1="${pad.l}" y1="${py(t).toFixed(1)}" x2="${W - pad.r}" y2="${py(t).toFixed(1)}" stroke="var(--line)" stroke-width="1" opacity=".5"/>
-        <text x="${pad.l - 5}" y="${(py(t) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--ink-faint)">${t.toFixed(opts.decimals ?? 1)}</text>
+        <text x="${pad.l - 5}" y="${(py(t) + 3).toFixed(1)}" text-anchor="end" font-size="9" fill="var(--ink-faint)">${br(t, opts.decimals ?? 1)}</text>
     `).join('');
 
     // pontos (só se poucos)
@@ -4172,7 +4182,7 @@ function salvarImagem(blob, nome) {
 const MODALIDADES = ['Musculação', 'Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Yoga', 'Dança', 'Alongamento', 'Futebol'];
 const TIPOS_TREINO = ['Musculação', 'Corrida', 'Ciclismo', 'Natação', 'Caminhada', 'Yoga', 'Dança', 'Alongamento', 'Futebol', 'Outro'];
 const EQUIPAMENTOS = ['Nenhum', 'Halteres', 'Elástico', 'Barra fixa', 'Kettlebell', 'Esteira ou bike'];
-const DIAS_SEMANA = [[1, 'S'], [2, 'T'], [3, 'Q'], [4, 'Q'], [5, 'S'], [6, 'S'], [0, 'D']];
+const DIAS_SEMANA = [[0, 'D'], [1, 'S'], [2, 'T'], [3, 'Q'], [4, 'Q'], [5, 'S'], [6, 'S']]; // exibição começa no domingo
 const NOME_DIA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 const REGRAS_SEGURAS = `REGRAS FIXAS:
 - Fale em português do Brasil, tom de treinador próximo, sem jargão, sem emojis em excesso.
@@ -5305,15 +5315,15 @@ async function renderChallengeDetail(cid) {
     } else {
         saudeHTML = (saude || []).map(m => {
             const isMe = m.user_id === state.session.user.id;
-            const pct = Number(m.pct || 0);
+            const pct = isMe && m.pct != null ? Number(m.pct) : null;
             const cor = pct > 0 ? 'var(--vital)' : pct < 0 ? 'var(--effort)' : 'var(--ink-faint)';
             return `<div class="ch-health-row${isMe?' me':''}" data-act="view-user" data-uid="${m.user_id}">
                 ${avatarHTML(m, 'sm')}
                 <div class="ch-health-info">
                     <div class="ch-health-name">${isMe?'Você':escapeHTML(m.display_name)}</div>
-                    <div class="ch-health-sub">${isMe && m.peso_atual ? Number(m.peso_atual).toFixed(1)+' kg · ' : ''}${plural(m.dias_treinados, 'dia treinado', 'dias treinados')}</div>
+                    <div class="ch-health-sub">${isMe && m.peso_atual ? br(m.peso_atual) + ' kg · ' : ''}${plural(m.dias_treinados, 'dia treinado', 'dias treinados')}</div>
                 </div>
-                <span class="ch-health-pct" style="color:${cor}">${pct > 0 ? '-' : ''}${Math.abs(pct).toFixed(1)}%</span>
+                ${pct != null ? `<span class="ch-health-pct" style="color:${cor}">${pct > 0 ? '−' : pct < 0 ? '+' : ''}${br(Math.abs(pct))}%</span>` : ''}
             </div>`;
         }).join('') || '<div class="log-empty">Ninguém registrou peso ainda.</div>';
     }
@@ -6099,7 +6109,13 @@ async function renderPainelDesafio(cidEscolhido) {
     const c = $('#viewContainer');
     c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
     const meus = await meusDesafiosAtivos();
-    if (!meus.length) { await renderChallenges(); return; }
+    if (!meus.length) {
+        await renderChallenges();
+        // é aba principal: sem seta de voltar
+        const voltar = document.querySelector('#viewContainer .user-topbar .topbar-back');
+        if (voltar) voltar.style.visibility = 'hidden';
+        return;
+    }
     const ch = meus.find(x => x.id === (cidEscolhido || state.desafioAtual)) || meus[0];
     state.desafioAtual = ch.id;
     const uid = state.session.user.id;
@@ -6951,13 +6967,13 @@ async function renderHealth() {
         const d = Number(last[field]) - Number(prev[field]);
         if (Math.abs(d) < 0.05) return '<span class="m-delta same">-</span>';
         const cls = d < 0 ? 'down' : 'up';
-        return `<span class="m-delta ${cls}">${d < 0 ? '▼' : '▲'} ${Math.abs(d).toFixed(1)}</span>`;
+        return `<span class="m-delta ${cls}">${d < 0 ? '▼' : '▲'} ${br(Math.abs(d))}</span>`;
     }
     function mRow(label, field, unit = 'cm') {
         const v = last?.[field];
         return `<div class="m-row">
             <span class="m-label">${label}</span>
-            <span class="m-value">${v != null ? Number(v).toFixed(1) + ' ' + unit : '-'}</span>
+            <span class="m-value">${v != null ? br(v) + ' ' + unit : '-'}</span>
             ${delta(field)}
         </div>`;
     }
@@ -6973,7 +6989,7 @@ async function renderHealth() {
             return `<div class="hist-row">
                 <span class="hist-date">${d}</span>
                 <span class="hist-detail">${parts.join(' · ') || 'sem dados'}</span>
-                <button class="hist-del" data-act="delete-measurement" data-id="${m.id}">🗑</button>
+                <button class="hist-del" data-act="delete-measurement" data-id="${m.id}" aria-label="Apagar">${ICONE_LIXO}</button>
             </div>`;
         }).join('')
         : '<div class="log-empty" style="padding:24px">Registre suas medidas para acompanhar a evolução.</div>';
@@ -6992,7 +7008,7 @@ async function renderHealth() {
                     ${h.ultima_medida_em ? `<span class="hc-date">Medido em ${new Date(h.ultima_medida_em + 'T12:00:00').toLocaleDateString('pt-BR')}</span>` : ''}
                 </div>
                 <div class="imc-display">
-                    <span class="imc-num" style="color:${imcColor}">${h.imc ? Number(h.imc).toFixed(1) : '-'}</span>
+                    <span class="imc-num" style="color:${imcColor}">${h.imc ? br(h.imc) : '-'}</span>
                     <span class="imc-class" style="color:${imcColor}">${h.imc_classe || 'Preencha altura e peso'}</span>
                 </div>
                 <div class="imc-scale">
@@ -7004,8 +7020,8 @@ async function renderHealth() {
                 </div>
                 <div class="imc-legend"><span>&lt;18,5</span><span>18,5-25</span><span>25-30</span><span>30+</span></div>
                 <div class="health-meta">
-                    <span>Altura: <b>${h.altura ? Number(h.altura).toFixed(2) + ' m' : '-'}</b></span>
-                    <span>Peso: <b>${h.peso_atual ? Number(h.peso_atual).toFixed(1) + ' kg' : '-'}</b></span>
+                    <span>Altura: <b>${h.altura ? br(h.altura, 2) + ' m' : '-'}</b></span>
+                    <span>Peso: <b>${h.peso_atual ? br(h.peso_atual) + ' kg' : '-'}</b></span>
                 </div>
             </div>
 
@@ -7025,11 +7041,11 @@ async function renderHealth() {
                     <button class="btn-mini" data-act="open-body-data">Editar</button>
                 </div>
                 <div class="measures-grid">
-                    <div class="m-row"><span class="m-label">Altura</span><span class="m-value">${state.profile.altura ? Number(state.profile.altura).toFixed(2) + ' m' : '-'}</span></div>
+                    <div class="m-row"><span class="m-label">Altura</span><span class="m-value">${state.profile.altura ? br(state.profile.altura, 2) + ' m' : '-'}</span></div>
                     <div class="m-row"><span class="m-label">Sexo</span><span class="m-value">${state.profile.sexo === 'M' ? 'Masculino' : state.profile.sexo === 'F' ? 'Feminino' : '-'}</span></div>
                     <div class="m-row"><span class="m-label">Nascimento</span><span class="m-value">${state.profile.birth_date ? new Date(String(state.profile.birth_date).split('T')[0] + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</span></div>
-                    <div class="m-row"><span class="m-label">Peso inicial</span><span class="m-value">${state.profile.peso_inicial ? Number(state.profile.peso_inicial).toFixed(1) + ' kg' : '-'}</span></div>
-                    <div class="m-row"><span class="m-label">Meta de peso</span><span class="m-value">${state.profile.target_weight ? Number(state.profile.target_weight).toFixed(1) + ' kg' : '-'}</span></div>
+                    <div class="m-row"><span class="m-label">Peso inicial</span><span class="m-value">${state.profile.peso_inicial ? br(state.profile.peso_inicial) + ' kg' : '-'}</span></div>
+                    <div class="m-row"><span class="m-label">Meta de peso</span><span class="m-value">${state.profile.target_weight ? br(state.profile.target_weight) + ' kg' : '-'}</span></div>
                 </div>
             </div>
 
@@ -7731,7 +7747,7 @@ async function renderActivityLog() {
             if (anterior != null) {
                 const d = Number(p.weight_kg) - Number(anterior);
                 const seta = Math.abs(d) < 0.05 ? '=' : (d > 0 ? '↑' : '↓');
-                sub = `${p.weight_kg} kg <span class="peso-delta">${seta} ${Math.abs(d).toFixed(1)} kg</span>`;
+                sub = `${br(p.weight_kg)} kg <span class="peso-delta">${seta} ${br(Math.abs(d))} kg</span>`;
             } else {
                 sub = `${p.weight_kg} kg`;
             }
@@ -7740,7 +7756,7 @@ async function renderActivityLog() {
         } else if (p.kind === 'text') {
             emo = '✍️'; title = 'Texto'; sub = (p.caption||'').slice(0,60);
         }
-        const privacyIcon = { public:'🌍', followers:'👥', private:'🔒' }[p.visibility || 'public'];
+        const privacyIcon = ICONE_VIS[p.visibility || 'public'] || ICONE_VIS.public;
         return `<div class="log-item">
             <span class="log-emo">${emo}</span>
             <div class="log-body">
@@ -7750,7 +7766,7 @@ async function renderActivityLog() {
             <div class="log-meta">
                 <div class="log-time">${t}</div>
                 <div class="log-priv">${privacyIcon}</div>
-                <button class="log-del" data-act="delete-post" data-id="${p.id}" title="Apagar">🗑</button>
+                <button class="log-del" data-act="delete-post" data-id="${p.id}" title="Apagar" aria-label="Apagar">${ICONE_LIXO}</button>
             </div>
         </div>`;
     }
@@ -8263,8 +8279,6 @@ document.addEventListener('click', async e => {
         const s = document.getElementById('conviteSheet');
         if (s) { s.remove(); document.body.style.overflow = ''; }
         switchView('feed');
-    } else if (act === 'go-messages') {
-        switchView('messages');
     } else if (act === 'topbar-menu') {
         switchView('menu');
     } else if (act === 'go-menu') {
@@ -8891,7 +8905,7 @@ document.addEventListener('click', async e => {
         if (postEl) {
             postEl.dataset.visibility = newVis;
             const badge = postEl.querySelector('[data-privacy-badge]');
-            if (badge) badge.textContent = `${meta.emo} ${meta.label}`;
+            if (badge) badge.innerHTML = `${ICONE_VIS[newVis]} ${meta.label}`;
         }
         toast('Privacidade atualizada', 'ok');
         hidePostMenu();
