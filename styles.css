@@ -2224,3 +2224,22 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 @media (max-width: 400px){
     .topbar-user{ max-width:calc(100% - 210px); font-size:16px; }
 }
+
+/* ================= ONDA 24: posts e depoimentos ================= */
+.post-coment-off{ font-size:11.5px; color:var(--ink-faint); margin-left:2px; }
+.post-coment-off.hidden{ display:none; }
+.comments-off.hidden{ display:none; }
+.dbl-coracao{ position:absolute; width:96px; height:96px; margin:-48px 0 0 -48px; color:#fff; pointer-events:none; z-index:5; filter:drop-shadow(0 6px 18px rgba(0,0,0,.35)); animation:dblCoracao .9s ease forwards; }
+.dbl-coracao svg{ width:100%; height:100%; }
+@keyframes dblCoracao{ 0%{ transform:scale(.2); opacity:0; } 20%{ transform:scale(1.1); opacity:1; } 40%{ transform:scale(.95); } 70%{ transform:scale(1); opacity:1; } 100%{ transform:scale(1.15); opacity:0; } }
+.grid-item{ position:relative; }
+.grid-item.fixado::after{ content:'📌'; position:absolute; top:6px; right:6px; font-size:13px; filter:drop-shadow(0 1px 3px rgba(0,0,0,.5)); }
+.pm-ico{ width:18px; height:18px; }
+.pm-emo{ width:18px; text-align:center; font-size:14px; }
+.arq-grade{ display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+.arq-item{ display:flex; flex-direction:column; gap:6px; }
+.arq-item .grid-item{ aspect-ratio:1; overflow:hidden; border-radius:8px; }
+.arq-item .grid-item img{ width:100%; height:100%; object-fit:cover; }
+.arq-item .btn-mini{ width:100%; justify-content:center; }
+.dep-meu-pend{ margin-top:12px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.dep-tag-pend{ font-size:11.5px; font-weight:600; padding:4px 10px; border-radius:10px; background:rgba(255,194,75,.14); color:var(--gold); }

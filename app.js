@@ -1807,7 +1807,7 @@ async function loadMoreFeed() {
     const de = state.feedOffset || 0;
     const { data: posts, error } = await sb.from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, meal_analysis, achievement_code,
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, comments_off, pinned_at, meal_analysis, achievement_code,
             user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -2924,7 +2924,7 @@ async function renderWorkoutHistory(uid) {
 // ============================================================
 function gridThumb(p) {
     if (p.image_url) {
-        return `<div class="grid-item" data-act="view-post" data-id="${p.id}"><img src="${p.thumb_url || p.image_url}" loading="lazy" decoding="async"></div>`;
+        return `<div class="grid-item${p.pinned_at ? ' fixado' : ''}" data-act="view-post" data-id="${p.id}"><img src="${p.thumb_url || p.image_url}" loading="lazy" decoding="async"></div>`;
     }
     let emo = '📝', line = '';
     if (p.kind === 'workout') {
@@ -2936,7 +2936,7 @@ function gridThumb(p) {
     } else {
         line = escapeHTML((p.caption || '').slice(0, 50));
     }
-    return `<div class="grid-item" data-act="view-post" data-id="${p.id}"><div class="grid-text-thumb"><span class="gt-emo">${emo}</span><span class="gt-line">${line}</span></div></div>`;
+    return `<div class="grid-item${p.pinned_at ? ' fixado' : ''}" data-act="view-post" data-id="${p.id}"><div class="grid-text-thumb"><span class="gt-emo">${emo}</span><span class="gt-line">${line}</span></div></div>`;
 }
 
 function closeDynamicSheets() {
@@ -2980,7 +2980,7 @@ async function openPostSheet(id) {
     const old = document.getElementById('postViewSheet');
     if (old) old.remove();
     const { data: p, error } = await sb.from('posts')
-        .select(`id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, meal_analysis, achievement_code,
+        .select(`id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, comments_off, pinned_at, meal_analysis, achievement_code,
             user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)`)
@@ -3691,7 +3691,7 @@ async function renderFeed() {
     const postsPromise = sb
         .from('posts')
         .select(`
-            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, meal_analysis, achievement_code,
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, comments_off, pinned_at, meal_analysis, achievement_code,
             user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -3699,6 +3699,7 @@ async function renderFeed() {
         .neq('kind', 'story')  // stories vão pra barra separada
         .neq('kind', 'weight')  // peso é sempre privado, nunca aparece em feed nem mural
         .eq('in_feed', true)    // só o que a pessoa escolheu publicar
+        .eq('archived', false)  // arquivados somem do feed
         .order('created_at', { ascending: false })
         .range(0, FEED_PAGE - 1);
 
@@ -3879,8 +3880,9 @@ function renderPost(p) {
     if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy" decoding="async">`;
 
     const isMine = p.user_id === state.session.user.id;
+    const autorDoDepoimento = p.meta && p.meta.depoimento && p.meta.depoimento.autor_id === state.session.user.id;
     const menuBtn = !isMine
-        ? `<button class="post-menu-btn" data-act="report-post" data-id="${p.id}" data-uid="${p.user_id}" data-name="${escapeHTML(user.display_name)}" aria-label="Denunciar">
+        ? `<button class="post-menu-btn" data-act="${autorDoDepoimento ? 'post-menu-dep' : 'report-post'}" data-id="${p.id}" data-uid="${p.user_id}" data-name="${escapeHTML(user.display_name)}" data-dep="${autorDoDepoimento ? p.meta.depoimento.id : ''}" aria-label="Opções">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
            </button>`
         : `<button class="post-menu-btn" data-act="post-menu" data-id="${p.id}" aria-label="Opções">
@@ -3888,7 +3890,7 @@ function renderPost(p) {
            </button>`;
 
     return `
-        <article class="post" data-post-id="${p.id}" data-visibility="${p.visibility || 'public'}">
+        <article class="post" data-post-id="${p.id}" data-visibility="${p.visibility || 'public'}" data-coment-off="${p.comments_off ? '1' : '0'}" data-fixado="${p.pinned_at ? '1' : '0'}">
             <div class="post-head">
                 <span data-act="view-user" data-uid="${p.user_id}" class="post-head-link">${avatarHTML(user, 'sm')}</span>
                 <div class="post-meta" data-act="view-user" data-uid="${p.user_id}">
@@ -3908,6 +3910,7 @@ function renderPost(p) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     <span>${cCount}</span>
                 </button>
+                ${isMine ? `<span class="post-coment-off${p.comments_off ? '' : ' hidden'}">comentários desativados</span>` : ''}
                 ${isMine && rCount > 0 ? `<button class="post-btn ghost" data-act="see-likers" data-id="${p.id}">👀 Quem curtiu</button>` : ''}
                 <button class="post-btn post-salvar${state.salvos && state.salvos.has(p.id) ? ' on' : ''}" data-act="save-post" data-id="${p.id}" aria-label="Salvar">
                     <svg viewBox="0 0 24 24" fill="${state.salvos && state.salvos.has(p.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>
@@ -5427,6 +5430,7 @@ async function renderMenu() {
                 <div class="cfg-titulo">Sua atividade</div>
                 ${linhaMenu('m-go', 'historico', 'Histórico', '', ' data-view="activity-log"')}
                 ${linhaMenu('m-go', 'salvo', 'Salvos', state.salvos.size ? String(state.salvos.size) : '', ' data-view="saved"')}
+                ${linhaMenu('m-go', 'salvo', 'Arquivados', '', ' data-view="arquivados"')}
             </div>
 
             <div class="cfg-grupo">
@@ -5899,6 +5903,33 @@ async function montarCardMetas(goal) {
          <button class="btn-primary-sm" data-act="m-go" data-view="objetivos">${semObjetivo ? 'Definir objetivo' : 'Definir prazo'}</button>`, null);
 }
 
+// Duas batidinhas na foto do post = curtir (com coração animado)
+(function curtirComDuploToque() {
+    let ultimo = 0, alvoAnterior = null;
+    const curtir = foto => {
+        const post = foto.closest('.post');
+        if (!post) return;
+        const coracao = document.createElement('div');
+        coracao.className = 'dbl-coracao';
+        coracao.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>';
+        const wrap = foto.parentElement;
+        if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
+        coracao.style.top = (foto.offsetTop + foto.offsetHeight / 2) + 'px';
+        coracao.style.left = (foto.offsetLeft + foto.offsetWidth / 2) + 'px';
+        wrap.appendChild(coracao);
+        setTimeout(() => coracao.remove(), 900);
+        const btn = post.querySelector('[data-act="react"]');
+        if (btn && !btn.classList.contains('on')) btn.click();
+    };
+    document.addEventListener('click', e => {
+        const foto = e.target.closest('.post .post-photo');
+        if (!foto) return;
+        const agora = Date.now();
+        if (alvoAnterior === foto && agora - ultimo < 320) { curtir(foto); ultimo = 0; alvoAnterior = null; return; }
+        ultimo = agora; alvoAnterior = foto;
+    });
+})();
+
 // ---- Lista rolável de posts (ao tocar numa foto do perfil ou dos salvos) ----
 async function abrirListaDePosts(ids, inicio) {
     const old = document.getElementById('postsViewer');
@@ -5920,7 +5951,7 @@ async function abrirListaDePosts(ids, inicio) {
     v.querySelector('.pv-voltar').onclick = fechar;
 
     const { data, error } = await sb.from('posts').select(`
-            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, meal_analysis, achievement_code,
+            id, kind, caption, image_url, activity_type, duration_min, distance_km, muscle_groups, meal_slot, weight_kg, created_at, user_id, visibility, meal_score, meta, comments_off, pinned_at, meal_analysis, achievement_code,
             user:profiles!user_id!inner (id, username, display_name, avatar_url),
             reactions (id, user_id),
             comments (id)
@@ -5932,6 +5963,22 @@ async function abrirListaDePosts(ids, inicio) {
     lista.innerHTML = posts.map(p => renderPost(p)).join('') || '<div class="log-empty">Nada por aqui.</div>';
     const alvo = lista.querySelector(`.post[data-post-id="${inicio}"]`);
     if (alvo) v.scrollTop = alvo.offsetTop - 64;
+}
+
+// ---- Posts arquivados (só a própria pessoa vê) ----
+async function renderArquivados() {
+    const c = $('#viewContainer');
+    c.innerHTML = `<div class="view cfg-view">${cabecalhoConfig('Arquivados', 'go-menu')}
+        <p class="cfg-sub">Posts que você escondeu sem apagar. Ninguém mais vê. Toque em "Restaurar" pra trazer de volta.</p>
+        <div id="arqLista"><div class="spinner"></div></div></div>`;
+    const { data } = await sb.from('posts').select('id, kind, caption, image_url, thumb_url, activity_type, duration_min, meal_slot, created_at')
+        .eq('user_id', state.session.user.id).eq('archived', true).order('created_at', { ascending: false });
+    const box = document.getElementById('arqLista');
+    if (!box) return;
+    box.innerHTML = (data || []).length ? `<div class="arq-grade">${data.map(p => `<div class="arq-item">
+        ${gridThumb(p).replace('data-act="view-post"', '')}
+        <button class="btn-mini" data-act="desarquivar-post" data-id="${p.id}">Restaurar</button>
+    </div>`).join('')}</div>` : '<div class="log-empty">Nenhum post arquivado.</div>';
 }
 
 // ---- Salvos ----
@@ -5949,7 +5996,7 @@ async function renderSalvos() {
     let posts = [];
     if (ids.length) {
         const { data } = await sb.from('posts')
-            .select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot').in('id', ids);
+            .select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot, pinned_at').in('id', ids);
         const porId = {};
         (data || []).forEach(x => { porId[x.id] = x; });
         posts = ids.map(id => porId[id]).filter(Boolean);
@@ -6388,6 +6435,7 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     if (error) { body.innerHTML = `<p class="faixa-nota">Não consegui carregar: ${escapeHTML(msgErro(error))}</p>`; return; }
     const lista = data || [];
     const pendentes = meu ? lista.filter(x => x.status === 'pendente') : [];
+    const meuPendente = !meu ? lista.find(x => x.author_id === eu && x.status === 'pendente') : null;
     const publicados = lista.filter(x => x.status === 'publicado');
     const jaMandei = !meu && lista.some(x => x.author_id === eu && x.status === 'pendente');
 
@@ -6402,7 +6450,14 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
                 ${!pendente && !podeApagar ? `<button class="dep-mini" data-act="report-user" data-uid="${a.id}" data-name="${escapeHTML(a.display_name || '')}">Denunciar</button>` : ''}
             </div>
             <p class="dep-texto">“${escapeHTML(x.texto)}”</p>
-            ${pendente ? `<div class="dep-decidir">
+            ${pendente && !meu ? `<div class="dep-meu-pend">
+                <span class="dep-tag-pend">Aguardando aprovação</span>
+                <div class="dep-bts">
+                    <button class="btn-ghost btn-xs" data-act="dep-apagar" data-id="${x.id}">Apagar</button>
+                    <button class="btn-secondary btn-xs" data-act="dep-editar" data-id="${x.id}" data-texto="${escapeHTML(x.texto)}" data-uid="${uid}">Editar</button>
+                </div>
+            </div>` : ''}
+            ${pendente && meu ? `<div class="dep-decidir">
                 <label class="dep-feed"><input type="checkbox" id="depFeed-${x.id}"> também postar no feed</label>
                 <div class="dep-bts">
                     <button class="btn-ghost btn-xs" data-act="dep-responder" data-id="${x.id}" data-pub="0">Recusar</button>
@@ -6415,18 +6470,19 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     let topo = '';
     if (!meu) {
         if (euSigo && !jaMandei) topo = `<button class="dep-escrever" data-act="dep-escrever" data-uid="${uid}" data-nome="${escapeHTML(nomeAlvo || '')}">✍️ Deixar um depoimento pra ${escapeHTML(String(nomeAlvo || '').split(' ')[0])}</button>`;
-        else if (jaMandei) topo = '<p class="faixa-nota dep-aviso">Seu depoimento está esperando a pessoa aprovar.</p>';
+        else if (jaMandei) topo = '';
         else topo = '<p class="faixa-nota dep-aviso">Siga essa pessoa pra poder deixar um depoimento.</p>';
     }
     body.innerHTML = `
         ${topo}
+        ${meuPendente ? `<div class="dep-secao">Seu depoimento</div>${cartao(meuPendente, true)}` : ''}
         ${pendentes.length ? `<div class="dep-secao">Esperando sua aprovação (${pendentes.length})</div>${pendentes.map(x => cartao(x, true)).join('')}` : ''}
         ${publicados.length ? `${pendentes.length ? '<div class="dep-secao">Publicados</div>' : ''}${publicados.map(x => cartao(x, false)).join('')}`
-            : `<div class="grid-empty">${meu ? 'Quando alguém deixar um depoimento pra você, ele aparece aqui pra você aprovar.' : 'Nenhum depoimento ainda.'}</div>`}
+            : (meuPendente ? '' : `<div class="grid-empty">${meu ? 'Quando alguém deixar um depoimento pra você, ele aparece aqui pra você aprovar.' : 'Nenhum depoimento ainda.'}</div>`)}
     `;
 }
 
-function abrirEscreverDepoimento(uid, nome) {
+function abrirEscreverDepoimento(uid, nome, editando = null) {
     const old = document.getElementById('depSheet');
     if (old) old.remove();
     const sheet = document.createElement('div');
@@ -6434,13 +6490,13 @@ function abrirEscreverDepoimento(uid, nome) {
     sheet.className = 'sheet on';
     sheet.innerHTML = `<div class="sheet-card">
         <div class="sheet-handle"></div>
-        <h3 class="sheet-title">Depoimento pra ${escapeHTML(String(nome || '').split(' ')[0])}</h3>
+        <h3 class="sheet-title">${editando ? 'Editar depoimento' : `Depoimento pra ${escapeHTML(String(nome || '').split(' ')[0])}`}</h3>
         <p class="sheet-sub">Ela lê e decide se publica no perfil. Seja gentil e verdadeiro.</p>
-        <textarea id="depTexto" class="obj-input dep-campo" maxlength="140" rows="4" placeholder="O que te inspira nessa pessoa?"></textarea>
-        <div class="dep-contador"><span id="depConta">0</span>/140</div>
+        <textarea id="depTexto" class="obj-input dep-campo" maxlength="140" rows="4" placeholder="O que te inspira nessa pessoa?">${editando ? escapeHTML(editando.texto) : ''}</textarea>
+        <div class="dep-contador"><span id="depConta">${editando ? editando.texto.length : 0}</span>/140</div>
         <div class="sheet-footer">
             <button class="btn-ghost" id="depCancelar">Cancelar</button>
-            <button class="btn-primary" id="depEnviar" disabled>Enviar</button>
+            <button class="btn-primary" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar'}</button>
         </div>
     </div>`;
     document.body.appendChild(sheet);
@@ -6457,10 +6513,12 @@ function abrirEscreverDepoimento(uid, nome) {
         const texto = campo.value.trim();
         if (textoOfensivo(texto)) { toast('Esse texto tem palavras que não combinam com um depoimento. Que tal reescrever?', 'err'); return; }
         enviar.disabled = true; enviar.textContent = 'Enviando...';
-        const { error } = await sb.rpc('enviar_depoimento', { alvo: uid, texto });
-        if (error) { toast(msgErro(error), 'err'); enviar.disabled = false; enviar.textContent = 'Enviar'; return; }
+        const { error } = editando
+            ? await sb.rpc('editar_depoimento', { did: editando.id, texto })
+            : await sb.rpc('enviar_depoimento', { alvo: uid, texto });
+        if (error) { toast(msgErro(error), 'err'); enviar.disabled = false; enviar.textContent = editando ? 'Salvar' : 'Enviar'; return; }
         sheet.remove();
-        toast('Depoimento enviado. Agora é com ela!', 'ok');
+        toast(editando ? 'Depoimento atualizado' : 'Depoimento enviado. Agora é com ela!', 'ok');
         const aba = document.querySelector('.ig-tab[data-tab="depoimentos"]');
         if (aba) aba.click();
     };
@@ -6686,10 +6744,11 @@ async function renderProfile() {
     ]);
 
     const { data: myPosts } = await sb.from('posts')
-        .select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot')
+        .select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot, pinned_at')
         .eq('user_id', state.session.user.id)
         .neq('kind', 'weight')
-        .not('image_url', 'is', null).eq('in_feed', true)
+        .not('image_url', 'is', null).eq('in_feed', true).eq('archived', false)
+        .order('pinned_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(30);
 
@@ -7800,8 +7859,9 @@ async function renderUserProfile(uid) {
         sb.from('follows').select('*', {count:'exact', head:true}).eq('follower_id', uid),
         sb.rpc('am_i_following', { target_id: uid }),
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
-        sb.from('posts').select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot')
-            .eq('user_id', uid).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true).order('created_at', { ascending: false }).limit(30),
+        sb.from('posts').select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot, pinned_at')
+            .eq('user_id', uid).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true).eq('archived', false)
+            .order('pinned_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(30),
     ]);
     const iFollow = !!iFollowRes.data;
     const streak = streakRes.data;
@@ -8019,7 +8079,7 @@ if (window.visualViewport) {
 }
 
 // Quais telas escondem o topo e o menu do app
-const TELAS_CHEIAS = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino', 'termos', 'politica-privacidade'];
+const TELAS_CHEIAS = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino', 'termos', 'politica-privacidade', 'arquivados'];
 function ehTelaCheia(v) { return !!v && (TELAS_CHEIAS.includes(v) || v.startsWith('set-')); }
 // Garante que topo e menu batem com a tela atual (evita ficar "preso" sem topo/menu)
 function sincronizarModoTela() {
@@ -8089,6 +8149,7 @@ async function switchView(v, params = {}) {
     else if (v === 'objetivos') renderObjetivos();
     else if (v === 'jeito-treino') renderJeitoTreino();
     else if (v === 'termos') renderTermos();
+    else if (v === 'arquivados') renderArquivados();
     else if (v === 'politica-privacidade') renderPoliticaPrivacidade();
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
@@ -8185,6 +8246,48 @@ document.addEventListener('click', async e => {
         else switchView('user-profile', { uid });
     } else if (act === 'post-menu') {
         showPostMenu(id, btn);
+    } else if (act === 'post-menu-dep') {
+        e.stopPropagation();
+        hidePostMenu();
+        const menu = document.createElement('div');
+        menu.id = 'floatingPostMenu';
+        menu.className = 'post-menu';
+        menu.innerHTML = `<button class="post-menu-item danger" data-act="apagar-meu-depoimento" data-dep="${btn.dataset.dep}" data-id="${id}">${icon('lixo')}Apagar meu depoimento</button>
+            <button class="post-menu-item" data-act="report-post" data-id="${id}" data-uid="${btn.dataset.uid}" data-name="${btn.dataset.name}">${icon('bloquear')}Denunciar</button>`;
+        const rect = btn.getBoundingClientRect();
+        menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+        menu.style.right = (window.innerWidth - rect.right) + 'px';
+        document.body.appendChild(menu);
+        setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+    } else if (act === 'apagar-meu-depoimento') {
+        hidePostMenu();
+        if (!confirm('Apagar seu depoimento? Ele sai do feed e do perfil da pessoa.')) return;
+        const { error } = await sb.rpc('apagar_depoimento', { did: btn.dataset.dep });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        const el = document.querySelector(`.post[data-post-id="${btn.dataset.id}"]`); if (el) el.remove();
+        toast('Depoimento apagado', 'ok');
+    } else if (act === 'fixar-post') {
+        hidePostMenu();
+        const fixar = btn.dataset.fixar === '1';
+        const { error } = await sb.rpc('fixar_post_perfil', { pid: id, fixar });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        const el = document.querySelector(`.post[data-post-id="${id}"]`); if (el) el.dataset.fixado = fixar ? '1' : '0';
+        toast(fixar ? 'Fixado no topo do seu perfil 📌' : 'Post desafixado', 'ok');
+        if (state.view === 'profile') renderProfile();
+    } else if (act === 'arquivar-post') {
+        hidePostMenu();
+        const { error } = await sb.from('posts').update({ archived: true }).eq('id', id).eq('user_id', state.session.user.id);
+        if (error) { toast(msgErro(error), 'err'); return; }
+        const el = document.querySelector(`.post[data-post-id="${id}"]`); if (el) el.remove();
+        toastComAcao('Post arquivado. Só você vê em Menu › Arquivados.', 'Desfazer', async () => {
+            await sb.from('posts').update({ archived: false }).eq('id', id);
+            if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile();
+        });
+    } else if (act === 'desarquivar-post') {
+        const { error } = await sb.from('posts').update({ archived: false }).eq('id', id).eq('user_id', state.session.user.id);
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast('Post de volta no seu perfil', 'ok');
+        renderArquivados();
     } else if (act === 'quick-follow') {
         e.stopPropagation();
         const uid = btn.dataset.uid;
@@ -8349,6 +8452,8 @@ document.addEventListener('click', async e => {
         salvarImagem(blob, nome);
         const info = document.getElementById('backupInfo');
         if (info) info.textContent = `Backup gerado (${Math.round(texto.length / 1024)} KB). Guarde o arquivo ${nome} num lugar seguro.`;
+    } else if (act === 'dep-editar') {
+        abrirEscreverDepoimento(btn.dataset.uid, '', { id: btn.dataset.id, texto: btn.dataset.texto });
     } else if (act === 'dep-escrever') {
         abrirEscreverDepoimento(btn.dataset.uid, btn.dataset.nome);
     } else if (act === 'dep-responder') {
@@ -8365,6 +8470,8 @@ document.addEventListener('click', async e => {
         if (error) { toast(msgErro(error), 'err'); return; }
         const item = btn.closest('.dep-item'); if (item) item.remove();
         toast('Depoimento apagado', 'ok');
+        const abaDep = document.querySelector('.ig-tab[data-tab="depoimentos"].active, .ig-tab[data-tab="depoimentos"].on');
+        if (abaDep) abaDep.click();
     } else if (act === 'abrir-depoimentos') {
         state.abrirAbaPerfil = 'depoimentos';
         switchView('profile');
@@ -8510,6 +8617,11 @@ document.addEventListener('click', async e => {
         const { error } = await sb.from('posts').update({ comments_off: desligar }).eq('id', btn.dataset.id).eq('user_id', state.session.user.id);
         if (error) { toast(msgErro(error), 'err'); return; }
         toast(desligar ? 'Comentários desativados neste post' : 'Comentários ativados de novo', 'ok');
+        const elp = document.querySelector(`.post[data-post-id="${btn.dataset.id}"]`);
+        if (elp) {
+            elp.dataset.comentOff = desligar ? '1' : '0';
+            const av = elp.querySelector('.post-coment-off'); if (av) av.classList.toggle('hidden', !desligar);
+        }
     } else if (act === 'abrir-comentarios') {
         fecharJanelasAbertas();
         openCommentSheet(btn.dataset.id);
@@ -8971,7 +9083,9 @@ function showPostMenu(postId, anchor) {
     menu.innerHTML = `
         <button class="post-menu-item" data-act="edit-post" data-id="${postId}">${icon('editar')}Editar</button>
         <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">${icon('olho')}Quem pode ver</button>
-        <button class="post-menu-item" data-act="toggle-comentarios-post" data-id="${postId}">${icon('comentario')}Ativar ou desativar comentários</button>
+        <button class="post-menu-item" data-act="toggle-comentarios-post" data-id="${postId}">${icon('comentario')}${postEl && postEl.dataset.comentOff === '1' ? 'Ativar comentários' : 'Desativar comentários'}</button>
+        <button class="post-menu-item" data-act="fixar-post" data-id="${postId}" data-fixar="${postEl && postEl.dataset.fixado === '1' ? '0' : '1'}"><span class="pm-emo">📌</span>${postEl && postEl.dataset.fixado === '1' ? 'Desafixar do perfil' : 'Fixar no perfil'}</button>
+        <button class="post-menu-item" data-act="arquivar-post" data-id="${postId}"><svg class="pm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></svg>Arquivar</button>
         <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">${icon('lixo')}Apagar post</button>
     `;
     const rect = anchor.getBoundingClientRect();
@@ -9059,7 +9173,8 @@ async function openCommentSheet(postId) {
     if (state.comentPost.off) {
         composer.classList.add('hidden');
         if (!avisoOff) { avisoOff = document.createElement('p'); avisoOff.className = 'comments-off'; composer.after(avisoOff); }
-        avisoOff.textContent = 'Os comentários deste post estão desativados.';
+        avisoOff.textContent = state.comentPost.dono === state.session.user.id ? 'Você desativou os comentários deste post.' : '';
+        avisoOff.classList.toggle('hidden', state.comentPost.dono !== state.session.user.id);
     } else {
         composer.classList.remove('hidden');
         if (avisoOff) avisoOff.remove();
