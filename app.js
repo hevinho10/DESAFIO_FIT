@@ -50,6 +50,9 @@ const ICO = {
     saude:'<path d="M20.8 5.6a5.2 5.2 0 0 0-7.4 0L12 7l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 21l8.8-8.1a5.2 5.2 0 0 0 0-7.3z"/>',
     historico:'<path d="M3 16l5-5 4 3 8-8M15 6h6v6"/>',
     grafico:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    relogio:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    perfil:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    times:'<circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0M10.5 20a5.5 5.5 0 0 1 11 0"/>',
     comunidade:'<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
     config:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.2V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z"/>',
     admin:'<path d="M14.7 6.3a4 4 0 0 1 5 5l-9.7 9.7a2 2 0 0 1-2.8-2.8l9.7-9.7a1 1 0 0 0-1.4-1.4L5 17.6M3 21l3-1-2-2-1 3z"/>',
@@ -2527,6 +2530,15 @@ async function renderNotifications() {
         } else if (n.kind === 'depoimento_publicado') {
             emo = '✨'; texto = `<b>${quem}</b> publicou o seu depoimento no perfil`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'time_movido') {
+            emo = '🔄'; texto = `Você mudou de time no desafio <b>${escapeHTML(n.challenge_name || '')}</b>. Confira seu time novo!`;
+            act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
+        } else if (n.kind === 'times_montados') {
+            emo = '🟢'; texto = `Os times do desafio <b>${escapeHTML(n.challenge_name || '')}</b> foram montados! Veja em qual você está.`;
+            act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
+        } else if (n.kind === 'organizacao_recebida') {
+            emo = '🗝️'; texto = `<b>${quem}</b> passou pra você a organização do desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
+            act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
         } else if (n.kind === 'time_passou') {
             emo = '🟢'; texto = `Seu time passou na frente no desafio <b>${escapeHTML(n.challenge_name || '')}</b>! Bora segurar.`;
             act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
@@ -6480,7 +6492,8 @@ async function renderPainelDesafio(cidEscolhido) {
 
         <div class="pd-acoes">
             <button class="btn-secondary" data-act="ver-regras-desafio">Regras</button>
-            ${(ch.created_by === uid || state.profile.is_admin) ? `<button class="btn-secondary" data-act="invite-challenge" data-id="${ch.id}">Convidar</button>` : ''}
+            ${(ch.created_by === uid || state.profile.is_admin) ? `<button class="btn-secondary" data-act="invite-challenge" data-id="${ch.id}">Convidar</button>
+            <button class="btn-secondary" data-act="go-gerenciar" data-id="${ch.id}">Gerenciar</button>` : ''}
             <button class="btn-secondary" data-act="go-challenges-lista">Outros desafios</button>
         </div>
         <div id="chRegrasMembro" class="hidden">${regrasDesafioHTML(ch)}</div>
@@ -6631,6 +6644,181 @@ async function abrirAjusteTimes(cid) {
     </div>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', e => { if (e.target === sheet) { sheet.remove(); renderPainelDesafio(cid); } });
+}
+
+// ============================================================
+// GERENCIAR DESAFIO (quem criou ou admin)
+// ============================================================
+async function renderGerenciarDesafio(cid) {
+    const c = $('#viewContainer');
+    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+    const [{ data: ch }, { data: r }, { data: tm }] = await Promise.all([
+        sb.from('challenges').select('id, name, description, rules, starts_at, ends_at, created_by, team_mode, team_count, team_names, group_goal_type, group_goal_value').eq('id', cid).maybeSingle(),
+        sb.rpc('challenge_ranking', { cid }),
+        sb.rpc('challenge_teams', { cid }),
+    ]);
+    if (!ch) { c.innerHTML = '<div class="view"><p class="faixa-nota">Desafio não encontrado.</p></div>'; return; }
+    state.gerDesafio = ch;
+    const times = {}; (tm || []).forEach(x => { times[x.user_id] = x.team; });
+    state.gerTimes = times;
+    state.gerRanking = r || [];
+    const terminou = new Date(ch.ends_at) < new Date();
+    const fimTxt = new Date(ch.ends_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    c.innerHTML = `<div class="view cfg-view">
+        <div class="user-topbar">
+            <button class="topbar-back" data-act="ger-voltar" data-id="${cid}" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <div class="topbar-title">Gerenciar desafio</div>
+            <div style="width:36px"></div>
+        </div>
+        <p class="cfg-sub">${escapeHTML(ch.name)} · termina em ${fimTxt}</p>
+
+        <div class="cfg-grupo">
+            <div class="cfg-titulo">Desafio</div>
+            ${terminou ? '' : linhaConfig('ger-editar', 'editar', 'Editar desafio')}
+            ${!terminou && !ch.team_mode ? linhaConfig('ger-montar-times', 'times', 'Montar times') : ''}
+            ${linhaConfig('ger-passar', 'perfil', 'Passar a organização')}
+            ${terminou ? '' : linhaConfig('ger-encerrar', 'relogio', 'Encerrar agora')}
+        </div>
+
+        <div class="cfg-grupo">
+            <div class="cfg-titulo">Participantes · ${state.gerRanking.length}</div>
+            ${state.gerRanking.map(u => {
+                const t = times[u.user_id];
+                const org = u.user_id === ch.created_by;
+                return `<div class="ger-linha">
+                    ${avatarHTML({ id: u.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}
+                    <div class="ger-info"><b>${escapeHTML(u.display_name || '')}</b><small>${t ? `<i class="tm-ponto" style="background:${corTime(t)}"></i>Time ${escapeHTML(nomeTime(ch, t))} · ` : ''}${ptsBR(u.points)} pts${org ? ' · organiza' : ''}</small></div>
+                    <button class="ger-mais" data-act="ger-menu" data-uid="${u.user_id}" aria-label="Opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
+                </div>`;
+            }).join('')}
+        </div>
+    </div>`;
+}
+
+function menuGerParticipante(btn) {
+    hidePostMenu();
+    const ch = state.gerDesafio, alvo = btn.dataset.uid;
+    const meuT = state.gerTimes[alvo];
+    const ops = [];
+    if (ch.team_mode) {
+        for (let t = 1; t <= (ch.team_count || 2); t++) {
+            if (t !== meuT) ops.push(`<button class="post-menu-item" data-act="ger-mover" data-uid="${alvo}" data-team="${t}"><i class="tm-ponto" style="background:${corTime(t)}"></i>Mover pro Time ${escapeHTML(nomeTime(ch, t))}</button>`);
+        }
+        ops.push(`<button class="post-menu-item" data-act="ger-trocar" data-uid="${alvo}">${icon('times')}Trocar de lugar com…</button>`);
+    }
+    if (alvo !== ch.created_by) ops.push(`<button class="post-menu-item danger" data-act="ger-remover" data-uid="${alvo}">${icon('lixo')}Remover do desafio</button>`);
+    if (!ops.length) { toast('Quem organiza não pode ser removido. Passe a organização antes.', 'ok'); return; }
+    const menu = document.createElement('div');
+    menu.id = 'floatingPostMenu';
+    menu.className = 'post-menu';
+    menu.innerHTML = ops.join('');
+    const rect = btn.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = Math.min(window.innerHeight - 60 - ops.length * 46, rect.bottom + 4) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    menu.style.zIndex = 120;
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+}
+
+// Folha simples pra escolher uma pessoa (trocar de lugar / passar organização)
+function escolherPessoaGer(titulo, filtro, aoEscolher) {
+    const old = document.getElementById('gerSheet'); if (old) old.remove();
+    const lista = state.gerRanking.filter(filtro);
+    const sheet = document.createElement('div');
+    sheet.id = 'gerSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">${titulo}</h3>
+        <div class="ger-escolha">${lista.map(u => `<button class="ger-linha ger-opcao" data-uid="${u.user_id}">
+            ${avatarHTML({ id: u.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}
+            <div class="ger-info"><b>${escapeHTML(u.display_name || '')}</b>${state.gerTimes[u.user_id] ? `<small><i class="tm-ponto" style="background:${corTime(state.gerTimes[u.user_id])}"></i>Time ${escapeHTML(nomeTime(state.gerDesafio, state.gerTimes[u.user_id]))}</small>` : ''}</div>
+        </button>`).join('') || '<p class="faixa-nota">Ninguém disponível.</p>'}</div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    sheet.querySelectorAll('.ger-opcao').forEach(b => b.onclick = () => { sheet.remove(); aoEscolher(b.dataset.uid); });
+}
+
+function abrirEditarDesafio() {
+    const ch = state.gerDesafio;
+    const old = document.getElementById('gerSheet'); if (old) old.remove();
+    const fim = isoDe(new Date(ch.ends_at));
+    const sheet = document.createElement('div');
+    sheet.id = 'gerSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Editar desafio</h3>
+        <div class="field"><label>Nome</label><input type="text" id="edNomeD" maxlength="60" value="${escapeHTML(ch.name || '')}"></div>
+        <div class="field"><label>Descrição</label><textarea id="edDescD" maxlength="200">${escapeHTML(ch.description || '')}</textarea></div>
+        <div class="field"><label>Regras</label><textarea id="edRegrasD" maxlength="600">${escapeHTML(ch.rules || '')}</textarea></div>
+        <div class="field"><label>Meta coletiva</label>
+            <div class="nc-meta">
+                <input type="number" id="edMetaV" min="1" inputmode="numeric" value="${ch.group_goal_value || ''}" placeholder="ex: 500">
+                <select id="edMetaT"><option value="">sem meta</option>${[['km', 'km juntos'], ['treinos', 'treinos juntos'], ['horas', 'horas juntos']].map(([v, n]) => `<option value="${v}"${ch.group_goal_type === v ? ' selected' : ''}>${n}</option>`).join('')}</select>
+            </div>
+        </div>
+        <div class="field"><label>Termina em</label>
+            <div class="data-campo tem"><input type="date" id="edFimD" value="${fim}" min="${fim}"></div>
+            <p class="field-hint">Dá pra estender. Encurtar não, pra não tirar pontos de ninguém.</p>
+        </div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="edCancD">Cancelar</button>
+            <button class="btn-primary" id="edSalvD">Salvar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    sheet.querySelector('#edCancD').onclick = () => sheet.remove();
+    sheet.querySelector('#edSalvD').onclick = async () => {
+        const fimNovo = sheet.querySelector('#edFimD').value;
+        const fimTs = fimNovo ? new Date(fimNovo + 'T23:59:59') : null;
+        const { error } = await sb.rpc('gestor_editar_desafio', {
+            cid: ch.id,
+            nome: sheet.querySelector('#edNomeD').value,
+            descricao: sheet.querySelector('#edDescD').value,
+            regras: sheet.querySelector('#edRegrasD').value,
+            meta_tipo: sheet.querySelector('#edMetaT').value || null,
+            meta_valor: Number(sheet.querySelector('#edMetaV').value) || null,
+            novo_fim: fimTs && fimTs > new Date(ch.ends_at) ? fimTs.toISOString() : null,
+        });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        sheet.remove();
+        toast('Desafio atualizado', 'ok');
+        renderGerenciarDesafio(ch.id);
+    };
+}
+
+function abrirMontarTimes() {
+    const ch = state.gerDesafio;
+    const old = document.getElementById('gerSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'gerSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Montar times</h3>
+        <p class="sheet-sub">O app divide todo mundo equilibrando pelos pontos atuais. O placar de cada time já começa com a soma do que cada um fez no desafio. Depois de montados, os times não podem ser desfeitos.</p>
+        <div class="nc-qtd">${[2, 3, 4].map(n => `<button type="button" class="${n === 2 ? 'on' : ''}" data-qtd="${n}">${n} times</button>`).join('')}</div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="mtCanc">Cancelar</button>
+            <button class="btn-primary" id="mtOk">Montar times</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    sheet.querySelectorAll('[data-qtd]').forEach(b => b.onclick = () => sheet.querySelectorAll('[data-qtd]').forEach(x => x.classList.toggle('on', x === b)));
+    sheet.querySelector('#mtCanc').onclick = () => sheet.remove();
+    sheet.querySelector('#mtOk').onclick = async () => {
+        const qtd = Number(sheet.querySelector('[data-qtd].on').dataset.qtd);
+        const { error } = await sb.rpc('gestor_montar_times', { cid: ch.id, qtd });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        sheet.remove();
+        toast('Times montados! Todo mundo foi avisado. 🟢🟠', 'ok');
+        renderGerenciarDesafio(ch.id);
+    };
 }
 
 // ---- Conquistas do grupo, meta coletiva e marcos ----
@@ -8473,7 +8661,7 @@ if (window.visualViewport) {
 }
 
 // Quais telas escondem o topo e o menu do app
-const TELAS_CHEIAS = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino', 'termos', 'politica-privacidade', 'arquivados', 'medidas'];
+const TELAS_CHEIAS = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino', 'termos', 'politica-privacidade', 'arquivados', 'medidas', 'gerenciar'];
 function ehTelaCheia(v) { return !!v && (TELAS_CHEIAS.includes(v) || v.startsWith('set-')); }
 // Garante que topo e menu batem com a tela atual (evita ficar "preso" sem topo/menu)
 function sincronizarModoTela() {
@@ -8555,6 +8743,7 @@ async function switchView(v, params = {}) {
     else if (v === 'termos') renderTermos();
     else if (v === 'arquivados') renderArquivados();
     else if (v === 'medidas') await renderProgress();
+    else if (v === 'gerenciar') await renderGerenciarDesafio(params.id);
     else if (v === 'politica-privacidade') renderPoliticaPrivacidade();
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
@@ -8909,6 +9098,55 @@ document.addEventListener('click', async e => {
         hydrateTotaisGrupo({ id: btn.dataset.id });
     } else if (act === 'fechar-marco') {
         const m = document.getElementById('pdMarco'); if (m) m.innerHTML = '';
+    } else if (act === 'go-gerenciar') {
+        switchView('gerenciar', { id: btn.dataset.id });
+    } else if (act === 'ger-voltar') {
+        switchView('desafio', { id: btn.dataset.id });
+    } else if (act === 'ger-menu') {
+        e.stopPropagation();
+        menuGerParticipante(btn);
+    } else if (act === 'ger-mover') {
+        hidePostMenu();
+        const { error } = await sb.rpc('gestor_mover_time', { cid: state.gerDesafio.id, alvo: btn.dataset.uid, novo_time: Number(btn.dataset.team) });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast(`Movido pro Time ${nomeTime(state.gerDesafio, Number(btn.dataset.team))}`, 'ok');
+        renderGerenciarDesafio(state.gerDesafio.id);
+    } else if (act === 'ger-trocar') {
+        hidePostMenu();
+        const a = btn.dataset.uid, ta = state.gerTimes[a];
+        escolherPessoaGer('Trocar de lugar com…', u => state.gerTimes[u.user_id] && state.gerTimes[u.user_id] !== ta, async b => {
+            const { error } = await sb.rpc('gestor_trocar_times', { cid: state.gerDesafio.id, a, b });
+            if (error) { toast(msgErro(error), 'err'); return; }
+            toast('Os dois trocaram de time', 'ok');
+            renderGerenciarDesafio(state.gerDesafio.id);
+        });
+    } else if (act === 'ger-remover') {
+        hidePostMenu();
+        const u = state.gerRanking.find(x => x.user_id === btn.dataset.uid) || {};
+        if (!confirm(`Remover ${u.display_name || 'essa pessoa'} do desafio? Ela não será avisada e pode pedir pra entrar de novo.`)) return;
+        const { error } = await sb.rpc('gestor_remover_participante', { cid: state.gerDesafio.id, alvo: btn.dataset.uid });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast('Removido do desafio', 'ok');
+        renderGerenciarDesafio(state.gerDesafio.id);
+    } else if (act === 'ger-editar') {
+        abrirEditarDesafio();
+    } else if (act === 'ger-montar-times') {
+        abrirMontarTimes();
+    } else if (act === 'ger-encerrar') {
+        if (!confirm('Encerrar o desafio agora? O ranking fica congelado e o pódio sai na hora.')) return;
+        const { error } = await sb.rpc('gestor_encerrar_desafio', { cid: state.gerDesafio.id });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast('Desafio encerrado 🏁', 'ok');
+        renderGerenciarDesafio(state.gerDesafio.id);
+    } else if (act === 'ger-passar') {
+        escolherPessoaGer('Passar a organização pra…', u => u.user_id !== state.gerDesafio.created_by, async alvo => {
+            const u = state.gerRanking.find(x => x.user_id === alvo) || {};
+            if (!confirm(`Passar a organização do desafio pra ${u.display_name}? Ela vai poder gerenciar tudo.`)) return;
+            const { error } = await sb.rpc('gestor_passar_organizacao', { cid: state.gerDesafio.id, alvo });
+            if (error) { toast(msgErro(error), 'err'); return; }
+            toast('Organização transferida', 'ok');
+            renderGerenciarDesafio(state.gerDesafio.id);
+        });
     } else if (act === 'pd-abrir') {
         switchView('desafio', { id: btn.dataset.id });
     } else if (act === 'pd-lista') {

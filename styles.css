@@ -2344,3 +2344,14 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .nc-qtd button{ width:44px; height:36px; border-radius:10px; border:1px solid var(--line); background:none; color:var(--ink); font-weight:700; }
 .nc-qtd button.on{ border-color:var(--vital); color:var(--vital); background:var(--vital-dim); }
 .adm-abas{ overflow-x:auto; scrollbar-width:none; } .adm-abas::-webkit-scrollbar{ display:none; }
+
+/* ================= ONDA 29: gerenciar desafio ================= */
+.ger-linha{ display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:10px; padding:10px 20px; width:100%; border:none; background:none; color:var(--ink); text-align:left; }
+.ger-linha + .ger-linha{ border-top:1px solid var(--line); }
+.ger-info{ display:flex; flex-direction:column; min-width:0; }
+.ger-info b{ font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ger-info small{ font-size:12px; color:var(--ink-faint); }
+.ger-mais{ width:34px; height:34px; border-radius:50%; border:none; background:none; color:var(--ink-dim); display:grid; place-items:center; }
+.ger-mais svg{ width:18px; height:18px; }
+.ger-escolha{ max-height:55vh; overflow-y:auto; margin:0 -20px; }
+.post-menu-item .tm-ponto{ width:10px; height:10px; margin:0 4px 0 4px; }
