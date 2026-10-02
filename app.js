@@ -49,6 +49,7 @@ const ICO = {
     peso:'<path d="M12 4v16M7 8h10M6 8l-3 7a3 3 0 0 0 6 0L6 8zM18 8l-3 7a3 3 0 0 0 6 0l-3-7z"/>',
     saude:'<path d="M20.8 5.6a5.2 5.2 0 0 0-7.4 0L12 7l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 21l8.8-8.1a5.2 5.2 0 0 0 0-7.3z"/>',
     historico:'<path d="M3 16l5-5 4 3 8-8M15 6h6v6"/>',
+    grafico:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     comunidade:'<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
     config:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 14H3a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 4.6 7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 10 3.2V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.7H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1.3z"/>',
     admin:'<path d="M14.7 6.3a4 4 0 0 1 5 5l-9.7 9.7a2 2 0 0 1-2.8-2.8l9.7-9.7a1 1 0 0 0-1.4-1.4L5 17.6M3 21l3-1-2-2-1 3z"/>',
@@ -2526,6 +2527,12 @@ async function renderNotifications() {
         } else if (n.kind === 'depoimento_publicado') {
             emo = '✨'; texto = `<b>${quem}</b> publicou o seu depoimento no perfil`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'time_passou') {
+            emo = '🟢'; texto = `Seu time passou na frente no desafio <b>${escapeHTML(n.challenge_name || '')}</b>! Bora segurar.`;
+            act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
+        } else if (n.kind === 'time_virado') {
+            emo = '⚔️'; texto = `Viraram o placar no desafio <b>${escapeHTML(n.challenge_name || '')}</b>. Bora, time!`;
+            act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
         } else if (n.kind === 'desafio_ultrapassado') {
             emo = '🏁'; texto = `<b>${quem}</b> te passou no desafio <b>${escapeHTML(n.challenge_name || '')}</b>. Bora retomar?`;
             act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
@@ -5092,6 +5099,19 @@ async function renderProgress() {
     const horas = Math.floor(totalMin / 60);
     const ev = montarEvolucao({ wSeries, aSeries, mSeries, pSeries, meusPosts, sonos, ledger, streak, weightPoints, projecao, goal, weeklyGoal });
 
+    // Medidas agora mora no Menu › Seu corpo
+    if (state.view === 'medidas') {
+        c.innerHTML = `<div class="view cfg-view">
+            ${cabecalhoConfig('Medidas', 'go-menu')}
+            <div id="evoPeriodos">${ev.periodosHTML}</div>
+            ${ev.semMedidas ? `<div class="chart-card"><div class="chart-convite">
+                <span><b>Quer acompanhar peso ou medidas?</b><br>Você decide o que registrar.</span>
+                <button class="btn-mini" data-act="m-peso">Registrar peso</button>
+            </div></div>` : `${ev.pesoHTML}${ev.cinturaHTML}`}
+        </div>`;
+        return;
+    }
+    if (state.abaEvolucao === 'corpo') state.abaEvolucao = 'coach';
     const aba = state.abaEvolucao || 'coach';
     const abaHTML = (id, conteudo) => `<div class="evo-painel${aba === id ? '' : ' hidden'}" data-painel="${id}">${conteudo}</div>`;
     c.innerHTML = `
@@ -5099,7 +5119,7 @@ async function renderProgress() {
             <div class="page-head"><h1 class="screen-title">Evolução</h1><span class="page-sub">progresso ao longo do tempo</span></div>
 
             <div class="evo-abas">
-                ${[['coach', 'Coach'], ['resumo', 'Resumo'], ['treinos', 'Treinos'], ['corpo', 'Medidas'], ['habitos', 'Hábitos']].map(([k, n]) =>
+                ${[['coach', 'Coach'], ['resumo', 'Resumo'], ['treinos', 'Treinos'], ['habitos', 'Hábitos']].map(([k, n]) =>
                     `<button class="evo-aba${aba === k ? ' on' : ''}" data-act="evo-aba" data-aba="${k}">${n}</button>`).join('')}
             </div>
             <div id="evoPeriodos" class="${aba === 'coach' ? 'hidden' : ''}">${ev.periodosHTML}</div>
@@ -5524,6 +5544,7 @@ async function renderMenu() {
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Seu corpo</div>
                 ${linhaMenu('m-peso', 'peso', 'Registrar peso')}
+                ${linhaMenu('m-go', 'grafico', 'Medidas', '', ' data-view="medidas"')}
                 ${linhaMenu('m-go', 'saude', 'Ficha de saúde', '', ' data-view="health"')}
             </div>
 
@@ -6352,14 +6373,28 @@ async function renderPainelDesafio(cidEscolhido) {
         if (voltar) voltar.style.visibility = 'hidden';
         return;
     }
-    const ch = meus.find(x => x.id === (cidEscolhido || state.desafioAtual)) || meus[0];
+    // Mais de um desafio e nenhum escolhido: mostra a lista
+    if (!cidEscolhido && meus.length > 1) { await renderListaMeusDesafios(meus); return; }
+    const ch = meus.find(x => x.id === cidEscolhido) || meus[0];
     state.desafioAtual = ch.id;
     const uid = state.session.user.id;
     const [{ data: ranking }, { data: regrasRow }] = await Promise.all([
         sb.rpc('challenge_ranking', { cid: ch.id }),
-        sb.from('challenges').select('rules').eq('id', ch.id).maybeSingle(),
+        sb.from('challenges').select('rules, team_mode, team_count, team_names').eq('id', ch.id).maybeSingle(),
     ]);
     ch.rules = regrasRow ? regrasRow.rules : null;
+    ch.team_mode = !!(regrasRow && regrasRow.team_mode);
+    ch.team_names = (regrasRow && regrasRow.team_names) || NOMES_TIMES;
+    let times = null, meuTime = null, membrosTime = {};
+    if (ch.team_mode) {
+        const [{ data: tr }, { data: tm }] = await Promise.all([
+            sb.rpc('challenge_team_ranking', { cid: ch.id }),
+            sb.rpc('challenge_teams', { cid: ch.id }),
+        ]);
+        times = tr || [];
+        (tm || []).forEach(x => { membrosTime[x.user_id] = x.team; });
+        meuTime = membrosTime[uid] || null;
+    }
     const r = ranking || [];
     const i = r.findIndex(u => u.user_id === uid);
     const eu = i >= 0 ? r[i] : null;
@@ -6399,15 +6434,24 @@ async function renderPainelDesafio(cidEscolhido) {
         <span class="pd-rank-pts">${Math.round(u.points)}</span>
     </div>`;
 
+    const abaPd = ch.team_mode ? ((state.abaDesafio || {})[ch.id] || 'times') : 'individual';
     c.innerHTML = `<div class="view painel-desafio">
-        ${meus.length > 1 ? `<div class="pd-chips">${meus.map(m => `<button class="pd-chip${m.id === ch.id ? ' on' : ''}" data-act="pd-trocar" data-id="${m.id}">${escapeHTML(m.name)}</button>`).join('')}</div>` : ''}
         <div class="pd-head">
-            <div><h1 class="pd-nome">${escapeHTML(ch.name)}</h1>
+            ${meus.length > 1 ? `<button class="pd-voltar" data-act="pd-lista" aria-label="Seus desafios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>` : ''}
+            <div class="pd-head-txt"><h1 class="pd-nome">${escapeHTML(ch.name)}</h1>
             <span class="pd-quando${!futuro && diasFaltam <= 3 ? ' reta' : ''}">${futuro ? (diasFaltam <= 1 ? 'Começa amanhã' : `Começa em ${diasFaltam} dias`) : diasFaltam <= 0 ? 'Último dia!' : diasFaltam <= 3 ? `🏁 Reta final: faltam ${diasFaltam} dias` : `Faltam ${diasFaltam} dias`}</span></div>
             <button class="ia-link" data-act="open-challenge" data-id="${ch.id}">detalhes ›</button>
         </div>
         <div class="pd-tempo"><i style="width:${pctTempo}%"></i></div>
 
+        ${ch.team_mode ? `<div class="evo-abas pd-abas">
+            <button class="evo-aba${abaPd === 'individual' ? ' on' : ''}" data-act="pd-aba" data-aba="individual" data-id="${ch.id}">Individual</button>
+            <button class="evo-aba${abaPd === 'times' ? ' on' : ''}" data-act="pd-aba" data-aba="times" data-id="${ch.id}">Times</button>
+        </div>` : ''}
+
+        ${ch.team_mode ? `<div class="pd-painel${abaPd === 'times' ? '' : ' hidden'}" data-pd="times">${timesHTML(ch, times, meuTime, r, membrosTime, futuro)}</div>` : ''}
+
+        <div class="pd-painel${abaPd === 'individual' ? '' : ' hidden'}" data-pd="individual">
         ${futuro ? `<div class="pd-destaque"><span class="pd-rotulo">O desafio ainda não começou</span><b class="pd-pos">${r.length}</b><span class="pd-sub">${r.length === 1 ? 'participante confirmado' : 'participantes confirmados'}</span><p class="pd-prox">Seus pontos passam a contar a partir de ${ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}.</p></div>`
         : eu ? `<div class="pd-destaque">
             <span class="pd-rotulo">Você está em</span>
@@ -6439,11 +6483,153 @@ async function renderPainelDesafio(cidEscolhido) {
             <button class="btn-secondary" data-act="go-challenges-lista">Outros desafios</button>
         </div>
         <div id="chRegrasMembro" class="hidden">${regrasDesafioHTML(ch)}</div>
+        </div>
     </div>`;
 
     if (!futuro) hydrateNarracaoDesafio(ch, r);
     hydrateGrupoHoje(ch, r);
     if (!futuro) { hydrateTotaisGrupo(ch); hydrateDestaqueSemana(ch); }
+}
+
+// ============================================================
+// TIMES NO DESAFIO
+// ============================================================
+const NOMES_TIMES = ['Verde', 'Laranja', 'Azul', 'Roxo'];
+const CORES_TIMES = ['#35E19B', '#FF7A4D', '#5FB0FF', '#C08BFF'];
+const nomeTime = (ch, t) => (ch.team_names && ch.team_names[t - 1]) || NOMES_TIMES[t - 1] || `Time ${t}`;
+const corTime = t => CORES_TIMES[(t - 1) % CORES_TIMES.length];
+const ptsBR = n => Math.round(Number(n || 0)).toLocaleString('pt-BR');
+
+function timesHTML(ch, times, meuTime, ranking, membrosTime, futuro) {
+    const lista = [...(times || [])].sort((a, b) => Number(b.points) - Number(a.points));
+    if (!lista.length) return '<p class="faixa-nota">Os times aparecem quando as pessoas entrarem no desafio.</p>';
+    const eu = state.session.user.id;
+    const meu = lista.find(t => t.team === meuTime);
+    let placar = '';
+    if (lista.length === 2) {
+        // cabo de guerra
+        const [a, b] = [...lista].sort((x, y) => x.team - y.team);
+        const tot = Math.max(1, Number(a.points) + Number(b.points));
+        const pa = Math.max(6, Math.min(94, Number(a.points) / tot * 100));
+        placar = `<div class="tm-cabo">
+            <div class="tm-lados">
+                <span class="tm-lado${a.team === meuTime ? ' meu' : ''}"><i style="background:${corTime(a.team)}"></i>${escapeHTML(nomeTime(ch, a.team))}<b>${ptsBR(a.points)}</b></span>
+                <span class="tm-lado dir${b.team === meuTime ? ' meu' : ''}"><b>${ptsBR(b.points)}</b>${escapeHTML(nomeTime(ch, b.team))}<i style="background:${corTime(b.team)}"></i></span>
+            </div>
+            <div class="tm-barra"><span style="width:${pa}%;background:${corTime(a.team)}"></span><span style="background:${corTime(b.team)}"></span></div>
+        </div>`;
+    } else {
+        const max = Math.max(1, ...lista.map(t => Number(t.points)));
+        placar = `<div class="tm-lista">${lista.map((t, k) => `<div class="tm-linha${t.team === meuTime ? ' meu' : ''}">
+            <span class="tm-pos">${k + 1}º</span>
+            <span class="tm-nome"><i style="background:${corTime(t.team)}"></i>${escapeHTML(nomeTime(ch, t.team))}</span>
+            <span class="tm-trilho"><i style="width:${Math.max(4, Number(t.points) / max * 100)}%;background:${corTime(t.team)}"></i></span>
+            <b>${ptsBR(t.points)}</b>
+        </div>`).join('')}</div>`;
+    }
+    // frase do seu time
+    let frase = '';
+    if (meu && !futuro) {
+        const k = lista.indexOf(meu);
+        if (k === 0 && lista.length > 1) {
+            const dif = Math.round(Number(meu.points) - Number(lista[1].points));
+            frase = dif > 0 ? `Seu time está na frente por <b>${ptsBR(dif)} pts</b>` : 'Empate na liderança. Cada treino decide!';
+        } else if (k > 0) {
+            const dif = Math.max(1, Math.ceil(Number(lista[k - 1].points) - Number(meu.points)));
+            frase = `Faltam <b>${ptsBR(dif)} pts</b> pro seu time passar o ${escapeHTML(nomeTime(ch, lista[k - 1].team))}`;
+        }
+    } else if (futuro) frase = 'Os pontos dos times começam a contar quando o desafio começar.';
+
+    // quem é do seu time
+    const doMeuTime = (ranking || []).filter(u => membrosTime[u.user_id] === meuTime);
+    const max = doMeuTime.length ? Math.max(1, ...doMeuTime.map(u => Number(u.points))) : 1;
+    const souDono = ch.created_by === eu || state.profile.is_admin;
+    return `
+        ${placar}
+        ${frase ? `<p class="tm-frase">${frase}</p>` : ''}
+        ${meu ? `<div class="chart-card">
+            <div class="chart-head"><span class="chart-title"><i class="tm-ponto" style="background:${corTime(meuTime)}"></i>Seu time · ${escapeHTML(nomeTime(ch, meuTime))}</span><span class="chart-legend">${doMeuTime.length} ${doMeuTime.length === 1 ? 'pessoa' : 'pessoas'}</span></div>
+            ${doMeuTime.map((u, k) => `<div class="pd-rank${u.user_id === eu ? ' eu' : ''}">
+                <span class="pd-rank-pos">${['🥇', '🥈', '🥉'][k] || (k + 1) + 'º'}</span>
+                ${avatarHTML({ id: u.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}
+                <span class="pd-rank-nome">${u.user_id === eu ? 'Você' : escapeHTML(String(u.display_name || '').split(' ')[0])}</span>
+                <span class="pd-rank-barra"><i style="width:${Math.max(4, Number(u.points) / max * 100)}%;background:${corTime(meuTime)}"></i></span>
+                <span class="pd-rank-pts">${ptsBR(u.points)}</span>
+            </div>`).join('')}
+        </div>` : '<p class="faixa-nota">Você ainda não está em nenhum time.</p>'}
+        ${souDono && futuro ? `<button class="btn-secondary pd-times-ajustar" data-act="tm-ajustar" data-id="${ch.id}">Ajustar times antes de começar</button>` : ''}
+    `;
+}
+
+// Lista "Seus desafios" (quando a pessoa está em mais de um)
+async function renderListaMeusDesafios(meus) {
+    const c = $('#viewContainer');
+    const uid = state.session.user.id;
+    const extras = await Promise.all(meus.map(async ch => {
+        const [{ data: r }, { data: cfg }] = await Promise.all([
+            sb.rpc('challenge_ranking', { cid: ch.id }),
+            sb.from('challenges').select('team_mode, team_names').eq('id', ch.id).maybeSingle(),
+        ]);
+        let time = null;
+        if (cfg && cfg.team_mode) {
+            const { data: tm } = await sb.rpc('challenge_teams', { cid: ch.id });
+            const meu = (tm || []).find(x => x.user_id === uid);
+            time = meu ? meu.team : null;
+        }
+        const pos = (r || []).findIndex(u => u.user_id === uid) + 1;
+        const visto = Number(lsGet('pulso-pos-visto-' + ch.id) || 0);
+        return { ch, pos, total: (r || []).length, time, cfg: cfg || {}, mudou: pos && visto && pos !== visto };
+    }));
+    if (!document.getElementById('viewContainer')) return;
+    const agora = Date.now();
+    c.innerHTML = `<div class="view painel-desafio">
+        <h1 class="pd-nome pd-lista-titulo">Seus desafios</h1>
+        ${extras.map(({ ch, pos, total, time, cfg, mudou }) => {
+            const ini = new Date(ch.starts_at), fim = new Date(ch.ends_at);
+            const futuro = ch.status === 'futuro';
+            const dias = Math.max(0, Math.ceil(((futuro ? ini : fim) - agora) / 86400000));
+            const pct = futuro ? 0 : Math.max(0, Math.min(100, (agora - ini) / (fim - ini) * 100));
+            const quando = futuro ? (dias <= 1 ? 'começa amanhã' : `começa em ${dias} d`) : dias <= 0 ? 'último dia' : dias <= 3 ? `🏁 ${dias} ${dias === 1 ? 'dia' : 'dias'}` : `faltam ${dias} d`;
+            const linhaTime = time ? ` · <span class="pd-card-time"><i style="background:${corTime(time)}"></i>Time ${escapeHTML(nomeTime(cfg, time))}</span>` : (cfg.team_mode ? '' : ' · individual');
+            return `<button class="pd-card" data-act="pd-abrir" data-id="${ch.id}">
+                <div class="pd-card-topo"><b>${escapeHTML(ch.name)}</b><span class="${!futuro && dias <= 3 ? 'reta' : ''}">${quando}</span>${mudou ? '<i class="pd-card-dot"></i>' : ''}</div>
+                <div class="pd-card-sub">${futuro ? `${total} ${total === 1 ? 'participante' : 'participantes'}` : pos ? `Você em <b>${pos}º</b> de ${total}` : `${total} participantes`}${linhaTime}</div>
+                <div class="pd-tempo"><i style="width:${pct}%"></i></div>
+            </button>`;
+        }).join('')}
+        <button class="pd-descobrir" data-act="go-challenges-lista">Descobrir desafios <span>›</span></button>
+    </div>`;
+}
+
+// Quem criou ajusta os times antes de começar
+async function abrirAjusteTimes(cid) {
+    const [{ data: cfg }, { data: tm }, { data: r }] = await Promise.all([
+        sb.from('challenges').select('team_count, team_names').eq('id', cid).maybeSingle(),
+        sb.rpc('challenge_teams', { cid }),
+        sb.rpc('challenge_ranking', { cid }),
+    ]);
+    const n = (cfg && cfg.team_count) || 2;
+    const ch = { team_names: (cfg && cfg.team_names) || NOMES_TIMES };
+    const nomes = {}; (r || []).forEach(u => { nomes[u.user_id] = u; });
+    const old = document.getElementById('timesSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'timesSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Ajustar times</h3>
+        <p class="sheet-sub">Toque na cor pra trocar a pessoa de time. Dá pra ajustar até o desafio começar.</p>
+        <div class="tm-ajuste">${(tm || []).map(x => {
+            const u = nomes[x.user_id] || {};
+            return `<div class="tm-aj-linha">
+                ${avatarHTML({ id: x.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}
+                <span class="tm-aj-nome">${escapeHTML(u.display_name || '')}</span>
+                <span class="tm-aj-cores">${Array.from({ length: n }, (_, k) => k + 1).map(t => `<button class="tm-aj-cor${x.team === t ? ' on' : ''}" data-act="tm-trocar" data-cid="${cid}" data-uid="${x.user_id}" data-team="${t}" style="--c:${corTime(t)}" aria-label="${escapeHTML(nomeTime(ch, t))}"></button>`).join('')}</span>
+            </div>`;
+        }).join('') || '<p class="faixa-nota">Ninguém entrou ainda.</p>'}</div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) { sheet.remove(); renderPainelDesafio(cid); } });
 }
 
 // ---- Conquistas do grupo, meta coletiva e marcos ----
@@ -6795,6 +6981,17 @@ function openNewChallengeSheet() {
         <div class="field"><label>Nome</label><input type="text" id="ncName" maxlength="60" placeholder="ex: Setembro Ativo"></div>
         <div class="field"><label>Descrição (opcional)</label><textarea id="ncDesc" maxlength="200" placeholder="Qual é o objetivo do desafio?"></textarea></div>
         <div class="field"><label>Regras do desafio (opcional)</label><textarea id="ncRegras" maxlength="600" placeholder="ex: vale só treino com foto; prêmio pro primeiro lugar; quem sumir 7 dias sai"></textarea></div>
+        <div class="field"><label>Formato</label>
+            <div class="nc-formato">
+                <button type="button" class="on" data-formato="individual">Individual</button>
+                <button type="button" data-formato="times">Em times</button>
+            </div>
+            <div class="nc-times hidden" id="ncTimes">
+                <span class="field-hint">Quantos times?</span>
+                <div class="nc-qtd">${[2, 3, 4].map(n => `<button type="button" class="${n === 2 ? 'on' : ''}" data-qtd="${n}">${n}</button>`).join('')}</div>
+                <p class="field-hint">O app divide as pessoas automaticamente, equilibrando quem é mais e menos ativo. O placar de cada time é a soma dos pontos de quem está nele.</p>
+            </div>
+        </div>
         <div class="field"><label>Meta coletiva (opcional)</label>
             <div class="nc-meta">
                 <input type="number" id="ncMetaValor" min="1" max="100000" inputmode="numeric" placeholder="ex: 500">
@@ -6823,6 +7020,11 @@ function openNewChallengeSheet() {
     const close = () => { sheet.remove(); document.body.style.overflow = ''; };
     sheet.onclick = e => { if (e.target === sheet) close(); };
     document.getElementById('ncCancel').onclick = close;
+    sheet.querySelectorAll('[data-formato]').forEach(b => b.onclick = () => {
+        sheet.querySelectorAll('[data-formato]').forEach(x => x.classList.toggle('on', x === b));
+        sheet.querySelector('#ncTimes').classList.toggle('hidden', b.dataset.formato !== 'times');
+    });
+    sheet.querySelectorAll('[data-qtd]').forEach(b => b.onclick = () => sheet.querySelectorAll('[data-qtd]').forEach(x => x.classList.toggle('on', x === b)));
 
     document.getElementById('ncSave').onclick = async () => {
         const btn = document.getElementById('ncSave');
@@ -6837,6 +7039,8 @@ function openNewChallengeSheet() {
             name: nome,
             description: document.getElementById('ncDesc').value.trim() || null,
             rules: document.getElementById('ncRegras').value.trim() || null,
+            team_mode: !!sheet.querySelector('[data-formato="times"].on'),
+            team_count: sheet.querySelector('[data-formato="times"].on') ? Number((sheet.querySelector('[data-qtd].on') || {}).dataset?.qtd || 2) : null,
             group_goal_type: (document.getElementById('ncMetaTipo').value && Number(document.getElementById('ncMetaValor').value) > 0) ? document.getElementById('ncMetaTipo').value : null,
             group_goal_value: (document.getElementById('ncMetaTipo').value && Number(document.getElementById('ncMetaValor').value) > 0) ? Number(document.getElementById('ncMetaValor').value) : null,
             starts_at: new Date(ini + 'T00:00:00').toISOString(),
@@ -8268,7 +8472,7 @@ if (window.visualViewport) {
 }
 
 // Quais telas escondem o topo e o menu do app
-const TELAS_CHEIAS = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino', 'termos', 'politica-privacidade', 'arquivados'];
+const TELAS_CHEIAS = ['settings', 'privacy', 'rules', 'install', 'menu', 'saved', 'objetivos', 'jeito-treino', 'termos', 'politica-privacidade', 'arquivados', 'medidas'];
 function ehTelaCheia(v) { return !!v && (TELAS_CHEIAS.includes(v) || v.startsWith('set-')); }
 // Garante que topo e menu batem com a tela atual (evita ficar "preso" sem topo/menu)
 function sincronizarModoTela() {
@@ -8349,6 +8553,7 @@ async function switchView(v, params = {}) {
     else if (v === 'jeito-treino') renderJeitoTreino();
     else if (v === 'termos') renderTermos();
     else if (v === 'arquivados') renderArquivados();
+    else if (v === 'medidas') await renderProgress();
     else if (v === 'politica-privacidade') renderPoliticaPrivacidade();
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
@@ -8703,6 +8908,21 @@ document.addEventListener('click', async e => {
         hydrateTotaisGrupo({ id: btn.dataset.id });
     } else if (act === 'fechar-marco') {
         const m = document.getElementById('pdMarco'); if (m) m.innerHTML = '';
+    } else if (act === 'pd-abrir') {
+        switchView('desafio', { id: btn.dataset.id });
+    } else if (act === 'pd-lista') {
+        switchView('desafio', {});
+    } else if (act === 'pd-aba') {
+        state.abaDesafio = state.abaDesafio || {};
+        state.abaDesafio[btn.dataset.id] = btn.dataset.aba;
+        $$('.pd-abas .evo-aba').forEach(b => b.classList.toggle('on', b === btn));
+        $$('.pd-painel').forEach(p => p.classList.toggle('hidden', p.dataset.pd !== btn.dataset.aba));
+    } else if (act === 'tm-ajustar') {
+        abrirAjusteTimes(btn.dataset.id);
+    } else if (act === 'tm-trocar') {
+        const { error } = await sb.rpc('set_member_team', { cid: btn.dataset.cid, alvo: btn.dataset.uid, novo_time: Number(btn.dataset.team) });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        btn.parentElement.querySelectorAll('.tm-aj-cor').forEach(b => b.classList.toggle('on', b === btn));
     } else if (act === 'pd-trocar') {
         state.desafioAtual = btn.dataset.id;
         renderPainelDesafio(btn.dataset.id);
@@ -8749,6 +8969,15 @@ document.addEventListener('click', async e => {
                 if (Number(t.km) > 0) partes.push(`${numBR(t.km, 1)} km`);
                 if (t.kg_perdidos != null && Number(t.kg_perdidos) > 0) partes.push(`${numBR(t.kg_perdidos, 1)} kg a menos`);
                 itens.push(['Juntos', partes.join(' · ')]);
+            }
+        } catch (_) {}
+        try {
+            const { data: cfgT } = await sb.from('challenges').select('team_mode, team_names').eq('id', btn.dataset.id).maybeSingle();
+            if (cfgT && cfgT.team_mode) {
+                const { data: tr } = await sb.rpc('challenge_team_ranking', { cid: btn.dataset.id });
+                const venc = [...(tr || [])].sort((a, b) => Number(b.points) - Number(a.points))[0];
+                if (venc) itens.unshift([`Time ${nomeTime(cfgT, venc.team)}`, `campeão · ${ptsBR(venc.points)} pts`, true]);
+                if (itens.length > 5) itens.length = 5;
             }
         } catch (_) {}
         const blob = await imagemResumo({ titulo: pd.nome, subtitulo: 'Resultado final do desafio', itens });
