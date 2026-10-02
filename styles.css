@@ -2277,3 +2277,9 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .nc-topo > div{ min-width:0; }
 .adm-abas .cfg-aviso{ display:inline-grid !important; place-items:center; width:auto !important; min-width:17px; height:17px; padding:0 5px !important; margin:0 0 0 5px !important; border-radius:9px; font-size:10px; line-height:1; vertical-align:2px; }
 .adm-abas .evo-aba{ white-space:nowrap; flex:1 1 auto; padding-left:4px; padding-right:4px; }
+
+/* ================= ONDA 27 ================= */
+.story-viewer.segurando .story-progress-row, .story-viewer.segurando .story-viewer-head, .story-viewer.segurando .sv-activity{ opacity:0; transition:opacity .2s; }
+.story-nav-zones > div{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; touch-action:manipulation; }
+.ia-feito-card{ border-color:rgba(53,225,155,.4); }
+.ia-feito-card .chart-legend{ color:var(--vital); font-weight:700; }

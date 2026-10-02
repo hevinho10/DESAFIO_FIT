@@ -1592,7 +1592,7 @@ async function checkDailyReminder() {
 
     const agora = new Date();
     const hora = agora.getHours();
-    const hoje = agora.toISOString().split('T')[0];
+    const hoje = hojeISO(); // data do Brasil (antes usava a de Londres)
 
     // Três momentos do dia, cada um avisa uma vez só
     let janela = null;
@@ -1602,6 +1602,10 @@ async function checkDailyReminder() {
     else if (hora >= 10) janela = 'manha';
     if (!janela) return;
     if (localStorage.getItem('pulso-reminder-' + janela) === hoje) return;
+    // marca ANTES de checar: se o app iniciar duas vezes seguidas, só um aviso sai
+    if (checkDailyReminder.rodando) return;
+    checkDailyReminder.rodando = true;
+    localStorage.setItem('pulso-reminder-' + janela, hoje);
 
     try {
         const iso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
@@ -1647,9 +1651,51 @@ async function checkDailyReminder() {
         }
 
         if (!corpo) return;
-        new Notification('Pulso', { body: corpo, icon: 'icon-192.png', badge: 'icon-192.png' });
-        localStorage.setItem('pulso-reminder-' + janela, hoje);
-    } catch (e) {}
+        new Notification('Pulso', { body: corpo, icon: 'icon-192.png', badge: 'icon-192.png', tag: 'pulso-' + janela + '-' + hoje, renotify: false });
+    } catch (e) {
+    } finally {
+        checkDailyReminder.rodando = false;
+    }
+}
+
+// ---- Convite pra ativar os lembretes (o celular exige um toque da pessoa) ----
+function talvezConvidarLembretes() {
+    const p = state.profile;
+    if (!p || p.reminders_on === false) return;
+    if (!('Notification' in window)) return;
+    if (localStorage.getItem('pulso-reminder') === 'on' && Notification.permission === 'granted') return;
+    if (Notification.permission === 'denied') return;
+    if (localStorage.getItem('pulso-convite-lembrete') === hojeISO()) return; // no máximo 1 vez por dia
+    if (document.querySelector('.sheet.on')) return;
+    localStorage.setItem('pulso-convite-lembrete', hojeISO());
+    const sheet = document.createElement('div');
+    sheet.id = 'lembreteSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Ativar lembretes do dia?</h3>
+        <p class="sheet-sub">Um aviso curto pra lembrar do sono pela manhã, da água à tarde e do treino à noite. Você desliga quando quiser em Configurações.</p>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="lbNao">Agora não</button>
+            <button class="btn-primary" id="lbSim">Ativar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.querySelector('#lbNao').onclick = async () => {
+        sheet.remove();
+        localStorage.setItem('pulso-reminder', 'off');
+        await sb.from('profiles').update({ reminders_on: false }).eq('id', state.session.user.id);
+        state.profile.reminders_on = false;
+    };
+    sheet.querySelector('#lbSim').onclick = async () => {
+        let perm = Notification.permission;
+        if (perm === 'default') perm = await Notification.requestPermission();
+        sheet.remove();
+        if (perm !== 'granted') { toast('O celular não liberou os avisos. Dá pra ativar depois em Configurações.', 'err'); return; }
+        try { await ligarPush(); } catch (_) {}
+        localStorage.setItem('pulso-reminder', 'on');
+        toast('Lembretes ativados ✓', 'ok');
+    };
 }
 
 // ---- Lembretes do dia ----
@@ -2149,10 +2195,11 @@ document.addEventListener('click', e => {
 });
 
 async function prepararSono() {
-    const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const ontem = isoDe(new Date(Date.now() - 86400000)); // data do Brasil
     const campoData = $('#skDate');
     campoData.value = ontem;
-    campoData.max = ontem;
+    campoData.max = hojeISO();                                   // nunca no futuro
+    campoData.min = isoDe(new Date(Date.now() - 7 * 86400000));  // até 7 dias pra trás
 
     const { data } = await sb.rpc('sleep_summary');
     const s = (data && data[0]) || {};
@@ -4362,6 +4409,14 @@ function treinoDoDiaHTML(t, feitoHoje) {
     if (!t) return '';
     if (t.status === 'pulado') return `<div class="chart-card ia-card ia-mini"><span>Treino de hoje dispensado. Amanhã tem outro.</span><button class="btn-mini" data-act="ia-treino-voltar">Ver mesmo assim</button></div>`;
     const feito = t.status === 'feito' || feitoHoje;
+    if (feitoHoje && (state.treinosHoje || []).length) {
+        const resumo = state.treinosHoje.map(w => `${escapeHTML(w.activity_type || 'Treino')}${w.duration_min ? ' · ' + w.duration_min + ' min' : ''}`).join(' + ');
+        return `<div class="chart-card ia-card ia-feito-card">
+            <div class="chart-head"><span class="chart-title">Treino de hoje</span><span class="chart-legend">✓ feito</span></div>
+            <div class="ia-treino-titulo">Você já treinou hoje: ${resumo} ✓</div>
+            <p class="ia-porque">Mandou bem. Amanhã tem sugestão nova, pensada no que você fez hoje.</p>
+        </div>`;
+    }
     return `<div class="chart-card ia-card">
         <div class="chart-head"><span class="chart-title">${t.leve ? 'Hoje é dia leve' : 'Seu treino de hoje'}</span><span class="chart-legend">${t.minutos} min</span></div>
         <div class="ia-treino-titulo">${escapeHTML(t.titulo || '')}</div>
@@ -4505,6 +4560,12 @@ async function hydrateIAEvolucao() {
     slot.innerHTML = '<div class="chart-card ia-card ia-carregando"><div class="spinner"></div><span>O coach está montando seu dia...</span></div>';
     try {
         const l = await calcularLacunas();
+        // treinos de hoje (00:00 às 23:59 do Brasil)
+        const ini0 = new Date(); ini0.setHours(0, 0, 0, 0);
+        const { data: treinosHoje } = await sb.from('posts').select('activity_type, duration_min')
+            .eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', ini0.toISOString());
+        state.treinosHoje = treinosHoje || [];
+        if (state.treinosHoje.length) l.treinouHoje = true;
         const seg = segundaDe();
         const { data: semTreinos } = await sb.from('posts').select('created_at').eq('user_id', state.session.user.id)
             .eq('kind', 'workout').gte('created_at', new Date(seg.getTime() - 12 * 3600000).toISOString());
@@ -6245,7 +6306,7 @@ function regrasDesafioHTML(ch) {
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     return `<div class="chart-card ch-regras">
         <div class="chart-head"><span class="chart-title">Regras e pontos</span></div>
-        <p class="ch-regra-base">Vale o que você fizer de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. Seus pontos normais do app continuam valendo, mas o ranking do desafio conta só esse período.</p>
+        <p class="ch-regra-base">Vale o que você fizer de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. Seus pontos normais do app continuam valendo, mas o ranking do desafio conta só esse período. A <b>ofensiva do desafio</b> começa do zero quando você entra nele.</p>
         ${ch.rules ? `<div class="ch-regras-dono"><span>Combinados de quem criou</span><p>${escapeHTML(ch.rules).replace(/\n/g, '<br>')}</p></div>` : ''}
         <div class="ch-pontos">${TABELA_PONTOS.map(([e, n, v]) => `<div class="ch-ponto"><span>${e}</span><b>${n}</b><em>${v}</em></div>`).join('')}</div>
         <button class="btn-mini" data-act="go-rules" style="margin-top:10px">Ver todas as regras de pontos</button>
@@ -6484,7 +6545,7 @@ async function hydrateGrupoHoje(ch, ranking) {
     const [{ data: treinos }, { data: ofensivas }] = await Promise.all([
         sb.from('posts').select('user_id, activity_type, duration_min, distance_km, created_at')
             .in('user_id', ids).eq('kind', 'workout').gte('created_at', ini.toISOString()).order('created_at', { ascending: false }).limit(30),
-        sb.from('daily_streaks').select('user_id, current_streak').in('user_id', ids),
+        sb.rpc('challenge_streaks', { cid: ch.id }),
     ]);
     if (!document.getElementById('pdGrupo')) return;
     const nome = id => { const u = ranking.find(x => x.user_id === id); return id === state.session.user.id ? 'Você' : escapeHTML(String((u && u.display_name) || '').split(' ')[0]); };
@@ -6495,8 +6556,8 @@ async function hydrateGrupoHoje(ch, ranking) {
         itens.push({ id: t.user_id, quando: t.created_at, txt: `${WORKOUT_EMOJI[t.activity_type] || '💪'} ${nome(t.user_id)} ${t.activity_type === 'Corrida' ? 'correu' : 'treinou'} ${km ? String(km).replace('.', ',') + ' km · ' : ''}${t.duration_min || 0} min` });
     });
     const MARCOS = [3, 7, 14, 21, 30, 60, 100];
-    (ofensivas || []).filter(o => MARCOS.includes(o.current_streak)).forEach(o => {
-        itens.push({ id: o.user_id, quando: null, txt: `🔥 ${nome(o.user_id)} ${o.user_id === state.session.user.id ? 'chegou' : 'chegou'} a ${o.current_streak} dias de ofensiva` });
+    (ofensivas || []).filter(o => MARCOS.includes(o.atual)).forEach(o => {
+        itens.push({ id: o.user_id, quando: null, txt: `🔥 ${nome(o.user_id)} chegou a ${o.atual} dias de ofensiva no desafio` });
     });
     box.innerHTML = itens.length ? itens.slice(0, 12).map(it => `<div class="pd-grupo-item">
         ${avatar(it.id)}
@@ -8846,6 +8907,8 @@ document.addEventListener('click', async e => {
         if (ligado) {
             await desligarPush();
             localStorage.setItem('pulso-reminder', 'off');
+            sb.from('profiles').update({ reminders_on: false }).eq('id', state.session.user.id).then(() => {});
+            state.profile.reminders_on = false;
             toast('Lembretes desligados', 'ok');
         } else {
             let perm = Notification.permission;
@@ -8853,6 +8916,8 @@ document.addEventListener('click', async e => {
             if (perm !== 'granted') { toast('Seu navegador bloqueou os avisos', 'err'); return; }
             const ok = await ligarPush();
             localStorage.setItem('pulso-reminder', 'on');
+            sb.from('profiles').update({ reminders_on: true }).eq('id', state.session.user.id).then(() => {});
+            state.profile.reminders_on = true;
             toast(ok
                 ? 'Pronto. Os lembretes chegam mesmo com o app fechado.'
                 : 'Lembretes ligados. Nesse aparelho eles aparecem quando você abrir o app.', 'ok');
@@ -10125,11 +10190,13 @@ function showCurrentStory() {
     }
 
     // Handlers nav
-    document.getElementById('svPrev').onclick = () => advanceStory(-1);
-    document.getElementById('svNext').onclick = () => advanceStory(1);
+    ligarToqueStory(document.getElementById('svPrev'), -1);
+    ligarToqueStory(document.getElementById('svNext'), 1);
 
     // Auto-avança em 6s (só se não tem imagem, senão espera load)
     clearTimeout(state.storyTimer);
+    state.storyRestante = 6000;
+    state.storyInicio = Date.now();
     state.storyTimer = setTimeout(() => advanceStory(1), 6000);
 }
 
@@ -10324,6 +10391,50 @@ async function abrirEscolhaDestaque(item) {
 }
 
 // Pausa o story enquanto a lista de quem viu está aberta
+// Toque rápido passa o story; segurar o dedo pausa (igual ao Instagram)
+function ligarToqueStory(zona, direcao) {
+    if (!zona) return;
+    let timerSegurar = null, segurou = false;
+    const soltar = () => {
+        clearTimeout(timerSegurar);
+        if (segurou) {
+            segurou = false;
+            $('#storyViewer').classList.remove('segurando');
+            retomarStoryDoPonto();
+        }
+    };
+    zona.addEventListener('pointerdown', () => {
+        segurou = false;
+        timerSegurar = setTimeout(() => {
+            segurou = true;
+            $('#storyViewer').classList.add('segurando');
+            pausarStoryNoPonto();
+        }, 220);
+    });
+    zona.addEventListener('pointerup', e => {
+        if (segurou) { e.preventDefault(); soltar(); return; }
+        clearTimeout(timerSegurar);
+        advanceStory(direcao);
+    });
+    zona.addEventListener('pointerleave', soltar);
+    zona.addEventListener('pointercancel', soltar);
+    zona.addEventListener('contextmenu', e => e.preventDefault());
+}
+// Pausa guardando quanto tempo falta, pra continuar do mesmo ponto
+function pausarStoryNoPonto() {
+    clearTimeout(state.storyTimer);
+    const decorrido = Date.now() - (state.storyInicio || Date.now());
+    state.storyRestante = Math.max(300, (state.storyRestante || 6000) - decorrido);
+    $('#storyViewer').classList.add('paused');
+}
+function retomarStoryDoPonto() {
+    $('#storyViewer').classList.remove('paused');
+    if (!$('#storyViewer').classList.contains('on')) return;
+    state.storyInicio = Date.now();
+    clearTimeout(state.storyTimer);
+    state.storyTimer = setTimeout(() => advanceStory(1), state.storyRestante || 6000);
+}
+
 function pausarStory() {
     clearTimeout(state.storyTimer);
     $('#storyViewer').classList.add('paused');
@@ -10724,7 +10835,7 @@ function handlePhotoPick(e) {
     $('#pPhotoPreview').src = url;
     $('#pPhotoPreview').classList.add('on');
     $('#pPhotoClear').classList.remove('hidden');
-    if (state.composerKind === 'workout') state.composerDest = 'feed';
+    // treino com foto continua só no registro; vai pro feed só se a pessoa escolher
     const lerBtn = $('#lerPrintBtn');
     if (lerBtn) lerBtn.classList.toggle('hidden', !(state.composerKind === 'workout' && state.composerPhoto));
     updateDestUI();
@@ -10849,6 +10960,8 @@ $('#composerSubmit').addEventListener('click', async () => {
             const horas = parseFloat($('#skHours').value);
             const dia = $('#skDate').value;
             if (isNaN(horas) || horas < 0 || horas > 16) { toast('Informe entre 0 e 16 horas', 'err'); return; }
+            const limite = isoDe(new Date(Date.now() - 7 * 86400000));
+            if (!dia || dia > hojeISO() || dia < limite) { toast('Dá pra registrar ou ajustar o sono só dos últimos 7 dias.', 'err'); return; }
 
             const { error: erroSono } = await sb.from('sleep_logs').upsert({
                 user_id: state.session.user.id, slept_on: dia, hours: horas,
@@ -11078,6 +11191,11 @@ $('#composerSubmit').addEventListener('click', async () => {
 // INIT
 // ============================================================
 async function boot() {
+    if (boot.rodando) return;
+    boot.rodando = true;
+    try { await bootInterno(); } finally { boot.rodando = false; }
+}
+async function bootInterno() {
     try {
         const q = new URLSearchParams(location.search);
         const u = q.get('u') || q.get('seguir');
@@ -11151,6 +11269,7 @@ async function boot() {
     carregarSalvos();
     setTimeout(enviarFilaOffline, 3000);
     setTimeout(atualizarBadgeDesafio, 2500);
+    setTimeout(talvezConvidarLembretes, 4000);
     checkDailyReminder();
     setTimeout(checarRevisaoObjetivo, 2500);
 
