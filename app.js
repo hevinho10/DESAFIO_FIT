@@ -6434,7 +6434,8 @@ async function renderPainelDesafio(cidEscolhido) {
         <span class="pd-rank-pts">${Math.round(u.points)}</span>
     </div>`;
 
-    const abaPd = ch.team_mode ? ((state.abaDesafio || {})[ch.id] || 'times') : 'individual';
+    // o foco é sempre o ranking individual; Times fica a um toque
+    const abaPd = ch.team_mode ? ((state.abaDesafio || {})[ch.id] || 'individual') : 'individual';
     c.innerHTML = `<div class="view painel-desafio">
         <div class="pd-head">
             ${meus.length > 1 ? `<button class="pd-voltar" data-act="pd-lista" aria-label="Seus desafios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>` : ''}
