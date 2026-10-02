@@ -770,6 +770,12 @@ async function renderAdmin() {
                 <div style="width:28px"></div>
             </div>
 
+            <div class="evo-abas adm-abas">
+                ${[['geral', 'Visão geral'], ['cadastros', 'Cadastros'], ['usuarios', 'Usuários'], ['ferramentas', 'Ferramentas']].map(([k, n]) =>
+                    `<button class="evo-aba${(state.abaAdmin || 'geral') === k ? ' on' : ''}" data-act="adm-aba" data-aba="${k}">${n}</button>`).join('')}
+            </div>
+
+            <div class="adm-painel${(state.abaAdmin || 'geral') === 'geral' ? '' : ' hidden'}" data-painel="geral">
             <div class="stat-grid">
                 <div class="stat-card"><div class="num">${o.total_usuarios||0}</div><div class="lbl">Total de usuários</div></div>
                 <div class="stat-card"><div class="num">${o.novos_7d||0}</div><div class="lbl">Novos (7 dias)</div></div>
@@ -779,7 +785,7 @@ async function renderAdmin() {
             <div class="stat-grid" style="margin-top:10px">
                 <div class="stat-card"><div class="num">${o.total_treinos||0}</div><div class="lbl">Treinos totais</div></div>
                 <div class="stat-card"><div class="num">${o.total_refeicoes||0}</div><div class="lbl">Refeições totais</div></div>
-                <div class="stat-card"><div class="num">${o.nota_media_refeicoes||'-'}</div><div class="lbl">Nota média pratos</div></div>
+                <div class="stat-card"><div class="num">${o.nota_media_refeicoes ? br(o.nota_media_refeicoes) : '-'}</div><div class="lbl">Nota média pratos</div></div>
                 <div class="stat-card"><div class="num">${o.maior_streak_atual||0}</div><div class="lbl">Maior streak ativo</div></div>
             </div>
             <div class="health-card" style="text-align:center">
@@ -789,40 +795,63 @@ async function renderAdmin() {
                 </div>
             </div>
 
-            <h3 class="edit-section-title" style="margin-top:22px">Novos cadastros</h3>
-            <div id="cadastrosBox"><div class="spinner"></div></div>
-
-            <h3 class="edit-section-title" style="margin-top:22px">Uso do app (30 dias)</h3>
+            <h3 class="edit-section-title" style="margin-top:22px">Uso do app</h3>
             <div id="metricasBox"><div class="spinner"></div></div>
 
             <h3 class="edit-section-title" style="margin-top:22px">Quem volta</h3>
             <div id="retencaoBox"><div class="spinner"></div></div>
+            </div>
 
-            <h3 class="edit-section-title" style="margin-top:22px">Backup</h3>
+            <div class="adm-painel${state.abaAdmin === 'cadastros' ? '' : ' hidden'}" data-painel="cadastros">
+            <div id="cadastrosBox"><div class="spinner"></div></div>
+            </div>
+
+            <div class="adm-painel${state.abaAdmin === 'ferramentas' ? '' : ' hidden'}" data-painel="ferramentas">
+            <h3 class="edit-section-title">Backup</h3>
             <div class="chart-card">
                 <p class="faixa-txt" style="margin-top:0">Baixa uma cópia dos dados do app (perfis, registros, desafios, stories) num arquivo. As fotos não entram no arquivo; elas continuam guardadas no Supabase. Faça pelo menos uma vez por semana e guarde num lugar seguro (Google Drive, por exemplo).</p>
                 <button class="btn-mini" data-act="admin-backup" style="margin-top:12px">Baixar backup agora</button>
                 <p class="faixa-nota" id="backupInfo"></p>
             </div>
 
-            <h3 class="edit-section-title" style="margin-top:22px">Usuários por score</h3>
+            </div>
+
+            <div class="adm-painel${state.abaAdmin === 'usuarios' ? '' : ' hidden'}" data-painel="usuarios">
+            <h3 class="edit-section-title">Usuários por score</h3>
             <div class="admin-user-list">${usersHTML}</div>
+            </div>
         </div>
     `;
 
-    hydrateNovosCadastros();
+    hydrateNovosCadastros().then(() => {
+        const n = document.querySelectorAll('#cadastrosBox [data-status="aprovado"]').length - document.querySelectorAll('#cadastrosBox details [data-status="aprovado"]').length;
+        const aba = document.querySelector('.adm-abas [data-aba="cadastros"]');
+        if (aba && n > 0) aba.innerHTML = `Cadastros <span class="cfg-aviso">${n}</span>`;
+    });
 
     // Métricas de uso
     sb.rpc('admin_metrics').then(({ data: m, error }) => {
         const mb = document.getElementById('metricasBox');
         if (!mb) return;
         if (error || !m) { mb.innerHTML = `<p class="faixa-nota">Não consegui carregar as métricas${error ? ': ' + escapeHTML(error.message) : ''}.</p>`; return; }
-        const dau = (m.dau || []).map(r => ({ label: new Date(r.d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit' }), value: r.n, tip: `${new Date(r.d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}: ${r.n} pessoas` }));
+        let serie = m.dau || [];
+        const primeiro = serie.findIndex(r => r.n > 0);
+        if (primeiro > 0) serie = serie.slice(primeiro);           // começa no primeiro dia com uso
+        const passo = serie.length > 21 ? 5 : serie.length > 10 ? 3 : 1; // datas sem amontoar
+        const dau = serie.map((r, i) => {
+            const dt = new Date(r.d + 'T12:00:00');
+            const mostra = (serie.length - 1 - i) % passo === 0;
+            return {
+                label: mostra ? dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '',
+                value: r.n, txt: r.n ? String(r.n) : '0',
+                tip: `${dt.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}: ${r.n} ${r.n === 1 ? 'pessoa' : 'pessoas'}`,
+            };
+        });
         const u = m.uso || {};
         const media = dau.length ? Math.round(dau.reduce((t, x) => t + x.value, 0) / dau.length * 10) / 10 : 0;
         mb.innerHTML = `<div class="chart-card">
-            <div class="chart-head"><span class="chart-title">Pessoas ativas por dia</span><span class="chart-legend">média ${String(media).replace('.', ',')}</span></div>
-            ${barChart(dau.slice(-30), { height: 120 })}
+            <div class="chart-head"><span class="chart-title">Pessoas ativas por dia</span><span class="chart-legend">média ${String(media).replace('.', ',')} · ${dau.length} dias</span></div>
+            ${barChart(dau.slice(-30), { height: 130, mostrarZero: true })}
             <div class="chart-foot">Ativos na semana: <b>${m.wau || 0}</b> · no mês: <b>${m.mau || 0}</b> · voltaram depois de 7 dias: <b>${m.ret7 != null ? m.ret7 + '%' : '-'}</b> · depois de 30: <b>${m.ret30 != null ? m.ret30 + '%' : '-'}</b></div>
         </div>
         <div class="mini-stats" style="margin-top:10px">
@@ -2432,6 +2461,9 @@ async function renderNotifications() {
         } else if (n.kind === 'convite_premiado') {
             emo = '🎁'; texto = `<b>${quem}</b> registrou o primeiro treino. Você ganhou 10 pontos pelo convite`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'acesso_liberado') {
+            emo = '🎉'; texto = `Seu acesso ao Pulso foi liberado. Bem-vindo!`;
+            act = ` data-act="m-go" data-view="feed"`;
         } else if (n.kind === 'cadastro_pendente') {
             emo = '🆕'; texto = `<b>${quem}</b> se cadastrou e está esperando você liberar o acesso`;
             act = ` data-act="m-go" data-view="admin"`;
@@ -4061,7 +4093,7 @@ function barChart(bars, opts = {}) {
         const fill = b.value >= (opts.goal || Infinity) ? 'var(--vital)' : 'var(--bg-elev)';
         const stroke = b.value >= (opts.goal || Infinity) ? 'none' : 'var(--line)';
         return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${Math.max(2,h).toFixed(1)}" rx="4" fill="${fill}" stroke="${stroke}" stroke-width="1"/>
-                ${b.value > 0 ? `<text x="${(x + barW/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--ink-dim)">${b.txt ?? b.value}</text>` : ''}
+                ${b.value > 0 || opts.mostrarZero ? `<text x="${(x + barW/2).toFixed(1)}" y="${(y - 4).toFixed(1)}" text-anchor="middle" font-size="9" fill="var(--ink-faint)">${b.txt ?? b.value}</text>` : ''}
                 <text x="${(x + barW/2).toFixed(1)}" y="${H - 6}" text-anchor="middle" font-size="8.5" fill="var(--ink-faint)">${b.label}</text>
                 <rect class="tip-hit" x="${(pad.l + i * bw).toFixed(1)}" y="0" width="${bw.toFixed(1)}" height="${H}" fill="transparent" data-tip="${b.tip || (b.label + ': ' + b.value + (opts.unit ? ' ' + opts.unit : ''))}"/>`;
     }).join('');
@@ -6026,6 +6058,13 @@ function mostrarTelaAguardandoAcesso(status) {
         toast('Ainda aguardando a liberação. Tente mais tarde.', 'ok');
     };
     document.getElementById('teSair').onclick = async () => { await sb.auth.signOut(); tela.remove(); location.reload(); };
+    // confere sozinho de tempos em tempos, pra pessoa não precisar ficar tocando
+    clearInterval(state.timerEspera);
+    if (!bloqueado) state.timerEspera = setInterval(async () => {
+        if (!document.getElementById('telaEspera')) { clearInterval(state.timerEspera); return; }
+        const { data } = await sb.from('profiles').select('access_status').eq('id', state.session.user.id).maybeSingle();
+        if (data && data.access_status === 'aprovado') { clearInterval(state.timerEspera); tela.remove(); toast('Seu acesso foi liberado! Bem-vindo ao Pulso 🎉', 'ok'); boot(); }
+    }, 20000);
 }
 
 // ---- Painel Admin: novos cadastros ----
@@ -6062,7 +6101,7 @@ async function hydrateNovosCadastros() {
     box.innerHTML = `<div class="chart-card">
         <div class="nc-topo">
             <div><b>Exigir minha aprovação</b><small>${exige ? 'Quem se cadastra espera você liberar.' : 'Quem se cadastra entra direto.'}</small></div>
-            <button class="nc-toggle" data-act="admin-exigir-aprovacao" data-on="${exige ? '1' : '0'}" aria-label="Exigir aprovação"><span class="cfg-switch${exige ? ' on' : ''}"><i></i></span></button>
+            <button class="nc-sw${exige ? ' on' : ''}" data-act="admin-exigir-aprovacao" data-on="${exige ? '1' : '0'}" role="switch" aria-checked="${exige}" aria-label="Exigir aprovação"><i></i></button>
         </div>
         <div class="dep-secao">Aguardando aprovação (${pend.length})</div>
         ${pend.length ? pend.map(linha).join('') : '<p class="faixa-nota">Ninguém esperando agora.</p>'}
@@ -8541,6 +8580,10 @@ document.addEventListener('click', async e => {
         btn.textContent = 'refazendo...';
         try { await obterPlanoSemana(true); } catch (err) { toast('Não consegui refazer agora.', 'err'); }
         hydrateIAEvolucao();
+    } else if (act === 'adm-aba') {
+        state.abaAdmin = btn.dataset.aba;
+        $$('.adm-abas .evo-aba').forEach(b => b.classList.toggle('on', b === btn));
+        $$('.adm-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== state.abaAdmin));
     } else if (act === 'admin-acesso') {
         btn.disabled = true;
         const { error } = await sb.rpc('admin_set_access', { alvo: btn.dataset.uid, status: btn.dataset.status });
