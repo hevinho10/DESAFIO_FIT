@@ -2715,6 +2715,91 @@ function renderPrivacy() {
     `;
 }
 
+// ============================================================
+// ATALHO NA TELA INICIAL: registra quem usa instalado e convida quem não usa
+// ============================================================
+const estaInstalado = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+function tipoAparelho() {
+    const ua = navigator.userAgent || '';
+    if (/iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'iphone';
+    if (/android/i.test(ua)) return 'android';
+    return 'computador';
+}
+// Navegador "de dentro" de outro app (Instagram, Facebook, LinkedIn...): não deixa instalar
+const navegadorDeApp = () => /Instagram|FBAN|FBAV|FB_IAB|Line\/|LinkedInApp|Twitter|TikTok|GSA\//i.test(navigator.userAgent || '');
+
+async function registrarAcesso() {
+    if (!state.session) return;
+    const instalado = estaInstalado();
+    const chave = 'pulso-acesso-' + state.session.user.id;
+    // registra no máximo a cada 15 dias por aparelho; se mudou (ex: acabou de instalar), registra na hora
+    let ult = {};
+    try { ult = JSON.parse(lsGet(chave) || '{}'); } catch (_) {}
+    const modo = instalado ? 'app' : 'nav';
+    if (ult.modo === modo && ult.em && Date.now() - ult.em < 15 * 86400000) return;
+    lsSet(chave, JSON.stringify({ modo, em: Date.now() }));
+    try { await sb.rpc('registrar_acesso', { instalado, aparelho: tipoAparelho() }); } catch (_) {}
+}
+window.addEventListener('appinstalled', () => {
+    lsSet('pulso-acesso-' + (state.session ? state.session.user.id : ''), '');
+    toast('Pulso instalado na tela inicial ✓', 'ok');
+    setTimeout(registrarAcesso, 1500);
+});
+
+function convidarParaInstalar(forcar = false) {
+    if (estaInstalado()) return;
+    const ap = tipoAparelho();
+    if (ap === 'computador' && !state.deferredPrompt) return;
+    const ult = Number(lsGet('pulso-convite-instalar') || 0);
+    if (!forcar && Date.now() - ult < 7 * 86400000) return;   // no máximo 1 vez por semana
+    if (!forcar && document.querySelector('.sheet.on, #onbTela')) return;
+    lsSet('pulso-convite-instalar', String(Date.now()));
+    const old = document.getElementById('instalarSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'instalarSheet';
+    sheet.className = 'sheet on';
+    const compartilharIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
+    const somarIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>';
+    let corpo;
+    if (navegadorDeApp()) {
+        corpo = `<p class="sheet-sub">Você abriu o Pulso de dentro de outro app, e por aqui não dá pra instalar. Copie o link e abra no ${ap === 'iphone' ? '<b>Safari</b>' : '<b>Chrome</b>'}.</p>
+            <button class="btn-primary inst-ok" id="instCopiar">Copiar link do Pulso</button>`;
+    } else if (state.deferredPrompt) {
+        corpo = `<p class="sheet-sub">Fica com ícone próprio, abre em tela cheia e mais rápido, e recebe os lembretes do dia.</p>
+            <button class="btn-primary inst-ok" id="instAgora">Instalar agora</button>`;
+    } else if (ap === 'iphone') {
+        corpo = `<p class="sheet-sub">Fica com ícone próprio, abre em tela cheia e recebe os lembretes do dia. São dois toques:</p>
+            <div class="inst-passos">
+                <div class="inst-passo"><span class="inst-n">1</span><span>Toque em <b class="inst-ico">${compartilharIco}</b> <b>Compartilhar</b>, na barra do Safari</span></div>
+                <div class="inst-passo"><span class="inst-n">2</span><span>Escolha <b class="inst-ico">${somarIco}</b> <b>Adicionar à Tela de Início</b></span></div>
+            </div>
+            <button class="btn-primary inst-ok" id="instEntendi">Entendi</button>`;
+    } else {
+        corpo = `<p class="sheet-sub">No Chrome, toque nos <b>três pontinhos</b> do canto de cima e escolha <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>).</p>
+            <button class="btn-primary inst-ok" id="instEntendi">Entendi</button>`;
+    }
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <div class="inst-topo"><img src="icon-192.png" alt="" class="inst-icone"><div><h3 class="sheet-title" style="margin:0">Coloque o Pulso na tela inicial</h3></div></div>
+        ${corpo}
+        <button class="btn-ghost inst-depois" id="instDepois">Agora não</button>
+        ${ap === 'iphone' && !state.deferredPrompt && !navegadorDeApp() ? '<div class="inst-seta" aria-hidden="true"><span>a barra do Safari fica aqui embaixo</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v15M6 13l6 6 6-6"/></svg></div>' : ''}
+    </div>`;
+    document.body.appendChild(sheet);
+    const fechar = () => sheet.remove();
+    sheet.addEventListener('click', e => { if (e.target === sheet) fechar(); });
+    sheet.querySelector('#instDepois').onclick = fechar;
+    const en = sheet.querySelector('#instEntendi'); if (en) en.onclick = fechar;
+    const cp = sheet.querySelector('#instCopiar'); if (cp) cp.onclick = async () => {
+        try { await navigator.clipboard.writeText(location.origin + location.pathname); toast('Link copiado. Cole no navegador.', 'ok'); } catch (_) {}
+    };
+    const ag = sheet.querySelector('#instAgora'); if (ag) ag.onclick = async () => {
+        fechar();
+        try { state.deferredPrompt.prompt(); await state.deferredPrompt.userChoice; } catch (_) {}
+        state.deferredPrompt = null;
+    };
+}
+
 // ---- Instalar na tela inicial ----
 window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
@@ -12192,8 +12277,12 @@ async function bootInterno() {
     carregarSalvos();
     setTimeout(enviarFilaOffline, 3000);
     setTimeout(atualizarBadgeDesafio, 2500);
+    setTimeout(registrarAcesso, 2000);
     if (state.profile && state.profile.onboarding_done === false) setTimeout(() => abrirPrimeirosPassos(0), 900);
-    else setTimeout(talvezConvidarLembretes, 4000);
+    else {
+        setTimeout(talvezConvidarLembretes, 4000);
+        setTimeout(() => convidarParaInstalar(false), 9000);
+    }
     checkDailyReminder();
     setTimeout(checarRevisaoObjetivo, 2500);
 

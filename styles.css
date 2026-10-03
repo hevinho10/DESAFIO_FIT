@@ -2522,3 +2522,18 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .esq-post{ margin-top:22px; }
 .esq-grade{ display:grid; grid-template-columns:repeat(3, 1fr); gap:3px; margin-top:22px; }
 .onb-ok{ flex:none !important; }
+
+/* ================= ONDA 34: convite pra instalar ================= */
+.inst-topo{ display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.inst-icone{ width:52px; height:52px; border-radius:13px; flex-shrink:0; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+.inst-passos{ display:flex; flex-direction:column; gap:10px; margin:6px 0 16px; }
+.inst-passo{ display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:14px; background:var(--bg-card); border:1px solid var(--line); font-size:14px; line-height:1.45; }
+.inst-n{ width:26px; height:26px; border-radius:50%; background:var(--vital-dim); color:var(--vital); font-weight:700; display:grid; place-items:center; flex-shrink:0; font-size:13px; }
+.inst-ico{ display:inline-grid; place-items:center; width:24px; height:24px; vertical-align:-6px; color:#0A84FF; }
+.inst-ico svg{ width:20px; height:20px; }
+.inst-ok{ width:100%; height:54px; border-radius:16px; }
+.inst-depois{ width:100%; margin-top:8px; }
+.inst-seta{ display:flex; justify-content:center; color:var(--vital); margin-top:6px; animation:instSeta 1.2s ease-in-out infinite; }
+.inst-seta svg{ width:30px; height:30px; }
+@keyframes instSeta{ 0%,100%{ transform:translateY(0); opacity:.6; } 50%{ transform:translateY(8px); opacity:1; } }
+.inst-seta{ flex-direction:column; align-items:center; gap:2px; margin-top:10px; } .inst-seta span{ font-size:11.5px; color:var(--ink-faint); }
