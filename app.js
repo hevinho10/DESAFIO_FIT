@@ -11157,6 +11157,8 @@ $$('.kind-tile').forEach(b => b.addEventListener('click', e => {
 
 function setComposerKind(kind) {
     state.composerKind = kind;
+    $('#composerSheet').classList.toggle('modo-treino', kind === 'workout');
+    if (kind === 'workout') montarFormTreino();
     $('#composerPick').classList.add('hidden');
     $('#composerForm').classList.remove('hidden');
     $('#composerTitle').textContent = KIND_TITLES[kind] || 'Registrar';
@@ -11217,6 +11219,98 @@ document.addEventListener('click', e => {
     }
 });
 
+// ============================================================
+// REGISTRO DE TREINO MINIMALISTA
+// ============================================================
+const ICONES_ATIVIDADE = {
+    'Musculação': '<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>',
+    'Corrida': '<circle cx="14" cy="4.5" r="1.8"/><path d="M8 21l3-6 3 2v4M6 12l3-3 4 1 3 4h3"/>',
+    'Caminhada': '<circle cx="12" cy="4.5" r="1.8"/><path d="M10 21l2-7 3 3v4M9 12l1-4 4 1 2 3"/>',
+    'Ciclismo': '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l2 7"/>',
+    'Natação': '<path d="M2 18c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5M8 13l4-5 5 3"/><circle cx="17" cy="6" r="1.8"/>',
+    'Yoga': '<circle cx="12" cy="4.5" r="1.8"/><path d="M12 7v6M5 10l7 3 7-3M8 21l4-8 4 8"/>',
+    'Dança': '<circle cx="13" cy="4.5" r="1.8"/><path d="M9 21l3-7-3-3 4-3 3 4h3M12 14l4 7"/>',
+    'Alongamento': '<circle cx="12" cy="4.5" r="1.8"/><path d="M4 9h16M12 9v6l-4 6M12 15l4 6"/>',
+    'Futebol': '<circle cx="12" cy="12" r="9"/><path d="M12 7l4 3-1.5 5h-5L8 10z"/>',
+    'Outro': '<circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>',
+};
+const NOME_CURTO_ATIV = { 'Ciclismo': 'Bike' };
+
+function montarFormTreino() {
+    // atividades em ordem do que a pessoa mais usa
+    let uso = {};
+    try { uso = JSON.parse(localStorage.getItem('pulso-uso-atividades') || '{}'); } catch (_) {}
+    const todas = [...$('#wType').options].map(o => o.value);
+    const ordem = [...todas].sort((a, b) => (uso[b] || 0) - (uso[a] || 0) || todas.indexOf(a) - todas.indexOf(b));
+    const atual = $('#wType').value;
+    $('#wTypeChips').innerHTML = ordem.map(t => `<button type="button" class="tr-chip${t === atual ? ' on' : ''}" data-tipo="${t}" role="radio" aria-checked="${t === atual}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONES_ATIVIDADE[t] || ICONES_ATIVIDADE.Outro}</svg>${NOME_CURTO_ATIV[t] || t}</button>`).join('');
+    $('#wTypeChips').scrollLeft = 0;
+    sincronizarDuracao();
+}
+function sincronizarDuracao() {
+    const v = Number($('#wDuration').value) || 45;
+    $('#wDurBig').textContent = v;
+    $$('.tr-dur-atalhos button').forEach(b => b.classList.toggle('on', Number(b.dataset.dur) === v));
+    if (state.composerKind === 'workout') updateDestUI();
+}
+function estimarPontosTreino() {
+    const dur = Number($('#wDuration').value) || 0;
+    const fator = INTENSITY[$('#wType').value] ?? 0.8;
+    let pts = Math.min(15, (dur / 6) * fator);
+    if (state.composerPhoto) pts += 3;
+    return Math.round(pts);
+}
+function atualizarFotoLegenda() {
+    const thumb = $('#capFotoThumb'), x = $('#capFotoX'), box = $('#capFoto');
+    if (!thumb) return;
+    const prev = $('#pPhotoPreview');
+    const temFoto = !!state.composerPhoto && prev && prev.getAttribute('src');
+    box.classList.toggle('com-foto', !!temFoto);
+    if (temFoto) thumb.src = prev.src; else thumb.removeAttribute('src');
+    x.classList.toggle('hidden', !temFoto);
+}
+document.getElementById('wTypeChips').addEventListener('click', e => {
+    const b = e.target.closest('[data-tipo]');
+    if (!b) return;
+    $('#wType').value = b.dataset.tipo;
+    $('#wType').dispatchEvent(new Event('change', { bubbles: true }));
+    $$('#wTypeChips .tr-chip').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
+    if (typeof atualizarCamposTreino === 'function') atualizarCamposTreino();
+    updateDestUI();
+});
+$$('.tr-dur-btn').forEach(b => b.addEventListener('click', () => {
+    const v = Math.max(5, Math.min(240, (Number($('#wDuration').value) || 45) + Number(b.dataset.durPasso)));
+    $('#wDuration').value = v;
+    $('#wDuration').dispatchEvent(new Event('input', { bubbles: true }));
+    sincronizarDuracao();
+}));
+$$('.tr-dur-atalhos button').forEach(b => b.addEventListener('click', () => {
+    $('#wDuration').value = b.dataset.dur;
+    $('#wDuration').dispatchEvent(new Event('input', { bubbles: true }));
+    sincronizarDuracao();
+}));
+$('#wDuration').addEventListener('input', () => { $('#wDurBig').textContent = $('#wDuration').value; });
+// Foto pelo ícone na legenda: o celular oferece câmera ou galeria
+$('#pPhotoUnico').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const gal = $('#pPhotoGal');
+    try {
+        const dt = new DataTransfer(); dt.items.add(f); gal.files = dt.files;
+        gal.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (_) { toast('Não consegui abrir essa foto. Tente de novo.', 'err'); }
+    e.target.value = '';
+    setTimeout(updateDestUI, 400);
+});
+$('#capFotoX').addEventListener('click', () => { const c = $('#pPhotoClear'); if (c) c.click(); setTimeout(updateDestUI, 50); });
+$('#feedSwitch').addEventListener('click', () => {
+    if (!state.composerPhoto) { toast('Adicione uma foto pra publicar no feed', 'err'); return; }
+    const alvo = state.composerDest === 'feed' ? 'log' : 'feed';
+    const b = document.querySelector(`#destSection [data-dest="${alvo}"]`);
+    if (b) b.click();
+});
+
 // ---- Registrar x Publicar no feed ----
 function updateDestUI() {
     const sec = $('#destSection');
@@ -11252,8 +11346,22 @@ function updateDestUI() {
 
     $('#privacySection').classList.toggle('hidden', isStory || isWater || isSleep || state.composerDest !== 'feed');
 
+    // modo treino: chave do feed no lugar dos dois botões
+    const sw = $('#feedSwitch');
+    if (sw) {
+        const ligado = state.composerDest === 'feed';
+        sw.classList.toggle('on', ligado);
+        sw.setAttribute('aria-checked', String(ligado));
+        sw.classList.toggle('travado', !hasPhoto);
+        $('#feedSwitchHint').textContent = hasPhoto ? (ligado ? 'Aparece no feed e nas fotos do seu perfil' : 'Fica só no seu histórico') : 'Adicione uma foto pra publicar';
+    }
+    atualizarFotoLegenda();
+
     const btn = $('#composerSubmit');
-    if (btn && !btn.disabled) {
+    if (btn && !btn.disabled && kind === 'workout') {
+        const pts = estimarPontosTreino();
+        btn.innerHTML = `${state.composerDest === 'feed' ? 'Publicar' : 'Registrar'}<span class="btn-pts">· +${pts} pts</span>`;
+    } else if (btn && !btn.disabled) {
         btn.textContent = isPost ? 'Publicar'
             : isStory ? 'Publicar Story'
             : isWater ? 'Registrar água'
@@ -11619,6 +11727,13 @@ $('#composerSubmit').addEventListener('click', async () => {
 
         await loadScore();
         const eraTreino = post.kind === 'workout';
+        if (eraTreino) {
+            try {
+                const uso = JSON.parse(localStorage.getItem('pulso-uso-atividades') || '{}');
+                uso[post.activity_type || 'Outro'] = (uso[post.activity_type || 'Outro'] || 0) + 1;
+                localStorage.setItem('pulso-uso-atividades', JSON.stringify(uso));
+            } catch (_) {}
+        }
         closeComposer();
         setTimeout(() => checarConquistas(false), 1200);
         if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);

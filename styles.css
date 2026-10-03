@@ -2355,3 +2355,50 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .ger-mais svg{ width:18px; height:18px; }
 .ger-escolha{ max-height:55vh; overflow-y:auto; margin:0 -20px; }
 .post-menu-item .tm-ponto{ width:10px; height:10px; margin:0 4px 0 4px; }
+
+/* ================= ONDA 30: registro de treino minimalista ================= */
+.tr-chips, .tr-dur, .cap-foto, .cap-foto-x, .feed-switch-row{ display:none; }
+#composerSheet.modo-treino .tr-antigo{ display:none; }
+#composerSheet.modo-treino .tr-chips{ display:flex; gap:8px; overflow-x:auto; margin:2px -20px 18px; padding:0 20px; scrollbar-width:none; }
+#composerSheet.modo-treino .tr-chips::-webkit-scrollbar{ display:none; }
+.tr-chip{ flex:none; display:flex; align-items:center; gap:7px; height:38px; padding:0 14px; border-radius:19px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); font-size:13.5px; font-weight:600; }
+.tr-chip svg{ width:16px; height:16px; }
+.tr-chip.on{ border-color:var(--vital); background:var(--vital-dim); color:var(--vital); }
+#composerSheet.modo-treino .tr-dur{ display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:18px; }
+.tr-dur-linha{ display:flex; align-items:center; gap:28px; }
+.tr-dur-btn{ width:44px; height:44px; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--ink); font-size:22px; line-height:1; }
+.tr-dur-num{ display:flex; align-items:baseline; gap:6px; min-width:96px; justify-content:center; }
+.tr-dur-num span{ font-family:var(--ff-display); font-size:52px; font-weight:700; letter-spacing:-.02em; line-height:1; }
+.tr-dur-num small{ font-size:16px; color:var(--ink-dim); font-weight:500; }
+.tr-dur-atalhos{ display:flex; gap:8px; }
+.tr-dur-atalhos button{ width:56px; height:34px; border-radius:17px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); font-size:13px; font-weight:600; }
+.tr-dur-atalhos button.on{ border-color:var(--vital); background:var(--vital-dim); color:var(--vital); }
+
+/* legenda com a foto dentro */
+#composerSheet.modo-treino #captionLabel{ display:none; }
+#composerSheet.modo-treino .cap-box{ position:relative; }
+#composerSheet.modo-treino .cap-box textarea{ min-height:64px; padding-right:64px; }
+#composerSheet.modo-treino .cap-foto{ position:absolute; right:8px; top:50%; transform:translateY(-50%); width:44px; height:44px; border-radius:12px; background:rgba(255,255,255,.06); color:var(--ink-dim); display:grid; place-items:center; cursor:pointer; overflow:hidden; }
+:root[data-theme="light"] #composerSheet.modo-treino .cap-foto{ background:rgba(0,0,0,.05); }
+.cap-foto svg{ width:20px; height:20px; }
+.cap-foto img{ display:none; width:100%; height:100%; object-fit:cover; }
+.cap-foto.com-foto svg{ display:none; }
+.cap-foto.com-foto img{ display:block; }
+#composerSheet.modo-treino .cap-foto-x{ display:grid; position:absolute; right:2px; top:calc(50% - 30px); width:22px; height:22px; border-radius:50%; border:none; background:var(--ink); color:var(--bg); font-size:14px; line-height:1; place-items:center; padding:0; }
+#composerSheet.modo-treino .cap-foto-x.hidden{ display:none; }
+/* some a caixa grande de foto (o "Preencher pelo print" continua) */
+#composerSheet.modo-treino .file-drop{ border:none; padding:0; background:none; min-height:0; }
+#composerSheet.modo-treino .file-drop > label, #composerSheet.modo-treino .photo-btn-row, #composerSheet.modo-treino .preview-wrap{ display:none; }
+
+/* chave do feed no lugar dos dois botões */
+#composerSheet.modo-treino #destSection, #composerSheet.modo-treino #destHint{ display:none; }
+#composerSheet.modo-treino .feed-switch-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:4px 0 6px; }
+.feed-switch-row span{ display:block; font-size:15px; font-weight:600; }
+.feed-switch-row small{ display:block; font-size:12px; color:var(--ink-faint); margin-top:2px; }
+.nc-sw.travado{ opacity:.45; }
+
+/* um botão só, com os pontos */
+#composerSheet.modo-treino #composerCancel{ display:none; }
+#composerSheet.modo-treino .composer-actions .sheet-footer, #composerSheet.modo-treino .sheet-footer{ grid-template-columns:1fr; }
+#composerSheet.modo-treino #composerSubmit{ width:100%; height:56px; border-radius:18px; font-size:16px; }
+.btn-pts{ opacity:.7; margin-left:6px; font-weight:600; }

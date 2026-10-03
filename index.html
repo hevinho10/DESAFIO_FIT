@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261021">
+<link rel="stylesheet" href="styles.css?v=20261022">
 </head>
 <body>
 
@@ -201,7 +201,18 @@
         </div>
 
         <div id="workoutFields">
-            <div class="field-row">
+            <div class="tr-chips" id="wTypeChips" role="radiogroup" aria-label="Atividade"></div>
+            <div class="tr-dur">
+                <div class="tr-dur-linha">
+                    <button type="button" class="tr-dur-btn" data-dur-passo="-5" aria-label="Menos 5 minutos">−</button>
+                    <div class="tr-dur-num"><span id="wDurBig">45</span><small>min</small></div>
+                    <button type="button" class="tr-dur-btn" data-dur-passo="5" aria-label="Mais 5 minutos">+</button>
+                </div>
+                <div class="tr-dur-atalhos">
+                    <button type="button" data-dur="30">30</button><button type="button" data-dur="45">45</button><button type="button" data-dur="60">60</button><button type="button" data-dur="90">90</button>
+                </div>
+            </div>
+            <div class="field-row tr-antigo">
                 <div class="field">
                     <label>Atividade</label>
                     <select id="wType">
@@ -295,7 +306,15 @@
 
         <div class="field">
             <label id="captionLabel">Legenda (opcional)</label>
-            <textarea id="pCaption" maxlength="500" placeholder="Conta pra gente como foi..."></textarea>
+            <div class="cap-box">
+                <textarea id="pCaption" maxlength="500" placeholder="Conta pra gente como foi..."></textarea>
+                <label class="cap-foto" id="capFoto" aria-label="Adicionar foto">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                    <img id="capFotoThumb" alt="">
+                    <input type="file" id="pPhotoUnico" accept="image/*" hidden>
+                </label>
+                <button type="button" class="cap-foto-x hidden" id="capFotoX" aria-label="Tirar foto">×</button>
+            </div>
         </div>
 
         <div class="file-drop">
@@ -323,6 +342,10 @@
             <button type="button" class="dest-btn" data-dest="feed"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l16-7-7 16-2-7-7-2z"/></svg></span><span>Publicar no feed</span></button>
         </div>
         <p id="destHint" class="dest-hint"></p>
+        <div class="feed-switch-row" id="feedSwitchRow">
+            <div><span>Publicar no feed</span><small id="feedSwitchHint">Adicione uma foto pra publicar</small></div>
+            <button type="button" class="nc-sw" id="feedSwitch" role="switch" aria-checked="false" aria-label="Publicar no feed"><i></i></button>
+        </div>
 
         <div id="privacySection">
             <button type="button" id="privacyChip" class="privacy-chip" aria-haspopup="menu" aria-expanded="false">
@@ -454,6 +477,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=20261021"></script>
+<script src="app.js?v=20261022"></script>
 </body>
 </html>
