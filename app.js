@@ -5929,7 +5929,7 @@ async function dadosDaSemana() {
     return {
         versiculo: versiculoDaSemana(),
         titulo: 'Minha semana',
-        subtitulo: `${ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fimSem.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
+        subtitulo: `${ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${new Date(Math.min(+fimSem, Date.now())).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
         candidatos,
         ini, treinos: diasTreino(atual), treinosAnt: diasTreino(ant),
         minutos: atual.filter(x => x.kind === 'workout').reduce((t, x) => t + (x.duration_min || 0), 0),
@@ -5955,10 +5955,11 @@ function janelaDoResumo() {
 }
 // Um versículo por semana, sorteado e guardado (o card e a imagem mostram o mesmo)
 function versiculoDaSemana() {
-    const chave = 'pulso-versiculo-' + isoDe(semanaDoResumo());
-    let i = Number(lsGet(chave));
-    if (!(i >= 0 && i < VERSICULOS.length)) { i = Math.floor(Math.random() * VERSICULOS.length); lsSet(chave, String(i)); }
-    return VERSICULOS[i];
+    // escolhido pela pessoa + semana: cada um tem o seu, igual em qualquer aparelho
+    const semente = (state.session ? state.session.user.id : 'x') + '|' + isoDe(semanaDoResumo());
+    let hsh = 2166136261;
+    for (let k = 0; k < semente.length; k++) { hsh ^= semente.charCodeAt(k); hsh = Math.imul(hsh, 16777619); }
+    return VERSICULOS[(hsh >>> 0) % VERSICULOS.length];
 }
 
 async function hydrateResumoSemana() {
@@ -5975,7 +5976,7 @@ async function hydrateResumoSemana() {
     if (!document.getElementById('resumoSlot')) return;
     slot.innerHTML = `<div class="dc-card resumo-card">
         <button class="dc-x" data-act="fechar-resumo" data-chave="${chave}" aria-label="Fechar">×</button>
-        <div class="dc-topo"><span class="dc-emo">📊</span><div><b>Sua semana</b><small>${d.ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${new Date(d.ini.getTime() + 6 * 86400000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></div></div>
+        <div class="dc-topo"><span class="dc-emo">📊</span><div><b>Resumo da semana</b><small>${d.ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${new Date(Math.min(d.ini.getTime() + 6 * 86400000, Date.now())).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></div></div>
         <div class="resumo-grade">
             <div><b>${d.treinos}<small>/${d.meta}</small></b><span>treinos</span><em>${difTxt(d.treinos, d.treinosAnt)}</em></div>
             <div><b>${d.pontos}</b><span>pontos</span><em>${difTxt(d.pontos, d.pontosAnt)}</em></div>
@@ -5991,12 +5992,14 @@ async function hydrateResumoSemana() {
 async function hydrateSemanaEvo() {
     const slot = document.getElementById('semanaEvoSlot');
     if (!slot) return;
+    if (!janelaDoResumo()) { slot.innerHTML = ''; return; } // só de sábado 12h a segunda 19h
     const d = await dadosDaSemana();
     state.resumoSemana = d;
     if (!document.getElementById('semanaEvoSlot')) return;
-    const fim = new Date(d.ini.getTime() + 6 * 86400000);
+    const fimSemana = new Date(d.ini.getTime() + 6 * 86400000);
+    const fim = new Date(Math.min(+fimSemana, Date.now()));
     slot.innerHTML = `<div class="chart-card semana-evo">
-        <div class="chart-head"><span class="chart-title">Sua semana</span><span class="chart-legend">${d.ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span></div>
+        <div class="chart-head"><span class="chart-title">Resumo da semana</span><span class="chart-legend">${d.ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span></div>
         <div class="se-linha"><span><b>${d.treinos}</b>/${d.meta} treinos</span><span><b>${d.pontos}</b> pontos</span>${d.sono != null ? `<span><b>${String(d.sono).replace('.', ',')}</b> h de sono</span>` : ''}</div>
         <button class="btn-secondary resumo-story" data-act="resumo-story">Postar como story</button>
     </div>`;
