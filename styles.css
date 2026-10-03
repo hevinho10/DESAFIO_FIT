@@ -2544,3 +2544,4 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .ptr svg{ width:18px; height:18px; }
 .ptr.pronto{ color:var(--vital); }
 .ptr.girando svg{ animation:girar .8s linear infinite; }
+.adm-sem{ color:var(--ink-faint); font-style:italic; }

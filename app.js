@@ -756,7 +756,7 @@ async function renderAdmin() {
     const { data: acessos } = await sb.from('profiles').select('id, app_installed, last_device, last_seen_at, display_name, username, avatar_url, access_status');
     const acessoDe = {}; (acessos || []).forEach(a => { acessoDe[a.id] = a; });
     const NOME_APARELHO = { iphone: 'iPhone', android: 'Android', computador: 'computador' };
-    const comoUsa = a => !a || a.app_installed == null ? '' : a.app_installed ? ` · <span class="adm-inst">instalado${a.last_device ? ' (' + NOME_APARELHO[a.last_device] + ')' : ''}</span>` : ` · navegador${a.last_device ? ' (' + NOME_APARELHO[a.last_device] + ')' : ''}`;
+    const comoUsa = a => !a || a.app_installed == null ? ' · <span class="adm-sem">acesso ainda não registrado</span>' : a.app_installed ? ` · <span class="adm-inst">instalado${a.last_device ? ' (' + NOME_APARELHO[a.last_device] + ')' : ''}</span>` : ` · navegador${a.last_device ? ' (' + NOME_APARELHO[a.last_device] + ')' : ''}`;
     const sumidosAcesso = (acessos || []).filter(a => a.id !== state.session.user.id && (a.access_status || 'aprovado') === 'aprovado'
         && a.last_seen_at && Date.now() - new Date(a.last_seen_at) > 15 * 86400000)
         .sort((x, y) => new Date(x.last_seen_at) - new Date(y.last_seen_at));
