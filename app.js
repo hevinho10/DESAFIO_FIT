@@ -753,6 +753,13 @@ async function renderAdmin() {
         sb.from('profiles').select('id').eq('can_create_challenges', true),
     ]);
     const podeCriar = new Set((criadores || []).map(x => x.id));
+    const { data: acessos } = await sb.from('profiles').select('id, app_installed, last_device, last_seen_at, display_name, username, avatar_url, access_status');
+    const acessoDe = {}; (acessos || []).forEach(a => { acessoDe[a.id] = a; });
+    const NOME_APARELHO = { iphone: 'iPhone', android: 'Android', computador: 'computador' };
+    const comoUsa = a => !a || a.app_installed == null ? '' : a.app_installed ? ` · <span class="adm-inst">instalado${a.last_device ? ' (' + NOME_APARELHO[a.last_device] + ')' : ''}</span>` : ` · navegador${a.last_device ? ' (' + NOME_APARELHO[a.last_device] + ')' : ''}`;
+    const sumidosAcesso = (acessos || []).filter(a => a.id !== state.session.user.id && (a.access_status || 'aprovado') === 'aprovado'
+        && a.last_seen_at && Date.now() - new Date(a.last_seen_at) > 15 * 86400000)
+        .sort((x, y) => new Date(x.last_seen_at) - new Date(y.last_seen_at));
 
     if (ovErr) { c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro: ${ovErr.message}</p></div>`; return; }
     const o = ov?.[0] || {};
@@ -764,7 +771,7 @@ async function renderAdmin() {
             ${avatarHTML(u, 'sm')}
             <div class="admin-user-info">
                 <div class="admin-user-name">${escapeHTML(u.display_name)} <span class="admin-user-uname">@${escapeHTML(u.username)}</span></div>
-                <div class="admin-user-meta">${u.total_posts} posts · ${u.current_streak} · ativo ${lastActive}</div>
+                <div class="admin-user-meta">${u.total_posts} posts · ${u.current_streak} · ativo ${lastActive}${comoUsa(acessoDe[u.id])}</div>
             </div>
             <div class="admin-user-score">${Math.round(u.score)}</div>
             ${u.id !== state.session.user.id ? `<button class="criador-toggle${podeCriar.has(u.id) ? ' on' : ''}" data-act="toggle-creator" data-uid="${u.id}" data-on="${podeCriar.has(u.id) ? '1' : '0'}">${podeCriar.has(u.id) ? 'Cria desafios' : 'Liberar desafios'}</button>` : ''}
@@ -809,6 +816,16 @@ async function renderAdmin() {
 
             <h3 class="edit-section-title" style="margin-top:22px">Quem volta</h3>
             <div id="retencaoBox"><div class="spinner"></div></div>
+
+            <h3 class="edit-section-title" style="margin-top:22px">Sem abrir o app há 15+ dias</h3>
+            <div class="chart-card">
+                ${sumidosAcesso.length ? sumidosAcesso.map(a => `<div class="nc-user">
+                    <span data-act="view-user" data-uid="${a.id}">${avatarHTML(a, 'sm')}</span>
+                    <div class="nc-info" data-act="view-user" data-uid="${a.id}"><b>${escapeHTML(a.display_name || '')}</b><small>sem abrir há uns ${Math.floor((Date.now() - new Date(a.last_seen_at)) / 86400000)} dias</small></div>
+                    <button class="btn-mini" data-act="start-chat" data-uid="${a.id}" data-name="${escapeHTML(a.display_name || '')}" data-username="${escapeHTML(a.username || '')}" data-avatar="${a.avatar_url || ''}">Mandar mensagem</button>
+                </div>`).join('') : '<p class="faixa-nota">Todo mundo abriu o app nos últimos 15 dias. 🎉</p>'}
+                <p class="faixa-nota">Conta a partir do último acesso registrado (o app registra a cada 15 dias).</p>
+            </div>
             </div>
 
             <div class="adm-painel${state.abaAdmin === 'cadastros' ? '' : ' hidden'}" data-painel="cadastros">
@@ -2496,8 +2513,23 @@ async function renderNotifications() {
         sb.rpc('list_follow_requests'),
         sb.rpc('list_app_notifications'),
     ]);
-    const data = [...(base || []), ...(extras || [])]
+    const tudo = [...(base || []), ...(extras || [])]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    // agrupa curtidas e comentários do mesmo post: "Maria e mais 4 pessoas curtiram"
+    const data = [];
+    const grupos = {};
+    tudo.forEach(n => {
+        if ((n.kind === 'reaction' || n.kind === 'comment') && n.post_id) {
+            const k = n.kind + '|' + n.post_id;
+            if (grupos[k]) {
+                if (n.actor_id && !grupos[k].atores.has(n.actor_id)) { grupos[k].atores.add(n.actor_id); grupos[k].n.outros++; }
+                return;
+            }
+            n.outros = 0;
+            grupos[k] = { n, atores: new Set([n.actor_id]) };
+        }
+        data.push(n);
+    });
     const box = $('#notifList');
     if (!box) return;
     if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
@@ -2532,11 +2564,12 @@ async function renderNotifications() {
         const quem = escapeHTML(n.actor_name || 'Alguém');
         const autor = { id: n.actor_id, display_name: n.actor_name, username: n.actor_username, avatar_url: n.actor_avatar };
         let texto, emo, act = '', extra = '';
+        const mais = n.outros > 0 ? ` e mais ${n.outros} ${n.outros === 1 ? 'pessoa' : 'pessoas'}` : '';
         if (n.kind === 'comment') {
-            emo = '💬'; texto = `<b>${quem}</b> comentou no seu post`;
+            emo = '💬'; texto = `<b>${quem}</b>${mais} ${n.outros > 0 ? 'comentaram' : 'comentou'} no seu post`;
             act = ` data-act="view-post" data-id="${n.post_id}"`;
         } else if (n.kind === 'reaction') {
-            emo = '❤️'; texto = `<b>${quem}</b> curtiu seu post`;
+            emo = '❤️'; texto = `<b>${quem}</b>${mais} ${n.outros > 0 ? 'curtiram' : 'curtiu'} seu post`;
             act = ` data-act="view-post" data-id="${n.post_id}"`;
         } else if (n.kind === 'follow') {
             emo = '👤'; texto = `<b>${quem}</b> começou a te seguir`;
@@ -2565,6 +2598,11 @@ async function renderNotifications() {
         } else if (n.kind === 'depoimento_publicado') {
             emo = '✨'; texto = `<b>${quem}</b> publicou o seu depoimento no perfil`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'desafio_fim') {
+            const m = n.meta || {};
+            emo = '🏆';
+            texto = `O desafio <b>${escapeHTML(n.challenge_name || '')}</b> acabou! ${m.vencedor ? `${m.time ? 'Time ' : ''}<b>${escapeHTML(m.vencedor)}</b> venceu.` : ''}${m.posicao ? ` Você ficou em ${m.posicao}º.` : ''}`;
+            act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         } else if (n.kind === 'time_movido') {
             emo = '🔄'; texto = `Você mudou de time no desafio <b>${escapeHTML(n.challenge_name || '')}</b>. Confira seu time novo!`;
             act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
@@ -6360,6 +6398,41 @@ function esqueleto(tipo) {
     </div>`;
     return `<div class="view esq-wrap">${b('55%', 26)}${b('30%', 12, 'margin-top:8px')}${b('100%', 170, 'margin-top:18px;border-radius:20px')}${b('100%', 220, 'margin-top:14px;border-radius:20px')}</div>`;
 }
+
+// Puxar pra atualizar o feed (arrastar pra baixo no topo)
+(function puxarParaAtualizar() {
+    let inicioY = null, puxou = 0, atualizando = false;
+    const ind = document.createElement('div');
+    ind.className = 'ptr';
+    ind.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>';
+    document.body.appendChild(ind);
+    const pode = () => state.view === 'feed' && window.scrollY <= 0 && !document.querySelector('.sheet.on, .sc.on, .story-viewer.on, .posts-viewer, #onbTela');
+    window.addEventListener('touchstart', e => { inicioY = pode() && !atualizando ? e.touches[0].clientY : null; puxou = 0; }, { passive: true });
+    window.addEventListener('touchmove', e => {
+        if (inicioY == null) return;
+        puxou = Math.max(0, Math.min(110, (e.touches[0].clientY - inicioY) * 0.5));
+        if (puxou > 4) {
+            ind.style.transform = `translate(-50%, ${puxou}px) rotate(${puxou * 3}deg)`;
+            ind.style.opacity = Math.min(1, puxou / 60);
+            ind.classList.toggle('pronto', puxou >= 60);
+        }
+    }, { passive: true });
+    window.addEventListener('touchend', async () => {
+        if (inicioY == null) return;
+        inicioY = null;
+        if (puxou >= 60 && !atualizando) {
+            atualizando = true;
+            ind.classList.add('girando');
+            ind.style.transform = 'translate(-50%, 60px)';
+            try { await renderFeed(); } catch (_) {}
+            atualizando = false;
+            ind.classList.remove('girando', 'pronto');
+        }
+        ind.style.transform = 'translate(-50%, 0)';
+        ind.style.opacity = 0;
+        puxou = 0;
+    });
+})();
 
 // ---- Lista rolável de posts (ao tocar numa foto do perfil ou dos salvos) ----
 async function abrirListaDePosts(ids, inicio) {
@@ -12278,6 +12351,8 @@ async function bootInterno() {
     setTimeout(enviarFilaOffline, 3000);
     setTimeout(atualizarBadgeDesafio, 2500);
     setTimeout(registrarAcesso, 2000);
+    // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
+    setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
     if (state.profile && state.profile.onboarding_done === false) setTimeout(() => abrirPrimeirosPassos(0), 900);
     else {
         setTimeout(talvezConvidarLembretes, 4000);
