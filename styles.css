@@ -2402,3 +2402,44 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 #composerSheet.modo-treino .composer-actions .sheet-footer, #composerSheet.modo-treino .sheet-footer{ grid-template-columns:1fr; }
 #composerSheet.modo-treino #composerSubmit{ width:100%; height:56px; border-radius:18px; font-size:16px; }
 .btn-pts{ opacity:.7; margin-left:6px; font-weight:600; }
+
+/* ================= ONDA 31: treino, resumo e detalhes ================= */
+/* legenda some no treino */
+#composerSheet.modo-treino .cap-box, #composerSheet.modo-treino #pCaption{ display:none; }
+#composerSheet.modo-treino #pCaption + *{ }
+#composerSheet.modo-treino .field:has(> .cap-box){ display:none; }
+/* grupos musculares: 4 por linha, alinhados */
+.musc-grade{ display:grid !important; grid-template-columns:repeat(4, 1fr); gap:6px; }
+.musc-grade .chip{ width:100%; padding:0 4px; justify-content:center; text-align:center; font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* distância com contador */
+.tr-km, .tr-km-sem{ display:none; }
+#composerSheet.modo-treino #wDistance{ display:none; }
+#composerSheet.modo-treino #wDistField > label{ font-size:12.5px; color:var(--ink-dim); }
+#composerSheet.modo-treino .tr-km{ display:flex; align-items:center; justify-content:center; gap:28px; margin:4px 0 2px; }
+.tr-km-num{ display:flex; align-items:baseline; gap:6px; min-width:96px; justify-content:center; }
+.tr-km-num span{ font-family:var(--ff-display); font-size:36px; font-weight:700; line-height:1; }
+.tr-km-num small{ font-size:14px; color:var(--ink-dim); }
+#composerSheet.modo-treino .tr-km-sem{ display:block; margin:2px auto 0; border:none; background:none; color:var(--ink-faint); font-size:12px; text-decoration:underline; text-underline-offset:3px; }
+#composerSheet.modo-treino #wDistField.sem-km .tr-km-num span{ color:var(--ink-faint); }
+#composerSheet.modo-treino #wPace{ text-align:center; margin-top:4px; }
+/* foto na linha do feed */
+#composerSheet.modo-treino .feed-switch-row{ display:grid; grid-template-columns:48px 1fr auto; gap:12px; }
+.fs-foto{ position:relative; width:48px; height:48px; }
+#composerSheet.modo-treino .fs-foto .cap-foto{ position:static; transform:none; width:48px; height:48px; display:grid; }
+#composerSheet.modo-treino .fs-foto .cap-foto-x{ top:-6px; right:-6px; }
+.fs-txt{ min-width:0; }
+/* resumo semanal */
+.resumo-verso{ margin:12px 0 2px; font-size:13px; font-style:italic; color:var(--ink-dim); line-height:1.5; text-align:center; }
+.resumo-verso span{ display:block; font-style:normal; font-size:11.5px; color:var(--vital); font-weight:600; margin-top:3px; }
+.se-linha{ display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:var(--ink-dim); margin-bottom:12px; }
+.se-linha b{ color:var(--ink); font-family:var(--ff-display); font-size:16px; }
+/* data do sono por extenso */
+.data-br{ position:relative; display:flex; align-items:center; justify-content:space-between; height:46px; padding:0 14px; border-radius:12px; background:var(--bg-input); border:1px solid var(--line); font-size:15px; font-weight:600; }
+.data-br svg{ width:18px; height:18px; color:var(--ink-dim); }
+.data-br input[type="date"]{ position:absolute; inset:0; width:100%; height:100%; opacity:0; border:none; padding:0; margin:0; cursor:pointer; -webkit-appearance:none; appearance:none; }
+/* depoimento: chamada discreta */
+.dep-escrever{ display:flex !important; align-items:center; gap:10px; width:100%; height:48px; margin:2px 0 14px !important; padding:0 16px !important; border-radius:14px !important; border:1px solid var(--line) !important; background:var(--bg-card) !important; color:var(--ink-faint) !important; font-size:14px !important; font-weight:500 !important; text-align:left; }
+.dep-escrever svg{ width:18px; height:18px; flex-shrink:0; color:var(--ink-dim); }
+.dep-escrever:active{ border-color:rgba(53,225,155,.4) !important; }
+.dep-texto{ font-size:15.5px; line-height:1.55; }
+.musc-grade .chip{ height:36px; line-height:34px; border-radius:18px; }

@@ -144,7 +144,12 @@ const INTENSITY = {
 };
 
 // Distância (e ritmo) ou grupos musculares, pro selo do post
-const ATIVIDADES_COM_KM = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação'];
+const ATIVIDADES_COM_KM = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Futebol'];
+// distância: valor inicial e passo do contador por atividade
+const KM_PADRAO = { 'Corrida': [3, 0.5], 'Caminhada': [2, 0.5], 'Futebol': [5, 0.5], 'Ciclismo': [10, 1], 'Natação': [1, 0.25] };
+// grupos novos contam nas categorias antigas (equilíbrio muscular e coach)
+const GRUPO_CATEGORIA = { 'Bíceps': 'Braços', 'Tríceps': 'Braços', 'Quadríceps': 'Pernas', 'Posterior': 'Pernas', 'Panturrilha': 'Pernas', 'Lombar': 'Costas' };
+const categoriasMusculares = lista => [...new Set((lista || []).map(g => GRUPO_CATEGORIA[g] || g))];
 function formatarPace(min, km) {
     if (!min || !km) return '';
     const seg = Math.round((min * 60) / km);
@@ -2198,10 +2203,26 @@ document.addEventListener('click', e => {
     document.querySelectorAll('.qual-btn').forEach(x => x.classList.toggle('on', x === b));
 });
 
+// Mostra a noite escolhida como "Ontem · 01/10/2026"
+function mostrarDataSono() {
+    const v = $('#skDate').value;
+    const el = document.getElementById('skDateTxt');
+    if (!el) return;
+    if (!v) { el.textContent = 'Escolha a noite'; return; }
+    const dt = new Date(v + 'T12:00:00');
+    const br = dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const rel = v === hojeISO() ? 'Hoje' : v === isoDe(new Date(Date.now() - 86400000)) ? 'Ontem'
+        : dt.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+    el.textContent = `${rel.charAt(0).toUpperCase() + rel.slice(1)} · ${br}`;
+}
+document.getElementById('skDate').addEventListener('change', mostrarDataSono);
+document.getElementById('skDate').addEventListener('input', mostrarDataSono);
+
 async function prepararSono() {
     const ontem = isoDe(new Date(Date.now() - 86400000)); // data do Brasil
     const campoData = $('#skDate');
     campoData.value = ontem;
+    mostrarDataSono();
     campoData.max = hojeISO();                                   // nunca no futuro
     campoData.min = isoDe(new Date(Date.now() - 7 * 86400000));  // até 7 dias pra trás
 
@@ -4226,7 +4247,7 @@ function abrirEscolhaResumo(res, nomeArquivo) {
             const btn = sheet.querySelector('#rsPrevia');
             btn.disabled = true; btn.textContent = 'Montando...';
             const itens = res.candidatos.filter(c => marcados.has(c.id)).map(c => [c.valor, c.rotulo, !!c.destaque]);
-            const blob = await imagemResumo({ titulo: res.titulo, subtitulo: res.subtitulo, itens });
+            const blob = await imagemResumo({ titulo: res.titulo, subtitulo: res.subtitulo, itens, versiculo: res.versiculo });
             sheet.remove();
             if (!blob) { toast('Não consegui montar a imagem agora.', 'err'); return; }
             abrirPreviaImagem(blob, nomeArquivo);
@@ -4330,7 +4351,7 @@ async function calcularLacunas() {
     const agora = Date.now();
     const diasDesde = f => { const x = t.find(f); return x ? Math.floor((agora - new Date(x.created_at)) / 86400000) : null; };
     const SUP = ['Peito', 'Costas', 'Ombros', 'Braços'], INF = ['Pernas', 'Glúteos'];
-    const tem = (p, lista) => Array.isArray(p.muscle_groups) && (p.muscle_groups.includes('Corpo todo') || p.muscle_groups.some(g => lista.includes(g)));
+    const tem = (p, lista) => Array.isArray(p.muscle_groups) && (p.muscle_groups.includes('Corpo todo') || categoriasMusculares(p.muscle_groups).some(g => lista.includes(g)));
     const CARDIO = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Futebol', 'Dança'];
     // dias seguidos treinando até ontem/hoje
     const diasTreino = new Set(t.map(p => new Date(p.created_at).toDateString()));
@@ -4877,7 +4898,7 @@ function montarEvolucao(d) {
     if (muscu.length) {
         const ultimo = {}, qtd = {};
         muscu.forEach(p => {
-            const gs = p.muscle_groups.includes('Corpo todo') ? GRUPOS : p.muscle_groups;
+            const gs = p.muscle_groups.includes('Corpo todo') ? GRUPOS : categoriasMusculares(p.muscle_groups);
             gs.forEach(g => { ultimo[g] = Math.max(ultimo[g] || 0, +new Date(p.created_at)); if (noPer(+new Date(p.created_at))) qtd[g] = (qtd[g] || 0) + 1; });
         });
         musculosHTML = `<div class="chart-card">
@@ -5142,6 +5163,7 @@ async function renderProgress() {
             `)}
             ${abaHTML('resumo', `
                 <div id="lembretesSlot"></div>
+                <div id="semanaEvoSlot"></div>
                 ${metaCardHTML(projecao)}
                 ${weeklyCardHTML}
                 ${ev.statsHTML}
@@ -5192,6 +5214,7 @@ async function renderProgress() {
     const cal = c.querySelector('.cal-scroll');
     if (cal) cal.scrollLeft = cal.scrollWidth;
     hydrateIAEvolucao();
+    hydrateSemanaEvo();
     hydrateLembretes();
     refreshSleepCard();
     refreshReportCard();
@@ -5890,6 +5913,7 @@ async function dadosDaSemana() {
         pontos: somaPts(ini, fim),
     });
     return {
+        versiculo: versiculoDaSemana(),
         titulo: 'Minha semana',
         subtitulo: `${ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fimSem.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`,
         candidatos,
@@ -5903,18 +5927,40 @@ async function dadosDaSemana() {
 }
 function difTxt(a, b) { const d = a - b; return d === 0 ? 'igual à semana passada' : `${d > 0 ? '+' : '−'}${Math.abs(d)} vs semana passada`; }
 
+const VERSICULOS = [["Tudo é possível para quem tem fé", "Marcos 9:23"], ["Deus é a minha força e o meu escudo!", "Salmos 28:7"], ["Faça tudo com amor", "1 Coríntios 16:14"], ["O choro pode durar uma noite, mas a alegria vem ao amanhecer", "Salmos 30:5"], ["Seja forte e corajoso! Não desanime", "Josué 1:9"], ["Tudo posso naquele que me fortalece", "Filipenses 4:13"], ["O Senhor cuida de mim, nada me falta", "Salmos 23:1"], ["Confie no Senhor de todo o seu coração", "Provérbios 3:5"], ["A sua fé curou você", "Marcos 10:52"], ["Grandes coisas fez o Senhor por nós, e por isso estamos alegres", "Salmos 126:3"], ["O amor nunca falha", "1 Coríntios 13:8"], ["Deus é o meu refúgio e a minha fortaleza", "Salmos 46:1"], ["Entrega o teu caminho ao Senhor; confia nele, e ele o fará", "Salmos 37:5"], ["A alegria do Senhor é a nossa força", "Neemias 8:10"], ["Deus faz infinitamente mais do que pedimos ou pensamos", "Efésios 3:20"], ["O Senhor é bom, um refúgio em tempos de angústia", "Naum 1:7"], ["Lâmpada para os meus pés é a tua palavra e luz para o meu caminho", "Salmos 119:105"], ["Quem está em Cristo é nova criatura", "2 Coríntios 5:17"], ["Deus derramou o seu amor em nossos corações", "Romanos 5:5"], ["Tenha bom ânimo, eu venci o mundo", "João 16:33"], ["O Senhor renova as minhas forças", "Salmos 23:3"], ["Busquem em primeiro lugar o Reino de Deus", "Mateus 6:33"], ["A nossa esperança está firme no Senhor", "Salmos 33:20"], ["Combati o bom combate, acabei a carreira, guardei a fé", "2 Timóteo 4:7"], ["Deus é amor", "1 João 4:8"], ["O Senhor sustenta todos os que caem", "Salmos 145:14"], ["O fruto do Espírito é amor, alegria e paz", "Gálatas 5:22"], ["Revesti-vos de toda a armadura de Deus", "Efésios 6:11"], ["O Senhor te guardará de todo o mal", "Salmos 121:7"], ["Andemos por fé, e não por vista", "2 Coríntios 5:7"], ["O Senhor firma os passos do homem bom", "Salmos 37:23"], ["Deus dá força ao cansado e multiplica as forças ao que não tem nenhum vigor", "Isaías 40:29"], ["Aquele que habita no esconderijo do Altíssimo, à sombra do Onipotente descansará", "Salmos 91:1"], ["O Senhor abençoará o seu povo com paz", "Salmos 29:11"], ["A sua graça me basta", "2 Coríntios 12:9"], ["Em paz me deito e logo pego no sono, porque só tu, Senhor, me fazes descansar", "Salmos 4:8"], ["O Senhor é a minha luz e a minha salvação; de quem terei medo?", "Salmos 27:1"], ["Deus sabe de todas as coisas", "1 João 3:20"], ["Tudo tem o seu tempo determinado debaixo do céu", "Eclesiastes 3:1"], ["O Senhor pelejará por vós, e vós calareis os vossos lábios", "Êxodo 14:14"], ["Guarda o teu coração do mal", "Provérbios 4:23"], ["Bem-aventurados os limpos de coração, porque eles verão a Deus", "Mateus 5:8"], ["A fé é a certeza das coisas que se esperam", "Hebreus 11:1"], ["Se Deus é por nós, quem será contra nós?", "Romanos 8:31"], ["Clama a mim, e responder-te-ei", "Jeremias 33:3"], ["O meu socorro vem do Senhor, que fez os céus e a terra", "Salmos 121:2"], ["O Senhor é compassivo e misericordioso", "Salmos 103:8"], ["Deus amou o mundo de tal maneira...", "João 3:16"], ["Não temas, porque eu sou contigo", "Isaías 43:5"], ["O Senhor é o meu rochedo, a minha fortaleza e o meu libertador", "Salmos 18:2"], ["Deus prova o seu amor para conosco em que Cristo morreu por nós", "Romanos 5:8"], ["O temor do Senhor é o princípio da sabedoria", "Provérbios 9:10"], ["Lança o teu fardo sobre o Senhor, e ele te susterá", "Salmos 55:22"], ["O justo viverá por fé", "Romanos 1:17"], ["Deus não nos deu espírito de covardia, mas de poder, de amor e de moderação", "2 Timóteo 1:7"], ["Buscai e achareis; batei e abrir-se-vos-á", "Mateus 7:7"], ["O Senhor guarda os simples; fui humilhado, e ele me salvou", "Salmos 116:6"], ["A palavra do nosso Deus permanece para sempre", "Isaías 40:8"], ["Guarda-me, ó Deus, porque em ti confio", "Salmos 16:1"], ["O Senhor coroa-te de graça e de misericórdia", "Salmos 103:4"], ["Cantai ao Senhor um cântico novo", "Salmos 96:1"], ["Habite em vós a palavra de Cristo ricamente", "Colossenses 3:16"], ["Deus é fiel, o qual não vos deixará tentar acima do que podeis suportar", "1 Coríntios 10:13"], ["O Senhor é grande e mui digno de louvor", "Salmos 48:1"], ["Creia no Senhor Jesus e serás salvo", "Atos 16:31"], ["A vereda dos justos é como a luz da aurora", "Provérbios 4:18"], ["Celebrai com júbilo ao Senhor, todos os moradores da terra", "Salmos 100:1"], ["O Senhor conhece os que andam na integridade", "Salmos 37:18"], ["Deus exalta os humildes", "Tiago 4:10"], ["A sabedoria é a coisa principal; adquire pois a sabedoria", "Provérbios 4:7"], ["Esperem no Senhor; tenham coragem e sejam fortes!", "Salmos 27:14"], ["Os que confiam no Senhor são como o monte de Sião", "Salmos 125:1"], ["O meu refúgio e a minha fortaleza são o meu Deus", "Salmos 91:2"], ["A paz de Deus, que excede todo o entendimento, guardará os vossos corações", "Filipenses 4:7"], ["O Senhor retribui a cada um conforme a sua justiça", "Salmos 18:24"], ["Bem-aventurados os que têm fome e sede de justiça", "Mateus 5:6"], ["O Senhor é a porção da minha herança", "Salmos 16:5"], ["Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia", "Salmos 46:1"], ["Guarda a tua língua do mal", "Salmos 34:13"], ["Deus escolheu as coisas loucas deste mundo para confundir as sábias", "1 Coríntios 1:27"], ["O Senhor dá sabedoria; da sua boca procedem a ciência e o entendimento", "Provérbios 2:6"], ["A palavra de Deus é viva e eficaz", "Hebreus 4:12"], ["O Senhor desfaz os conselhos das nações", "Salmos 33:10"], ["Deus habita nos louvores do seu povo", "Salmos 22:3"], ["O Senhor é justo em todos os seus caminhos", "Salmos 145:17"], ["A veracidade do Senhor dura para sempre", "Salmos 117:2"], ["O Senhor guarda todos os que o amam", "Salmos 145:20"], ["Deus é quem efetua em vós tanto o querer como o realizar", "Filipenses 2:13"], ["O Senhor abrirá o seu bom tesouro", "Deuteronômio 28:12"], ["A lei do Senhor é perfeita e refrigera a alma", "Salmos 19:7"], ["Deus enxugará de seus olhos toda lágrima", "Apocalipse 21:4"], ["O Senhor é o rei perpétuo e para sempre", "Salmos 10:16"], ["A benignidade do Senhor é melhor do que a vida", "Salmos 63:3"], ["O Senhor ouve a oração dos justos", "Provérbios 15:29"], ["Deus não vê como vê o homem", "1 Samuel 16:7"], ["O Senhor dá força ao seu povo", "Salmos 29:11"], ["A mansidão seja conhecida por todos os homens", "Filipenses 4:5"], ["O Senhor é o meu pastor; nada me faltará", "Salmos 23:1"], ["Deus é o nosso salvador", "Salmos 68:20"], ["O Senhor reina; regozije-se a terra", "Salmos 97:1"], ["A oração fervorosa de um justo tem muito poder", "Tiago 5:16"], ["Deus nos chamou para a paz", "1 Coríntios 7:15"], ["O Senhor orienta os passos do homem reto", "Provérbios 20:24"], ["A luz brilha nas trevas, e as trevas não a derrotaram", "João 1:5"], ["O Senhor salva a alma de seus servos", "Salmos 34:22"], ["Deus é fiel e justo para nos perdoar", "1 João 1:9"], ["O Senhor livra o seu povo de todas as angústias", "Salmos 34:17"], ["A esperança que se adia faz adoecer o coração, mas o desejo cumprido é árvore de vida", "Provérbios 13:12"], ["O Senhor guarda os passos dos seus fiéis", "1 Samuel 2:9"], ["Deus dá graça aos humildes", "Tiago 4:6"], ["O Senhor é a fortaleza da minha vida", "Salmos 27:1"], ["Acaso há alguma coisa difícil para o Senhor?", "Gênesis 18:14"], ["O Senhor cumpre o seu propósito para comigo", "Salmos 138:8"], ["Deus faz o solitário viver em família", "Salmos 68:6"], ["O Senhor fortalece o seu povo", "Salmos 29:11"], ["A nossa cidadania está nos céus", "Filipenses 3:20"], ["O Senhor ama a justiça e o juízo", "Salmos 33:5"], ["Deus supre todas as nossas necessidades segundo as suas riquezas", "Filipenses 4:19"], ["O Senhor dá sabedoria aos simples", "Salmos 19:7"], ["A palavra do Senhor é reta, e todas as suas obras são fiéis", "Salmos 33:4"], ["O Senhor sonda o coração e examina a mente", "Jeremias 17:10"], ["Deus é o nosso auxílio na tormenta", "Salmos 46:1"], ["O Senhor renova a tua juventude como a da águia", "Salmos 103:5"], ["A sabedoria do alto é primeiramente pura, depois pacífica", "Tiago 3:17"], ["O Senhor governa para sempre", "Salmos 146:10"], ["Deus está no meio dela; não será abalada", "Salmos 46:5"], ["O Senhor ama os que seguem a justiça", "Provérbios 15:9"], ["A graça e a verdade vieram por Jesus Cristo", "João 1:17"], ["O Senhor firma os céus com entendimento", "Salmos 136:5"], ["Deus nos abençoou com todas as bênçãos espirituais", "Efésios 1:3"], ["O Senhor é o criador dos confins da terra", "Isaías 40:28"], ["A justiça exalta as nações", "Provérbios 14:34"], ["O Senhor é bom para com todos", "Salmos 145:9"], ["Deus enviou o seu Filho ao mundo para que sejamos salvos", "1 João 4:9"], ["O Senhor dá alegria ao coração", "Salmos 4:7"], ["A veracidade do Senhor é eterna", "Salmos 100:5"], ["O Senhor olha do céu e vê todos os filhos dos homens", "Salmos 33:13"], ["Deus nos deu a vida eterna em seu Filho", "1 João 5:11"], ["O Senhor liberta os cativos", "Salmos 146:7"], ["A paciência de Deus nos leva ao arrependimento", "Romanos 2:4"], ["O Senhor estabelece a sua habitação no meio de nós", "Levítico 26:11"], ["Deus guia os mansos na justiça", "Salmos 25:9"], ["O Senhor cuida de mim todos os dias", "Salmos 68:19"], ["A paz esteja com todos vós em Cristo Jesus", "1 Pedro 5:14"], ["O Senhor é o Deus que me salva", "Salmos 88:1"], ["Tudo o que tem fôlego louve ao Senhor!", "Salmos 150:6"], ["Esforça-te, e tem bom ânimo", "Josué 1:9"], ["Deus é o que me cinge de força", "Salmos 18:32"]];
+
+// Semana que o resumo mostra: sábado e domingo = semana atual; segunda = a que acabou
+function semanaDoResumo() {
+    const hoje = new Date();
+    return inicioDaSemana(hoje.getDay() === 1 ? new Date(Date.now() - 86400000) : hoje);
+}
+// Aparece de sábado 12h até segunda 19h
+function janelaDoResumo() {
+    const a = new Date(), d = a.getDay(), h = a.getHours();
+    return (d === 6 && h >= 12) || d === 0 || (d === 1 && h < 19);
+}
+// Um versículo por semana, sorteado e guardado (o card e a imagem mostram o mesmo)
+function versiculoDaSemana() {
+    const chave = 'pulso-versiculo-' + isoDe(semanaDoResumo());
+    let i = Number(lsGet(chave));
+    if (!(i >= 0 && i < VERSICULOS.length)) { i = Math.floor(Math.random() * VERSICULOS.length); lsSet(chave, String(i)); }
+    return VERSICULOS[i];
+}
+
 async function hydrateResumoSemana() {
     const slot = document.getElementById('resumoSlot');
     if (!slot) return;
-    const dia = new Date().getDay();
-    if (dia !== 0 && dia !== 1) { slot.innerHTML = ''; return; }
-    const chave = 'pulso-resumo-' + inicioDaSemana(dia === 1 ? new Date(Date.now() - 86400000) : new Date()).toISOString().split('T')[0];
-    try { if (localStorage.getItem(chave) === '1') return; } catch (_) {}
+    if (!janelaDoResumo()) { slot.innerHTML = ''; return; }
+    const chave = 'pulso-resumo-' + isoDe(semanaDoResumo());
+    // fechou 2 vezes: só na semana que vem; fechou 1 vez: só no dia seguinte
+    let fech = {};
+    try { fech = JSON.parse(lsGet(chave) || '{}'); } catch (_) {}
+    if ((fech.vezes || 0) >= 2 || fech.dia === hojeISO()) { slot.innerHTML = ''; return; }
     const d = await dadosDaSemana();
     state.resumoSemana = d;
     if (!document.getElementById('resumoSlot')) return;
     slot.innerHTML = `<div class="dc-card resumo-card">
-        <button class="dc-x" data-act="dispensar-card" data-chave="${chave}" aria-label="Fechar">×</button>
+        <button class="dc-x" data-act="fechar-resumo" data-chave="${chave}" aria-label="Fechar">×</button>
         <div class="dc-topo"><span class="dc-emo">📊</span><div><b>Sua semana</b><small>${d.ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${new Date(d.ini.getTime() + 6 * 86400000).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></div></div>
         <div class="resumo-grade">
             <div><b>${d.treinos}<small>/${d.meta}</small></b><span>treinos</span><em>${difTxt(d.treinos, d.treinosAnt)}</em></div>
@@ -5922,6 +5968,22 @@ async function hydrateResumoSemana() {
             <div><b>${String(d.aguaMediaL).replace('.', ',')}<small> L</small></b><span>água por dia</span></div>
             <div><b>${d.sono != null ? String(d.sono).replace('.', ',') + '<small> h</small>' : '-'}</b><span>sono médio</span></div>
         </div>
+        ${d.versiculo ? `<p class="resumo-verso">“${escapeHTML(d.versiculo[0])}”<span>${escapeHTML(d.versiculo[1])}</span></p>` : ''}
+        <button class="btn-secondary resumo-story" data-act="resumo-story">Postar como story</button>
+    </div>`;
+}
+
+// Evolução › Resumo: o caminho normal pra postar a semana, a qualquer momento
+async function hydrateSemanaEvo() {
+    const slot = document.getElementById('semanaEvoSlot');
+    if (!slot) return;
+    const d = await dadosDaSemana();
+    state.resumoSemana = d;
+    if (!document.getElementById('semanaEvoSlot')) return;
+    const fim = new Date(d.ini.getTime() + 6 * 86400000);
+    slot.innerHTML = `<div class="chart-card semana-evo">
+        <div class="chart-head"><span class="chart-title">Sua semana</span><span class="chart-legend">${d.ini.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span></div>
+        <div class="se-linha"><span><b>${d.treinos}</b>/${d.meta} treinos</span><span><b>${d.pontos}</b> pontos</span>${d.sono != null ? `<span><b>${String(d.sono).replace('.', ',')}</b> h de sono</span>` : ''}</div>
         <button class="btn-secondary resumo-story" data-act="resumo-story">Postar como story</button>
     </div>`;
 }
@@ -5957,7 +6019,7 @@ async function imagemResumo(r) {
     g.fillStyle = '#F1F4F1'; g.font = F(700, 104); g.fillText(r.titulo, 90, 400);
     g.fillStyle = '#8B948C'; g.font = F(500, 44);
     if (r.subtitulo) g.fillText(r.subtitulo, 90, 480);
-    const itens = r.itens.slice(0, 5);
+    const itens = r.itens.slice(0, r.versiculo ? 4 : 5);
     const passo = itens.length > 4 ? 235 : 270;
     itens.forEach(([n, l, destaque], i) => {
         const y = 700 + i * passo;
@@ -5971,6 +6033,22 @@ async function imagemResumo(r) {
         g.fillText(n, 140, y - (apertado ? 32 : 12));
         g.fillStyle = '#8B948C'; g.font = F(500, apertado ? 36 : 40); g.fillText(l, 140, y + (apertado ? 20 : 42));
     });
+        if (r.versiculo) {
+        // versículo da semana, centralizado no rodapé
+        const [texto, ref] = r.versiculo;
+        g.textAlign = 'center';
+        g.fillStyle = '#C9D0CA';
+        g.font = `italic 500 40px "Space Grotesk", Inter, sans-serif`;
+        const palavras = ('“' + texto + '”').split(' ');
+        const linhas = []; let linha = '';
+        palavras.forEach(p => { const t = linha ? linha + ' ' + p : p; if (g.measureText(t).width > 880 && linha) { linhas.push(linha); linha = p; } else linha = t; });
+        if (linha) linhas.push(linha);
+        const base = 1800 - (linhas.length - 1) * 52;
+        linhas.slice(0, 3).forEach((l, k) => g.fillText(l, 540, base + k * 52 - 40));
+        g.fillStyle = '#35E19B'; g.font = `600 32px Inter, sans-serif`;
+        g.fillText(ref, 540, base + Math.min(linhas.length, 3) * 52 - 20);
+        g.textAlign = 'left';
+    }
     return await new Promise(r => cv.toBlob(b => r(b), 'image/jpeg', 0.92));
 }
 
@@ -7033,7 +7111,10 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
 
     let topo = '';
     if (!meu) {
-        if (euSigo && !jaMandei) topo = `<button class="dep-escrever" data-act="dep-escrever" data-uid="${uid}" data-nome="${escapeHTML(nomeAlvo || '')}">✍️ Deixar um depoimento pra ${escapeHTML(String(nomeAlvo || '').split(' ')[0])}</button>`;
+        if (euSigo && !jaMandei) topo = `<button class="dep-escrever" data-act="dep-escrever" data-uid="${uid}" data-nome="${escapeHTML(nomeAlvo || '')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l10-10-4-4L4 16v4zM13.5 6.5l4 4"/></svg>
+            <span>Escreva um depoimento pra ${escapeHTML(String(nomeAlvo || '').split(' ')[0])}…</span>
+        </button>`;
         else if (jaMandei) topo = '';
         else topo = '<p class="faixa-nota dep-aviso">Siga essa pessoa pra poder deixar um depoimento.</p>';
     }
@@ -9222,6 +9303,12 @@ document.addEventListener('click', async e => {
         const blob = await imagemResumo({ titulo: pd.nome, subtitulo: 'Resultado final do desafio', itens });
         btn.disabled = false;
         if (blob) abrirPreviaImagem(blob, 'pulso-desafio.jpg');
+    } else if (act === 'fechar-resumo') {
+        e.stopPropagation();
+        let fech = {};
+        try { fech = JSON.parse(lsGet(btn.dataset.chave) || '{}'); } catch (_) {}
+        lsSet(btn.dataset.chave, JSON.stringify({ vezes: (fech.vezes || 0) + 1, dia: hojeISO() }));
+        const card = btn.closest('.dc-card'); if (card) card.remove();
     } else if (act === 'dispensar-card') {
         e.stopPropagation();
         try { localStorage.setItem(btn.dataset.chave, '1'); } catch (_) {}
@@ -11247,11 +11334,11 @@ function montarFormTreino() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONES_ATIVIDADE[t] || ICONES_ATIVIDADE.Outro}</svg>${NOME_CURTO_ATIV[t] || t}</button>`).join('');
     $('#wTypeChips').scrollLeft = 0;
     sincronizarDuracao();
+    if (!$('#wDistance').value) definirKmPadrao(); else mostrarKm();
 }
 function sincronizarDuracao() {
     const v = Number($('#wDuration').value) || 45;
     $('#wDurBig').textContent = v;
-    $$('.tr-dur-atalhos button').forEach(b => b.classList.toggle('on', Number(b.dataset.dur) === v));
     if (state.composerKind === 'workout') updateDestUI();
 }
 function estimarPontosTreino() {
@@ -11276,21 +11363,47 @@ document.getElementById('wTypeChips').addEventListener('click', e => {
     $('#wType').value = b.dataset.tipo;
     $('#wType').dispatchEvent(new Event('change', { bubbles: true }));
     $$('#wTypeChips .tr-chip').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
+    definirKmPadrao();
     if (typeof atualizarCamposTreino === 'function') atualizarCamposTreino();
     updateDestUI();
 });
-$$('.tr-dur-btn').forEach(b => b.addEventListener('click', () => {
+$$('.tr-dur-btn[data-dur-passo]').forEach(b => b.addEventListener('click', () => {
     const v = Math.max(5, Math.min(240, (Number($('#wDuration').value) || 45) + Number(b.dataset.durPasso)));
     $('#wDuration').value = v;
     $('#wDuration').dispatchEvent(new Event('input', { bubbles: true }));
     sincronizarDuracao();
 }));
-$$('.tr-dur-atalhos button').forEach(b => b.addEventListener('click', () => {
-    $('#wDuration').value = b.dataset.dur;
-    $('#wDuration').dispatchEvent(new Event('input', { bubbles: true }));
-    sincronizarDuracao();
-}));
 $('#wDuration').addEventListener('input', () => { $('#wDurBig').textContent = $('#wDuration').value; });
+// Contador de distância (opcional): começa num valor comum e anda em passos
+function kmPasso() { return (KM_PADRAO[$('#wType').value] || [3, 0.5])[1]; }
+function kmPadrao() { return (KM_PADRAO[$('#wType').value] || [3, 0.5])[0]; }
+function mostrarKm() {
+    const v = parseFloat(String($('#wDistance').value).replace(',', '.'));
+    const tem = v > 0;
+    $('#wKmBig').textContent = tem ? String(v).replace('.', ',') : '–';
+    $('#wKmSem').textContent = tem ? 'sem distância' : 'adicionar distância';
+    $('#wDistField').classList.toggle('sem-km', !tem);
+}
+function definirKmPadrao() {
+    if (!ATIVIDADES_COM_KM.includes($('#wType').value)) return;
+    $('#wDistance').value = kmPadrao();
+    mostrarKm();
+    atualizarCamposTreino();
+}
+$$('[data-km-passo]').forEach(b => b.addEventListener('click', () => {
+    let v = parseFloat(String($('#wDistance').value).replace(',', '.'));
+    const passo = kmPasso();
+    if (!(v > 0)) v = kmPadrao();
+    else v = Math.max(passo, Math.round((v + Number(b.dataset.kmPasso) * passo) * 100) / 100);
+    $('#wDistance').value = v;
+    mostrarKm(); atualizarCamposTreino();
+}));
+$('#wKmSem').addEventListener('click', () => {
+    const v = parseFloat(String($('#wDistance').value).replace(',', '.'));
+    $('#wDistance').value = v > 0 ? '' : kmPadrao();
+    mostrarKm(); atualizarCamposTreino();
+});
+
 // Foto pelo ícone na legenda: o celular oferece câmera ou galeria
 $('#pPhotoUnico').addEventListener('change', e => {
     const f = e.target.files && e.target.files[0];
