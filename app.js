@@ -1405,6 +1405,14 @@ function explicarConceito(tema) {
 
 // ---- Convite por link ----
 async function checarConvite() {
+    // Link de convite de desafio: abre a vitrine (ou o desafio, se já participa)
+    try {
+        const cidLink = localStorage.getItem('pulso-link-desafio');
+        if (cidLink) {
+            localStorage.removeItem('pulso-link-desafio');
+            setTimeout(() => switchView('challenge', { id: cidLink }), 600);
+        }
+    } catch (_) {}
     let quem = null, tipo = 'convite';
     try {
         quem = localStorage.getItem('pulso-link-user');
@@ -2411,9 +2419,15 @@ function mostrarHistBusca() {
     const box = document.getElementById('searchResults');
     if (!box) return;
     const lista = lerHistBusca();
-    box.innerHTML = lista.length
+    box.innerHTML = (lista.length
         ? `<div class="busca-topo"><span>Recentes</span><button class="ia-link" data-act="busca-limpar">Limpar tudo</button></div>${lista.map(u => linhaPessoaBusca(u, true)).join('')}`
-        : '<div class="log-empty">Digite pra encontrar gente no Pulso.</div>';
+        : '') + '<div id="buscaSugestoes"></div>';
+    carregarSugestoes(6).then(sug => {
+        const s = document.getElementById('buscaSugestoes');
+        if (!s) return;
+        s.innerHTML = sug.length ? `<div class="busca-topo"><span>Sugestões pra você</span></div>${sug.map(linhaSugestao).join('')}`
+            : (lista.length ? '' : '<div class="log-empty">Digite pra encontrar gente no Pulso.</div>');
+    });
 }
 function renderSearch() {
     $('#viewContainer').innerHTML = `
@@ -3806,7 +3820,7 @@ async function hydrateCoachCard() {
 async function renderFeed() {
     sincronizarModoTela();
     const c = $('#viewContainer');
-    c.innerHTML = '<div class="view feed-view"><div class="spinner"></div></div>';
+    c.innerHTML = esqueleto('feed');
 
     // Carrega stories em paralelo com posts
     const storiesPromise = sb.from('stories')
@@ -5050,7 +5064,7 @@ function montarEvolucao(d) {
 async function renderProgress() {
     sincronizarModoTela();
     const c = $('#viewContainer');
-    c.innerHTML = '<div class="view"><h1 class="screen-title">Evolução</h1><div class="spinner"></div></div>';
+    c.innerHTML = esqueleto('painel');
 
     const uid = state.session.user.id;
     const [
@@ -6142,6 +6156,123 @@ async function montarCardMetas(goal) {
     });
 })();
 
+// ============================================================
+// PESSOAS SUGERIDAS E PRIMEIROS PASSOS
+// ============================================================
+function linhaSugestao(u) {
+    return `<div class="follow-row sug-row">
+        <span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'sm')}</span>
+        <div style="flex:1;min-width:0" data-act="view-user" data-uid="${u.id}">
+            <div class="follow-name">${escapeHTML(u.display_name || '')}</div>
+            <div class="follow-uname">${escapeHTML(u.motivo || '@' + (u.username || ''))}</div>
+        </div>
+        <button class="btn-mini sug-seguir" data-act="sug-seguir" data-uid="${u.id}">Seguir</button>
+    </div>`;
+}
+async function carregarSugestoes(lim = 8) {
+    const { data } = await sb.rpc('suggested_people', { lim });
+    return data || [];
+}
+
+const ONB_PASSOS = ['objetivo', 'treino', 'pessoas', 'desafios'];
+async function abrirPrimeirosPassos(passo = 0) {
+    let tela = document.getElementById('onbTela');
+    if (!tela) { tela = document.createElement('div'); tela.id = 'onbTela'; tela.className = 'onb'; document.body.appendChild(tela); }
+    document.body.style.overflow = 'hidden';
+    const p = state.profile;
+    state.onb = state.onb || { goal: p.goal || null, likes: new Set(p.train_likes || []), semana: p.weekly_goal || 3 };
+    const o = state.onb;
+    const pontos = ONB_PASSOS.map((_, k) => `<i class="${k <= passo ? 'on' : ''}"></i>`).join('');
+    const topo = `<div class="onb-topo"><div class="onb-pontos">${pontos}</div><button class="onb-pular" data-onb="pular">Pular</button></div>`;
+    const rodape = (txt = 'Continuar', desab = false) => `<button class="btn-primary onb-ok" data-onb="proximo" ${desab ? 'disabled' : ''}>${txt}</button>`;
+    let corpo = '';
+    if (ONB_PASSOS[passo] === 'objetivo') {
+        corpo = `<h2>Bem-vindo ao Pulso, ${escapeHTML(String(p.display_name || '').split(' ')[0])}!</h2>
+            <p>Qual é o seu foco agora? O coach usa isso pra te ajudar.</p>
+            <div class="goal-grid">${OBJETIVOS.map(([v, nome, desc]) => `<button type="button" class="goal-btn${o.goal === v ? ' on' : ''}" data-onb-goal="${v}"><span class="goal-nome">${nome}</span><span class="goal-desc">${desc}</span></button>`).join('')}</div>
+            ${rodape('Continuar', !o.goal)}`;
+    } else if (ONB_PASSOS[passo] === 'treino') {
+        corpo = `<h2>Como você gosta de se mexer?</h2>
+            <p>Escolha o que curte. Dá pra mudar quando quiser.</p>
+            <div class="chip-row onb-likes">${MODALIDADES.map(m => `<button type="button" class="chip${o.likes.has(m) ? ' on' : ''}" data-onb-like="${m}">${m}</button>`).join('')}</div>
+            <div class="onb-sub">Quantos treinos por semana?</div>
+            <div class="obj-dias">${[1, 2, 3, 4, 5, 6, 7].map(n => `<button type="button" class="obj-dia${o.semana === n ? ' on' : ''}" data-onb-semana="${n}">${n}</button>`).join('')}</div>
+            ${rodape()}`;
+    } else if (ONB_PASSOS[passo] === 'pessoas') {
+        corpo = `<h2>Treinar junto é mais fácil</h2>
+            <p>Siga algumas pessoas pra ver os treinos delas no seu feed.</p>
+            <div class="follow-list onb-lista" id="onbPessoas"><div class="spinner"></div></div>
+            ${rodape()}`;
+    } else {
+        corpo = `<h2>Entre num desafio</h2>
+            <p>É no desafio que a mágica acontece: ranking, times e o grupo te puxando.</p>
+            <div id="onbDesafios"><div class="spinner"></div></div>
+            ${rodape('Começar a usar')}`;
+    }
+    tela.innerHTML = `<div class="onb-card">${topo}<div class="onb-corpo">${corpo}</div></div>`;
+
+    if (ONB_PASSOS[passo] === 'pessoas') {
+        const lista = await carregarSugestoes(8);
+        const box = document.getElementById('onbPessoas');
+        if (box) box.innerHTML = lista.length ? lista.map(linhaSugestao).join('') : '<p class="faixa-nota">Assim que mais gente entrar, as sugestões aparecem aqui.</p>';
+    }
+    if (ONB_PASSOS[passo] === 'desafios') {
+        const { data } = await sb.rpc('list_challenges');
+        const abertos = (data || []).filter(c => c.status !== 'encerrado' && !c.im_member).slice(0, 4);
+        const box = document.getElementById('onbDesafios');
+        if (box) box.innerHTML = abertos.length ? abertos.map(c => `<div class="onb-desafio">
+            <div><b>${escapeHTML(c.name)}</b><small>${c.members || 0} participantes · ${c.status === 'futuro' ? 'começa em breve' : 'rolando agora'}</small></div>
+            <button class="btn-mini" data-act="${c.is_open ? 'join-challenge' : 'pedir-acesso'}" data-id="${c.id}">${c.is_open ? 'Entrar' : 'Pedir entrada'}</button>
+        </div>`).join('') : '<p class="faixa-nota">Nenhum desafio aberto agora. Quando tiver, ele aparece na aba Desafio.</p>';
+    }
+}
+async function concluirPrimeirosPassos() {
+    const o = state.onb || {};
+    const dados = { onboarding_done: true };
+    if (o.goal) dados.goal = o.goal;
+    if (o.likes && o.likes.size) dados.train_likes = [...o.likes];
+    if (o.semana) dados.weekly_goal = o.semana;
+    await sb.from('profiles').update(dados).eq('id', state.session.user.id);
+    Object.assign(state.profile, dados);
+    state.coachContext = null;
+    const tela = document.getElementById('onbTela'); if (tela) tela.remove();
+    document.body.style.overflow = '';
+    state.onb = null;
+    toast('Tudo pronto! Bora pro primeiro registro 💪', 'ok');
+    if (state.view === 'feed') renderFeed(); else switchView('feed');
+}
+document.addEventListener('click', async e => {
+    const tela = document.getElementById('onbTela');
+    if (!tela || !tela.contains(e.target)) return;
+    const o = state.onb;
+    const g = e.target.closest('[data-onb-goal]');
+    if (g) { o.goal = g.dataset.onbGoal; abrirPrimeirosPassos(0); return; }
+    const l = e.target.closest('[data-onb-like]');
+    if (l) { o.likes.has(l.dataset.onbLike) ? o.likes.delete(l.dataset.onbLike) : o.likes.add(l.dataset.onbLike); l.classList.toggle('on'); return; }
+    const sm = e.target.closest('[data-onb-semana]');
+    if (sm) { o.semana = Number(sm.dataset.onbSemana); tela.querySelectorAll('[data-onb-semana]').forEach(x => x.classList.toggle('on', x === sm)); return; }
+    const b = e.target.closest('[data-onb]');
+    if (!b) return;
+    const atual = ONB_PASSOS.findIndex((_, k) => tela.querySelectorAll('.onb-pontos i.on').length - 1 === k);
+    if (b.dataset.onb === 'pular' || (b.dataset.onb === 'proximo' && atual >= ONB_PASSOS.length - 1)) { concluirPrimeirosPassos(); return; }
+    abrirPrimeirosPassos(atual + 1);
+});
+
+// Esqueletos de carregamento (no lugar da rodinha)
+function esqueleto(tipo) {
+    const b = (w, h, extra = '') => `<span class="esq" style="width:${w};height:${h}px;${extra}"></span>`;
+    if (tipo === 'feed') return `<div class="view feed-view esq-wrap">
+        <div class="esq-linha">${b('62px', 62, 'border-radius:50%')}${b('62px', 62, 'border-radius:50%')}${b('62px', 62, 'border-radius:50%')}</div>
+        ${[1, 2].map(() => `<div class="esq-post"><div class="esq-linha">${b('40px', 40, 'border-radius:50%')}<div style="flex:1">${b('40%', 12)}${b('25%', 10, 'margin-top:6px')}</div></div>${b('100%', 300, 'border-radius:14px;margin-top:12px')}</div>`).join('')}
+    </div>`;
+    if (tipo === 'perfil') return `<div class="view esq-wrap">
+        <div class="esq-linha">${b('88px', 88, 'border-radius:50%')}<div style="flex:1;display:flex;justify-content:space-around">${b('40px', 34)}${b('50px', 34)}${b('50px', 34)}</div></div>
+        ${b('35%', 14, 'margin-top:16px')}${b('100%', 38, 'margin-top:14px;border-radius:12px')}
+        <div class="esq-grade">${Array.from({ length: 6 }, () => b('100%', 0, 'aspect-ratio:1;height:auto')).join('')}</div>
+    </div>`;
+    return `<div class="view esq-wrap">${b('55%', 26)}${b('30%', 12, 'margin-top:8px')}${b('100%', 170, 'margin-top:18px;border-radius:20px')}${b('100%', 220, 'margin-top:14px;border-radius:20px')}</div>`;
+}
+
 // ---- Lista rolável de posts (ao tocar numa foto do perfil ou dos salvos) ----
 async function abrirListaDePosts(ids, inicio) {
     const old = document.getElementById('postsViewer');
@@ -6454,7 +6585,7 @@ async function meusDesafiosAtivos() {
 
 async function renderPainelDesafio(cidEscolhido) {
     const c = $('#viewContainer');
-    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+    c.innerHTML = esqueleto('painel');
     const meus = await meusDesafiosAtivos();
     if (!meus.length) {
         await renderChallenges();
@@ -7337,7 +7468,11 @@ function openInviteSheet(cid) {
     sheet.innerHTML = `<div class="sheet-card">
         <div class="sheet-handle"></div>
         <h3 class="sheet-title">Convidar pro desafio</h3>
-        <p class="sheet-sub">Digite o usuário da pessoa (aparece no perfil dela como @usuario).</p>
+        <button type="button" class="inv-link" id="invLink">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>
+            <span><b>Compartilhar link de convite</b><small>Manda no grupo do WhatsApp. Quem tocar cai direto no desafio.</small></span>
+        </button>
+        <p class="sheet-sub">Ou convide alguém que já usa o Pulso pelo @usuário:</p>
         <div class="field"><label>Usuário ou nome</label><input type="text" id="invUser" placeholder="comece a digitar..." autocapitalize="off" autocomplete="off"></div>
         <div id="invResults" class="follow-list"></div>
         <div id="invMsg"></div>
@@ -7348,6 +7483,15 @@ function openInviteSheet(cid) {
     </div>`;
     document.body.appendChild(sheet);
     document.body.style.overflow = 'hidden';
+    const btnLink = sheet.querySelector('#invLink');
+    if (btnLink) btnLink.onclick = async () => {
+        const link = `${location.origin}${location.pathname}?d=${cid}&u=${encodeURIComponent(state.profile.username)}`;
+        const texto = `Bora entrar no meu desafio no Pulso? ${link}`;
+        try {
+            if (navigator.share) await navigator.share({ title: 'Pulso', text: texto, url: link });
+            else { await navigator.clipboard.writeText(texto); toast('Link copiado, é só colar no grupo', 'ok'); }
+        } catch (_) {}
+    };
     const close = () => { sheet.remove(); document.body.style.overflow = ''; };
     sheet.onclick = e => { if (e.target === sheet) close(); };
     document.getElementById('invCancel').onclick = close;
@@ -7398,6 +7542,7 @@ function openInviteSheet(cid) {
 async function renderProfile() {
     sincronizarModoTela();
     const c = $('#viewContainer');
+    if (!c.querySelector('.ig-profile, .profile-header, .ig-profile-stats')) c.innerHTML = esqueleto('perfil');
     const p = state.profile;
     const [{ count: postCount }, { data: streak }, { data: followersCount }, { data: followingCount }] = await Promise.all([
         sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', state.session.user.id).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true),
@@ -8092,38 +8237,28 @@ function openWeightLogSheet() {
     sheet.innerHTML = `
         <div class="sheet-card">
             <div class="sheet-handle"></div>
-            <h3 class="sheet-title">Registrar peso</h3>
-            <p class="sheet-sub">🔒 Só você vê isso. Nunca aparece no feed nem no seu mural.</p>
-
-            <div class="field">
-                <label>Peso (kg)</label>
-                <div class="stepper" data-target="wlKg" data-min="30" data-max="250" data-step="0.1" data-default="70">
-                    <button type="button" class="step-btn" data-dir="-">−</button>
-                    <input type="number" id="wlKg" step="0.1" min="30" max="250" placeholder="ex: 78.5" inputmode="decimal">
-                    <button type="button" class="step-btn" data-dir="+">+</button>
-                </div>
+            <div class="peso-topo">
+                <button type="button" class="peso-voltar" id="weightLogCancel" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+                <h3 class="sheet-title" style="margin:0">Peso</h3>
             </div>
-
-            <div class="file-drop">
-                <label>📷 Foto da balança <span style="color:var(--ink-faint);font-size:11px;display:block;margin-top:2px">(opcional, só pra seu controle)</span></label>
-                <div class="photo-btn-row">
-                    <label class="photo-btn-choice">
-                        <span class="emo">📸</span><span>Câmera</span>
-                        <input type="file" id="wlPhotoCam" accept="image/*" capture="environment" style="display:none">
-                    </label>
-                    <label class="photo-btn-choice">
-                        <span class="emo">🖼️</span><span>Galeria</span>
-                        <input type="file" id="wlPhotoGal" accept="image/*" style="display:none">
-                    </label>
-                </div>
-                <img id="wlPhotoPreview" class="file-preview">
-                <button type="button" class="btn-mini hidden" id="lerBalancaBtn" style="margin-top:10px">Ler da balança</button>
+            <p class="peso-priv"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>Só você vê. Nunca aparece no feed.</p>
+            <input type="number" id="wlKg" step="0.1" min="30" max="250" hidden>
+            <div class="tr-dur-linha peso-contador">
+                <button type="button" class="tr-dur-btn" data-kg="-0.1" aria-label="Menos 100 gramas">−</button>
+                <div class="tr-dur-num"><span id="wlKgBig">–</span><small>kg</small></div>
+                <button type="button" class="tr-dur-btn" data-kg="0.1" aria-label="Mais 100 gramas">+</button>
             </div>
-
-            <div class="sheet-footer">
-                <button class="btn-ghost" id="weightLogCancel">Cancelar</button>
-                <button class="btn-primary" id="weightLogSave">Salvar</button>
+            <div class="peso-foto-linha">
+                <label class="cap-foto peso-foto" aria-label="Foto da balança">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                    <img id="wlPhotoPreview" alt="">
+                    <input type="file" id="wlPhotoGal" accept="image/*" hidden>
+                    <input type="file" id="wlPhotoCam" accept="image/*" hidden>
+                </label>
+                <div><span>Foto da balança</span><small>Opcional, só pra seu controle</small></div>
+                <button type="button" class="btn-mini hidden" id="lerBalancaBtn">Ler da balança</button>
             </div>
+            <button class="btn-primary peso-salvar" id="weightLogSave">Salvar peso</button>
         </div>
     `;
     document.body.appendChild(sheet);
@@ -8136,7 +8271,7 @@ function openWeightLogSheet() {
         if (!file) return;
         photoFile = file;
         document.getElementById('wlPhotoPreview').src = URL.createObjectURL(file);
-        document.getElementById('wlPhotoPreview').classList.add('on');
+        document.getElementById('wlPhotoPreview').closest('.peso-foto').classList.add('com-foto');
         document.getElementById('lerBalancaBtn').classList.remove('hidden');
     }
 
@@ -8164,6 +8299,7 @@ function openWeightLogSheet() {
                 }
             }
             document.getElementById('wlKg').value = lido;
+            document.getElementById('wlKg').dispatchEvent(new Event('input'));
             toast(`Li ${String(lido).replace('.', ',')} kg. Confira e salve.`, 'ok');
         } catch (e) {
             toast('Não consegui ler o visor. Digite o peso na mão.', 'err');
@@ -8177,6 +8313,23 @@ function openWeightLogSheet() {
     const close = () => { sheet.classList.remove('on'); document.body.style.overflow = ''; };
     sheet.onclick = e => { if (e.target === sheet) close(); };
     document.getElementById('weightLogCancel').onclick = close;
+    // contador do peso: começa no último peso registrado
+    const kgCampo = document.getElementById('wlKg'), kgBig = document.getElementById('wlKgBig');
+    const mostrarKg = () => { const v = parseFloat(kgCampo.value); kgBig.textContent = v > 0 ? v.toFixed(1).replace('.', ',') : '–'; };
+    sheet.querySelectorAll('[data-kg]').forEach(b => b.onclick = () => {
+        let v = parseFloat(kgCampo.value);
+        if (!(v > 0)) v = Number(state.profile.peso_inicial) || 70;
+        v = Math.max(30, Math.min(250, Math.round((v + Number(b.dataset.kg)) * 10) / 10));
+        kgCampo.value = v; mostrarKg();
+    });
+    sb.from('posts').select('weight_kg').eq('user_id', state.session.user.id).eq('kind', 'weight')
+        .not('weight_kg', 'is', null).order('created_at', { ascending: false }).limit(1)
+        .then(({ data }) => {
+            const ult = data && data[0] ? Number(data[0].weight_kg) : Number(state.profile.peso_inicial) || 70;
+            if (!kgCampo.value) kgCampo.value = ult;
+            mostrarKg();
+        });
+    kgCampo.addEventListener('input', mostrarKg);
 
     document.getElementById('weightLogSave').onclick = async () => {
         const btn = document.getElementById('weightLogSave');
@@ -8505,7 +8658,7 @@ async function renderActivityLog() {
 async function renderUserProfile(uid) {
     sincronizarModoTela();
     const c = $('#viewContainer');
-    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+    c.innerHTML = esqueleto('perfil');
 
     const { data: p, error } = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
     if (error || !p) {
@@ -8900,6 +9053,13 @@ document.addEventListener('click', async e => {
         }
     } else if (act === 'comment') {
         openCommentSheet(id);
+    } else if (act === 'sug-seguir') {
+        e.stopPropagation();
+        btn.disabled = true;
+        const { data, error } = await sb.rpc('follow_user', { target_id: btn.dataset.uid });
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        btn.textContent = data === 'requested' ? 'Solicitado' : 'Seguindo';
+        btn.classList.add('feito');
     } else if (act === 'busca-remover') {
         e.stopPropagation();
         lsSet(chaveHistBusca(), JSON.stringify(lerHistBusca().filter(x => x.id !== btn.dataset.uid)));
@@ -11245,7 +11405,12 @@ $$('.kind-tile').forEach(b => b.addEventListener('click', e => {
 function setComposerKind(kind) {
     state.composerKind = kind;
     $('#composerSheet').classList.toggle('modo-treino', kind === 'workout');
+    ['meal', 'water', 'sleep'].forEach(k => $('#composerSheet').classList.toggle('modo-' + k, kind === k));
+    $('#composerSheet').classList.toggle('modo-novo', ['workout', 'meal', 'water', 'sleep'].includes(kind));
     if (kind === 'workout') montarFormTreino();
+    if (kind === 'water') { $('#wMl').value = 250; sincronizarContadores(); }
+    if (kind === 'meal') { marcarSlotRefeicao(); atualizarFotoRefeicao(); }
+    setTimeout(sincronizarContadores, 0);
     $('#composerPick').classList.add('hidden');
     $('#composerForm').classList.remove('hidden');
     $('#composerTitle').textContent = KIND_TITLES[kind] || 'Registrar';
@@ -11424,6 +11589,61 @@ $('#feedSwitch').addEventListener('click', () => {
     if (b) b.click();
 });
 
+// ---- Contadores grandes (água, sono) ligados aos campos de sempre ----
+function sincronizarContadores() {
+    $$('#composerSheet .contador').forEach(c => {
+        const v = parseFloat(String($('#' + c.dataset.alvo).value).replace(',', '.'));
+        c.querySelector('.contador-v').textContent = isNaN(v) ? '–' : String(v).replace('.', ',');
+    });
+}
+$$('#composerSheet .contador [data-c]').forEach(b => b.addEventListener('click', () => {
+    const c = b.closest('.contador');
+    const alvo = $('#' + c.dataset.alvo);
+    const passo = Number(c.dataset.passo), min = Number(c.dataset.min), max = Number(c.dataset.max);
+    let v = parseFloat(String(alvo.value).replace(',', '.'));
+    if (isNaN(v)) v = min;
+    v = Math.max(min, Math.min(max, Math.round((v + Number(b.dataset.c) * passo) * 100) / 100));
+    alvo.value = v;
+    alvo.dispatchEvent(new Event('input', { bubbles: true }));
+    sincronizarContadores();
+}));
+
+// ---- Refeição: tipo em chips e foto do prato em destaque ----
+function horaParaSlot() {
+    const h = new Date().getHours();
+    return h < 10 ? 'cafe' : h < 15 ? 'almoco' : h < 18 ? 'lanche' : 'jantar';
+}
+function marcarSlotRefeicao(slot) {
+    const sel = $('#mSlot');
+    if (slot) sel.value = slot;
+    else if (!sel.dataset.tocado) sel.value = horaParaSlot();
+    $$('#mSlotChips [data-slot]').forEach(b => b.classList.toggle('on', b.dataset.slot === sel.value));
+}
+$('#mSlotChips').addEventListener('click', e => {
+    const b = e.target.closest('[data-slot]');
+    if (!b) return;
+    $('#mSlot').dataset.tocado = '1';
+    marcarSlotRefeicao(b.dataset.slot);
+    $('#mSlot').dispatchEvent(new Event('change', { bubbles: true }));
+});
+function atualizarFotoRefeicao() {
+    const box = $('#refFoto'); if (!box) return;
+    const prev = $('#pPhotoPreview');
+    const tem = !!state.composerPhoto && prev && prev.getAttribute('src');
+    box.classList.toggle('com-foto', !!tem);
+    if (tem) $('#refFotoImg').src = prev.src; else $('#refFotoImg').removeAttribute('src');
+}
+$('#pPhotoMeal').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    try {
+        const dt = new DataTransfer(); dt.items.add(f); $('#pPhotoGal').files = dt.files;
+        $('#pPhotoGal').dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (_) { toast('Não consegui abrir essa foto. Tente de novo.', 'err'); }
+    e.target.value = '';
+    setTimeout(() => { atualizarFotoRefeicao(); updateDestUI(); }, 400);
+});
+
 // ---- Registrar x Publicar no feed ----
 function updateDestUI() {
     const sec = $('#destSection');
@@ -11469,9 +11689,12 @@ function updateDestUI() {
         $('#feedSwitchHint').textContent = hasPhoto ? (ligado ? 'Aparece no feed e nas fotos do seu perfil' : 'Fica só no seu histórico') : 'Adicione uma foto pra publicar';
     }
     atualizarFotoLegenda();
+    if (kind === 'meal') atualizarFotoRefeicao();
 
     const btn = $('#composerSubmit');
-    if (btn && !btn.disabled && kind === 'workout') {
+    if (btn && !btn.disabled && kind === 'meal') {
+        btn.innerHTML = state.composerDest === 'feed' ? 'Publicar refeição' : `Registrar refeição${state.composerPhoto ? '<span class="btn-pts">· +1 pt</span>' : ''}`;
+    } else if (btn && !btn.disabled && kind === 'workout') {
         const pts = estimarPontosTreino();
         btn.innerHTML = `${state.composerDest === 'feed' ? 'Publicar' : 'Registrar'}<span class="btn-pts">· +${pts} pts</span>`;
     } else if (btn && !btn.disabled) {
@@ -11895,6 +12118,7 @@ async function bootInterno() {
     try {
         const q = new URLSearchParams(location.search);
         const u = q.get('u') || q.get('seguir');
+        if (q.get('d')) localStorage.setItem('pulso-link-desafio', q.get('d'));
         if (u) {
             localStorage.setItem('pulso-link-user', u);
             localStorage.setItem('pulso-link-tipo', q.get('u') ? 'perfil' : 'convite');
@@ -11965,7 +12189,8 @@ async function bootInterno() {
     carregarSalvos();
     setTimeout(enviarFilaOffline, 3000);
     setTimeout(atualizarBadgeDesafio, 2500);
-    setTimeout(talvezConvidarLembretes, 4000);
+    if (state.profile && state.profile.onboarding_done === false) setTimeout(() => abrirPrimeirosPassos(0), 900);
+    else setTimeout(talvezConvidarLembretes, 4000);
     checkDailyReminder();
     setTimeout(checarRevisaoObjetivo, 2500);
 

@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261023">
+<link rel="stylesheet" href="styles.css?v=20261025">
 </head>
 <body>
 
@@ -257,7 +257,18 @@
         </div>
 
         <div id="mealFields" class="hidden">
-            <div class="field">
+            <div class="ref-slots" id="mSlotChips">
+                <button type="button" data-slot="cafe">Café da manhã</button>
+                <button type="button" data-slot="almoco">Almoço</button>
+                <button type="button" data-slot="jantar">Jantar</button>
+                <button type="button" data-slot="lanche">Lanche</button>
+            </div>
+            <label class="ref-foto" id="refFoto">
+                <span class="ref-foto-vazio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><b>Foto do prato</b><small>A IA analisa e dá a nota da refeição</small></span>
+                <img id="refFotoImg" alt="">
+                <input type="file" id="pPhotoMeal" accept="image/*" hidden>
+            </label>
+            <div class="field ref-antigo">
                 <label>Refeição</label>
                 <select id="mSlot">
                     <option value="cafe">Café da manhã</option>
@@ -270,6 +281,11 @@
 
         <div id="waterFields" class="hidden">
             <div id="waterProgress" class="water-progress"></div>
+            <div class="contador" data-alvo="wMl" data-passo="250" data-min="250" data-max="2000" data-un="ml">
+                <button type="button" class="tr-dur-btn" data-c="-1" aria-label="Menos">−</button>
+                <div class="tr-dur-num"><span class="contador-v">250</span><small>ml</small></div>
+                <button type="button" class="tr-dur-btn" data-c="1" aria-label="Mais">+</button>
+            </div>
             <div class="water-quick">
                 <button type="button" class="water-btn" data-ml="200">200<small>ml</small></button>
                 <button type="button" class="water-btn on" data-ml="300">300<small>ml</small></button>
@@ -288,7 +304,12 @@
 
         <div id="sleepFields" class="hidden">
             <div id="sleepInfo" class="water-progress"></div>
-            <div class="field">
+            <div class="contador" data-alvo="skHours" data-passo="0.5" data-min="0" data-max="16" data-un="h">
+                <button type="button" class="tr-dur-btn" data-c="-1" aria-label="Menos">−</button>
+                <div class="tr-dur-num"><span class="contador-v">7,5</span><small>horas</small></div>
+                <button type="button" class="tr-dur-btn" data-c="1" aria-label="Mais">+</button>
+            </div>
+            <div class="field sono-antigo">
                 <label>Horas dormidas</label>
                 <div class="stepper" data-target="skHours" data-min="0" data-max="16" data-step="0.5" data-default="7.5">
                     <button type="button" class="step-btn" data-dir="-">−</button>
@@ -311,7 +332,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
                     <input type="date" id="skDate" aria-label="Escolher a noite">
                 </div>
-                <p class="field-hint">Vem com ontem, a noite que você acabou de dormir.</p>
+
             </div>
         </div>
 
@@ -491,6 +512,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=20261023"></script>
+<script src="app.js?v=20261025"></script>
 </body>
 </html>
