@@ -11948,6 +11948,18 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null) {
     if (preSelecionado && opcoes.some(o => o.on)) passo2(); else passo1();
 }
 
+// Abre um destaque (seu ou de outra pessoa) no visualizador de stories
+async function abrirDestaque(hid, uid) {
+    const [{ data: h }, { data: itens }, { data: autor }] = await Promise.all([
+        sb.from('story_highlights').select('id, title').eq('id', hid).maybeSingle(),
+        sb.from('story_highlight_items').select('id, caption, image_url, background_color, style, created_at')
+            .eq('highlight_id', hid).order('created_at', { ascending: true }),
+        sb.from('profiles').select('id, username, display_name, avatar_url').eq('id', uid).maybeSingle(),
+    ]);
+    if (!h || !itens || !itens.length) { toast('Esse destaque está vazio.', 'err'); return; }
+    state.storiesData = [{ user: autor || { id: uid }, items: itens, destaque: hid }];
+    openStoryViewer(0);
+}
 async function abrirEscolhaDestaque(item) {
     pausarStory();
     const { data: meus } = await sb.from('story_highlights').select('id, title')
