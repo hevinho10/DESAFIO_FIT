@@ -1788,39 +1788,81 @@ async function renderAchievements(uid) {
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
 
-    const todas = data || [];
-    if (!ehMeu && todas.length === 0) {
+    const brutas = data || [];
+    if (!ehMeu && brutas.length === 0) {
         body.innerHTML = '<div class="grid-empty">Essa pessoa prefere manter as conquistas dela em particular.</div>';
         return;
     }
-    // dos outros: só o que já foi conquistado
-    const lista = ehMeu ? todas : todas.filter(a => a.ok);
-    if (!ehMeu && !lista.length) { body.innerHTML = '<div class="grid-empty">Nenhuma conquista ainda.</div>'; return; }
-    const feitas = todas.filter(a => a.ok).length;
-    // sua próxima conquista: a que está mais perto
-    const proxima = ehMeu ? todas.filter(a => !a.ok && a.meta).sort((x, y) => (y.prog / y.meta) - (x.prog / x.meta))[0] : null;
+    const todas = agruparNiveis(brutas);
+    const datas = ehMeu ? datasConquistas() : {};
+    const ganhas = todas.filter(a => a.ok);
+    // em andamento: só as que já começaram (progresso > 0); o resto aparece de surpresa
+    const andamento = ehMeu ? todas.filter(a => !a.okTotal && a.meta && a.prog > 0) : [];
+    if (!ehMeu && !ganhas.length) { body.innerHTML = '<div class="grid-empty">Nenhuma conquista ainda.</div>'; return; }
+    const proxima = andamento.slice().sort((x, y) => (y.prog / y.meta) - (x.prog / x.meta))[0] || null;
     const faltam = proxima ? Math.max(1, proxima.meta - proxima.prog) : 0;
+    const card = (a, ehGanha) => {
+        const nova = ehGanha && datas[a.codeAtual] && Date.now() - datas[a.codeAtual] < 7 * 86400000;
+        const jaFoi = compartilhadas.has(a.codeAtual);
+        const podeCompartilhar = ehGanha && ehMeu && !jaFoi;
+        const prog = (!ehGanha && a.meta) || (ehGanha && a.proximoNivel && ehMeu)
+            ? `<div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (a.prog / a.meta) * 100)}%"></div></div><span class="badge-prog-txt">${a.prog}/${a.meta}${ehGanha && a.proximoNivel ? ` pro ${a.proximoNivel}` : ''}</span>` : '';
+        return `<div class="badge-card${ehGanha ? ' ok' : ''}${nova ? ' nova' : ''}"${podeCompartilhar ? ` data-act="share-badge" data-code="${a.codeAtual}"` : ''}>
+            ${nova ? '<span class="badge-nova">nova</span>' : ''}
+            <span class="badge-emo">${a.emo}</span>
+            <div class="badge-name">${escapeHTML(a.nome)}</div>
+            ${a.nivel ? `<span class="badge-nivel ${a.nivel.toLowerCase()}">${a.nivel}</span>` : ''}
+            <div class="badge-desc">${escapeHTML(a.desc)}</div>
+            ${prog}
+            ${ehGanha && ehMeu ? `<span class="badge-share${jaFoi ? ' feito' : ''}">${jaFoi ? 'compartilhado' : 'compartilhar'}</span>` : ''}
+        </div>`;
+    };
     body.innerHTML = `
         ${proxima ? `<div class="prox-conq">
             <span class="prox-emo">${proxima.emo}</span>
-            <div class="prox-txt"><small>Sua próxima conquista</small><b>${escapeHTML(proxima.nome)}</b><span>Falta${faltam > 1 ? 'm' : ''} ${faltam} pra chegar lá · ${escapeHTML(proxima.desc)}</span>
+            <div class="prox-txt"><small>Sua próxima conquista</small><b>${escapeHTML(proxima.nomeProximo || proxima.nome)}</b><span>Falta${faltam > 1 ? 'm' : ''} ${faltam} pra chegar lá · ${escapeHTML(proxima.descProximo || proxima.desc)}</span>
                 <div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (proxima.prog / proxima.meta) * 100)}%"></div></div></div>
         </div>` : ''}
-        ${ehMeu ? `<div class="wk-summary"><b>${feitas}</b> de ${todas.length} conquistas · <button class="link-btn" data-act="toggle-badges-public">${state.profile.show_badges ? 'visíveis no seu perfil' : 'só você vê'}</button></div>` : ''}
-        <div class="badge-grid">
-            ${lista.map(a => {
-                const prog = (!a.ok && a.meta) ? `<div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (a.prog / a.meta) * 100)}%"></div></div><span class="badge-prog-txt">${a.prog}/${a.meta}</span>` : '';
-                const jaFoi = compartilhadas.has(a.code);
-                const podeCompartilhar = a.ok && ehMeu && !jaFoi;
-                return `<div class="badge-card${a.ok ? ' ok' : ''}"${podeCompartilhar ? ` data-act="share-badge" data-code="${a.code}"` : ''}>
-                    <span class="badge-emo">${a.emo}</span>
-                    <div class="badge-name">${escapeHTML(a.nome)}</div>
-                    <div class="badge-desc">${escapeHTML(a.desc)}</div>
-                    ${prog}
-                    ${a.ok && ehMeu ? `<span class="badge-share${jaFoi ? ' feito' : ''}">${jaFoi ? 'compartilhado' : 'compartilhar'}</span>` : ''}
-                </div>`;
-            }).join('')}
-        </div>`;
+        ${ehMeu ? `<div class="wk-summary"><b>${ganhas.length}</b> ${ganhas.length === 1 ? 'conquista' : 'conquistas'}${andamento.filter(x => !x.ok).length ? ` · ${andamento.filter(x => !x.ok).length} em andamento` : ''} · <button class="link-btn" data-act="toggle-badges-public">${state.profile.show_badges ? 'visíveis no seu perfil' : 'só você vê'}</button></div>` : ''}
+        ${ganhas.length ? `${ehMeu ? '<div class="badge-secao">Conquistadas</div>' : ''}<div class="badge-grid">${ganhas.map(a => card(a, true)).join('')}</div>` : ''}
+        ${andamento.filter(a => !a.ok).length ? `<div class="badge-secao">Em andamento</div><div class="badge-grid">${andamento.filter(a => !a.ok).map(a => card(a, false)).join('')}</div>` : ''}
+        ${ehMeu && !ganhas.length && !andamento.length ? '<div class="grid-empty">Registre seu primeiro treino e as conquistas começam a aparecer.</div>' : ''}`;
+}
+
+// Conquistas em níveis: Treinos, Ofensiva e Evolução no peso viram um card só (bronze → prata → ouro)
+const NIVEIS_CONQ = [
+    { nome: 'Treinos', emo: '🏋️', codes: ['treinos_10', 'treinos_50', 'treinos_100'] },
+    { nome: 'Ofensiva', emo: '🔥', codes: ['streak_7', 'streak_30', 'streak_100'] },
+    { nome: 'Evolução no peso', emo: '📉', codes: ['perda_5', 'perda_10'] },
+];
+const NOMES_NIVEL = ['Bronze', 'Prata', 'Ouro'];
+function agruparNiveis(lista) {
+    const porCode = Object.fromEntries(lista.map(a => [a.code, a]));
+    const usados = new Set();
+    const saida = [];
+    NIVEIS_CONQ.forEach(g => {
+        const itens = g.codes.map(c => porCode[c]).filter(Boolean);
+        if (!itens.length) return;
+        itens.forEach(a => usados.add(a.code));
+        const k = itens.filter(a => a.ok).length; // quantos níveis já ganhos
+        const atual = k ? itens[k - 1] : null, prox = itens[k] || null;
+        saida.push({
+            code: g.codes[0], codeAtual: atual ? atual.code : itens[0].code,
+            emo: (atual || itens[0]).emo, nome: g.nome,
+            nivel: k ? NOMES_NIVEL[k - 1] : null,
+            desc: (atual || itens[0]).desc,
+            ok: k > 0, okTotal: k === itens.length,
+            prog: prox ? prox.prog : (atual ? atual.prog : 0), meta: prox ? prox.meta : (atual ? atual.meta : 0),
+            proximoNivel: prox && k ? NOMES_NIVEL[k] : null,
+            nomeProximo: prox ? `${g.nome} · ${NOMES_NIVEL[k]}` : null, descProximo: prox ? prox.desc : null,
+        });
+    });
+    lista.forEach(a => { if (!usados.has(a.code)) saida.push({ ...a, codeAtual: a.code, okTotal: a.ok }); });
+    return saida;
+}
+// Quando cada conquista foi ganha (pra mostrar o selo "nova" por 7 dias)
+function datasConquistas() {
+    try { return JSON.parse(localStorage.getItem('pulso-conq-datas-' + state.session.user.id) || '{}'); } catch (_) { return {}; }
 }
 
 // ---- Comemoração quando ganha uma conquista nova ----
@@ -1834,7 +1876,14 @@ async function checarConquistasNovas() {
     localStorage.setItem(chave, JSON.stringify(ganhas.map(a => a.code)));
     if (!vistas) return; // primeira vez neste aparelho: só anota, não comemora o que já tinha
     const novas = ganhas.filter(a => !vistas.includes(a.code));
-    if (novas.length) comemorarConquista(novas[0]);
+    if (novas.length) {
+        const d = datasConquistas();
+        novas.forEach(a => { d[a.code] = Date.now(); });
+        localStorage.setItem('pulso-conq-datas-' + state.session.user.id, JSON.stringify(d));
+        const a = novas[0];
+        const grupo = NIVEIS_CONQ.find(g => g.codes.includes(a.code));
+        comemorarConquista(grupo ? { ...a, nome: `${grupo.nome} · ${NOMES_NIVEL[grupo.codes.indexOf(a.code)]}`, emo: a.emo } : a);
+    }
 }
 function comemorarConquista(a) {
     const old = document.getElementById('conqSheet'); if (old) old.remove();

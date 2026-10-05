@@ -2783,3 +2783,15 @@ html.tela-cheia .toast{ bottom:calc(28px + env(safe-area-inset-bottom)) !importa
 .conv-coach.nao-lida .conv-name{ font-weight:800; }
 .conv-coach.nao-lida .conv-preview{ color:var(--ink); font-weight:600; }
 .conv-bolinha{ width:10px; height:10px; border-radius:50%; background:var(--vital); flex-shrink:0; margin-right:4px; }
+
+/* ================= ONDA 45: conquistas em níveis ================= */
+.badge-secao{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); margin:16px 2px 8px; }
+.badge-card{ position:relative; }
+.badge-nivel{ display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:9px; margin:2px 0 4px; }
+.badge-nivel.bronze{ background:rgba(205,127,50,.16); color:#D9924A; }
+.badge-nivel.prata{ background:rgba(192,200,206,.16); color:#C9D2D8; }
+.badge-nivel.ouro{ background:rgba(255,194,75,.16); color:var(--gold); }
+:root[data-theme="light"] .badge-nivel.prata{ color:#6E7A82; background:rgba(110,122,130,.14); }
+.badge-nova{ position:absolute; top:8px; right:8px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; padding:2px 7px; border-radius:8px; background:var(--vital); color:#06110B; }
+.badge-card.nova{ box-shadow:0 0 0 1px rgba(53,225,155,.5), 0 0 22px rgba(53,225,155,.18); animation:badgeBrilho 2.4s ease-in-out infinite; }
+@keyframes badgeBrilho{ 0%,100%{ box-shadow:0 0 0 1px rgba(53,225,155,.45), 0 0 14px rgba(53,225,155,.12); } 50%{ box-shadow:0 0 0 1px rgba(53,225,155,.7), 0 0 26px rgba(53,225,155,.26); } }
