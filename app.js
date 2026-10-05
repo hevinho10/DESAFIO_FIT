@@ -843,12 +843,13 @@ async function renderAdmin() {
             </div>
 
             <div class="adm-painel${state.abaAdmin === 'usuarios' ? '' : ' hidden'}" data-painel="usuarios">
-            <h3 class="edit-section-title">Usuários por score</h3>
-            <div class="admin-user-list">${usersHTML}</div>
+            <div id="admUsuarios"><div class="spinner"></div></div>
             </div>
         </div>
     `;
 
+    state.admPodeCriar = podeCriar;
+    hydrateAdminUsuarios();
     hydrateNovosCadastros().then(() => {
         const n = document.querySelectorAll('#cadastrosBox [data-status="aprovado"]').length - document.querySelectorAll('#cadastrosBox details [data-status="aprovado"]').length;
         const aba = document.querySelector('.adm-abas [data-aba="cadastros"]');
@@ -4031,14 +4032,14 @@ async function renderFeed() {
     html += `<div id="desafioSlot"></div>`;
 
     // Sugestões de seguir (só aparece se você não segue ninguém ainda ou poucas pessoas)
-    const { data: suggestions } = await sb.rpc('suggest_users_to_follow', { lim: 6 });
+    const suggestions = await carregarSugestoes(6);
     if (suggestions && suggestions.length > 0) {
         let sugHTML = '<div class="suggestions-section"><h3 class="suggestions-title">Descobrir pessoas</h3><div class="suggestions-row">';
         suggestions.forEach(u => {
             sugHTML += `<div class="suggestion-card" data-act="view-user" data-uid="${u.id}">
                 ${avatarHTML(u, 'md')}
                 <div class="suggestion-name">${escapeHTML(u.display_name)}</div>
-                <div class="suggestion-uname">@${escapeHTML(u.username)}</div>
+                <div class="suggestion-uname">${escapeHTML(u.motivo || '@' + u.username)}</div>
                 <button class="suggestion-follow" data-act="quick-follow" data-uid="${u.id}" data-following="0">Seguir</button>
             </div>`;
         });
@@ -4387,7 +4388,7 @@ function abrirEscolhaResumo(res, nomeArquivo) {
             const blob = await imagemResumo({ titulo: res.titulo, subtitulo: res.subtitulo, itens, versiculo: res.versiculo });
             sheet.remove();
             if (!blob) { toast('Não consegui montar a imagem agora.', 'err'); return; }
-            abrirPreviaImagem(blob, nomeArquivo);
+            abrirPreviaImagem(blob, nomeArquivo, res.versiculo ? isoDe(semanaDoResumo()) : null);
         };
     };
     pintar();
@@ -4396,7 +4397,7 @@ function abrirEscolhaResumo(res, nomeArquivo) {
 }
 
 // Passo 2: prévia com Postar no Pulso, Compartilhar e Salvar
-function abrirPreviaImagem(blob, nomeArquivo) {
+function abrirPreviaImagem(blob, nomeArquivo, semanaResumo = null) {
     const old = document.getElementById('previaSheet');
     if (old) old.remove();
     const url = URL.createObjectURL(blob);
@@ -4418,7 +4419,7 @@ function abrirPreviaImagem(blob, nomeArquivo) {
     document.body.appendChild(sheet);
     const fechar = () => { sheet.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000); };
     sheet.addEventListener('click', e => { if (e.target === sheet) fechar(); });
-    document.getElementById('pvPulso').onclick = () => { fechar(); openStoryCreator(); entrarModoFoto(arquivo); };
+    document.getElementById('pvPulso').onclick = () => { fechar(); state.storyResumoSemana = semanaResumo; openStoryCreator(); entrarModoFoto(arquivo); };
     document.getElementById('pvCompartilhar').onclick = () => compartilharImagem(arquivo);
     document.getElementById('pvSalvar').onclick = () => salvarImagem(blob, nomeArquivo);
 }
@@ -6085,6 +6086,18 @@ function versiculoDaSemana() {
     return VERSICULOS[(hsh >>> 0) % VERSICULOS.length];
 }
 
+// Já postou o resumo desta semana? (vale em qualquer aparelho: olha o próprio story)
+async function resumoJaPostado() {
+    const sem = isoDe(semanaDoResumo());
+    if (lsGet('pulso-resumo-postado-' + state.session.user.id) === sem) return true;
+    try {
+        const { data } = await sb.from('stories').select('id')
+            .eq('user_id', state.session.user.id).eq('style->>resumo_semana', sem).limit(1);
+        if (data && data.length) { lsSet('pulso-resumo-postado-' + state.session.user.id, sem); return true; }
+    } catch (_) {}
+    return false;
+}
+
 async function hydrateResumoSemana() {
     const slot = document.getElementById('resumoSlot');
     if (!slot) return;
@@ -6094,6 +6107,7 @@ async function hydrateResumoSemana() {
     let fech = {};
     try { fech = JSON.parse(lsGet(chave) || '{}'); } catch (_) {}
     if ((fech.vezes || 0) >= 2 || fech.dia === hojeISO()) { slot.innerHTML = ''; return; }
+    if (await resumoJaPostado()) { slot.innerHTML = ''; return; }
     const d = await dadosDaSemana();
     state.resumoSemana = d;
     if (!document.getElementById('resumoSlot')) return;
@@ -6116,6 +6130,7 @@ async function hydrateSemanaEvo() {
     const slot = document.getElementById('semanaEvoSlot');
     if (!slot) return;
     if (!janelaDoResumo()) { slot.innerHTML = ''; return; } // só de sábado 12h a segunda 19h
+    if (await resumoJaPostado()) { slot.innerHTML = ''; return; }
     const d = await dadosDaSemana();
     state.resumoSemana = d;
     if (!document.getElementById('semanaEvoSlot')) return;
@@ -6529,6 +6544,126 @@ function mostrarTelaAguardandoAcesso(status) {
         const { data } = await sb.from('profiles').select('access_status').eq('id', state.session.user.id).maybeSingle();
         if (data && data.access_status === 'aprovado') { clearInterval(state.timerEspera); tela.remove(); toast('Seu acesso foi liberado! Bem-vindo ao Pulso 🎉', 'ok'); boot(); }
     }, 20000);
+}
+
+// ---- Painel Admin › Usuários: todos, com como usam o app, busca, filtros e ações ----
+const NOME_APARELHO_ADM = { iphone: 'iPhone', android: 'Android', computador: 'Computador' };
+async function hydrateAdminUsuarios() {
+    const box = document.getElementById('admUsuarios');
+    if (!box) return;
+    const { data, error } = await sb.rpc('admin_lista_usuarios');
+    if (!document.getElementById('admUsuarios')) return;
+    if (error) { box.innerHTML = `<p class="faixa-nota">Não consegui carregar: ${escapeHTML(error.message)}</p>`; return; }
+    state.admUsuarios = data || [];
+    pintarAdminUsuarios();
+}
+function pintarAdminUsuarios() {
+    const box = document.getElementById('admUsuarios');
+    if (!box) return;
+    const todos = state.admUsuarios || [];
+    const filtro = state.admFiltro || 'todos';
+    const busca = (state.admBusca || '').toLowerCase().trim();
+    const inst = todos.filter(u => u.app_installed === true).length;
+    const nav = todos.filter(u => u.app_installed === false).length;
+    const sem = todos.filter(u => u.app_installed == null).length;
+    const bloq = todos.filter(u => u.access_status === 'bloqueado').length;
+    const lista = todos.filter(u => {
+        if (filtro === 'instalado' && u.app_installed !== true) return false;
+        if (filtro === 'navegador' && u.app_installed !== false) return false;
+        if (filtro === 'bloqueados' && u.access_status !== 'bloqueado') return false;
+        if (busca && !(`${u.display_name || ''} ${u.username || ''}`.toLowerCase().includes(busca))) return false;
+        return true;
+    });
+    const linha = u => {
+        const como = u.app_installed === true ? `<span class="adm-inst">Instalado</span>` : u.app_installed === false ? 'Navegador' : '<span class="adm-sem">Sem registro ainda</span>';
+        const ap = u.last_device ? ` · ${NOME_APARELHO_ADM[u.last_device] || u.last_device}` : '';
+        const quando = u.last_seen_at ? ` · abriu ${timeAgo(u.last_seen_at)}` : '';
+        const st = u.access_status === 'bloqueado' ? ' <span class="adm-tag-bloq">bloqueado</span>' : u.access_status === 'pendente' ? ' <span class="adm-tag-pend">pendente</span>' : '';
+        return `<div class="adm-u">
+            <span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'sm')}</span>
+            <div class="adm-u-info" data-act="view-user" data-uid="${u.id}">
+                <b>${escapeHTML(u.display_name || '')}${u.is_admin ? ' <span class="adm-tag-adm">admin</span>' : ''}${st}</b>
+                <small>@${escapeHTML(u.username || '')} · ${u.total_posts || 0} posts</small>
+                <small>${como}${ap}${quando}</small>
+            </div>
+            ${u.id !== state.session.user.id ? `<button class="ger-mais" data-act="adm-u-menu" data-uid="${u.id}" aria-label="Opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>` : ''}
+        </div>`;
+    };
+    box.innerHTML = `
+        <p class="adm-resumo"><b>${todos.length}</b> pessoas · <b>${inst}</b> instalado · <b>${nav}</b> navegador · <b>${sem}</b> sem registro${bloq ? ` · <b>${bloq}</b> bloqueado${bloq > 1 ? 's' : ''}` : ''}</p>
+        <div class="search-box adm-busca">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="text" id="admBuscaInput" placeholder="Buscar por nome ou @" value="${escapeHTML(state.admBusca || '')}" autocapitalize="off" autocomplete="off">
+        </div>
+        <div class="adm-filtros">${[['todos', 'Todos'], ['instalado', 'Instalado'], ['navegador', 'Navegador'], ['bloqueados', 'Bloqueados']].map(([k, n]) =>
+            `<button class="${filtro === k ? 'on' : ''}" data-act="adm-filtro" data-f="${k}">${n}</button>`).join('')}</div>
+        <div class="chart-card adm-lista">${lista.map(linha).join('') || '<p class="faixa-nota">Ninguém por aqui.</p>'}</div>`;
+    const inp = document.getElementById('admBuscaInput');
+    inp.oninput = () => {
+        state.admBusca = inp.value;
+        const pos = inp.selectionStart;
+        pintarAdminUsuarios();
+        const novo = document.getElementById('admBuscaInput');
+        novo.focus(); try { novo.setSelectionRange(pos, pos); } catch (_) {}
+    };
+}
+function menuAdminUsuario(btn) {
+    hidePostMenu();
+    const u = (state.admUsuarios || []).find(x => x.id === btn.dataset.uid);
+    if (!u) return;
+    const cria = state.admPodeCriar && state.admPodeCriar.has(u.id);
+    const ops = [
+        `<button class="post-menu-item" data-act="view-user" data-uid="${u.id}">${icon('perfil')}Ver perfil</button>`,
+        `<button class="post-menu-item" data-act="start-chat" data-uid="${u.id}" data-name="${escapeHTML(u.display_name || '')}" data-username="${escapeHTML(u.username || '')}" data-avatar="${u.avatar_url || ''}">${icon('mensagem')}Mandar mensagem</button>`,
+        `<button class="post-menu-item" data-act="toggle-creator" data-uid="${u.id}" data-on="${cria ? '1' : '0'}">${icon('comunidade')}${cria ? 'Tirar permissão de criar desafios' : 'Liberar criar desafios'}</button>`,
+    ];
+    if (!u.is_admin) {
+        ops.push(u.access_status === 'bloqueado'
+            ? `<button class="post-menu-item" data-act="adm-bloquear" data-uid="${u.id}" data-bloq="0">${icon('ok')}Desbloquear acesso</button>`
+            : `<button class="post-menu-item" data-act="adm-bloquear" data-uid="${u.id}" data-bloq="1">${icon('bloquear')}Bloquear acesso</button>`);
+        ops.push(`<button class="post-menu-item danger" data-act="adm-excluir" data-uid="${u.id}">${icon('lixo')}Excluir conta</button>`);
+    }
+    const menu = document.createElement('div');
+    menu.id = 'floatingPostMenu';
+    menu.className = 'post-menu';
+    menu.innerHTML = ops.join('');
+    const rect = btn.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = Math.max(70, Math.min(window.innerHeight - 70 - ops.length * 46, rect.bottom + 4)) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    menu.style.zIndex = 120;
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+}
+function confirmarExclusaoConta(u) {
+    const old = document.getElementById('excluirSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'excluirSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Excluir a conta de ${escapeHTML(u.display_name || '')}?</h3>
+        <p class="sheet-sub">Apaga os posts, stories, comentários, mensagens, registros e a participação em desafios dessa pessoa, e o login dela deixa de funcionar. <b>Não tem como desfazer.</b> Se só quiser impedir o acesso, use "Bloquear acesso".</p>
+        <div class="field"><label>Pra confirmar, digite o usuário: <b>${escapeHTML(u.username || '')}</b></label>
+            <input type="text" id="excConf" autocapitalize="off" autocomplete="off" placeholder="${escapeHTML(u.username || '')}"></div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="excCanc">Cancelar</button>
+            <button class="btn-primary btn-perigo" id="excOk" disabled>Excluir conta</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const campo = sheet.querySelector('#excConf'), ok = sheet.querySelector('#excOk');
+    campo.oninput = () => { ok.disabled = campo.value.trim().toLowerCase() !== String(u.username || '').toLowerCase(); };
+    sheet.querySelector('#excCanc').onclick = () => sheet.remove();
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    ok.onclick = async () => {
+        ok.disabled = true; ok.textContent = 'Excluindo...';
+        const { error } = await sb.rpc('admin_excluir_conta', { alvo: u.id, confirmacao: campo.value.trim() });
+        if (error) { toast(erroParaAdmin(error), 'err'); ok.disabled = false; ok.textContent = 'Excluir conta'; return; }
+        sheet.remove();
+        toast('Conta excluída', 'ok');
+        hydrateAdminUsuarios();
+    };
 }
 
 // ---- Painel Admin: novos cadastros ----
@@ -9442,6 +9577,25 @@ document.addEventListener('click', async e => {
         state.abaAdmin = btn.dataset.aba;
         $$('.adm-abas .evo-aba').forEach(b => b.classList.toggle('on', b === btn));
         $$('.adm-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== state.abaAdmin));
+    } else if (act === 'adm-u-menu') {
+        e.stopPropagation();
+        menuAdminUsuario(btn);
+    } else if (act === 'adm-filtro') {
+        state.admFiltro = btn.dataset.f;
+        pintarAdminUsuarios();
+    } else if (act === 'adm-bloquear') {
+        hidePostMenu();
+        const u = (state.admUsuarios || []).find(x => x.id === btn.dataset.uid) || {};
+        const bloq = btn.dataset.bloq === '1';
+        if (bloq && !confirm(`Bloquear o acesso de ${u.display_name}? A pessoa não consegue mais usar o app até você desbloquear.`)) return;
+        const { error } = await sb.rpc('admin_set_access', { alvo: btn.dataset.uid, status: bloq ? 'bloqueado' : 'aprovado' });
+        if (error) { toast(erroParaAdmin(error), 'err'); return; }
+        toast(bloq ? 'Acesso bloqueado' : 'Acesso liberado de novo', 'ok');
+        hydrateAdminUsuarios();
+    } else if (act === 'adm-excluir') {
+        hidePostMenu();
+        const u = (state.admUsuarios || []).find(x => x.id === btn.dataset.uid);
+        if (u) confirmarExclusaoConta(u);
     } else if (act === 'admin-acesso') {
         btn.disabled = true;
         const { error } = await sb.rpc('admin_set_access', { alvo: btn.dataset.uid, status: btn.dataset.status });
@@ -9925,6 +10079,8 @@ document.addEventListener('click', async e => {
         btn.classList.toggle('on', libera);
         btn.textContent = libera ? 'Cria desafios' : 'Liberar desafios';
         toast(libera ? 'Liberado pra criar desafios' : 'Permissão removida', 'ok');
+        if (state.admPodeCriar) { libera ? state.admPodeCriar.add(btn.dataset.uid) : state.admPodeCriar.delete(btn.dataset.uid); }
+        hidePostMenu();
     } else if (act === 'go-privacy') {
         hidePostMenu();
         switchView('privacy');
@@ -10613,6 +10769,7 @@ function openStoryCreator() {
 }
 
 function closeStoryCreator() {
+    state.storyResumoSemana = null;
     $('#storyCreator').classList.remove('on');
     document.body.style.overflow = '';
     sincronizarModoTela();
@@ -10884,6 +11041,7 @@ $('#scPublish').addEventListener('click', async () => {
         if (sc.mode === 'photo') style.pos = sc.pos;
         if (sc.mode === 'text') { style.align = sc.alinhar; if (sc.corLetra) style.color = sc.corLetra; }
         if (sc.adesivo) { style.sticker = sc.adesivo; style.stickerPos = sc.adesivoPos; }
+        if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
 
         const { data: story, error } = await sb.from('stories').insert({
             user_id: state.session.user.id,
@@ -10894,6 +11052,12 @@ $('#scPublish').addEventListener('click', async () => {
         }).select().single();
         if (error) throw error;
 
+        if (state.storyResumoSemana) {
+            lsSet('pulso-resumo-postado-' + state.session.user.id, state.storyResumoSemana);
+            state.storyResumoSemana = null;
+            const rs = document.getElementById('resumoSlot'); if (rs) rs.innerHTML = '';
+            const se = document.getElementById('semanaEvoSlot'); if (se) se.innerHTML = '';
+        }
         const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id });
         const ganhos = Number(stPts || 0);
         await loadScore();

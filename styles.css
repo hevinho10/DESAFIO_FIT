@@ -2545,3 +2545,24 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .ptr.pronto{ color:var(--vital); }
 .ptr.girando svg{ animation:girar .8s linear infinite; }
 .adm-sem{ color:var(--ink-faint); font-style:italic; }
+
+/* ================= ONDA 36: admin usuários ================= */
+.adm-resumo{ font-size:13px; color:var(--ink-dim); margin:0 2px 10px; line-height:1.6; }
+.adm-resumo b{ color:var(--ink); }
+.adm-busca{ margin-bottom:10px; }
+.adm-filtros{ display:flex; gap:6px; overflow-x:auto; margin-bottom:12px; scrollbar-width:none; }
+.adm-filtros::-webkit-scrollbar{ display:none; }
+.adm-filtros button{ flex:none; height:34px; padding:0 14px; border-radius:17px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); font-size:13px; font-weight:600; }
+.adm-filtros button.on{ border-color:var(--vital); background:var(--vital-dim); color:var(--vital); }
+.adm-lista{ padding:4px 16px; }
+.adm-u{ display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:10px; padding:11px 0; }
+.adm-u + .adm-u{ border-top:1px solid var(--line); }
+.adm-u-info{ display:flex; flex-direction:column; min-width:0; cursor:pointer; }
+.adm-u-info b{ font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.adm-u-info small{ font-size:12px; color:var(--ink-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.adm-tag-adm, .adm-tag-bloq, .adm-tag-pend{ font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:8px; margin-left:4px; vertical-align:1px; }
+.adm-tag-adm{ background:var(--vital-dim); color:var(--vital); }
+.adm-tag-bloq{ background:rgba(255,94,94,.14); color:var(--danger); }
+.adm-tag-pend{ background:rgba(255,194,75,.14); color:var(--gold); }
+.btn-perigo{ background:var(--danger) !important; color:#fff !important; box-shadow:none !important; }
+.btn-perigo:disabled{ opacity:.45; }
