@@ -3795,6 +3795,9 @@ function abrirMenuMensagem(mid, conv) {
 }
 
 async function sendChatMessage(conversationId) {
+    if (state.enviandoMsg) return;
+    state.enviandoMsg = true;
+    setTimeout(() => { state.enviandoMsg = false; }, 1200);
     const input = $('#chatInput');
     const text = input.value.trim();
     if (!text) return;
@@ -4385,7 +4388,10 @@ function renderPost(p) {
         }
     }
 
-    if (p.caption) body += `<p class="post-caption">${escapeHTML(p.caption)}</p>`;
+    if (p.caption) {
+        const longa = p.caption.length > 160 || (p.caption.match(/\n/g) || []).length > 2;
+        body += `<p class="post-caption${longa ? ' longa' : ''}">${escapeHTML(p.caption)}</p>${longa ? '<button class="caption-mais" data-act="caption-mais">mais</button>' : ''}`;
+    }
     if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy" decoding="async">`;
 
     const isMine = p.user_id === state.session.user.id;
@@ -8982,7 +8988,7 @@ function openWeightLogSheet() {
             const anterior = ultimo && ultimo[0] ? Number(ultimo[0].weight_kg) : null;
 
             if (anterior && Math.abs(lido - anterior) > 10) {
-                if (!confirm(`Li ${lido} kg, mas sua última pesagem foi ${anterior} kg. Está certo?`)) {
+                if (!(await confirmar(`Li ${lido} kg, mas sua última pesagem foi ${anterior} kg. Está certo?`))) {
                     b.disabled = false; b.textContent = 'Ler da balança'; return;
                 }
             }
@@ -9768,7 +9774,7 @@ document.addEventListener('click', async e => {
         lsSet(chaveHistBusca(), JSON.stringify(lerHistBusca().filter(x => x.id !== btn.dataset.uid)));
         mostrarHistBusca();
     } else if (act === 'busca-limpar') {
-        if (!confirm('Limpar todo o histórico de busca?')) return;
+        if (!(await confirmar('Limpar todo o histórico de busca?'))) return;
         lsSet(chaveHistBusca(), '[]');
         mostrarHistBusca();
     } else if (act === 'busca-abrir') {
@@ -9799,7 +9805,7 @@ document.addEventListener('click', async e => {
         setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
     } else if (act === 'apagar-meu-depoimento') {
         hidePostMenu();
-        if (!confirm('Apagar seu depoimento? Ele sai do feed e do perfil da pessoa.')) return;
+        if (!(await confirmar('Apagar seu depoimento? Ele sai do feed e do perfil da pessoa.'))) return;
         const { error } = await sb.rpc('apagar_depoimento', { did: btn.dataset.dep });
         if (error) { toast(msgErro(error), 'err'); return; }
         const el = document.querySelector(`.post[data-post-id="${btn.dataset.id}"]`); if (el) el.remove();
@@ -9852,7 +9858,7 @@ document.addEventListener('click', async e => {
         btn.disabled = true;
         if (following) {
             const eraPedido = btn.dataset.requested === '1';
-            if (!eraPedido && btn.dataset.private === '1' && !confirm('Deixar de seguir? A conta é privada, pra ver de novo vai precisar pedir.')) { btn.disabled = false; return; }
+            if (!eraPedido && btn.dataset.private === '1' && !(await confirmar('Deixar de seguir? A conta é privada, pra ver de novo vai precisar pedir.'))) { btn.disabled = false; return; }
             await sb.rpc('unfollow_user', { target_id: uid });
         } else {
             const { error } = await sb.rpc('follow_user', { target_id: uid });
@@ -9995,7 +10001,7 @@ document.addEventListener('click', async e => {
         hidePostMenu();
         const u = (state.admUsuarios || []).find(x => x.id === btn.dataset.uid) || {};
         const bloq = btn.dataset.bloq === '1';
-        if (bloq && !confirm(`Bloquear o acesso de ${u.display_name}? A pessoa não consegue mais usar o app até você desbloquear.`)) return;
+        if (bloq && !(await confirmar(`Bloquear o acesso de ${u.display_name}? A pessoa não consegue mais usar o app até você desbloquear.`))) return;
         const { error } = await sb.rpc('admin_set_access', { alvo: btn.dataset.uid, status: bloq ? 'bloqueado' : 'aprovado' });
         if (error) { toast(erroParaAdmin(error), 'err'); return; }
         toast(bloq ? 'Acesso bloqueado' : 'Acesso liberado de novo', 'ok');
@@ -10040,7 +10046,7 @@ document.addEventListener('click', async e => {
         toast(publicar ? (ck && ck.checked ? 'Publicado no perfil e no feed ✨' : 'Publicado no seu perfil ✨') : 'Depoimento recusado', 'ok');
         renderDepoimentos(state.session.user.id, false, '');
     } else if (act === 'dep-apagar') {
-        if (!confirm('Apagar este depoimento? Se ele foi pro feed, o post também sai.')) return;
+        if (!(await confirmar('Apagar este depoimento? Se ele foi pro feed, o post também sai.'))) return;
         const { error } = await sb.rpc('apagar_depoimento', { did: btn.dataset.id });
         if (error) { toast(msgErro(error), 'err'); return; }
         const item = btn.closest('.dep-item'); if (item) item.remove();
@@ -10055,7 +10061,7 @@ document.addEventListener('click', async e => {
         switchView('desafio', { id: btn.dataset.id });
     } else if (act === 'peso-grupo-toggle') {
         const sair = btn.dataset.sair === '1';
-        if (sair && !confirm('Tirar seu peso do total do grupo? Ninguém vê seu peso de qualquer forma, isso só não soma você no total.')) return;
+        if (sair && !(await confirmar('Tirar seu peso do total do grupo? Ninguém vê seu peso de qualquer forma, isso só não soma você no total.'))) return;
         const { error } = await sb.rpc('set_challenge_weight_optout', { cid: btn.dataset.id, sair });
         if (error) { toast(msgErro(error), 'err'); return; }
         toast(sair ? 'Seu peso não entra mais no total do grupo' : 'Seu peso volta a somar no total do grupo', 'ok');
@@ -10087,7 +10093,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'ger-remover') {
         hidePostMenu();
         const u = state.gerRanking.find(x => x.user_id === btn.dataset.uid) || {};
-        if (!confirm(`Remover ${u.display_name || 'essa pessoa'} do desafio? Ela não será avisada e pode pedir pra entrar de novo.`)) return;
+        if (!(await confirmar(`Remover ${u.display_name || 'essa pessoa'} do desafio? Ela não será avisada e pode pedir pra entrar de novo.`))) return;
         const { error } = await sb.rpc('gestor_remover_participante', { cid: state.gerDesafio.id, alvo: btn.dataset.uid });
         if (error) { toast(msgErro(error), 'err'); return; }
         toast('Removido do desafio', 'ok');
@@ -10097,7 +10103,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'ger-montar-times') {
         abrirMontarTimes();
     } else if (act === 'ger-encerrar') {
-        if (!confirm('Encerrar o desafio agora? O ranking fica congelado e o pódio sai na hora.')) return;
+        if (!(await confirmar('Encerrar o desafio agora? O ranking fica congelado e o pódio sai na hora.'))) return;
         const { error } = await sb.rpc('gestor_encerrar_desafio', { cid: state.gerDesafio.id });
         if (error) { toast(msgErro(error), 'err'); return; }
         toast('Desafio encerrado 🏁', 'ok');
@@ -10105,7 +10111,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'ger-passar') {
         escolherPessoaGer('Passar a organização pra…', u => u.user_id !== state.gerDesafio.created_by, async alvo => {
             const u = state.gerRanking.find(x => x.user_id === alvo) || {};
-            if (!confirm(`Passar a organização do desafio pra ${u.display_name}? Ela vai poder gerenciar tudo.`)) return;
+            if (!(await confirmar(`Passar a organização do desafio pra ${u.display_name}? Ela vai poder gerenciar tudo.`))) return;
             const { error } = await sb.rpc('gestor_passar_organizacao', { cid: state.gerDesafio.id, alvo });
             if (error) { toast(msgErro(error), 'err'); return; }
             toast('Organização transferida', 'ok');
@@ -10120,6 +10126,24 @@ document.addEventListener('click', async e => {
         const acoes = btn.closest('.nt-acoes');
         if (acoes) acoes.outerHTML = `<span class="nt-sub">${aceitar ? 'Registrado no seu histórico ✓' : 'Você recusou'}</span>`;
         if (aceitar) { toast('Treino registrado pra você também 💪', 'ok'); loadScore(); }
+    } else if (act === 'caption-mais') {
+        const cap = btn.previousElementSibling;
+        if (cap) cap.classList.add('aberta');
+        btn.remove();
+    } else if (act === 'apagar-agua') {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        const linha = btn.closest('.ah-linha'); if (linha) linha.classList.add('sumindo');
+        let desfeito = false;
+        toastComAcao('Registro de água apagado', 'Desfazer', () => { desfeito = true; if (linha) linha.classList.remove('sumindo'); });
+        setTimeout(async () => {
+            if (desfeito) return;
+            const { error } = await sb.from('posts').delete().eq('id', id).eq('user_id', state.session.user.id);
+            if (error) { toast(msgErro(error), 'err'); if (linha) linha.classList.remove('sumindo'); return; }
+            if (linha) linha.remove();
+            loadScore();
+            refreshWaterProgress();
+        }, 5000);
     } else if (act === 'atalho-registro') {
         contarUsoAtalho({ workout: 'treino', meal: 'refeicao', sleep: 'sono' }[btn.dataset.k]);
         $('#tileDesafio').classList.toggle('hidden', !podeCriarDesafio());
@@ -10358,12 +10382,12 @@ document.addEventListener('click', async e => {
         toast('Você entrou no desafio!', 'ok');
         atualizarTelaDesafio(btn.dataset.id);
     } else if (act === 'leave-challenge') {
-        if (!confirm('Sair do desafio? Você perde acesso ao progresso do grupo.')) return;
+        if (!(await confirmar('Sair do desafio? Você perde acesso ao progresso do grupo.'))) return;
         await sb.from('challenge_members').delete().match({ challenge_id: btn.dataset.id, user_id: state.session.user.id });
         toast('Você saiu do desafio', 'ok');
         renderChallengeDetail(btn.dataset.id);
     } else if (act === 'delete-challenge') {
-        if (!confirm('Apagar este desafio? O ranking e os participantes somem junto.')) return;
+        if (!(await confirmar('Apagar este desafio? O ranking e os participantes somem junto.'))) return;
         const { error } = await sb.from('challenges').delete().eq('id', btn.dataset.id);
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
         toast('Desafio apagado', 'ok');
@@ -10431,7 +10455,7 @@ document.addEventListener('click', async e => {
         const uid = btn.dataset.uid;
         const nome = btn.dataset.name || 'essa pessoa';
         const bloqueado = btn.dataset.blocked === '1';
-        if (!bloqueado && !confirm(`Bloquear ${nome}? Vocês param de se ver no app.`)) return;
+        if (!bloqueado && !(await confirmar(`Bloquear ${nome}? Vocês param de se ver no app.`))) return;
         if (bloqueado) {
             await sb.from('blocks').delete().match({ blocker_id: state.session.user.id, blocked_id: uid });
             toast('Desbloqueado', 'ok');
@@ -10461,7 +10485,7 @@ document.addEventListener('click', async e => {
         const { data: lista } = await sb.rpc('my_achievements');
         const conq = (lista || []).find(x => x.code === code);
         if (!conq) return;
-        if (!confirm(`Compartilhar "${conq.nome}" no feed?`)) return;
+        if (!(await confirmar(`Compartilhar "${conq.nome}" no feed?`))) return;
         const { error } = await sb.from('posts').insert({
             user_id: state.session.user.id,
             kind: 'achievement',
@@ -10529,7 +10553,7 @@ document.addEventListener('click', async e => {
         hidePostMenu();
         openEditPostSheet(btn.dataset.id);
     } else if (act === 'delete-account') {
-        if (!confirm('Excluir sua conta? Todo o seu conteúdo some e não tem como recuperar.')) return;
+        if (!(await confirmar('Excluir sua conta? Todo o seu conteúdo some e não tem como recuperar.'))) return;
         const txt = prompt('Pra confirmar, escreva EXCLUIR em maiúsculas:');
         if (txt !== 'EXCLUIR') { toast('Exclusão cancelada', 'ok'); return; }
         const { error } = await sb.rpc('delete_my_account');
@@ -10647,13 +10671,13 @@ document.addEventListener('click', async e => {
         showChatMenu(btn);
     } else if (act === 'clear-chat') {
         hidePostMenu();
-        if (!confirm('Apagar esta conversa? Ela some pros dois e não dá pra desfazer.')) return;
+        if (!(await confirmar('Apagar esta conversa? Ela some pros dois e não dá pra desfazer.'))) return;
         const { error } = await sb.from('conversations').delete().eq('id', btn.dataset.id);
         if (error) { toast('Erro ao apagar conversa', 'err'); return; }
         toast('Conversa apagada', 'ok');
         switchView('messages');
     } else if (act === 'delete-message') {
-        if (!confirm('Apagar esta mensagem? Ela some pros dois.')) return;
+        if (!(await confirmar('Apagar esta mensagem? Ela some pros dois.'))) return;
         const mid = btn.dataset.id;
         const { error } = await sb.from('messages').delete().eq('id', mid);
         if (error) { toast('Erro ao apagar mensagem', 'err'); return; }
@@ -10670,7 +10694,7 @@ document.addEventListener('click', async e => {
         });
     } else if (act === 'do-logout') {
         hidePostMenu();
-        if (!confirm('Tem certeza que quer sair?')) return;
+        if (!(await confirmar('Tem certeza que quer sair?'))) return;
         await sb.auth.signOut();
         location.reload();
     } else if (act === 'go-challenges' && btn.closest('#floatingPostMenu')) {
@@ -10734,12 +10758,12 @@ document.addEventListener('click', async e => {
     } else if (act === 'coach-suggest') {
         sendCoachMessage(btn.dataset.q);
     } else if (act === 'delete-measurement') {
-        if (!confirm('Apagar esta medição?')) return;
+        if (!(await confirmar('Apagar esta medição?'))) return;
         await sb.from('body_measurements').delete().eq('id', btn.dataset.id);
         toast('Medição apagada', 'ok');
         await renderHealth();
     } else if (act === 'delete-post') {
-        if (!confirm('Apagar este post? Essa ação não pode ser desfeita.')) return;
+        if (!(await confirmar('Apagar este post? Essa ação não pode ser desfeita.'))) return;
         const postId = btn.dataset.id;
         const { data: velho } = await sb.from('posts').select('image_url, thumb_url').eq('id', postId).maybeSingle();
         await sb.from('posts').delete().eq('id', postId);
@@ -11048,8 +11072,8 @@ function menuComentario(btn) {
 }
 
 // Apagar com "Desfazer": some na hora e só apaga de verdade depois de 5 segundos
-function apagarComentarioComDesfazer(id, respostas) {
-    if (Number(respostas) > 0 && !confirm(`Esse comentário tem ${respostas} ${respostas === '1' ? 'resposta' : 'respostas'}, que também serão apagadas. Continuar?`)) return;
+async function apagarComentarioComDesfazer(id, respostas) {
+    if (Number(respostas) > 0 && !(await confirmar(`Esse comentário tem ${respostas} ${respostas === '1' ? 'resposta' : 'respostas'}, que também serão apagadas. Continuar?`))) return;
     const item = document.querySelector(`.comment-item[data-comment-id="${id}"]`);
     const filhas = [];
     if (item) {
@@ -11074,6 +11098,55 @@ function apagarComentarioComDesfazer(id, respostas) {
         }
     }, 5000);
 }
+// Confirmação no estilo do app (no lugar da caixa do navegador)
+function confirmar(texto, botao = null, perigo = null) {
+    if (!botao) {
+        const t = String(texto);
+        const mapa = [[/^Apagar/, 'Apagar', true], [/^Excluir/, 'Excluir', true], [/^Remover/, 'Remover', true], [/^Bloquear/, 'Bloquear', true],
+            [/^Encerrar/, 'Encerrar', true], [/sair\?$|^Sair/, 'Sair', true], [/^Deixar de seguir/, 'Deixar de seguir', true], [/^Limpar/, 'Limpar', true],
+            [/^Tirar/, 'Tirar', false], [/^Passar/, 'Passar', false], [/^Compartilhar/, 'Compartilhar', false], [/^Li /, 'Está certo', false]];
+        const m = mapa.find(([re]) => re.test(t));
+        botao = m ? m[1] : 'Confirmar';
+        if (perigo == null) perigo = m ? m[2] : false;
+    }
+    return new Promise(resolve => {
+        const old = document.getElementById('confirmarSheet'); if (old) old.remove();
+        const sheet = document.createElement('div');
+        sheet.id = 'confirmarSheet';
+        sheet.className = 'sheet on confirmar-sheet';
+        sheet.innerHTML = `<div class="sheet-card">
+            <div class="sheet-handle"></div>
+            <p class="confirmar-txt">${escapeHTML(texto)}</p>
+            <div class="sheet-footer">
+                <button class="btn-ghost" data-r="0">Cancelar</button>
+                <button class="btn-primary${perigo ? ' btn-perigo' : ''}" data-r="1">${escapeHTML(botao)}</button>
+            </div>
+        </div>`;
+        document.body.appendChild(sheet);
+        const fim = r => { sheet.remove(); resolve(r); };
+        sheet.addEventListener('click', e => {
+            if (e.target === sheet) return fim(false);
+            const b = e.target.closest('[data-r]');
+            if (b) fim(b.dataset.r === '1');
+        });
+    });
+}
+// Botão que "segura" enquanto salva (evita toque duplo)
+function btnCarregando(btn, on) {
+    if (!btn) return;
+    if (on) {
+        if (btn.classList.contains('carregando')) return;
+        btn.dataset.txtOriginal = btn.innerHTML;
+        btn.disabled = true;
+        btn.classList.add('carregando');
+        btn.innerHTML = '<span class="btn-spin"></span>';
+    } else {
+        btn.disabled = false;
+        btn.classList.remove('carregando');
+        if (btn.dataset.txtOriginal != null) btn.innerHTML = btn.dataset.txtOriginal;
+    }
+}
+
 // Aviso com um botão (ex: Desfazer)
 function toastComAcao(texto, acao, aoClicar) {
     const el = document.createElement('div');
@@ -11645,7 +11718,7 @@ function showCurrentStory() {
     delBtn.onclick = async (ev) => {
         ev.stopPropagation();
         clearTimeout(state.storyTimer);
-        if (!confirm(ehDestaque ? 'Tirar este story do destaque?' : 'Apagar este story?')) { state.storyTimer = setTimeout(() => advanceStory(1), 6000); return; }
+        if (!(await confirmar(ehDestaque ? 'Tirar este story do destaque?' : 'Apagar este story?'))) { state.storyTimer = setTimeout(() => advanceStory(1), 6000); return; }
         const { error } = ehDestaque
             ? await sb.from('story_highlight_items').delete().eq('id', item.id)
             : await sb.from('stories').delete().eq('id', item.id);
@@ -11718,7 +11791,7 @@ function showCurrentStory() {
 // ---- Destaques de stories ----
 async function carregarDestaques(uid) {
     const { data } = await sb.from('story_highlights')
-        .select('id, title, created_at, story_highlight_items (id, image_url, background_color, created_at)')
+        .select('id, title, cover_url, created_at, story_highlight_items (id, image_url, background_color, created_at)')
         .eq('user_id', uid).order('created_at', { ascending: true });
     return (data || []).filter(h => (h.story_highlight_items || []).length);
 }
@@ -11731,8 +11804,8 @@ function destaquesHTML(lista, uid) {
         </button>` : '';
     return `<div class="destaques">${(lista || []).map(h => {
         const itens = [...h.story_highlight_items].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        const capa = itens.find(i => i.image_url);
-        const fundo = capa ? `background-image:url('${capa.image_url}')` : `background:${itens[0].background_color || STORY_BG_PADRAO}`;
+        const capaUrl = h.cover_url || (itens.find(i => i.image_url) || {}).image_url;
+        const fundo = capaUrl ? `background-image:url('${capaUrl}')` : `background:${itens[0].background_color || STORY_BG_PADRAO}`;
         return `<button class="destaque" data-act="abrir-destaque" data-id="${h.id}" data-uid="${uid}">
             <span class="destaque-capa" style="${fundo}"></span>
             <span class="destaque-nome">${escapeHTML(h.title)}</span>
@@ -11750,116 +11823,131 @@ function miniStoryHTML(x, marcado) {
     </button>`;
 }
 
-async function abrirEditorDestaque(hid = null) {
+// Editor de destaque em dois passos: 1) escolher os stories  2) capa e nome (opcional)
+async function abrirEditorDestaque(hid = null, preSelecionado = null) {
     const old = document.getElementById('editorDestaque');
     if (old) old.remove();
     const v = document.createElement('div');
     v.id = 'editorDestaque';
     v.className = 'posts-viewer';
-    v.innerHTML = `<div class="pv-topo">
-            <button class="topbar-back pv-voltar" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-            <div class="topbar-title">${hid ? 'Editar destaque' : 'Novo destaque'}</div>
-            <button class="ed-salvar" id="edSalvar">Salvar</button>
-        </div>
-        <div class="pv-lista"><div class="spinner"></div></div>`;
     document.body.appendChild(v);
     document.body.style.overflow = 'hidden';
     const fechar = () => { v.remove(); document.body.style.overflow = ''; };
+    const seta = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+    v.innerHTML = `<div class="pv-topo"><button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button><div class="topbar-title">${hid ? 'Editar destaque' : 'Novo destaque'}</div><div style="width:60px"></div></div><div class="pv-lista"><div class="spinner"></div></div>`;
     v.querySelector('.pv-voltar').onclick = fechar;
 
     const [{ data: arquivo }, dest, { data: itensAtuais }] = await Promise.all([
         sb.rpc('my_story_archive'),
-        hid ? sb.from('story_highlights').select('id, title').eq('id', hid).maybeSingle() : Promise.resolve({ data: null }),
-        hid ? sb.from('story_highlight_items').select('id, source_story_id, image_url, caption, background_color, created_at').eq('highlight_id', hid)
+        hid ? sb.from('story_highlights').select('id, title, cover_url').eq('id', hid).maybeSingle() : Promise.resolve({ data: null }),
+        hid ? sb.from('story_highlight_items').select('id, source_story_id, image_url, caption, background_color, created_at, style').eq('highlight_id', hid)
             : Promise.resolve({ data: [] }),
     ]);
-    const lista = v.querySelector('.pv-lista');
-    if (!lista) return;
-
-    // Monta as opções: o que já está no destaque (marcado) + stories antigos que ainda não estão
+    if (!document.getElementById('editorDestaque')) return;
     const jaTem = new Set((itensAtuais || []).map(i => i.source_story_id).filter(Boolean));
     const opcoes = [
         ...(itensAtuais || []).map(i => ({ tipo: 'item', id: i.id, dado: i, on: true })),
-        ...(arquivo || []).filter(st => !jaTem.has(st.id)).map(st => ({ tipo: 'story', id: st.id, dado: st, on: false })),
+        ...(arquivo || []).filter(st => !jaTem.has(st.id)).map(st => ({ tipo: 'story', id: st.id, dado: st, on: !!(preSelecionado && preSelecionado === st.id) })),
     ].sort((a, b) => new Date(b.dado.created_at) - new Date(a.dado.created_at));
+    let nome = dest.data ? dest.data.title : '';
+    let capa = dest.data ? dest.data.cover_url : null;
 
-    lista.innerHTML = `
-        <input type="text" id="edNome" class="obj-input ed-nome" maxlength="20" placeholder="Nome do destaque" value="${escapeHTML(dest.data ? dest.data.title : '')}">
-        <p class="cfg-sub">Toque pra escolher os stories. A privacidade é a mesma dos seus stories.</p>
-        ${opcoes.length
-            ? `<div class="ed-grade">${opcoes.map((o, k) => miniStoryHTML(o.dado, o.on).replace('<button type="button" class="ed-item', `<button type="button" data-k="${k}" class="ed-item`)).join('')}</div>`
-            : '<div class="log-empty">Você ainda não tem stories pra destacar. Poste um e volte aqui.</div>'}
-        ${hid ? '<button class="cfg-row cfg-perigo ed-excluir" id="edExcluir"><span class="cfg-txt">Excluir destaque</span></button>' : ''}
-    `;
-    lista.querySelectorAll('.ed-item').forEach(b => b.onclick = () => {
-        const o = opcoes[Number(b.dataset.k)];
-        o.on = !o.on;
-        b.classList.toggle('on', o.on);
-    });
-
-    const exc = document.getElementById('edExcluir');
-    if (exc) exc.onclick = async () => {
-        if (!confirm('Excluir este destaque? Os stories originais não são apagados.')) return;
-        const { error } = await sb.from('story_highlights').delete().eq('id', hid);
-        if (error) { toast(msgErro(error), 'err'); return; }
-        fechar(); toast('Destaque excluído', 'ok');
-        if (state.view === 'profile') renderProfile();
+    // ---------- passo 1: escolher ----------
+    const passo1 = () => {
+        const n = opcoes.filter(o => o.on).length;
+        v.innerHTML = `<div class="pv-topo">
+                <button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button>
+                <div class="topbar-title">${hid ? 'Editar destaque' : 'Novo destaque'}</div>
+                <button class="ed-salvar" id="edProximo" ${n ? '' : 'disabled'}>Próximo${n ? ` (${n})` : ''}</button>
+            </div>
+            <div class="pv-lista">
+                <p class="cfg-sub">Toque nos stories que vão entrar no destaque.</p>
+                ${opcoes.length
+                    ? `<div class="ed-grade">${opcoes.map((o, k) => miniStoryHTML(o.dado, o.on).replace('<button type="button" class="ed-item', `<button type="button" data-k="${k}" class="ed-item`)).join('')}</div>`
+                    : '<div class="log-empty">Você ainda não tem stories pra destacar. Poste um e volte aqui.</div>'}
+            </div>`;
+        v.querySelector('.pv-voltar').onclick = fechar;
+        v.querySelectorAll('.ed-item').forEach(b => b.onclick = () => {
+            const o = opcoes[Number(b.dataset.k)];
+            o.on = !o.on;
+            b.classList.toggle('on', o.on);
+            const m = opcoes.filter(x => x.on).length;
+            const px = document.getElementById('edProximo');
+            px.disabled = !m; px.textContent = m ? `Próximo (${m})` : 'Próximo';
+        });
+        document.getElementById('edProximo').onclick = passo2;
     };
 
-    document.getElementById('edSalvar').onclick = async () => {
-        const nome = document.getElementById('edNome').value.trim();
+    // ---------- passo 2: capa e nome ----------
+    const passo2 = () => {
         const escolhidos = opcoes.filter(o => o.on);
-        if (!nome) { toast('Dê um nome ao destaque', 'err'); return; }
-        if (!escolhidos.length) { toast('Escolha pelo menos um story', 'err'); return; }
-        const btn = document.getElementById('edSalvar');
-        btn.disabled = true; btn.textContent = 'Salvando...';
-        try {
-            let id = hid;
-            if (!id) {
-                const { data: h, error } = await sb.from('story_highlights')
-                    .insert({ user_id: state.session.user.id, title: nome }).select().single();
-                if (error) throw error;
-                id = h.id;
-            } else if (!dest.data || dest.data.title !== nome) {
-                const { error } = await sb.from('story_highlights').update({ title: nome }).eq('id', id);
-                if (error) throw error;
-            }
-            const remover = opcoes.filter(o => o.tipo === 'item' && !o.on).map(o => o.id);
-            if (remover.length) {
-                const { error } = await sb.from('story_highlight_items').delete().in('id', remover);
-                if (error) throw error;
-            }
-            const novos = escolhidos.filter(o => o.tipo === 'story').map(o => ({
-                highlight_id: id, source_story_id: o.dado.id,
-                image_url: o.dado.image_url || null, caption: o.dado.caption || null, style: o.dado.style || null,
-                background_color: o.dado.image_url ? null : (o.dado.background_color || STORY_BG_PADRAO),
-                created_at: o.dado.created_at,
-            }));
-            if (novos.length) {
-                const { error } = await sb.from('story_highlight_items').insert(novos);
-                if (error) throw error;
-            }
-            fechar();
-            toast(hid ? 'Destaque atualizado' : 'Destaque criado', 'ok');
+        const comFoto = escolhidos.filter(o => o.dado.image_url);
+        if (!capa || !escolhidos.some(o => o.dado.image_url === capa)) capa = comFoto.length ? comFoto[comFoto.length - 1].dado.image_url : null;
+        const fundoCapa = capa ? `background-image:url('${capa}')` : `background:${(escolhidos[0] && escolhidos[0].dado.background_color) || STORY_BG_PADRAO}`;
+        v.innerHTML = `<div class="pv-topo">
+                <button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button>
+                <div class="topbar-title">${hid ? 'Editar destaque' : 'Novo destaque'}</div>
+                <button class="ed-salvar" id="edSalvar">${hid ? 'Salvar' : 'Criar'}</button>
+            </div>
+            <div class="pv-lista ed-passo2">
+                <span class="ed-capa" style="${fundoCapa}"></span>
+                ${comFoto.length > 1 ? `<p class="ed-capa-dica">Toque numa foto pra usar como capa</p>
+                <div class="ed-capas">${comFoto.map(o => `<button type="button" class="ed-capa-op${o.dado.image_url === capa ? ' on' : ''}" data-capa="${o.dado.image_url}" style="background-image:url('${o.dado.image_url}')"></button>`).join('')}</div>` : ''}
+                <input type="text" id="edNome" class="obj-input ed-nome" maxlength="20" placeholder="Nome do destaque (opcional)" value="${escapeHTML(nome)}">
+                ${hid ? '<button class="cfg-row cfg-perigo ed-excluir" id="edExcluir"><span class="cfg-txt">Excluir destaque</span></button>' : ''}
+            </div>`;
+        v.querySelector('.pv-voltar').onclick = () => { nome = document.getElementById('edNome').value; passo1(); };
+        v.querySelectorAll('[data-capa]').forEach(b => b.onclick = () => { nome = document.getElementById('edNome').value; capa = b.dataset.capa; passo2(); });
+        const exc = document.getElementById('edExcluir');
+        if (exc) exc.onclick = async () => {
+            if (!(await confirmar('Excluir este destaque? Os stories originais não são apagados.', 'Excluir', true))) return;
+            const { error } = await sb.from('story_highlights').delete().eq('id', hid);
+            if (error) { toast(msgErro(error), 'err'); return; }
+            fechar(); toast('Destaque excluído', 'ok');
             if (state.view === 'profile') renderProfile();
-        } catch (err) {
-            toast(msgErro(err), 'err');
-            btn.disabled = false; btn.textContent = 'Salvar';
-        }
+        };
+        document.getElementById('edSalvar').onclick = async () => {
+            const titulo = document.getElementById('edNome').value.trim() || 'Destaque';
+            const btn = document.getElementById('edSalvar');
+            btnCarregando(btn, true);
+            try {
+                let id = hid;
+                if (!id) {
+                    const { data: h, error } = await sb.from('story_highlights')
+                        .insert({ user_id: state.session.user.id, title: titulo, cover_url: capa }).select().single();
+                    if (error) throw error;
+                    id = h.id;
+                } else {
+                    const { error } = await sb.from('story_highlights').update({ title: titulo, cover_url: capa }).eq('id', id);
+                    if (error) throw error;
+                }
+                const remover = opcoes.filter(o => o.tipo === 'item' && !o.on).map(o => o.id);
+                if (remover.length) {
+                    const { error } = await sb.from('story_highlight_items').delete().in('id', remover);
+                    if (error) throw error;
+                }
+                const novos = escolhidos.filter(o => o.tipo === 'story').map(o => ({
+                    highlight_id: id, source_story_id: o.dado.id,
+                    image_url: o.dado.image_url || null, caption: o.dado.caption || null, style: o.dado.style || null,
+                    background_color: o.dado.image_url ? null : (o.dado.background_color || STORY_BG_PADRAO),
+                    created_at: o.dado.created_at,
+                }));
+                if (novos.length) {
+                    const { error } = await sb.from('story_highlight_items').insert(novos);
+                    if (error) throw error;
+                }
+                fechar();
+                toast(hid ? 'Destaque atualizado' : 'Destaque criado', 'ok');
+                if (state.view === 'profile') renderProfile();
+            } catch (err) {
+                toast(msgErro(err), 'err');
+                btnCarregando(btn, false);
+            }
+        };
     };
+    if (preSelecionado && opcoes.some(o => o.on)) passo2(); else passo1();
 }
 
-async function abrirDestaque(hid, uid) {
-    const [{ data: h }, { data: itens }, { data: autor }] = await Promise.all([
-        sb.from('story_highlights').select('id, title').eq('id', hid).maybeSingle(),
-        sb.from('story_highlight_items').select('id, caption, image_url, background_color, style, created_at')
-            .eq('highlight_id', hid).order('created_at', { ascending: true }),
-        sb.from('profiles').select('id, username, display_name, avatar_url').eq('id', uid).maybeSingle(),
-    ]);
-    if (!h || !itens || !itens.length) { toast('Esse destaque está vazio.', 'err'); return; }
-    state.storiesData = [{ user: autor || { id: uid }, items: itens, destaque: hid }];
-    openStoryViewer(0);
-}
 async function abrirEscolhaDestaque(item) {
     pausarStory();
     const { data: meus } = await sb.from('story_highlights').select('id, title')
@@ -11876,10 +11964,7 @@ async function abrirEscolhaDestaque(item) {
         <div class="dest-escolha">
             ${(meus || []).map(h => `<button class="cfg-row" data-dest-id="${h.id}">${icon('salvo')}<span class="cfg-txt">${escapeHTML(h.title)}</span></button>`).join('')}
         </div>
-        <div class="dest-novo">
-            <input type="text" id="destNovoNome" maxlength="20" placeholder="Novo destaque, ex: Treinos">
-            <button class="btn-primary-sm" id="destNovoBtn">Criar</button>
-        </div>
+        <button class="cfg-row dest-novo-linha" id="destNovoBtn">${icon('mais')}<span class="cfg-txt">Novo destaque</span></button>
     </div>`;
     document.body.appendChild(sheet);
     const fechar = () => { sheet.remove(); retomarStory(); };
@@ -11895,13 +11980,10 @@ async function abrirEscolhaDestaque(item) {
         fechar();
     };
     sheet.querySelectorAll('[data-dest-id]').forEach(b => b.onclick = () => adicionar(b.dataset.destId));
-    document.getElementById('destNovoBtn').onclick = async () => {
-        const nome = document.getElementById('destNovoNome').value.trim();
-        if (!nome) { toast('Dê um nome ao destaque', 'err'); return; }
-        const { data: h, error } = await sb.from('story_highlights')
-            .insert({ user_id: state.session.user.id, title: nome }).select().single();
-        if (error) { toast(msgErro(error), 'err'); return; }
-        adicionar(h.id);
+    document.getElementById('destNovoBtn').onclick = () => {
+        sheet.remove();
+        closeStoryViewer();
+        abrirEditorDestaque(null, item.id); // já vai pro passo de capa e nome, com este story escolhido
     };
 }
 
@@ -12274,7 +12356,7 @@ function setComposerKind(kind) {
     ['meal', 'water', 'sleep'].forEach(k => $('#composerSheet').classList.toggle('modo-' + k, kind === k));
     $('#composerSheet').classList.toggle('modo-novo', ['workout', 'meal', 'water', 'sleep'].includes(kind));
     if (kind === 'workout') montarFormTreino();
-    if (kind === 'water') { $('#wMl').value = 250; sincronizarContadores(); }
+    if (kind === 'water') { $('#wMl').value = 250; sincronizarContadores(); carregarAguaHoje(); }
     if (kind === 'meal') { marcarSlotRefeicao(); atualizarFotoRefeicao(); }
     setTimeout(sincronizarContadores, 0);
     $('#composerPick').classList.add('hidden');
@@ -12560,6 +12642,23 @@ $('#pPhotoMeal').addEventListener('change', e => {
     e.target.value = '';
     setTimeout(() => { atualizarFotoRefeicao(); updateDestUI(); }, 400);
 });
+
+// Registros de água de hoje, com × pra apagar o errado (dias anteriores não)
+async function carregarAguaHoje() {
+    const box = document.getElementById('aguaHoje');
+    if (!box) return;
+    box.innerHTML = '';
+    const ini = new Date(); ini.setHours(0, 0, 0, 0);
+    const { data } = await sb.from('posts').select('id, water_ml, created_at')
+        .eq('user_id', state.session.user.id).eq('kind', 'water')
+        .gte('created_at', ini.toISOString()).order('created_at', { ascending: false }).limit(20);
+    if (!document.getElementById('aguaHoje')) return;
+    state.aguaHoje = data || [];
+    box.innerHTML = state.aguaHoje.length ? `<div class="ah-titulo">Hoje</div>${state.aguaHoje.map(r => `<div class="ah-linha" data-ah="${r.id}">
+        <span><b>${r.water_ml} ml</b> · ${new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+        <button type="button" class="ah-x" data-act="apagar-agua" data-id="${r.id}" aria-label="Apagar este registro">×</button>
+    </div>`).join('')}` : '';
+}
 
 // ---- Registrar x Publicar no feed ----
 function updateDestUI() {

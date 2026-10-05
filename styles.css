@@ -2733,3 +2733,47 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .conq-confete{ position:absolute; inset:0; pointer-events:none; }
 .conq-confete i{ position:absolute; top:-12px; width:8px; height:12px; border-radius:2px; animation:conqCai 2.2s ease-in forwards; }
 @keyframes conqCai{ to{ transform:translateY(105vh) rotate(540deg); opacity:.2; } }
+
+/* ================= ONDA 43: destaques, água, confirmações, polimento ================= */
+/* editor de destaque, passo 2 */
+.ed-passo2{ display:flex; flex-direction:column; align-items:center; gap:12px; padding-top:18px; }
+.ed-capa{ width:110px; height:110px; border-radius:50%; background-size:cover; background-position:center; border:3px solid var(--bg); box-shadow:0 0 0 2px var(--line); }
+.ed-capa-dica{ font-size:12.5px; color:var(--ink-faint); margin:0; }
+.ed-capas{ display:flex; gap:8px; overflow-x:auto; max-width:100%; padding:2px 4px 6px; scrollbar-width:none; }
+.ed-capas::-webkit-scrollbar{ display:none; }
+.ed-capa-op{ flex:none; width:52px; height:52px; border-radius:50%; border:2px solid transparent; background-size:cover; background-position:center; padding:0; opacity:.6; }
+.ed-capa-op.on{ border-color:var(--vital); opacity:1; }
+.ed-passo2 .ed-nome{ width:100%; max-width:360px; text-align:center; margin-top:6px; }
+.ed-passo2 .ed-excluir{ margin-top:24px; width:100%; }
+.ed-salvar:disabled{ opacity:.35; }
+.dest-novo-linha{ margin-top:6px; }
+/* água de hoje */
+.agua-hoje{ margin:-4px 0 12px; }
+.ah-titulo{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); margin-bottom:4px; }
+.ah-linha{ display:flex; align-items:center; justify-content:space-between; padding:8px 2px; font-size:14px; color:var(--ink-dim); }
+.ah-linha + .ah-linha{ border-top:1px solid var(--line); }
+.ah-linha b{ color:var(--ink); }
+.ah-linha.sumindo{ display:none; }
+.ah-x{ width:30px; height:30px; border:none; border-radius:50%; background:transparent; color:var(--ink-faint); font-size:20px; line-height:1; padding:0; }
+.ah-x:active{ background:rgba(255,94,94,.12); color:var(--danger); }
+/* confirmação no estilo do app */
+.confirmar-sheet{ z-index:180 !important; }
+.confirmar-txt{ font-size:15.5px; line-height:1.5; margin:6px 2px 18px; text-align:center; }
+/* botão carregando */
+.btn-spin{ display:inline-block; width:18px; height:18px; border-radius:50%; border:2px solid currentColor; border-right-color:transparent; animation:girar .7s linear infinite; vertical-align:-3px; }
+/* legenda longa recolhida */
+.post-caption.longa{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.post-caption.longa.aberta{ display:block; -webkit-line-clamp:unset; }
+.caption-mais{ border:none; background:none; color:var(--ink-faint); font-size:13.5px; font-weight:600; padding:0 0 8px; margin-top:-4px; }
+/* avisos sempre acima do menu de baixo (e mais embaixo nas telas sem menu) */
+.toast{ bottom:calc(98px + env(safe-area-inset-bottom)) !important; max-width:calc(100% - 32px); }
+html.tela-cheia .toast{ bottom:calc(28px + env(safe-area-inset-bottom)) !important; }
+/* tema claro: mais contraste */
+:root[data-theme="light"]{ --ink-dim:#4C5650; --ink-faint:#6F7972; --line:#D2D9D4; }
+:root[data-theme="light"] .chat-dia span, :root[data-theme="light"] .cmsg-cita,
+:root[data-theme="light"] .tm-trilho, :root[data-theme="light"] .gm-grade > div,
+:root[data-theme="light"] .tr-com-add, :root[data-theme="light"] .msg-reacoes button.on{ background:rgba(16,21,18,.05); }
+:root[data-theme="light"] .esq{ background:linear-gradient(90deg, rgba(0,0,0,.05), rgba(0,0,0,.1), rgba(0,0,0,.05)); background-size:200% 100%; }
+:root[data-theme="light"] .sv-resp-campo{ border-color:rgba(255,255,255,.6); }
+:root[data-theme="light"] .cm-d{ color:var(--ink-dim); }
+:root[data-theme="light"] .dbl-coracao{ filter:drop-shadow(0 6px 18px rgba(0,0,0,.25)); }
