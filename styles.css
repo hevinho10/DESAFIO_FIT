@@ -2566,3 +2566,40 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .adm-tag-pend{ background:rgba(255,194,75,.14); color:var(--gold); }
 .btn-perigo{ background:var(--danger) !important; color:#fff !important; box-shadow:none !important; }
 .btn-perigo:disabled{ opacity:.45; }
+
+/* ================= ONDA 37: story curtir/responder, selo ================= */
+.sv-resp{ position:absolute; left:0; right:0; bottom:0; z-index:6; display:flex; align-items:center; gap:10px; padding:10px 14px calc(14px + env(safe-area-inset-bottom)); background:linear-gradient(0deg, rgba(0,0,0,.45), transparent); }
+.sv-resp.hidden{ display:none; }
+.sv-resp-campo{ flex:1; position:relative; display:flex; align-items:center; height:44px; border-radius:22px; border:1px solid rgba(255,255,255,.45); background:transparent; }
+.sv-resp-campo input{ flex:1; height:100%; border:none; background:transparent; color:#fff; padding:0 16px; font-size:15px; outline:none; font-family:inherit; }
+.sv-resp-campo input::placeholder{ color:rgba(255,255,255,.75); }
+.sv-resp-enviar{ width:34px; height:34px; margin-right:5px; border:none; border-radius:50%; background:#fff; color:#000; display:grid; place-items:center; padding:0; }
+.sv-resp-enviar.hidden{ display:none; }
+.sv-resp-enviar svg{ width:17px; height:17px; }
+.sv-curtir{ width:44px; height:44px; border:none; background:transparent; color:#fff; display:grid; place-items:center; padding:0; flex-shrink:0; }
+.sv-curtir svg{ width:27px; height:27px; transition:transform .15s; }
+.sv-curtir.on{ color:#FF4D6D; }
+.sv-curtir.on svg{ fill:currentColor; }
+.sv-curtir.pulso svg{ animation:svCurtir .45s ease; }
+@keyframes svCurtir{ 0%{ transform:scale(1); } 40%{ transform:scale(1.35); } 100%{ transform:scale(1); } }
+.story-viewer.respondendo .story-progress-row, .story-viewer.respondendo .story-viewer-head{ opacity:.35; }
+.people-curtiu{ color:#FF4D6D; display:grid; place-items:center; margin-right:6px; }
+.people-curtiu svg{ width:16px; height:16px; }
+/* resposta de story no chat */
+.cmsg-story{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.cmsg.user .cmsg-story{ flex-direction:row-reverse; }
+.cmsg-st-mini{ position:relative; width:38px; height:64px; border-radius:8px; overflow:hidden; background:var(--bg-card); flex-shrink:0; border:1px solid var(--line); }
+.cmsg-st-mini img{ width:100%; height:100%; object-fit:cover; display:block; }
+.cmsg-st-txt{ display:grid; place-items:center; width:100%; height:100%; font-size:7px; color:#fff; padding:3px; text-align:center; overflow:hidden; }
+.cmsg-st-mini em{ display:none; position:absolute; inset:0; place-items:center; font-size:7px; font-style:normal; text-align:center; color:var(--ink-faint); padding:2px; }
+.cmsg-st-mini.sem img{ display:none; }
+.cmsg-st-mini.sem em{ display:grid; }
+.cmsg-st-lbl{ font-size:11.5px; color:var(--ink-faint); }
+/* selo de fundador */
+.selo-fundador{ display:inline-grid; place-items:center; width:20px; height:20px; margin-left:5px; padding:0; border:none; background:none; color:var(--vital); vertical-align:-3px; cursor:pointer; }
+.selo-fundador svg{ width:18px; height:18px; }
+.selo-card{ text-align:center; }
+.selo-grande{ display:grid; place-items:center; width:64px; height:64px; margin:4px auto 8px; border-radius:50%; background:var(--vital-dim); color:var(--vital); }
+.selo-grande svg{ width:36px; height:36px; }
+.cmsg:has(> .cmsg-story){ flex-direction:column; align-items:flex-start; }
+.cmsg.user:has(> .cmsg-story){ align-items:flex-end; }

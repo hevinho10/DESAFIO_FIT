@@ -2599,6 +2599,9 @@ async function renderNotifications() {
         } else if (n.kind === 'depoimento_publicado') {
             emo = '✨'; texto = `<b>${quem}</b> publicou o seu depoimento no perfil`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'story_curtido') {
+            emo = '❤️'; texto = `<b>${quem}</b> curtiu seu story`;
+            act = ` data-act="view-user" data-uid="${n.actor_id}"`;
         } else if (n.kind === 'desafio_fim') {
             const m = n.meta || {};
             emo = '🏆';
@@ -3394,7 +3397,7 @@ async function renderMessages() {
                 ${avatarHTML(other, 'md')}
                 <div class="conv-info">
                     <div class="conv-name">${escapeHTML(cv.other_name)}${cv.unread_count>0?` <span class="conv-unread">${cv.unread_count}</span>`:''}</div>
-                    <div class="conv-preview">${escapeHTML((cv.last_message||'Diga oi 👋').slice(0,50))}</div>
+                    <div class="conv-preview">${escapeHTML(previaMensagem(cv.last_message || 'Diga oi 👋').slice(0,50))}</div>
                 </div>
                 <div class="conv-time">${cv.last_message_at ? timeAgo(cv.last_message_at) : ''}</div>
             </div>`;
@@ -3550,6 +3553,17 @@ function paintChatMessages() {
         box.innerHTML = state.chatMessages.map(m => {
             const mine = m.sender_id === state.session.user.id;
             const del = mine ? ` data-act="delete-message" data-id="${m.id}" title="Toque para apagar"` : '';
+            const st = lerStoryDaMensagem(m.body);
+            if (st) {
+                const mini = st.ref.img ? `<img src="${st.ref.img}" alt="" onerror="this.parentElement.classList.add('sem')">` : `<span class="cmsg-st-txt" style="background:${st.ref.bg || '#1C2420'}">${escapeHTML(st.ref.txt || '')}</span>`;
+                return `<div class="cmsg ${mine ? 'user' : 'coach'}">
+                    <div class="cmsg-story">
+                        <span class="cmsg-st-mini">${mini}<em>Story indisponível</em></span>
+                        <span class="cmsg-st-lbl">${mine ? 'Você respondeu ao story' : 'Respondeu ao seu story'}</span>
+                    </div>
+                    <div class="cmsg-bubble"${del}>${escapeHTML(st.texto).replace(/\n/g, '<br>')}</div>
+                </div>`;
+            }
             return `<div class="cmsg ${mine?'user':'coach'}">
                 <div class="cmsg-bubble"${del}>${escapeHTML(m.body).replace(/\n/g,'<br>')}</div>
             </div>`;
@@ -6449,6 +6463,32 @@ function esqueleto(tipo) {
     });
 })();
 
+// Selo de Fundador (primeiras 100 contas aprovadas): só no perfil, ao lado do nome
+const SELO_FUNDADOR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.2l1.45 2.95 3.25.47-2.35 2.3.55 3.23L12 14.62l-2.9 1.53.55-3.23-2.35-2.3 3.25-.47z"/></svg>';
+const seloHTML = p => p && p.fundador ? `<button class="selo-fundador" data-act="ver-selo" data-desde="${p.created_at || ''}" aria-label="Membro fundador">${SELO_FUNDADOR}</button>` : '';
+
+// Faxina: fotos dos seus stories vencidos há mais de 30 dias e fora de destaques (1 vez por semana)
+async function limparStoriesAntigos() {
+    if (!state.session) return;
+    const chave = 'pulso-faxina-' + state.session.user.id;
+    if (Date.now() - Number(lsGet(chave) || 0) < 7 * 86400000) return;
+    lsSet(chave, String(Date.now()));
+    try {
+        const limite = new Date(Date.now() - 30 * 86400000).toISOString();
+        const { data: velhos } = await sb.from('stories').select('id, image_url')
+            .eq('user_id', state.session.user.id).lt('created_at', limite).limit(100);
+        if (!velhos || !velhos.length) return;
+        const { data: dest } = await sb.from('story_highlight_items').select('image_url, source_story_id');
+        const usadas = new Set((dest || []).map(x => x.image_url).filter(Boolean));
+        const usadosIds = new Set((dest || []).map(x => x.source_story_id).filter(Boolean));
+        const apagar = velhos.filter(v => !usadosIds.has(v.id) && !(v.image_url && usadas.has(v.image_url)));
+        for (const v of apagar) {
+            if (v.image_url) await removeStoredImage(v.image_url);
+            await sb.from('stories').delete().eq('id', v.id);
+        }
+    } catch (_) {}
+}
+
 // ---- Lista rolável de posts (ao tocar numa foto do perfil ou dos salvos) ----
 async function abrirListaDePosts(ids, inicio) {
     const old = document.getElementById('postsViewer');
@@ -6590,7 +6630,7 @@ function pintarAdminUsuarios() {
         </div>`;
     };
     box.innerHTML = `
-        <p class="adm-resumo"><b>${todos.length}</b> pessoas · <b>${inst}</b> instalado · <b>${nav}</b> navegador · <b>${sem}</b> sem registro${bloq ? ` · <b>${bloq}</b> bloqueado${bloq > 1 ? 's' : ''}` : ''}</p>
+        <p class="adm-resumo">Fundadores: <b>${todos.filter(u => u.fundador).length}</b> de 100 · <b>${todos.length}</b> pessoas · <b>${inst}</b> instalado · <b>${nav}</b> navegador · <b>${sem}</b> sem registro${bloq ? ` · <b>${bloq}</b> bloqueado${bloq > 1 ? 's' : ''}` : ''}</p>
         <div class="search-box adm-busca">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             <input type="text" id="admBuscaInput" placeholder="Buscar por nome ou @" value="${escapeHTML(state.admBusca || '')}" autocapitalize="off" autocomplete="off">
@@ -7919,7 +7959,7 @@ async function renderProfile() {
                 </div>
             </div>
             <div class="ig-profile-info">
-                <div class="ig-name">${escapeHTML(p.display_name)}</div>
+                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}</div>
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
@@ -9012,7 +9052,7 @@ async function renderUserProfile(uid) {
                 </div>
             </div>
             <div class="ig-profile-info">
-                <div class="ig-name">${escapeHTML(p.display_name)}</div>
+                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}</div>
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
@@ -9349,6 +9389,19 @@ document.addEventListener('click', async e => {
         }
     } else if (act === 'comment') {
         openCommentSheet(id);
+    } else if (act === 'ver-selo') {
+        const desde = btn.dataset.desde ? new Date(btn.dataset.desde).toLocaleDateString('pt-BR') : '';
+        const old = document.getElementById('seloSheet'); if (old) old.remove();
+        const sheet = document.createElement('div');
+        sheet.id = 'seloSheet'; sheet.className = 'sheet on';
+        sheet.innerHTML = `<div class="sheet-card selo-card">
+            <div class="sheet-handle"></div>
+            <span class="selo-grande">${SELO_FUNDADOR}</span>
+            <h3 class="sheet-title">Membro fundador</h3>
+            <p class="sheet-sub">Uma das primeiras 100 pessoas do Pulso${desde ? `, desde ${desde}` : ''}.</p>
+        </div>`;
+        document.body.appendChild(sheet);
+        sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
     } else if (act === 'sug-seguir') {
         e.stopPropagation();
         btn.disabled = true;
@@ -10300,9 +10353,10 @@ document.addEventListener('click', async e => {
     } else if (act === 'delete-post') {
         if (!confirm('Apagar este post? Essa ação não pode ser desfeita.')) return;
         const postId = btn.dataset.id;
-        const { data: velho } = await sb.from('posts').select('image_url').eq('id', postId).maybeSingle();
+        const { data: velho } = await sb.from('posts').select('image_url, thumb_url').eq('id', postId).maybeSingle();
         await sb.from('posts').delete().eq('id', postId);
         if (velho && velho.image_url) removeStoredImage(velho.image_url);
+        if (velho && velho.thumb_url) removeStoredImage(velho.thumb_url);
         toast('Post apagado', 'ok');
         // remove do histórico se estiver na tela de log
         const logEl = btn.closest('.log-item');
@@ -11144,6 +11198,20 @@ function showCurrentStory() {
     const act = document.getElementById('svActivity');
     act.classList.toggle('hidden', !isMineStory);
     state.storyAtual = isMineStory ? item.id : null;
+    // story de outra pessoa: curtir e responder (vai pro chat)
+    const resp = document.getElementById('svResp');
+    const podeResponder = !souDonoDoStory && !ehDestaque;
+    resp.classList.toggle('hidden', !podeResponder);
+    if (podeResponder) {
+        state.storyResp = { item, user: group.user };
+        const nome = String(group.user.display_name || group.user.username || '').split(' ')[0];
+        const inp = document.getElementById('svRespInput');
+        inp.value = '';
+        inp.placeholder = `Responder pra ${nome}…`;
+        document.getElementById('svRespEnviar').classList.add('hidden');
+        state.storyCurtidos = state.storyCurtidos || {};
+        document.getElementById('svCurtir').classList.toggle('on', !!state.storyCurtidos[item.id]);
+    } else state.storyResp = null;
     const destBtn = document.getElementById('svDestacar');
     destBtn.classList.toggle('hidden', !isMineStory && !(ehDestaque && souDonoDoStory));
     destBtn.querySelector('span').textContent = ehDestaque ? 'Editar destaque' : 'Destacar';
@@ -11184,6 +11252,11 @@ function showCurrentStory() {
             await sb.from('story_highlights').delete().eq('id', group.destaque);
         }
         if (error) { toast('Erro ao apagar story', 'err'); return; }
+        // apaga a foto do armazenamento se ela não estiver em nenhum destaque
+        if (!ehDestaque && item.image_url) {
+            sb.from('story_highlight_items').select('id').eq('image_url', item.image_url).limit(1)
+                .then(({ data }) => { if (!data || !data.length) removeStoredImage(item.image_url); });
+        }
         toast(ehDestaque ? 'Tirado do destaque' : 'Story apagado', 'ok');
         group.items.splice(state.storyItemIdx, 1);
         if (group.items.length === 0) {
@@ -11484,6 +11557,66 @@ function retomarStory() {
     if ($('#storyViewer').classList.contains('on')) showCurrentStory();
 }
 
+// ---- Story: curtir (fica só pra dona ver) e responder (vai pro chat) ----
+const MARCA_STORY = '⟦story⟧';
+function corpoComStory(item, texto) {
+    const ref = { id: item.id, img: item.image_url || null, bg: item.image_url ? null : (item.background_color || null), txt: item.image_url ? null : String(item.caption || '').slice(0, 60) };
+    return MARCA_STORY + JSON.stringify(ref) + '\n' + texto;
+}
+function lerStoryDaMensagem(body) {
+    const b = String(body || '');
+    if (!b.startsWith(MARCA_STORY)) return null;
+    const fim = b.indexOf('\n');
+    try { return { ref: JSON.parse(b.slice(MARCA_STORY.length, fim)), texto: b.slice(fim + 1) }; } catch (_) { return null; }
+}
+const previaMensagem = body => { const s = lerStoryDaMensagem(body); return s ? 'Respondeu ao story: ' + s.texto : body; };
+
+document.getElementById('svCurtir').addEventListener('click', async e => {
+    e.stopPropagation();
+    const r = state.storyResp; if (!r) return;
+    const btn = e.currentTarget;
+    const curtir = !btn.classList.contains('on');
+    btn.classList.toggle('on', curtir);
+    if (curtir) { btn.classList.remove('pulso'); void btn.offsetWidth; btn.classList.add('pulso'); }
+    state.storyCurtidos[r.item.id] = curtir;
+    const { error } = await sb.rpc('curtir_story', { sid: r.item.id, curtir });
+    if (error) { btn.classList.toggle('on', !curtir); state.storyCurtidos[r.item.id] = !curtir; }
+});
+const respInput = document.getElementById('svRespInput');
+respInput.addEventListener('focus', () => { pausarStoryNoPonto(); $('#storyViewer').classList.add('respondendo'); });
+respInput.addEventListener('blur', () => {
+    setTimeout(() => {
+        $('#storyViewer').classList.remove('respondendo');
+        if (!respInput.value.trim() && $('#storyViewer').classList.contains('on')) retomarStoryDoPonto();
+    }, 150);
+});
+respInput.addEventListener('input', () => document.getElementById('svRespEnviar').classList.toggle('hidden', !respInput.value.trim()));
+respInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarRespostaStory(); } });
+document.getElementById('svRespEnviar').addEventListener('click', e => { e.stopPropagation(); enviarRespostaStory(); });
+['click', 'pointerdown', 'pointerup'].forEach(ev => document.getElementById('svResp').addEventListener(ev, e => e.stopPropagation()));
+
+async function enviarRespostaStory() {
+    const r = state.storyResp;
+    const texto = respInput.value.trim();
+    if (!r || !texto) return;
+    const btn = document.getElementById('svRespEnviar');
+    btn.disabled = true;
+    const { data: convId, error } = await sb.rpc('get_or_create_conversation', { other_id: r.user.id });
+    if (error) {
+        btn.disabled = false;
+        const t = String(error.message || '');
+        toast(t.includes('dm_ninguem') ? 'Essa pessoa não está recebendo mensagens.' : t.includes('dm_seguidores') ? 'Essa pessoa só recebe mensagem de quem a segue.' : 'Não consegui enviar agora.', 'err');
+        return;
+    }
+    const { error: e2 } = await sb.from('messages').insert({ conversation_id: convId, sender_id: state.session.user.id, body: corpoComStory(r.item, texto) });
+    btn.disabled = false;
+    if (e2) { toast('Não consegui enviar agora.', 'err'); return; }
+    respInput.value = '';
+    btn.classList.add('hidden');
+    respInput.blur();
+    toast('Enviado no chat', 'ok');
+}
+
 function abrirQuemViuStory() {
     const sid = state.storyAtual;
     if (!sid) return;
@@ -11524,6 +11657,7 @@ function abrirQuemViuStory() {
                 <div class="follow-name">${escapeHTML(u.display_name)}</div>
                 <div class="follow-uname">@${escapeHTML(u.username)}</div>
             </div>
+            ${u.liked ? '<span class="people-curtiu" aria-label="Curtiu"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21.2l7.7-7.8 1.1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></span>' : ''}
             <span class="people-time">${timeAgo(u.viewed_at)}</span>
         </div>`).join('');
         // abrir um perfil fecha o story
@@ -12515,6 +12649,7 @@ async function bootInterno() {
     setTimeout(enviarFilaOffline, 3000);
     setTimeout(atualizarBadgeDesafio, 2500);
     setTimeout(registrarAcesso, 2000);
+    setTimeout(limparStoriesAntigos, 15000);
     // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
     if (state.profile && state.profile.onboarding_done === false) setTimeout(() => abrirPrimeirosPassos(0), 900);

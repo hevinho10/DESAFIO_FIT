@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261031">
+<link rel="stylesheet" href="styles.css?v=20261101">
 </head>
 <body>
 
@@ -505,6 +505,13 @@
             <div id="svNext"></div>
         </div>
     </div>
+    <div class="sv-resp hidden" id="svResp">
+        <div class="sv-resp-campo">
+            <input type="text" id="svRespInput" maxlength="300" placeholder="Responder…" autocomplete="off" enterkeyhint="send">
+            <button type="button" class="sv-resp-enviar hidden" id="svRespEnviar" aria-label="Enviar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+        <button type="button" class="sv-curtir" id="svCurtir" aria-label="Curtir story"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1L12 21.2l7.7-7.8 1.1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></button>
+    </div>
     <button type="button" class="sv-activity hidden" id="svActivity">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
         <span><b id="svActivityN">0</b> <span id="svActivityLbl">visualizações</span></span>
@@ -512,6 +519,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=20261031"></script>
+<script src="app.js?v=20261101"></script>
 </body>
 </html>
