@@ -11327,6 +11327,7 @@ async function openStoryViewer(groupIdx) {
 }
 
 function closeStoryViewer() {
+    state.storyCurtidosVistos = {};
     $('#storyViewer').classList.remove('on', 'paused');
     setTimeout(sincronizarModoTela, 0);
     state.storyAtual = null;
@@ -11395,6 +11396,18 @@ function showCurrentStory() {
         document.getElementById('svRespEnviar').classList.add('hidden');
         state.storyCurtidos = state.storyCurtidos || {};
         document.getElementById('svCurtir').classList.toggle('on', !!state.storyCurtidos[item.id]);
+        // busca no banco quais stories desta pessoa você já curtiu (uma vez por pessoa)
+        state.storyCurtidosVistos = state.storyCurtidosVistos || {};
+        if (!state.storyCurtidosVistos[group.user.id]) {
+            state.storyCurtidosVistos[group.user.id] = true;
+            const ids = group.items.map(x => x.id);
+            sb.rpc('minhas_curtidas_story', { ids }).then(({ data }) => {
+                ids.forEach(id => { if (state.storyCurtidos[id] === undefined) state.storyCurtidos[id] = false; });
+                (data || []).forEach(x => { state.storyCurtidos[x.story_id] = true; });
+                const atual = state.storyResp && state.storyResp.item;
+                if (atual && ids.includes(atual.id)) document.getElementById('svCurtir').classList.toggle('on', !!state.storyCurtidos[atual.id]);
+            });
+        }
     } else state.storyResp = null;
     const destBtn = document.getElementById('svDestacar');
     destBtn.classList.toggle('hidden', !isMineStory && !(ehDestaque && souDonoDoStory));
