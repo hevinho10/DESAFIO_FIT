@@ -2674,3 +2674,19 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 /* resumo do mês: valores longos não invadem o vizinho */
 .mini-stats > div{ min-width:0; }
 .mini-stats b{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:clamp(15px, 4.6vw, 20px); }
+
+/* ================= ONDA 40: menu, perfil e explicações ================= */
+.weekly-pill{ display:inline-flex; align-items:center; }
+.weekly-pill > button{ border:none; background:none; color:inherit; font:inherit; padding:0; display:inline-flex; align-items:center; gap:5px; }
+.weekly-pill .wp-flame{ margin-left:6px; }
+.of-card{ text-align:center; }
+.of-num{ display:flex; align-items:baseline; justify-content:center; gap:8px; font-size:34px; margin:6px 0 2px; }
+.of-num b{ font-family:var(--ff-display); font-size:44px; }
+.of-num span{ font-size:14px; color:var(--ink-dim); }
+.of-rec{ font-size:13px; color:var(--ink-dim); margin:0 0 14px; }
+.of-itens{ text-align:left; display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+.of-itens p{ margin:0; font-size:13.5px; line-height:1.5; color:var(--ink-dim); }
+.of-itens b{ color:var(--ink); }
+.of-ok{ color:var(--vital); }
+.of-usado{ color:var(--ink-faint); }
+.feed-empty .btn-mini{ margin-top:12px; }

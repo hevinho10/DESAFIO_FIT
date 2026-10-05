@@ -2555,7 +2555,7 @@ async function renderNotifications() {
         return;
     }
     if (!data || data.length === 0) {
-        box.innerHTML = `<div class="feed-empty"><span class="emo">🔔</span><h3>Nada por aqui</h3><p>Curtidas, comentários e convites aparecem nesta tela.</p></div>`;
+        box.innerHTML = `<div class="feed-empty"><span class="emo">🔔</span><h3>Nenhum aviso por enquanto</h3><p>Quando alguém curtir, comentar, seguir você ou te chamar pra um desafio, aparece aqui.</p><button class="btn-mini" data-act="m-go" data-view="search">Encontrar pessoas</button></div>`;
         await sb.rpc('mark_notifications_read');
         updateNotifBadge();
         return;
@@ -2948,38 +2948,29 @@ function renderSettings() {
             </div>
 
             <div class="cfg-grupo">
-                <div class="cfg-titulo">Suas metas e o coach</div>
-                ${linhaConfig('cfg-page', 'alvo', 'Objetivos', p.goal ? escapeHTML((OBJETIVOS.find(o => o[0] === p.goal) || [, ''])[1]) : 'Definir', ' data-page="objetivos"')}
-                ${linhaConfig('cfg-page', 'coach', 'Seu jeito de treinar', `${p.weekly_goal || 3}x por semana`, ' data-page="jeito-treino"')}
-            </div>
-
-            <div class="cfg-grupo">
-                <div class="cfg-titulo">Quem pode ver seu conteúdo</div>
+                <div class="cfg-titulo">Privacidade</div>
                 ${linhaConfig('cfg-page', 'cadeado', 'Privacidade da conta', p.is_private ? 'Privada' : 'Pública', ' data-page="set-privacy"')}
                 ${linhaConfig('cfg-page', 'storyOculto', 'Ocultar story de', '<span id="cfgOcultos"></span>', ' data-page="set-hide-story"')}
                 ${linhaConfig('go-blocked', 'bloquear', 'Bloqueados', '<span id="cfgBloq"></span>')}
-                ${linhaConfig('cfg-page', 'pessoaMais', 'Pedidos pra seguir', '<span id="cfgPedidos"></span>', ' data-page="set-requests"')}
             </div>
 
             <div class="cfg-grupo">
-                <div class="cfg-titulo">Como outras pessoas interagem com você</div>
-                ${linhaConfig('cfg-page', 'mensagem', 'Mensagens', POLITICA_NOME[p.dm_policy || 'todos'], ' data-page="set-messages"')}
-                ${linhaConfig('cfg-page', 'comentario', 'Comentários', POLITICA_NOME[p.comment_policy || 'todos'], ' data-page="set-comments"')}
+                <div class="cfg-titulo">Interações</div>
+                ${linhaConfig('cfg-page', 'mensagem', 'Quem pode mandar mensagem', POLITICA_NOME[p.dm_policy || 'todos'], ' data-page="set-messages"')}
+                ${linhaConfig('cfg-page', 'comentario', 'Quem pode comentar', POLITICA_NOME[p.comment_policy || 'todos'], ' data-page="set-comments"')}
             </div>
 
             <div class="cfg-grupo">
-                <div class="cfg-titulo">Desafios</div>
-                ${linhaConfig('go-community', 'comunidade', 'Meus desafios')}
-                ${podeCriarDesafio() ? linhaConfig('new-challenge', 'mais', 'Criar desafio') : ''}
+                <div class="cfg-titulo">Notificações</div>
+                <button class="cfg-row" data-act="toggle-reminder" role="switch" aria-checked="${lembrete}">
+                    ${icon('sino')}<span class="cfg-txt">Lembretes do dia</span>
+                    <span class="cfg-switch${lembrete ? ' on' : ''}"><i></i></span>
+                </button>
             </div>
 
             <div class="cfg-grupo">
                 <div class="cfg-titulo">App</div>
                 ${linhaConfig('cfg-page', 'tema', 'Aparência', tema, ' data-page="set-appearance"')}
-                <button class="cfg-row" data-act="toggle-reminder" role="switch" aria-checked="${lembrete}">
-                    ${icon('sino')}<span class="cfg-txt">Lembrete do fim do dia</span>
-                    <span class="cfg-switch${lembrete ? ' on' : ''}"><i></i></span>
-                </button>
                 ${linhaConfig('go-install', 'instalar', 'Instalar na tela inicial')}
                 ${p.is_admin ? linhaConfig('export-data', 'baixar', 'Baixar meus dados') : ''}
             </div>
@@ -2990,7 +2981,6 @@ function renderSettings() {
                 ${linhaConfig('go-privacy', 'info', 'Seus dados e privacidade')}
                 ${linhaConfig('cfg-page', 'info', 'Termos de uso', '', ' data-page="termos"')}
                 ${linhaConfig('cfg-page', 'cadeado', 'Política de privacidade', '', ' data-page="politica-privacidade"')}
-                ${linhaConfig('convidar-amigo', 'pessoaMais', 'Convidar amigos')}
             </div>
 
             <div class="cfg-grupo cfg-sair">
@@ -5889,10 +5879,38 @@ function linhaMenu(act, ic, texto, valor = '', extra = '', aviso = 0) {
     </button>`;
 }
 
+// Atalhos do topo do Menu: os 3 registros que a pessoa mais usa
+const ATALHOS_MENU = {
+    peso:   { ic: 'peso',  txt: 'Peso',     act: 'm-peso' },
+    agua:   { ic: 'agua',  txt: 'Água',     act: 'quick-water' },
+    coach:  { ic: 'coach', txt: 'Coach',    act: 'm-go', extra: ' data-view="coach"' },
+    treino: { ic: 'grafico', txt: 'Treino', act: 'atalho-registro', extra: ' data-k="workout"' },
+    refeicao: { ic: 'alvo', txt: 'Refeição', act: 'atalho-registro', extra: ' data-k="meal"' },
+    sono:   { ic: 'relogio', txt: 'Sono',   act: 'atalho-registro', extra: ' data-k="sleep"' },
+};
+function contarUsoAtalho(k) {
+    try {
+        const uso = JSON.parse(localStorage.getItem('pulso-uso-atalhos') || '{}');
+        uso[k] = (uso[k] || 0) + 1;
+        localStorage.setItem('pulso-uso-atalhos', JSON.stringify(uso));
+    } catch (_) {}
+}
+function atalhosDoMenu() {
+    let uso = {};
+    try { uso = JSON.parse(localStorage.getItem('pulso-uso-atalhos') || '{}'); } catch (_) {}
+    const padrao = ['peso', 'agua', 'coach'];
+    const ordem = Object.keys(ATALHOS_MENU).sort((a, b) => (uso[b] || 0) - (uso[a] || 0) || padrao.indexOf(b) - padrao.indexOf(a));
+    const usados = ordem.filter(k => (uso[k] || 0) >= 3);
+    const escolha = [...usados, ...padrao.filter(k => !usados.includes(k))].slice(0, 3);
+    return escolha.map(k => { const a = ATALHOS_MENU[k]; return `<button class="menu-atalho" data-act="${a.act}"${a.extra || ''}>${icon(a.ic)}<span>${a.txt}</span></button>`; }).join('');
+}
+
 async function renderMenu() {
     const p = state.profile;
     const c = $('#viewContainer');
-    const pintar = (rolando = '', pedidos = 0) => {
+    const objetivo = p.goal ? (OBJETIVOS.find(o => o[0] === p.goal) || [, ''])[1] : '';
+    const prazo = p.target_weight && p.goal_deadline ? ` · ${br(p.target_weight)} kg até ${new Date(p.goal_deadline + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}` : '';
+    const pintar = (pedidos = 0) => {
         c.innerHTML = `
         <div class="view cfg-view">
             ${cabecalhoConfig('Menu', 'menu-voltar')}
@@ -5903,10 +5921,13 @@ async function renderMenu() {
                 <svg class="cfg-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
             </button>
 
-            <div class="menu-atalhos">
-                <button class="menu-atalho" data-act="m-peso">${icon('peso')}<span>Peso</span></button>
-                <button class="menu-atalho" data-act="quick-water">${icon('agua')}<span>Água</span></button>
-                <button class="menu-atalho" data-act="m-go" data-view="coach">${icon('coach')}<span>Coach</span></button>
+            <div class="menu-atalhos">${atalhosDoMenu()}</div>
+
+            <div class="cfg-grupo">
+                <div class="cfg-titulo">Suas metas</div>
+                ${linhaMenu('cfg-page', 'alvo', 'Objetivo', objetivo ? escapeHTML(objetivo + prazo) : 'Definir', ' data-page="objetivos"')}
+                ${linhaMenu('cfg-page', 'historico', 'Jeito de treinar', `${p.weekly_goal || 3}x por semana`, ' data-page="jeito-treino"')}
+                ${linhaMenu('m-go', 'coach', 'Coach', '', ' data-view="coach"')}
             </div>
 
             <div class="cfg-grupo">
@@ -5924,8 +5945,9 @@ async function renderMenu() {
             </div>
 
             <div class="cfg-grupo">
-                <div class="cfg-titulo">Comunidade</div>
-                ${linhaMenu('m-go', 'comunidade', 'Desafios', rolando, ' data-view="challenges"')}
+                <div class="cfg-titulo">Pessoas</div>
+                ${linhaMenu('cfg-page', 'pessoaMais', 'Pedidos pra seguir', '', ' data-page="set-requests"', pedidos)}
+                ${linhaMenu('convidar-amigo', 'pessoaMais', 'Convidar amigos')}
                 ${linhaMenu('compartilhar-perfil', 'mensagem', 'Compartilhar perfil')}
             </div>
 
@@ -5935,7 +5957,7 @@ async function renderMenu() {
             </div>` : ''}
 
             <div class="cfg-grupo">
-                ${linhaMenu('m-go', 'config', 'Configurações', '', ' data-view="settings"', pedidos)}
+                ${linhaMenu('m-go', 'config', 'Configurações', '', ' data-view="settings"')}
             </div>
 
             <div class="cfg-grupo cfg-sair">
@@ -5944,13 +5966,9 @@ async function renderMenu() {
         </div>`;
     };
     pintar();
-    const [{ data: ch }, { data: pend }] = await Promise.all([
-        sb.rpc('list_challenges'),
-        sb.rpc('pending_follow_requests_count'),
-    ]);
+    const { data: pend } = await sb.rpc('pending_follow_requests_count');
     if (state.view !== 'menu') return;
-    const rolando = (ch || []).filter(x => x.status === 'ativo').length;
-    pintar(rolando ? `${rolando} rolando` : '', Number(pend || 0));
+    pintar(Number(pend || 0));
 }
 
 // ============================================================
@@ -6729,7 +6747,7 @@ async function renderArquivados() {
     box.innerHTML = (data || []).length ? `<div class="arq-grade">${data.map(p => `<div class="arq-item">
         ${gridThumb(p).replace('data-act="view-post"', '')}
         <button class="btn-mini" data-act="desarquivar-post" data-id="${p.id}">Restaurar</button>
-    </div>`).join('')}</div>` : '<div class="log-empty">Nenhum post arquivado.</div>';
+    </div>`).join('')}</div>` : `<div class="grid-empty grid-empty-cta">${icon('salvo')}<b>Nenhum post arquivado</b><span>No ··· de um post seu, toque em "Arquivar" pra esconder sem apagar. Ele fica guardado aqui.</span></div>`;
 }
 
 // ---- Tela pra quem ainda não foi liberado pelo administrador ----
@@ -7618,6 +7636,32 @@ function trocarMesCal(dir) {
     hydrateCalMes();
 }
 
+// Explicação rápida da ofensiva (toque no 🔥 do perfil)
+async function abrirExplicacaoOfensiva() {
+    const [{ data: st }, { data: escudo }] = await Promise.all([
+        sb.from('daily_streaks').select('current_streak, longest_streak').eq('user_id', state.session.user.id).maybeSingle(),
+        sb.rpc('shield_status'),
+    ]);
+    const atual = (st && st.current_streak) || 0, rec = (st && st.longest_streak) || 0;
+    const temEscudo = escudo && escudo[0] && escudo[0].disponivel;
+    const old = document.getElementById('ofSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'ofSheet'; sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card of-card">
+        <div class="sheet-handle"></div>
+        <div class="of-num">🔥 <b>${atual}</b><span>${atual === 1 ? 'dia seguido' : 'dias seguidos'}</span></div>
+        <p class="of-rec">Seu recorde: <b>${rec}</b> ${rec === 1 ? 'dia' : 'dias'}</p>
+        <div class="of-itens">
+            <p><b>Como manter:</b> registre qualquer coisa por dia: treino, refeição, água, sono, peso ou story.</p>
+            <p><b>Escudo 🛡️:</b> perdeu um dia? Um escudo por semana segura a sequência sozinho. ${temEscudo ? '<span class="of-ok">Seu escudo desta semana está disponível.</span>' : '<span class="of-usado">Seu escudo desta semana já foi usado.</span>'}</p>
+            <p><b>Bônus:</b> 3 dias (+2), 7 dias (+5), 14 dias (+10) e 30 dias (+20).</p>
+        </div>
+        <button class="btn-secondary" data-act="go-rules" style="width:100%">Como ganhar pontos</button>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet || e.target.closest('[data-act="go-rules"]')) sheet.remove(); });
+}
+
 // ---- Conquistas do grupo, meta coletiva e marcos ----
 const MARCOS_GRUPO = {
     treinos: [25, 50, 100, 200, 300, 500, 750, 1000, 2000],
@@ -8218,12 +8262,12 @@ async function renderProfile() {
             <div class="ig-profile-actions">
                 <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
                 <div class="prof-pill">
-                    <button class="weekly-pill" data-act="go-progress" aria-label="Sua semana">
-                        <svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
-                        <span id="wpDays">${diasSemana}/${metaSemana}</span>
-                        <span class="wp-flame">🔥<b id="wpStreak">${streak?.current_streak || 0}</b></span>
-                    </button>
-                    <button class="topbar-score" data-act="go-community" aria-label="Ranking">
+                    <div class="weekly-pill">
+                        <button class="wp-anel" data-act="go-progress" aria-label="Sua semana"><svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
+                        <span id="wpDays">${diasSemana}/${metaSemana}</span></button>
+                        <button class="wp-flame" data-act="ver-ofensiva" aria-label="Sua ofensiva">🔥<b id="wpStreak">${streak?.current_streak || 0}</b></button>
+                    </div>
+                    <button class="topbar-score" data-act="go-rules" aria-label="Como ganhar pontos">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
                         <span id="topScore">${Math.round(state.score)}</span>
                         <span id="topRank" class="top-rank${rankTxt === '-' ? ' hidden' : ''}">🏆<b id="topRankN">${rankTxt}</b></span>
@@ -9165,7 +9209,7 @@ async function renderActivityLog() {
         const { data: posts, error } = await q;
         if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
         if (!posts || posts.length === 0) {
-            list.innerHTML = '<div class="log-empty">Nenhum registro nessa categoria.</div>';
+            list.innerHTML = `<div class="grid-empty grid-empty-cta">${icon('historico')}<b>Nada registrado aqui ainda</b><span>Toque no + embaixo pra registrar um treino, refeição, água, sono ou peso.</span></div>`;
             return;
         }
 
@@ -9828,6 +9872,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'm-go') {
         switchView(btn.dataset.view);
     } else if (act === 'm-peso') {
+        contarUsoAtalho('peso');
         openWeightLogSheet();
     } else if (act === 'save-post') {
         e.stopPropagation();
@@ -10008,6 +10053,16 @@ document.addEventListener('click', async e => {
             toast('Organização transferida', 'ok');
             renderGerenciarDesafio(state.gerDesafio.id);
         });
+    } else if (act === 'atalho-registro') {
+        contarUsoAtalho({ workout: 'treino', meal: 'refeicao', sleep: 'sono' }[btn.dataset.k]);
+        $('#tileDesafio').classList.toggle('hidden', !podeCriarDesafio());
+        limparComposer();
+        $('#composerPick').classList.add('hidden');
+        $('#composerForm').classList.remove('hidden');
+        setComposerKind(btn.dataset.k);
+        abrirComposer();
+    } else if (act === 'ver-ofensiva') {
+        abrirExplicacaoOfensiva();
     } else if (act === 'cal-mes') {
         trocarMesCal(Number(btn.dataset.dir));
     } else if (act === 'cal-dia') {
@@ -10358,6 +10413,7 @@ document.addEventListener('click', async e => {
         toast('Conquista compartilhada!', 'ok');
         renderAchievements();
     } else if (act === 'quick-water') {
+        contarUsoAtalho('agua');
         limparComposer();
         setComposerKind('water');
         abrirComposer();
