@@ -138,7 +138,7 @@ const toast = (msg, kind='ok') => {
 // ============================================================
 const INTENSITY = {
     'Musculação':1.0,'Corrida':1.0,'Natação':1.0,'Ciclismo':1.0,'HIIT':1.0,
-    'Caminhada':0.7,'Yoga':0.7,'Dança':0.7,'Alongamento':0.7,
+    'Caminhada':0.7,'Pilates':0.7,'Yoga':0.7,'Dança':0.7,'Alongamento':0.7,
     'Futebol':1.0,
     'Outro':0.8
 };
@@ -2599,6 +2599,12 @@ async function renderNotifications() {
         } else if (n.kind === 'depoimento_publicado') {
             emo = '✨'; texto = `<b>${quem}</b> publicou o seu depoimento no perfil`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'treino_com') {
+            const m = n.meta || {};
+            emo = '🤝';
+            texto = `<b>${quem}</b> marcou você num treino de ${escapeHTML(m.atividade || 'treino')}${m.duracao ? ' · ' + m.duracao + ' min' : ''}${m.km ? ' · ' + br(m.km) + ' km' : ''}`
+                + (m.resolvido ? `<span class="nt-sub">${m.resolvido === 'aceito' ? 'Registrado no seu histórico ✓' : 'Você recusou'}</span>`
+                : `<span class="nt-acoes"><button class="btn-mini" data-act="treino-com-aceitar" data-post="${n.post_id}">Registrar o mesmo treino</button><button class="btn-ghost btn-xs" data-act="treino-com-recusar" data-post="${n.post_id}">Recusar</button></span>`);
         } else if (n.kind === 'story_curtido') {
             emo = '❤️'; texto = `<b>${quem}</b> curtiu seu story`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
@@ -3126,7 +3132,7 @@ async function renderMealHistory(uid) {
 // ---- Histórico de treinos no perfil (visível pra quem visita) ----
 const WORKOUT_EMOJI = {
     'Musculação':'🏋️', 'Corrida':'🏃', 'Caminhada':'🚶', 'Natação':'🏊', 'Ciclismo':'🚴',
-    'Yoga':'🧘', 'Dança':'💃', 'HIIT':'⚡', 'Alongamento':'🤸', 'Futebol':'⚽', 'Outro':'💪'
+    'Yoga':'🧘', 'Pilates':'🧘', 'Dança':'💃', 'HIIT':'⚡', 'Alongamento':'🤸', 'Futebol':'⚽', 'Outro':'💪'
 };
 
 async function renderWorkoutHistory(uid) {
@@ -4292,7 +4298,9 @@ function renderPost(p) {
 
     let badge = '', body = '';
     if (p.kind === 'workout') {
-        badge = `<div class="post-badge"><span class="emo">💪</span>${escapeHTML(p.activity_type||'Treino')} · <b>${p.duration_min||0} min</b>${detalheTreino(p)}</div>`;
+        const comQuem = (p.meta && Array.isArray(p.meta.com) && p.meta.com.length)
+            ? ` <span class="post-com">com ${p.meta.com.map(u => `<a data-act="view-user" data-uid="${u.id}">@${escapeHTML(u.username || '')}</a>`).join(', ')}</span>` : '';
+        badge = `<div class="post-badge"><span class="emo">💪</span>${escapeHTML(p.activity_type||'Treino')} · <b>${p.duration_min||0} min</b>${detalheTreino(p)}${comQuem}</div>`;
     } else if (p.kind === 'meal') {
         const slotName = {cafe:'Café da manhã',almoco:'Almoço',jantar:'Jantar',lanche:'Lanche'}[p.meal_slot] || 'Refeição';
         const scoreTag = p.meal_score != null
@@ -4635,7 +4643,7 @@ function salvarImagem(blob, nome) {
 // COACH NA EVOLUÇÃO: treino do dia, plano, carta, alerta
 // (tudo gerado uma vez e guardado; abrir de novo não gera outra vez)
 // ============================================================
-const MODALIDADES = ['Musculação', 'Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Yoga', 'Dança', 'Alongamento', 'Futebol'];
+const MODALIDADES = ['Musculação', 'Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Pilates', 'Yoga', 'Dança', 'Alongamento', 'Futebol'];
 const TIPOS_TREINO = ['Musculação', 'Corrida', 'Ciclismo', 'Natação', 'Caminhada', 'Yoga', 'Dança', 'Alongamento', 'Futebol', 'Outro'];
 const EQUIPAMENTOS = ['Nenhum', 'Halteres', 'Elástico', 'Barra fixa', 'Kettlebell', 'Esteira ou bike'];
 const DIAS_SEMANA = [[0, 'D'], [1, 'S'], [2, 'T'], [3, 'Q'], [4, 'Q'], [5, 'S'], [6, 'S']]; // exibição começa no domingo
@@ -9686,7 +9694,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'comment') {
         openCommentSheet(id);
     } else if (act === 'ver-selo') {
-        const desde = btn.dataset.desde ? new Date(btn.dataset.desde).toLocaleDateString('pt-BR') : '';
+        const desde = btn.dataset.desde ? new Date(btn.dataset.desde).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : '';
         const old = document.getElementById('seloSheet'); if (old) old.remove();
         const sheet = document.createElement('div');
         sheet.id = 'seloSheet'; sheet.className = 'sheet on';
@@ -9694,7 +9702,7 @@ document.addEventListener('click', async e => {
             <div class="sheet-handle"></div>
             <span class="selo-grande">${SELO_FUNDADOR}</span>
             <h3 class="sheet-title">Membro fundador</h3>
-            <p class="sheet-sub">Uma das primeiras 100 pessoas do Pulso${desde ? `, desde ${desde}` : ''}.</p>
+            <p class="sheet-sub">${desde ? `Membro fundador desde ${desde}. ` : ''}Uma das primeiras 100 pessoas do Pulso.</p>
         </div>`;
         document.body.appendChild(sheet);
         sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
@@ -10053,6 +10061,15 @@ document.addEventListener('click', async e => {
             toast('Organização transferida', 'ok');
             renderGerenciarDesafio(state.gerDesafio.id);
         });
+    } else if (act === 'treino-com-aceitar' || act === 'treino-com-recusar') {
+        e.stopPropagation();
+        const aceitar = act === 'treino-com-aceitar';
+        btn.disabled = true;
+        const { error } = await sb.rpc(aceitar ? 'aceitar_treino_com' : 'recusar_treino_com', { pid: btn.dataset.post });
+        if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
+        const acoes = btn.closest('.nt-acoes');
+        if (acoes) acoes.outerHTML = `<span class="nt-sub">${aceitar ? 'Registrado no seu histórico ✓' : 'Você recusou'}</span>`;
+        if (aceitar) { toast('Treino registrado pra você também 💪', 'ok'); loadScore(); }
     } else if (act === 'atalho-registro') {
         contarUsoAtalho({ workout: 'treino', meal: 'refeicao', sleep: 'sono' }[btn.dataset.k]);
         $('#tileDesafio').classList.toggle('hidden', !podeCriarDesafio());
@@ -12113,6 +12130,7 @@ function limparComposer() {
     state.composerDest = 'log';
     $('#wDistance').value = '';
     $$('#wMuscles .chip').forEach(x => x.classList.remove('on'));
+    state.treinoCom = []; pintarTreinoCom();
 }
 
 // + central: primeiro só os ícones, o formulário vem depois
@@ -12278,6 +12296,7 @@ const ICONES_ATIVIDADE = {
     'Ciclismo': '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l2 7"/>',
     'Natação': '<path d="M2 18c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5M8 13l4-5 5 3"/><circle cx="17" cy="6" r="1.8"/>',
     'Yoga': '<circle cx="12" cy="4.5" r="1.8"/><path d="M12 7v6M5 10l7 3 7-3M8 21l4-8 4 8"/>',
+    'Pilates': '<circle cx="6" cy="9" r="1.8"/><path d="M3 20h18M7.5 11.5L12 16h6M9 13l-3 3"/><circle cx="18.5" cy="16" r="1"/>',
     'Dança': '<circle cx="13" cy="4.5" r="1.8"/><path d="M9 21l3-7-3-3 4-3 3 4h3M12 14l4 7"/>',
     'Alongamento': '<circle cx="12" cy="4.5" r="1.8"/><path d="M4 9h16M12 9v6l-4 6M12 15l4 6"/>',
     'Futebol': '<circle cx="12" cy="12" r="9"/><path d="M12 7l4 3-1.5 5h-5L8 10z"/>',
@@ -12336,6 +12355,56 @@ $$('.tr-dur-btn[data-dur-passo]').forEach(b => b.addEventListener('click', () =>
     sincronizarDuracao();
 }));
 $('#wDuration').addEventListener('input', () => { $('#wDurBig').textContent = $('#wDuration').value; });
+// ---- "Treinou com alguém?" no registro de treino ----
+state.treinoCom = [];
+function pintarTreinoCom() {
+    const lista = document.getElementById('trComLista');
+    if (!lista) return;
+    lista.innerHTML = state.treinoCom.map(u => `<span class="tr-com-chip">com ${escapeHTML(String(u.display_name || u.username).split(' ')[0])}<button type="button" data-tirar-com="${u.id}" aria-label="Tirar">×</button></span>`).join('');
+    document.getElementById('trComAdd').querySelector('span').textContent = state.treinoCom.length ? 'Marcar mais alguém' : 'Treinou com alguém?';
+}
+document.getElementById('trComLista').addEventListener('click', e => {
+    const b = e.target.closest('[data-tirar-com]');
+    if (!b) return;
+    state.treinoCom = state.treinoCom.filter(u => u.id !== b.dataset.tirarCom);
+    pintarTreinoCom();
+});
+document.getElementById('trComAdd').addEventListener('click', async () => {
+    if (!state.seguindoCache) {
+        const { data } = await sb.from('follows').select('following:profiles!following_id (id, username, display_name, avatar_url)').eq('follower_id', state.session.user.id).limit(300);
+        state.seguindoCache = (data || []).map(x => x.following).filter(Boolean);
+    }
+    const old = document.getElementById('comSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'comSheet'; sheet.className = 'sheet on sheet-over-story';
+    const marcados = new Set(state.treinoCom.map(u => u.id));
+    const linhas = lista => lista.map(u => `<button type="button" class="com-opcao${marcados.has(u.id) ? ' on' : ''}" data-uid="${u.id}">
+        ${avatarHTML(u, 'sm')}<span><b>${escapeHTML(u.display_name || '')}</b><small>@${escapeHTML(u.username || '')}</small></span><i class="com-check"></i></button>`).join('')
+        || '<p class="faixa-nota">Siga alguém primeiro pra poder marcar no treino.</p>';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Treinou com quem?</h3>
+        <div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input type="text" id="comBusca" placeholder="Buscar entre quem você segue" autocomplete="off" autocapitalize="off"></div>
+        <div class="com-lista" id="comLista">${linhas(state.seguindoCache)}</div>
+        <button class="btn-primary" id="comOk" style="width:100%;margin-top:12px">Pronto</button>
+    </div>`;
+    document.body.appendChild(sheet);
+    const box = sheet.querySelector('#comLista');
+    sheet.querySelector('#comBusca').oninput = e => {
+        const q = e.target.value.toLowerCase();
+        box.innerHTML = linhas(state.seguindoCache.filter(u => `${u.display_name} ${u.username}`.toLowerCase().includes(q)));
+    };
+    box.addEventListener('click', e => {
+        const b = e.target.closest('.com-opcao'); if (!b) return;
+        b.classList.toggle('on');
+        b.classList.contains('on') ? marcados.add(b.dataset.uid) : marcados.delete(b.dataset.uid);
+    });
+    const fechar = () => { state.treinoCom = state.seguindoCache.filter(u => marcados.has(u.id)); pintarTreinoCom(); sheet.remove(); };
+    sheet.querySelector('#comOk').onclick = fechar;
+    sheet.addEventListener('click', e => { if (e.target === sheet) fechar(); });
+});
+
 // Contador de distância (opcional): começa num valor comum e anda em passos
 function kmPasso() { return (KM_PADRAO[$('#wType').value] || [3, 0.5])[1]; }
 function kmPadrao() { return (KM_PADRAO[$('#wType').value] || [3, 0.5])[0]; }
@@ -12768,6 +12837,7 @@ $('#composerSubmit').addEventListener('click', async () => {
             if (post.activity_type === 'Musculação') {
                 const grupos = [...document.querySelectorAll('#wMuscles .chip.on')].map(c => c.dataset.m);
                 if (grupos.length) post.muscle_groups = grupos;
+                if (state.treinoCom.length) post.meta = { ...(post.meta || {}), com: state.treinoCom.map(u => ({ id: u.id, username: u.username, display_name: u.display_name })) };
             }
             ptsToCredit = workoutPoints(post.activity_type, post.duration_min, !!imageUrl);
             ptsReason = 'workout';
@@ -12820,6 +12890,9 @@ $('#composerSubmit').addEventListener('click', async () => {
             toast('A conexão caiu. Guardei seu registro e envio assim que voltar.', 'ok');
             return;
         }
+        if (created && post.meta && post.meta.com && post.meta.com.length) {
+            sb.rpc('marcar_treino_com', { pid: created.id }).then(() => {});
+        }
         if (created && recordeAntes) {
             let msg = null;
             if (post.distance_km && recordeAntes.km != null && post.distance_km > recordeAntes.km) msg = `Novo recorde de distância: ${String(post.distance_km).replace('.', ',')} km 🏅`;
@@ -12830,6 +12903,10 @@ $('#composerSubmit').addEventListener('click', async () => {
             const txtErro = String(postErr.message || '');
             if (txtErro.includes('limite_por_hora')) {
                 toast('Você registrou bastante coisa na última hora. Dá um tempinho e volte.', 'err');
+                return;
+            }
+            if (txtErro.includes('treino_repetido')) {
+                toast(`Você já registrou ${String(post.activity_type || 'esse treino').toLowerCase() === 'corrida' ? 'uma corrida igual' : 'um treino igual'} hoje. Se treinou de novo, ajuste o tempo ou a distância.`, 'err');
                 return;
             }
             if (txtErro.includes('post_repetido')) {

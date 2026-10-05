@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261105">
+<link rel="stylesheet" href="styles.css?v=20261106">
 </head>
 <body>
 
@@ -209,12 +209,19 @@
                     <button type="button" class="tr-dur-btn" data-dur-passo="5" aria-label="Mais 5 minutos">+</button>
                 </div>
             </div>
+            <div class="tr-com" id="trCom">
+                <button type="button" class="tr-com-add" id="trComAdd">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></svg>
+                    <span>Treinou com alguém?</span>
+                </button>
+                <div class="tr-com-lista" id="trComLista"></div>
+            </div>
             <div class="field-row tr-antigo">
                 <div class="field">
                     <label>Atividade</label>
                     <select id="wType">
                         <option>Musculação</option><option>Corrida</option><option>Ciclismo</option><option>Natação</option>
-                        <option>Caminhada</option><option>Yoga</option><option>Dança</option><option>Alongamento</option><option>Futebol</option><option>Outro</option>
+                        <option>Caminhada</option><option>Pilates</option><option>Yoga</option><option>Dança</option><option>Alongamento</option><option>Futebol</option><option>Outro</option>
                     </select>
                 </div>
                 <div class="field">
@@ -519,6 +526,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=20261105"></script>
+<script src="app.js?v=20261106"></script>
 </body>
 </html>

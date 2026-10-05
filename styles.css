@@ -2690,3 +2690,24 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .of-ok{ color:var(--vital); }
 .of-usado{ color:var(--ink-faint); }
 .feed-empty .btn-mini{ margin-top:12px; }
+
+/* ================= ONDA 41: treinou com alguém ================= */
+.tr-com{ display:none; }
+#composerSheet.modo-treino .tr-com{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:-6px 0 16px; justify-content:center; }
+.tr-com-add{ display:flex; align-items:center; gap:7px; height:34px; padding:0 14px; border-radius:17px; border:1px dashed var(--line); background:transparent; color:var(--ink-dim); font-size:13px; font-weight:600; }
+.tr-com-add svg{ width:16px; height:16px; }
+.tr-com-lista{ display:contents; }
+.tr-com-chip{ display:inline-flex; align-items:center; gap:4px; height:34px; padding:0 6px 0 12px; border-radius:17px; background:var(--vital-dim); color:var(--vital); font-size:13px; font-weight:600; }
+.tr-com-chip button{ width:22px; height:22px; border:none; border-radius:50%; background:transparent; color:var(--vital); font-size:16px; line-height:1; padding:0; }
+.com-lista{ max-height:48vh; overflow-y:auto; margin:8px -20px 0; }
+.com-opcao{ display:grid; grid-template-columns:34px 1fr 22px; align-items:center; gap:10px; width:100%; padding:10px 20px; border:none; background:none; color:var(--ink); text-align:left; }
+.com-opcao span{ display:flex; flex-direction:column; min-width:0; }
+.com-opcao b{ font-size:14px; }
+.com-opcao small{ font-size:12px; color:var(--ink-faint); }
+.com-check{ width:22px; height:22px; border-radius:50%; border:1.5px solid var(--line); }
+.com-opcao.on .com-check{ background:var(--vital); border-color:var(--vital); box-shadow:inset 0 0 0 4px var(--bg-card); }
+.post-com{ color:var(--ink-dim); font-weight:500; }
+.post-com a{ color:var(--ink); font-weight:600; cursor:pointer; }
+.nt-acoes{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+.nt-sub{ display:block; font-size:12px; color:var(--ink-faint); margin-top:4px; }
+.com-opcao .avatar{ display:grid; place-items:center; width:34px; height:34px; }
