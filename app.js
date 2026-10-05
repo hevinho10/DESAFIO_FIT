@@ -1788,14 +1788,25 @@ async function renderAchievements(uid) {
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
 
-    const lista = data || [];
-    if (!ehMeu && lista.length === 0) {
+    const todas = data || [];
+    if (!ehMeu && todas.length === 0) {
         body.innerHTML = '<div class="grid-empty">Essa pessoa prefere manter as conquistas dela em particular.</div>';
         return;
     }
-    const feitas = lista.filter(a => a.ok).length;
+    // dos outros: só o que já foi conquistado
+    const lista = ehMeu ? todas : todas.filter(a => a.ok);
+    if (!ehMeu && !lista.length) { body.innerHTML = '<div class="grid-empty">Nenhuma conquista ainda.</div>'; return; }
+    const feitas = todas.filter(a => a.ok).length;
+    // sua próxima conquista: a que está mais perto
+    const proxima = ehMeu ? todas.filter(a => !a.ok && a.meta).sort((x, y) => (y.prog / y.meta) - (x.prog / x.meta))[0] : null;
+    const faltam = proxima ? Math.max(1, proxima.meta - proxima.prog) : 0;
     body.innerHTML = `
-        <div class="wk-summary"><b>${feitas}</b> de ${lista.length} conquistas${ehMeu ? ` · <button class="link-btn" data-act="toggle-badges-public">${state.profile.show_badges ? 'visíveis no seu perfil' : 'só você vê'}</button>` : ''}</div>
+        ${proxima ? `<div class="prox-conq">
+            <span class="prox-emo">${proxima.emo}</span>
+            <div class="prox-txt"><small>Sua próxima conquista</small><b>${escapeHTML(proxima.nome)}</b><span>Falta${faltam > 1 ? 'm' : ''} ${faltam} pra chegar lá · ${escapeHTML(proxima.desc)}</span>
+                <div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (proxima.prog / proxima.meta) * 100)}%"></div></div></div>
+        </div>` : ''}
+        ${ehMeu ? `<div class="wk-summary"><b>${feitas}</b> de ${todas.length} conquistas · <button class="link-btn" data-act="toggle-badges-public">${state.profile.show_badges ? 'visíveis no seu perfil' : 'só você vê'}</button></div>` : ''}
         <div class="badge-grid">
             ${lista.map(a => {
                 const prog = (!a.ok && a.meta) ? `<div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (a.prog / a.meta) * 100)}%"></div></div><span class="badge-prog-txt">${a.prog}/${a.meta}</span>` : '';
@@ -1810,6 +1821,42 @@ async function renderAchievements(uid) {
                 </div>`;
             }).join('')}
         </div>`;
+}
+
+// ---- Comemoração quando ganha uma conquista nova ----
+async function checarConquistasNovas() {
+    if (!state.session) return;
+    const { data } = await sb.rpc('user_achievements', { alvo: state.session.user.id });
+    const ganhas = (data || []).filter(a => a.ok);
+    const chave = 'pulso-conquistas-' + state.session.user.id;
+    let vistas = null;
+    try { vistas = JSON.parse(localStorage.getItem(chave) || 'null'); } catch (_) {}
+    localStorage.setItem(chave, JSON.stringify(ganhas.map(a => a.code)));
+    if (!vistas) return; // primeira vez neste aparelho: só anota, não comemora o que já tinha
+    const novas = ganhas.filter(a => !vistas.includes(a.code));
+    if (novas.length) comemorarConquista(novas[0]);
+}
+function comemorarConquista(a) {
+    const old = document.getElementById('conqSheet'); if (old) old.remove();
+    const tela = document.createElement('div');
+    tela.id = 'conqSheet';
+    tela.className = 'conq-tela';
+    const confete = Array.from({ length: 26 }, (_, k) => `<i style="left:${(k * 37) % 100}%;animation-delay:${(k % 9) * 0.08}s;background:${['#35E19B', '#FFC24B', '#5FB0FF', '#FF7A4D', '#C08BFF'][k % 5]}"></i>`).join('');
+    tela.innerHTML = `<div class="conq-confete">${confete}</div>
+        <div class="conq-card">
+            <small>Nova conquista</small>
+            <span class="conq-emo">${a.emo}</span>
+            <h2>${escapeHTML(a.nome)}</h2>
+            <p>${escapeHTML(a.desc)}</p>
+            <button class="btn-primary" data-act="share-badge" data-code="${a.code}">Compartilhar</button>
+            <button class="btn-ghost" id="conqFechar">Agora não</button>
+        </div>`;
+    document.body.appendChild(tela);
+    requestAnimationFrame(() => tela.classList.add('on'));
+    const fechar = () => { tela.classList.remove('on'); setTimeout(() => tela.remove(), 200); };
+    tela.querySelector('#conqFechar').onclick = fechar;
+    tela.querySelector('[data-act="share-badge"]').addEventListener('click', () => setTimeout(fechar, 50));
+    tela.addEventListener('click', e => { if (e.target === tela) fechar(); });
 }
 
 // ---- Bloquear e denunciar ----
@@ -3088,11 +3135,11 @@ async function renderMealHistory(uid) {
     body.innerHTML = '<div class="spinner"></div>';
     const isMe = uid === state.session.user.id;
 
-    const { data, error } = await sb.from('posts')
+    let qRef = sb.from('posts')
         .select('id, meal_slot, meal_score, meal_analysis, image_url, created_at, in_feed')
-        .eq('user_id', uid).eq('kind', 'meal')
-        .order('created_at', { ascending: false })
-        .limit(60);
+        .eq('user_id', uid).eq('kind', 'meal');
+    if (!isMe) qRef = qRef.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
+    const { data, error } = await qRef.order('created_at', { ascending: false }).limit(60);
 
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
@@ -3142,15 +3189,16 @@ async function renderWorkoutHistory(uid) {
 
     const iniMes = new Date(); iniMes.setDate(1); iniMes.setHours(0, 0, 0, 0);
     const { data: ofensiva } = await sb.from('daily_streaks').select('current_streak, longest_streak').eq('user_id', uid).maybeSingle();
-    const { data, error } = await sb.from('posts')
+    const ehMeuPerfil = uid === state.session.user.id;
+    let qTr = sb.from('posts')
         .select('id, activity_type, duration_min, distance_km, caption, created_at, image_url, in_feed')
-        .eq('user_id', uid).eq('kind', 'workout')
-        .order('created_at', { ascending: false })
-        .limit(60);
+        .eq('user_id', uid).eq('kind', 'workout');
+    if (!ehMeuPerfil) qTr = qTr.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
+    const { data, error } = await qTr.order('created_at', { ascending: false }).limit(60);
 
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
-    if (!data || data.length === 0) { body.innerHTML = '<div class="grid-empty">Nenhum treino registrado ainda.</div>'; return; }
+    if (!data || data.length === 0) { body.innerHTML = `<div class="grid-empty">${ehMeuPerfil ? 'Nenhum treino registrado ainda.' : 'Nenhum treino publicado ainda.'}</div>`; return; }
 
     const totalMin = data.reduce((s, w) => s + (w.duration_min || 0), 0);
     const horas = Math.floor(totalMin / 60), mins = totalMin % 60;
@@ -9197,6 +9245,7 @@ async function renderActivityLog() {
                 <button class="log-filter" data-filter="workout">Treinos</button>
                 <button class="log-filter" data-filter="meal">Refeições</button>
                 <button class="log-filter" data-filter="weight">Pesagens</button>
+                <button class="log-filter" data-filter="water">Água</button>
                 <button class="log-filter" data-filter="text">Textos</button>
             </div>
             <div id="logList"><div class="spinner"></div></div>
@@ -9211,8 +9260,9 @@ async function renderActivityLog() {
             .eq('user_id', state.session.user.id)
             .order('created_at', { ascending: false })
             .limit(100);
-        q = q.neq('kind', 'water');  // água tem muitos registros por dia, fica só na Evolução
-        if (filter !== 'all') q = q.eq('kind', filter);
+        // em "Tudo" a água fica de fora (são muitos registros por dia); ela tem o filtro próprio
+        if (filter === 'all') q = q.neq('kind', 'water');
+        else q = q.eq('kind', filter);
 
         const { data: posts, error } = await q;
         if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
@@ -9281,7 +9331,7 @@ async function renderActivityLog() {
             <div class="log-meta">
                 <div class="log-time">${t}</div>
                 <div class="log-priv">${privacyIcon}</div>
-                <button class="log-del" data-act="delete-post" data-id="${p.id}" title="Apagar" aria-label="Apagar">${ICONE_LIXO}</button>
+                ${p.kind !== 'water' || isoDe(new Date(p.created_at)) === hojeISO() ? `<button class="log-del" data-act="delete-post" data-id="${p.id}" title="Apagar" aria-label="Apagar">${ICONE_LIXO}</button>` : ''}
             </div>
         </div>`;
     }
@@ -9702,7 +9752,7 @@ document.addEventListener('click', async e => {
             <div class="sheet-handle"></div>
             <span class="selo-grande">${SELO_FUNDADOR}</span>
             <h3 class="sheet-title">Membro fundador</h3>
-            <p class="sheet-sub">${desde ? `Membro fundador desde ${desde}. ` : ''}Uma das primeiras 100 pessoas do Pulso.</p>
+            ${desde ? `<p class="sheet-sub">${desde}</p>` : ''}
         </div>`;
         document.body.appendChild(sheet);
         sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
@@ -11535,8 +11585,8 @@ function showCurrentStory() {
     const isMineStory = souDonoDoStory && !ehDestaque;
     document.getElementById('svViews').classList.add('hidden');
     const act = document.getElementById('svActivity');
-    act.classList.toggle('hidden', !isMineStory);
-    state.storyAtual = isMineStory ? item.id : null;
+    act.classList.toggle('hidden', !souDonoDoStory);
+    state.storyAtual = souDonoDoStory ? item.id : null;   // story ou destaque seu: mostra quem viu
     // story de outra pessoa: curtir e responder (vai pro chat)
     const resp = document.getElementById('svResp');
     const podeResponder = !souDonoDoStory && !ehDestaque;
@@ -11572,11 +11622,11 @@ function showCurrentStory() {
         if (ehDestaque) { closeStoryViewer(); abrirEditorDestaque(group.destaque); }
         else abrirEscolhaDestaque(item);
     };
-    if (isMineStory) {
+    if (souDonoDoStory) {
         state.storyViewers = state.storyViewers || {};
         state.storyViewersReq = state.storyViewersReq || {};
         if (!state.storyViewersReq[item.id]) {
-            state.storyViewersReq[item.id] = sb.rpc('story_viewers', { sid: item.id })
+            state.storyViewersReq[item.id] = (ehDestaque ? sb.rpc('destaque_viewers', { iid: item.id }) : sb.rpc('story_viewers', { sid: item.id }))
                 .then(r => { state.storyViewers[item.id] = r.data || []; return r; });
         }
         document.getElementById('svActivityN').textContent = '';
@@ -11648,9 +11698,10 @@ function showCurrentStory() {
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     }
 
-    // Marca como visto (destaque não conta visualização)
-    if (!ehDestaque && group.user.id !== state.session.user.id) {
-        sb.from('story_views').insert({ story_id: item.id, viewer_id: state.session.user.id }).then(() => {});
+    // Marca como visto (story e destaque contam separado)
+    if (group.user.id !== state.session.user.id) {
+        if (ehDestaque) sb.rpc('registrar_view_destaque', { iid: item.id }).then(() => {});
+        else sb.from('story_views').insert({ story_id: item.id, viewer_id: state.session.user.id }).then(() => {});
     }
 
     // Handlers nav
@@ -12890,6 +12941,7 @@ $('#composerSubmit').addEventListener('click', async () => {
             toast('A conexão caiu. Guardei seu registro e envio assim que voltar.', 'ok');
             return;
         }
+        if (created) setTimeout(checarConquistasNovas, 2500);
         if (created && post.meta && post.meta.com && post.meta.com.length) {
             sb.rpc('marcar_treino_com', { pid: created.id }).then(() => {});
         }
@@ -13064,6 +13116,7 @@ async function bootInterno() {
     setTimeout(enviarFilaOffline, 3000);
     setTimeout(atualizarBadgeDesafio, 2500);
     setTimeout(registrarAcesso, 2000);
+    setTimeout(checarConquistasNovas, 6000);
     setTimeout(limparStoriesAntigos, 15000);
     // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);

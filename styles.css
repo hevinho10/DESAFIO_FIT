@@ -2711,3 +2711,25 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .nt-acoes{ display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
 .nt-sub{ display:block; font-size:12px; color:var(--ink-faint); margin-top:4px; }
 .com-opcao .avatar{ display:grid; place-items:center; width:34px; height:34px; }
+
+/* ================= ONDA 42: conquistas ================= */
+.prox-conq{ display:flex; gap:14px; align-items:center; padding:14px 16px; margin-bottom:14px; border-radius:var(--radius-lg); border:1px solid rgba(53,225,155,.3); background:var(--vital-dim); }
+.prox-emo{ font-size:34px; }
+.prox-txt{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.prox-txt small{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--vital); font-weight:700; }
+.prox-txt b{ font-size:15.5px; }
+.prox-txt span{ font-size:12.5px; color:var(--ink-dim); }
+.prox-txt .badge-prog{ margin-top:6px; }
+.conq-tela{ position:fixed; inset:0; z-index:170; display:grid; place-items:center; padding:24px; background:rgba(6,9,8,.7); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); opacity:0; transition:opacity .2s; overflow:hidden; }
+.conq-tela.on{ opacity:1; }
+.conq-card{ position:relative; z-index:2; width:100%; max-width:340px; display:flex; flex-direction:column; align-items:center; gap:8px; padding:28px 22px 18px; border-radius:26px; background:var(--bg-card); border:1px solid var(--line); text-align:center; transform:scale(.9); transition:transform .3s cubic-bezier(.2,1.4,.4,1); }
+.conq-tela.on .conq-card{ transform:none; }
+.conq-card small{ font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--vital); font-weight:700; }
+.conq-emo{ font-size:68px; line-height:1.1; margin:4px 0; animation:conqPula .8s ease .2s both; }
+@keyframes conqPula{ 0%{ transform:scale(.3); } 60%{ transform:scale(1.15); } 100%{ transform:scale(1); } }
+.conq-card h2{ font-family:var(--ff-display); font-size:23px; margin:0; }
+.conq-card p{ font-size:14px; color:var(--ink-dim); margin:0 0 10px; }
+.conq-card .btn-primary, .conq-card .btn-ghost{ width:100%; }
+.conq-confete{ position:absolute; inset:0; pointer-events:none; }
+.conq-confete i{ position:absolute; top:-12px; width:8px; height:12px; border-radius:2px; animation:conqCai 2.2s ease-in forwards; }
+@keyframes conqCai{ to{ transform:translateY(105vh) rotate(540deg); opacity:.2; } }
