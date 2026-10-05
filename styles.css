@@ -2777,3 +2777,9 @@ html.tela-cheia .toast{ bottom:calc(28px + env(safe-area-inset-bottom)) !importa
 :root[data-theme="light"] .sv-resp-campo{ border-color:rgba(255,255,255,.6); }
 :root[data-theme="light"] .cm-d{ color:var(--ink-dim); }
 :root[data-theme="light"] .dbl-coracao{ filter:drop-shadow(0 6px 18px rgba(0,0,0,.25)); }
+
+/* ================= ONDA 44 ================= */
+.toast{ z-index:400 !important; }
+.conv-coach.nao-lida .conv-name{ font-weight:800; }
+.conv-coach.nao-lida .conv-preview{ color:var(--ink); font-weight:600; }
+.conv-bolinha{ width:10px; height:10px; border-radius:50%; background:var(--vital); flex-shrink:0; margin-right:4px; }

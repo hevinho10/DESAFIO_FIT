@@ -3415,13 +3415,14 @@ async function renderMessages() {
     const list = $('#convList');
 
     // Coach sempre fixo no topo
-    let html = `<div class="conv-item conv-coach" data-act="go-coach">
+    const coachNovo = lsGet('pulso-coach-novo-' + state.session.user.id) === '1';
+    let html = `<div class="conv-item conv-coach${coachNovo ? ' nao-lida' : ''}" data-act="go-coach">
         <span class="conv-coach-avatar">🤖</span>
         <div class="conv-info">
             <div class="conv-name">Coach Pulso <span class="conv-tag">IA</span></div>
-            <div class="conv-preview">Pergunte sobre treino, alimentação e constância</div>
+            <div class="conv-preview">${coachNovo ? 'Mandou uma mensagem pra você' : 'Pergunte sobre treino, alimentação e constância'}</div>
         </div>
-        <div class="conv-chevron">›</div>
+        ${coachNovo ? '<span class="conv-bolinha"></span>' : '<div class="conv-chevron">›</div>'}
     </div>`;
 
     if (error) {
@@ -4035,6 +4036,58 @@ ${question}
 Responda como o Coach Pulso.`;
 
     return await callAI(prompt);
+}
+
+// ---- Coach que percebe a queda (no máximo 1 vez por semana) ----
+async function checarQuedaCoach() {
+    if (!state.session || !state.profile) return;
+    const uid = state.session.user.id;
+    const chave = 'pulso-coach-queda-' + uid;
+    if (Date.now() - Number(lsGet(chave) || 0) < 7 * 86400000) return;
+    try {
+        const ini28 = new Date(Date.now() - 28 * 86400000).toISOString();
+        const [{ data: ultimo }, { data: treinos }, { data: st }] = await Promise.all([
+            sb.from('posts').select('created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(1),
+            sb.from('posts').select('created_at, activity_type').eq('user_id', uid).eq('kind', 'workout').gte('created_at', ini28),
+            sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle(),
+        ]);
+        if (!ultimo || !ultimo.length) return; // conta nova, sem histórico: não é queda
+        const diasSem = Math.floor((Date.now() - new Date(ultimo[0].created_at)) / 86400000);
+        const seg = segundaDe(); seg.setHours(0, 0, 0, 0);
+        const estaSemana = (treinos || []).filter(t => new Date(t.created_at) >= seg).length;
+        const anteriores = (treinos || []).filter(t => new Date(t.created_at) < seg).length;
+        const mediaSemanal = anteriores / 3;
+        const diaDaSemana = (new Date().getDay() + 6) % 7; // 0 = segunda
+        const caiuTreinos = diaDaSemana >= 4 && mediaSemanal >= 2 && estaSemana < mediaSemanal / 2;
+        // ofensiva de 7+ dias que caiu
+        const chaveOf = 'pulso-ofensiva-vista-' + uid;
+        const ofAntes = Number(lsGet(chaveOf) || 0);
+        const ofAgora = (st && st.current_streak) || 0;
+        lsSet(chaveOf, String(ofAgora));
+        const perdeuOfensiva = ofAntes >= 7 && ofAgora < 2;
+        if (diasSem < 3 && !caiuTreinos && !perdeuOfensiva) return;
+
+        lsSet(chave, String(Date.now()));
+        const p = state.profile;
+        const objetivo = p.goal ? (OBJETIVOS.find(o => o[0] === p.goal) || [, ''])[1] : '';
+        const meta = p.target_weight && p.goal_deadline ? `meta de ${br(p.target_weight)} kg até ${new Date(p.goal_deadline + 'T12:00:00').toLocaleDateString('pt-BR')}` : '';
+        const gosta = (p.train_likes || []).join(', ') || [...new Set((treinos || []).map(t => t.activity_type).filter(Boolean))].slice(0, 2).join(', ');
+        const situacao = diasSem >= 3 ? `está há ${diasSem} dias sem registrar nada no app`
+            : perdeuOfensiva ? `perdeu uma sequência de ${ofAntes} dias seguidos`
+            : `treinou ${estaSemana} vez(es) nesta semana, quando costuma treinar umas ${Math.round(mediaSemanal)} por semana`;
+        const prompt = `${COACH_PERSONA}
+
+Escreva UMA mensagem curta (2 ou 3 frases, no máximo 60 palavras) pro chat, em português do Brasil, pra ${String(p.display_name || '').split(' ')[0]}.
+Situação: a pessoa ${situacao}.
+${objetivo ? `Objetivo dela: ${objetivo}${meta ? ', ' + meta : ''}.` : ''}
+${gosta ? `Ela costuma fazer: ${gosta}.` : ''}
+Regras: tom acolhedor, sem bronca e sem culpa; cite o objetivo dela de forma natural; termine propondo UM passo pequeno e fácil pra hoje (até 20 minutos). No máximo 1 emoji. Não use travessão. Não use lista.`;
+        const texto = (await callAI(prompt)).trim();
+        if (!texto) return;
+        await sb.from('ai_messages').insert({ user_id: uid, role: 'coach', body: texto });
+        lsSet('pulso-coach-novo-' + uid, '1');
+        toastComAcao('O Coach te mandou uma mensagem', 'Ver', () => switchView('coach'));
+    } catch (_) { /* sem IA agora: tenta na próxima abertura */ lsSet(chave, ''); }
 }
 
 // ---- INSIGHTS: o coach que aparece no feed ----
@@ -8401,6 +8454,7 @@ async function renderCoach() {
         .limit(60);
 
     state.coachHistory = msgs || [];
+    lsSet('pulso-coach-novo-' + state.session.user.id, '');
     paintCoachChat();
 
     const input = $('#coachInput');
@@ -13228,6 +13282,7 @@ async function bootInterno() {
     setTimeout(atualizarBadgeDesafio, 2500);
     setTimeout(registrarAcesso, 2000);
     setTimeout(checarConquistasNovas, 6000);
+    setTimeout(checarQuedaCoach, 8000);
     setTimeout(limparStoriesAntigos, 15000);
     // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
