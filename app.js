@@ -3448,6 +3448,10 @@ async function renderChat(conversationId, otherUser) {
                 </button>
             </div>
             <div id="chatMessages" class="coach-chat"><div class="spinner"></div></div>
+            <div class="chat-resp-barra hidden" id="chatRespBarra">
+                <div><small>Respondendo</small><span id="chatRespTxt"></span></div>
+                <button type="button" id="chatRespX" aria-label="Cancelar resposta">×</button>
+            </div>
             <div class="coach-composer">
                 <textarea id="chatInput" placeholder="Escreva uma mensagem..." maxlength="2000" rows="1"></textarea>
                 <button class="mic-btn" id="chatMic" aria-label="Ditar">
@@ -3460,8 +3464,10 @@ async function renderChat(conversationId, otherUser) {
         </div>
     `;
 
+    state.chatRespondendo = null;
     try {
         state.chatMessages = await loadChatMessages(conversationId);
+        await carregarExtrasDoChat(conversationId);
     } catch (error) {
         $('#chatMessages').innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`;
         return;
@@ -3485,6 +3491,10 @@ async function renderChat(conversationId, otherUser) {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(conversationId); }
     });
     $('#chatSend').addEventListener('click', () => sendChatMessage(conversationId));
+    $('#chatRespX').addEventListener('click', () => { state.chatRespondendo = null; $('#chatRespBarra').classList.add('hidden'); });
+    ligarGestosDoChat(conversationId);
+    const atualizarEnviar = () => $('#chatSend').classList.toggle('pronto', !!input.value.trim());
+    input.addEventListener('input', atualizarEnviar); atualizarEnviar();
     $('#chatMic').addEventListener('click', () => ditar('chatInput'));
 
     // Tempo real (mensagens novas e apagadas)
@@ -3515,7 +3525,9 @@ async function renderChat(conversationId, otherUser) {
         if (state.view !== 'chat' || state.chatConversationId !== conversationId) { stopChatSync(); return; }
         try {
             const fresh = await loadChatMessages(conversationId);
-            if (sig(fresh) === sig(state.chatMessages)) return;
+            const antesReac = JSON.stringify(state.chatReacoes || {});
+            await carregarExtrasDoChat(conversationId);
+            if (sig(fresh) === sig(state.chatMessages)) { if (antesReac !== JSON.stringify(state.chatReacoes || {})) paintChatMessages(); return; }
             const newFromOther = fresh.some(m => m.sender_id !== me && !state.chatMessages.some(x => x.id === m.id));
             state.chatMessages = fresh;
             paintChatMessages();
@@ -3547,30 +3559,195 @@ function paintChatMessages() {
     const box = $('#chatMessages');
     if (!box) return;
     const digitando = document.getElementById('typingBubble');
-    if (state.chatMessages.length === 0) {
+    const ocultas = state.chatOcultas || new Set();
+    const lista = state.chatMessages.filter(m => !ocultas.has(m.id) && !(state.chatSumindo && state.chatSumindo.has(m.id)));
+    if (lista.length === 0) {
         box.innerHTML = `<div class="coach-empty"><span class="ce-emo">👋</span><p>Comece a conversa!</p></div>`;
     } else {
-        box.innerHTML = state.chatMessages.map(m => {
-            const mine = m.sender_id === state.session.user.id;
-            const del = mine ? ` data-act="delete-message" data-id="${m.id}" title="Toque para apagar"` : '';
-            const st = lerStoryDaMensagem(m.body);
+        const eu = state.session.user.id;
+        const reac = state.chatReacoes || {};
+        let diaAnterior = '';
+        box.innerHTML = lista.map(m => {
+            const mine = m.sender_id === eu;
+            // separador de dia
+            let sep = '';
+            if (m.created_at) {
+                const d = new Date(m.created_at);
+                const dia = isoDe(d);
+                if (dia !== diaAnterior) {
+                    diaAnterior = dia;
+                    const rot = dia === hojeISO() ? 'Hoje' : dia === isoDe(new Date(Date.now() - 86400000)) ? 'Ontem' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    sep = `<div class="chat-dia"><span>${rot}</span></div>`;
+                }
+            }
+            let corpo = m.body, topo = '';
+            const st = lerStoryDaMensagem(corpo);
             if (st) {
                 const mini = st.ref.img ? `<img src="${st.ref.img}" alt="" onerror="this.parentElement.classList.add('sem')">` : `<span class="cmsg-st-txt" style="background:${st.ref.bg || '#1C2420'}">${escapeHTML(st.ref.txt || '')}</span>`;
-                return `<div class="cmsg ${mine ? 'user' : 'coach'}">
-                    <div class="cmsg-story">
-                        <span class="cmsg-st-mini">${mini}<em>Story indisponível</em></span>
-                        <span class="cmsg-st-lbl">${mine ? 'Você respondeu ao story' : 'Respondeu ao seu story'}</span>
-                    </div>
-                    <div class="cmsg-bubble"${del}>${escapeHTML(st.texto).replace(/\n/g, '<br>')}</div>
-                </div>`;
+                topo = `<div class="cmsg-story"><span class="cmsg-st-mini">${mini}<em>Story indisponível</em></span><span class="cmsg-st-lbl">${mine ? 'Você respondeu ao story' : 'Respondeu ao seu story'}</span></div>`;
+                corpo = st.texto;
             }
-            return `<div class="cmsg ${mine?'user':'coach'}">
-                <div class="cmsg-bubble"${del}>${escapeHTML(m.body).replace(/\n/g,'<br>')}</div>
+            const rp = lerRespostaDaMensagem(corpo);
+            if (rp) {
+                topo += `<button class="cmsg-cita" data-ir-msg="${rp.ref.id}"><span>${escapeHTML(rp.ref.txt || '')}</span></button>`;
+                corpo = rp.texto;
+            }
+            const r = reac[m.id] || [];
+            const reacHTML = r.length ? `<span class="cmsg-reac">${[...new Set(r.map(x => x.emoji))].join('')}${r.length > 1 ? `<small>${r.length}</small>` : ''}</span>` : '';
+            return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${r.length ? ' com-reac' : ''}" data-mid="${m.id}">
+                ${topo}
+                <div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>
             </div>`;
         }).join('');
         if (digitando) box.appendChild(digitando);
     }
     box.scrollTop = box.scrollHeight;
+}
+
+// ---- Reações, respostas, excluir pra você e cancelar envio ----
+const MARCA_RESP = '⟦resp⟧';
+const REACOES_CHAT = ['❤️', '😂', '😮', '👏', '🔥', '👍'];
+function lerRespostaDaMensagem(body) {
+    const b = String(body || '');
+    if (!b.startsWith(MARCA_RESP)) return null;
+    const fim = b.indexOf('\n');
+    try { return { ref: JSON.parse(b.slice(MARCA_RESP.length, fim)), texto: b.slice(fim + 1) }; } catch (_) { return null; }
+}
+const textoLimpo = body => { const st = lerStoryDaMensagem(body); const b = st ? st.texto : body; const rp = lerRespostaDaMensagem(b); return rp ? rp.texto : b; };
+
+async function carregarExtrasDoChat(conv) {
+    const [{ data: rs }, { data: oc }] = await Promise.all([
+        sb.rpc('reacoes_da_conversa', { conv }),
+        sb.rpc('ocultas_da_conversa', { conv }),
+    ]);
+    const mapa = {};
+    (rs || []).forEach(x => { (mapa[x.message_id] = mapa[x.message_id] || []).push(x); });
+    state.chatReacoes = mapa;
+    state.chatOcultas = new Set((oc || []).map(x => x.message_id));
+}
+
+function ligarGestosDoChat(conv) {
+    const box = $('#chatMessages');
+    let timer = null, alvo = null, ultimoToque = 0, ultimoAlvo = null, moveu = false, x0 = 0, y0 = 0;
+    box.addEventListener('pointerdown', e => {
+        const b = e.target.closest('.cmsg-bubble[data-msg]');
+        if (!b) return;
+        alvo = b; moveu = false; x0 = e.clientX; y0 = e.clientY;
+        timer = setTimeout(() => { if (!moveu) { abrirMenuMensagem(b.dataset.msg, conv); if (navigator.vibrate) navigator.vibrate(12); } }, 450);
+    });
+    box.addEventListener('pointermove', e => { if (alvo && (Math.abs(e.clientX - x0) > 8 || Math.abs(e.clientY - y0) > 8)) { moveu = true; clearTimeout(timer); } });
+    const soltar = () => { clearTimeout(timer); alvo = null; };
+    box.addEventListener('pointerup', soltar); box.addEventListener('pointercancel', soltar); box.addEventListener('pointerleave', soltar);
+    box.addEventListener('contextmenu', e => { if (e.target.closest('.cmsg-bubble')) e.preventDefault(); });
+    box.addEventListener('click', e => {
+        const cita = e.target.closest('[data-ir-msg]');
+        if (cita) {
+            const el = box.querySelector(`[data-msg="${cita.dataset.irMsg}"]`);
+            if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('pisca'); setTimeout(() => el.classList.remove('pisca'), 1200); }
+            return;
+        }
+        const b = e.target.closest('.cmsg-bubble[data-msg]');
+        if (!b) return;
+        const agora = Date.now();
+        if (ultimoAlvo === b.dataset.msg && agora - ultimoToque < 320) { reagirMensagem(b.dataset.msg, '❤️', conv, true); ultimoToque = 0; return; }
+        ultimoToque = agora; ultimoAlvo = b.dataset.msg;
+    });
+}
+
+async function reagirMensagem(mid, emoji, conv, soColocar = false) {
+    const eu = state.session.user.id;
+    const lista = (state.chatReacoes[mid] || []);
+    const minha = lista.find(x => x.user_id === eu);
+    const tirar = minha && minha.emoji === emoji && !soColocar;
+    // otimista
+    state.chatReacoes[mid] = lista.filter(x => x.user_id !== eu).concat(tirar ? [] : [{ message_id: mid, user_id: eu, emoji }]);
+    paintChatMessages();
+    const { error } = await sb.rpc('reagir_mensagem', { mid, emoji: tirar ? null : emoji });
+    if (error) { await carregarExtrasDoChat(conv); paintChatMessages(); toast('Não consegui reagir agora', 'err'); }
+}
+
+function abrirMenuMensagem(mid, conv) {
+    const m = state.chatMessages.find(x => x.id === mid);
+    const bolha = document.querySelector(`.cmsg-bubble[data-msg="${mid}"]`);
+    if (!m || !bolha) return;
+    const eu = state.session.user.id;
+    const minha = m.sender_id === eu;
+    const rect = bolha.getBoundingClientRect();
+    const quando = m.created_at ? new Date(m.created_at).toLocaleString('pt-BR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).replace('.', '') : '';
+    const minhaReac = ((state.chatReacoes[mid] || []).find(x => x.user_id === eu) || {}).emoji;
+    const ic = {
+        resp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v5"/></svg>',
+        copiar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/></svg>',
+        excluir: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>',
+        cancelar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5L7 12l2.5 2.5"/><path d="M7 12h6.5a3 3 0 0 1 0 6H12"/></svg>',
+    };
+    const camada = document.createElement('div');
+    camada.className = 'msg-camada';
+    const largura = Math.min(260, window.innerWidth - 32);
+    const cloneHTML = bolha.outerHTML.replace('data-msg=', 'data-clone=');
+    camada.innerHTML = `
+        <div class="msg-reacoes">${REACOES_CHAT.map(e => `<button data-emo="${e}" class="${e === minhaReac ? 'on' : ''}">${e}</button>`).join('')}</div>
+        <div class="msg-clone cmsg ${minha ? 'user' : 'coach'}">${cloneHTML}</div>
+        <div class="msg-menu" style="width:${largura}px">
+            ${quando ? `<div class="msg-quando">${quando}</div>` : ''}
+            <button data-op="responder">${ic.resp}<span>Responder</span></button>
+            <button data-op="copiar">${ic.copiar}<span>Copiar</span></button>
+            <button data-op="excluir">${ic.excluir}<span>Excluir pra você</span></button>
+            ${minha ? `<button data-op="cancelar" class="perigo">${ic.cancelar}<span>Cancelar envio</span></button>` : ''}
+        </div>`;
+    document.body.appendChild(camada);
+    // posiciona: reações em cima, mensagem no mesmo lugar, menu embaixo (ou em cima, se não couber)
+    const reac = camada.querySelector('.msg-reacoes'), clone = camada.querySelector('.msg-clone'), menu = camada.querySelector('.msg-menu');
+    const lado = minha ? 'right' : 'left';
+    const margem = minha ? (window.innerWidth - rect.right) : rect.left;
+    clone.style.top = rect.top + 'px'; clone.style[lado] = margem + 'px'; clone.style.width = rect.width + 'px';
+    const hMenu = menu.offsetHeight, hReac = reac.offsetHeight;
+    let topoClone = rect.top;
+    const cabe = rect.bottom + 10 + hMenu < window.innerHeight - 20;
+    if (!cabe) topoClone = Math.max(20 + hReac + 10, window.innerHeight - 20 - hMenu - 10 - rect.height);
+    if (topoClone - hReac - 10 < 20) topoClone = 20 + hReac + 10;
+    clone.style.top = topoClone + 'px';
+    reac.style.top = (topoClone - hReac - 10) + 'px'; reac.style[lado] = Math.max(12, margem - 6) + 'px';
+    menu.style.top = (topoClone + rect.height + 10) + 'px'; menu.style[lado] = Math.max(12, margem) + 'px';
+    requestAnimationFrame(() => camada.classList.add('on'));
+
+    const fechar = () => { camada.classList.remove('on'); setTimeout(() => camada.remove(), 160); };
+    camada.addEventListener('click', e => { if (e.target === camada || e.target.closest('.msg-clone')) fechar(); });
+    reac.querySelectorAll('[data-emo]').forEach(b => b.onclick = () => { fechar(); reagirMensagem(mid, b.dataset.emo, conv); });
+    menu.querySelector('[data-op="responder"]').onclick = () => {
+        fechar();
+        const txt = textoLimpo(m.body).slice(0, 80);
+        state.chatRespondendo = { id: mid, txt, de: m.sender_id };
+        $('#chatRespTxt').textContent = txt;
+        $('#chatRespBarra').classList.remove('hidden');
+        $('#chatInput').focus();
+    };
+    menu.querySelector('[data-op="copiar"]').onclick = async () => {
+        fechar();
+        try { await navigator.clipboard.writeText(textoLimpo(m.body)); toast('Copiado', 'ok'); } catch (_) {}
+    };
+    menu.querySelector('[data-op="excluir"]').onclick = async () => {
+        fechar();
+        state.chatOcultas.add(mid); paintChatMessages();
+        const { error } = await sb.rpc('ocultar_mensagem', { mid });
+        if (error) { state.chatOcultas.delete(mid); paintChatMessages(); toast('Não consegui excluir agora', 'err'); }
+    };
+    const cancelar = menu.querySelector('[data-op="cancelar"]');
+    if (cancelar) cancelar.onclick = () => {
+        fechar();
+        state.chatSumindo = state.chatSumindo || new Set();
+        state.chatSumindo.add(mid); paintChatMessages();
+        let desfeito = false;
+        toastComAcao('Envio cancelado', 'Desfazer', () => { desfeito = true; state.chatSumindo.delete(mid); paintChatMessages(); });
+        setTimeout(async () => {
+            if (desfeito) return;
+            const { error } = await sb.from('messages').delete().eq('id', mid);
+            state.chatSumindo.delete(mid);
+            if (error) { toast('Não consegui cancelar o envio', 'err'); paintChatMessages(); return; }
+            state.chatMessages = state.chatMessages.filter(x => x.id !== mid);
+            paintChatMessages();
+        }, 5000);
+    };
 }
 
 async function sendChatMessage(conversationId) {
@@ -3579,10 +3756,17 @@ async function sendChatMessage(conversationId) {
     if (!text) return;
     input.value = ''; input.style.height = 'auto';
 
+    let corpoMsg = text;
+    if (state.chatRespondendo) {
+        corpoMsg = MARCA_RESP + JSON.stringify({ id: state.chatRespondendo.id, txt: state.chatRespondendo.txt }) + '\n' + text;
+        state.chatRespondendo = null;
+        const barra = $('#chatRespBarra'); if (barra) barra.classList.add('hidden');
+    }
+    const sendBtn = $('#chatSend'); if (sendBtn) sendBtn.classList.remove('pronto');
     const { data, error } = await sb.from('messages').insert({
         conversation_id: conversationId,
         sender_id: state.session.user.id,
-        body: text,
+        body: corpoMsg,
     }).select().single();
 
     if (error) { toast('Erro ao enviar: ' + error.message, 'err'); return; }
@@ -11569,7 +11753,11 @@ function lerStoryDaMensagem(body) {
     const fim = b.indexOf('\n');
     try { return { ref: JSON.parse(b.slice(MARCA_STORY.length, fim)), texto: b.slice(fim + 1) }; } catch (_) { return null; }
 }
-const previaMensagem = body => { const s = lerStoryDaMensagem(body); return s ? 'Respondeu ao story: ' + s.texto : body; };
+const previaMensagem = body => {
+    const st = lerStoryDaMensagem(body);
+    if (st) return 'Respondeu ao story: ' + textoLimpo(body);
+    return textoLimpo(body);
+};
 
 document.getElementById('svCurtir').addEventListener('click', async e => {
     e.stopPropagation();

@@ -2603,3 +2603,48 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .selo-grande svg{ width:36px; height:36px; }
 .cmsg:has(> .cmsg-story){ flex-direction:column; align-items:flex-start; }
 .cmsg.user:has(> .cmsg-story){ align-items:flex-end; }
+
+/* ================= ONDA 38: chat (segurar mensagem) ================= */
+.coach-send{ background:var(--bg-card) !important; color:var(--ink-faint) !important; border:1px solid var(--line) !important; transition:background .15s, color .15s; }
+.coach-send.pronto{ background:var(--vital) !important; color:#06110B !important; border-color:transparent !important; }
+.chat-dia{ display:flex; justify-content:center; margin:10px 0 6px; }
+.chat-dia span{ font-size:11.5px; color:var(--ink-faint); font-weight:600; padding:3px 10px; border-radius:10px; background:rgba(255,255,255,.04); }
+.cmsg-bubble{ position:relative; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+.cmsg.com-reac{ margin-bottom:12px; }
+.cmsg-reac{ position:absolute; bottom:-14px; display:inline-flex; align-items:center; gap:2px; padding:2px 7px; border-radius:12px; background:var(--bg-card); border:1px solid var(--line); font-size:13px; line-height:1.3; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+.cmsg.user .cmsg-reac{ right:8px; }
+.cmsg.coach .cmsg-reac{ left:8px; }
+.cmsg-reac small{ font-size:11px; color:var(--ink-dim); margin-left:2px; }
+.cmsg-bubble.pisca{ animation:msgPisca 1.2s ease; }
+@keyframes msgPisca{ 0%,100%{ filter:none; } 30%{ filter:brightness(1.5); } }
+.cmsg:has(> .cmsg-cita){ flex-direction:column; align-items:flex-start; }
+.cmsg.user:has(> .cmsg-cita){ align-items:flex-end; }
+.cmsg-cita{ max-width:78%; margin-bottom:-6px; padding:7px 12px 12px; border-radius:14px; border:none; background:rgba(255,255,255,.05); color:var(--ink-faint); font-size:12.5px; text-align:left; }
+.cmsg-cita span{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; border-left:2px solid var(--line); padding-left:8px; }
+.chat-resp-barra{ display:flex; align-items:center; gap:10px; padding:8px 14px; border-top:1px solid var(--line); background:var(--bg-elev); }
+.chat-resp-barra.hidden{ display:none; }
+.chat-resp-barra > div{ flex:1; min-width:0; border-left:2px solid var(--vital); padding-left:10px; }
+.chat-resp-barra small{ display:block; font-size:11px; color:var(--vital); font-weight:700; }
+.chat-resp-barra span{ display:block; font-size:13px; color:var(--ink-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.chat-resp-barra button{ width:30px; height:30px; border:none; border-radius:50%; background:transparent; color:var(--ink-dim); font-size:20px; line-height:1; }
+/* camada do menu */
+.msg-camada{ position:fixed; inset:0; z-index:160; background:rgba(6,9,8,.55); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); opacity:0; transition:opacity .16s; }
+:root[data-theme="light"] .msg-camada{ background:rgba(240,244,241,.6); }
+.msg-camada.on{ opacity:1; }
+.msg-clone{ position:absolute; display:flex; }
+.msg-clone.user{ justify-content:flex-end; }
+.msg-clone .cmsg-bubble{ max-width:100%; transform:scale(1); transition:transform .16s; }
+.msg-camada.on .msg-clone .cmsg-bubble{ transform:scale(1.02); }
+.msg-reacoes{ position:absolute; display:flex; gap:2px; padding:6px 8px; border-radius:28px; background:var(--bg-card); border:1px solid var(--line); box-shadow:0 10px 30px rgba(0,0,0,.35); transform:translateY(6px) scale(.96); transition:transform .18s; }
+.msg-camada.on .msg-reacoes{ transform:none; }
+.msg-reacoes button{ width:42px; height:42px; border:none; border-radius:50%; background:transparent; font-size:25px; line-height:1; padding:0; transition:transform .12s; }
+.msg-reacoes button:active{ transform:scale(1.25); }
+.msg-reacoes button.on{ background:rgba(255,255,255,.1); }
+.msg-menu{ position:absolute; border-radius:18px; background:var(--bg-card); border:1px solid var(--line); box-shadow:0 14px 34px rgba(0,0,0,.4); overflow:hidden; transform:translateY(-6px) scale(.97); transition:transform .18s; }
+.msg-camada.on .msg-menu{ transform:none; }
+.msg-quando{ padding:12px 16px 8px; font-size:11.5px; font-weight:600; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.04em; }
+.msg-menu button{ display:flex; align-items:center; gap:12px; width:100%; padding:13px 16px; border:none; border-top:1px solid var(--line); background:transparent; color:var(--ink); font-size:15px; text-align:left; }
+.msg-menu button svg{ width:20px; height:20px; color:var(--ink-dim); flex-shrink:0; }
+.msg-menu button.perigo, .msg-menu button.perigo svg{ color:var(--danger); }
+.msg-menu button:active{ background:rgba(255,255,255,.05); }
+.msg-clone.cmsg{ margin:0; padding:0; max-width:none; }
