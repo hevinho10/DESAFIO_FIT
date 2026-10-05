@@ -5117,11 +5117,7 @@ function montarEvolucao(d) {
         semanasCal.push(`<div class="cal-col">${col.join('')}</div>`);
     }
     const diasAtivos = Object.keys(porDia).filter(k => { const [a, m, dd] = k.split('-').map(Number); return noPer(+new Date(a, m, dd, 12)); }).length;
-    const calendarioHTML = `<div class="chart-card cal-wrap">
-        <div class="chart-head"><span class="chart-title">Sua constância</span><span class="chart-legend">${diasAtivos} ${diasAtivos === 1 ? 'dia ativo' : 'dias ativos'}</span></div>
-        <div class="cal-scroll"><div class="cal-grade">${semanasCal.join('')}</div></div>
-        <div class="cal-leg"><span>menos</span><i class="cal-d n0"></i><i class="cal-d n1"></i><i class="cal-d n2"></i><i class="cal-d n3"></i><i class="cal-d n4"></i><span>mais</span><span class="cal-leg-t"><i class="cal-d n2 treino"></i> com treino</span></div>
-    </div>`;
+    const calendarioHTML = `<div id="calMesSlot"><div class="chart-card cal-mes"><div class="spinner"></div></div></div>`;
 
     // ---- peso: período, tendência e projeção até o prazo ----
     const pesos = (d.weightPoints || []).filter(p => noPer(+p.x));
@@ -5549,6 +5545,7 @@ async function renderProgress() {
     `;
     const cal = c.querySelector('.cal-scroll');
     if (cal) cal.scrollLeft = cal.scrollWidth;
+    hydrateCalMes();
     hydrateIAEvolucao();
     hydrateSemanaEvo();
     hydrateLembretes();
@@ -7548,6 +7545,77 @@ function abrirMontarTimes() {
         toast('Times montados! Todo mundo foi avisado. 🟢🟠', 'ok');
         renderGerenciarDesafio(ch.id);
     };
+}
+
+// ============================================================
+// CONSTÂNCIA: calendário do mês (só a própria pessoa vê)
+// ============================================================
+async function hydrateCalMes() {
+    const slot = document.getElementById('calMesSlot');
+    if (!slot) return;
+    const agora = new Date();
+    if (!state.calMes) state.calMes = { a: agora.getFullYear(), m: agora.getMonth() };
+    const { a, m } = state.calMes;
+    const ini = new Date(a, m, 1), fim = new Date(a, m + 1, 1);
+    const { data } = await sb.from('posts').select('created_at, activity_type, duration_min, distance_km')
+        .eq('user_id', state.session.user.id).eq('kind', 'workout')
+        .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString())
+        .order('created_at', { ascending: true });
+    if (!document.getElementById('calMesSlot')) return;
+    const porDia = {};
+    (data || []).forEach(p => { const dd = new Date(p.created_at).getDate(); (porDia[dd] = porDia[dd] || []).push(p); });
+    const diasMes = new Date(a, m + 1, 0).getDate();
+    const vazios = (ini.getDay() + 6) % 7; // semana começa na segunda
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const ehMesAtual = a === agora.getFullYear() && m === agora.getMonth();
+    // maior sequência no mês
+    let seq = 0, melhor = 0;
+    for (let d = 1; d <= diasMes; d++) { if (porDia[d]) { seq++; melhor = Math.max(melhor, seq); } else seq = 0; }
+    const treinados = Object.keys(porDia).length;
+    const celulas = [];
+    for (let k = 0; k < vazios; k++) celulas.push('<span class="cm-d vazio"></span>');
+    for (let d = 1; d <= diasMes; d++) {
+        const dia = new Date(a, m, d);
+        const cls = ['cm-d'];
+        if (porDia[d]) cls.push('on');
+        if (+dia === +hoje) cls.push('hoje');
+        if (dia > hoje) cls.push('futuro');
+        celulas.push(`<button type="button" class="${cls.join(' ')}" ${porDia[d] ? `data-act="cal-dia" data-d="${d}"` : 'tabindex="-1"'}>${d}</button>`);
+    }
+    state.calMesDias = porDia;
+    const nomeMes = ini.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    slot.innerHTML = `<div class="chart-card cal-mes" id="calMesCard">
+        <div class="cm-topo">
+            <span class="chart-title">Constância</span>
+            <div class="cm-nav">
+                <button type="button" data-act="cal-mes" data-dir="-1" aria-label="Mês anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+                <span>${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)}</span>
+                <button type="button" data-act="cal-mes" data-dir="1" aria-label="Próximo mês" ${ehMesAtual ? 'disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+            </div>
+        </div>
+        <div class="cm-sem">${['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map(x => `<span>${x}</span>`).join('')}</div>
+        <div class="cm-grade">${celulas.join('')}</div>
+        <div class="cm-balao hidden" id="cmBalao"></div>
+        <p class="cm-rodape"><b>${treinados}</b> ${treinados === 1 ? 'dia treinado' : 'dias treinados'}${melhor > 1 ? ` · melhor sequência: <b>${melhor}</b> dias` : ''}</p>
+    </div>`;
+    // arrastar pro lado troca o mês
+    const card = document.getElementById('calMesCard');
+    let x0 = null;
+    card.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+    card.addEventListener('touchend', e => {
+        if (x0 == null) return;
+        const dx = e.changedTouches[0].clientX - x0; x0 = null;
+        if (Math.abs(dx) > 50) trocarMesCal(dx > 0 ? -1 : 1);
+    });
+}
+function trocarMesCal(dir) {
+    const agora = new Date();
+    let { a, m } = state.calMes;
+    m += dir;
+    if (m < 0) { m = 11; a--; } if (m > 11) { m = 0; a++; }
+    if (a > agora.getFullYear() || (a === agora.getFullYear() && m > agora.getMonth())) return;
+    state.calMes = { a, m };
+    hydrateCalMes();
 }
 
 // ---- Conquistas do grupo, meta coletiva e marcos ----
@@ -9940,6 +10008,19 @@ document.addEventListener('click', async e => {
             toast('Organização transferida', 'ok');
             renderGerenciarDesafio(state.gerDesafio.id);
         });
+    } else if (act === 'cal-mes') {
+        trocarMesCal(Number(btn.dataset.dir));
+    } else if (act === 'cal-dia') {
+        const lista = (state.calMesDias || {})[btn.dataset.d] || [];
+        const balao = document.getElementById('cmBalao');
+        if (!balao) return;
+        const txt = lista.map(p => `${escapeHTML(p.activity_type || 'Treino')}${p.duration_min ? ' · ' + p.duration_min + ' min' : ''}${p.distance_km ? ' · ' + br(p.distance_km) + ' km' : ''}`).join('<br>');
+        const { a, m } = state.calMes;
+        const dataTxt = new Date(a, m, Number(btn.dataset.d)).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+        balao.innerHTML = `<b>${dataTxt.charAt(0).toUpperCase() + dataTxt.slice(1)}</b><span>${txt}</span>`;
+        balao.classList.remove('hidden');
+        document.querySelectorAll('.cm-d.sel').forEach(x => x.classList.remove('sel'));
+        btn.classList.add('sel');
     } else if (act === 'pd-abrir') {
         switchView('desafio', { id: btn.dataset.id });
     } else if (act === 'pd-lista') {

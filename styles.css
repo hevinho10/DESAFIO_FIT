@@ -2648,3 +2648,29 @@ rect.tip-hit.sel{ fill:rgba(255,255,255,.05); }
 .msg-menu button.perigo, .msg-menu button.perigo svg{ color:var(--danger); }
 .msg-menu button:active{ background:rgba(255,255,255,.05); }
 .msg-clone.cmsg{ margin:0; padding:0; max-width:none; }
+
+/* ================= ONDA 39: calendário de constância ================= */
+.cm-topo{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.cm-nav{ display:flex; align-items:center; gap:4px; font-size:13.5px; font-weight:600; }
+.cm-nav span{ min-width:118px; text-align:center; }
+.cm-nav button{ width:30px; height:30px; border:none; border-radius:50%; background:transparent; color:var(--ink-dim); display:grid; place-items:center; padding:0; }
+.cm-nav button svg{ width:16px; height:16px; }
+.cm-nav button:disabled{ opacity:.25; }
+.cm-sem, .cm-grade{ display:grid; grid-template-columns:repeat(7, 1fr); gap:6px; }
+.cm-sem{ margin-bottom:6px; }
+.cm-sem span{ text-align:center; font-size:11px; font-weight:700; color:var(--ink-faint); }
+.cm-d{ aspect-ratio:1; display:grid; place-items:center; border:none; border-radius:50%; background:transparent; color:var(--ink-dim); font-size:13px; font-weight:500; padding:0; font-family:inherit; }
+.cm-d.vazio{ visibility:hidden; }
+.cm-d.on{ background:var(--vital); color:#06110B; font-weight:700; cursor:pointer; }
+.cm-d.hoje{ box-shadow:inset 0 0 0 1.5px var(--vital); }
+.cm-d.on.hoje{ box-shadow:0 0 0 2px var(--bg-card), 0 0 0 3.5px var(--vital); }
+.cm-d.futuro{ opacity:.3; }
+.cm-d.sel{ transform:scale(1.08); }
+.cm-balao{ margin-top:12px; padding:10px 12px; border-radius:12px; background:rgba(53,225,155,.08); border:1px solid rgba(53,225,155,.25); font-size:13px; line-height:1.5; }
+.cm-balao.hidden{ display:none; }
+.cm-balao b{ display:block; font-size:12px; color:var(--vital); margin-bottom:2px; }
+.cm-rodape{ margin:12px 0 0; font-size:12.5px; color:var(--ink-dim); text-align:center; }
+.cm-rodape b{ color:var(--ink); }
+/* resumo do mês: valores longos não invadem o vizinho */
+.mini-stats > div{ min-width:0; }
+.mini-stats b{ display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:clamp(15px, 4.6vw, 20px); }
