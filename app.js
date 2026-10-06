@@ -834,7 +834,9 @@ async function renderAdmin() {
             </div>
 
             <div class="adm-painel${state.abaAdmin === 'ferramentas' ? '' : ' hidden'}" data-painel="ferramentas">
-            <h3 class="edit-section-title">Backup</h3>
+            <h3 class="edit-section-title">Alterações feitas por você</h3>
+            <div class="chart-card" id="admLog"><div class="spinner"></div></div>
+            <h3 class="edit-section-title" style="margin-top:22px">Backup</h3>
             <div class="chart-card">
                 <p class="faixa-txt" style="margin-top:0">Baixa uma cópia dos dados do app (perfis, registros, desafios, stories) num arquivo. As fotos não entram no arquivo; elas continuam guardadas no Supabase. Faça pelo menos uma vez por semana e guarde num lugar seguro (Google Drive, por exemplo).</p>
                 <button class="btn-mini" data-act="admin-backup" style="margin-top:12px">Baixar backup agora</button>
@@ -851,6 +853,7 @@ async function renderAdmin() {
 
     state.admPodeCriar = podeCriar;
     hydrateAdminUsuarios();
+    hydrateAdminLog();
     hydrateNovosCadastros().then(() => {
         const n = document.querySelectorAll('#cadastrosBox [data-status="aprovado"]').length - document.querySelectorAll('#cadastrosBox details [data-status="aprovado"]').length;
         const aba = document.querySelector('.adm-abas [data-aba="cadastros"]');
@@ -2696,6 +2699,8 @@ async function renderNotifications() {
         } else if (n.kind === 'depoimento_publicado') {
             emo = '✨'; texto = `<b>${quem}</b> publicou o seu depoimento no perfil`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'dados_corrigidos') {
+            emo = '🛠️'; texto = 'O administrador corrigiu alguns dados seus (como peso ou meta). Se algo parecer estranho, fale com ele.';
         } else if (n.kind === 'treino_com') {
             const m = n.meta || {};
             emo = '🤝';
@@ -3186,7 +3191,7 @@ async function renderMealHistory(uid) {
     const isMe = uid === state.session.user.id;
 
     let qRef = sb.from('posts')
-        .select('id, meal_slot, meal_score, meal_analysis, image_url, created_at, in_feed')
+        .select('id, meal_slot, meal_score, meal_analysis, image_url, created_at, in_feed, meta')
         .eq('user_id', uid).eq('kind', 'meal');
     if (!isMe) qRef = qRef.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
     const { data, error } = await qRef.order('created_at', { ascending: false }).limit(60);
@@ -3217,6 +3222,7 @@ async function renderMealHistory(uid) {
             </div>
             <div class="ml-side">
                 ${sc != null ? `<span class="ml-score" style="color:${cor}">${br(sc)}</span>` : ''}
+                ${sc == null && isMe && m.image_url && m.meta && m.meta.analise_pendente ? `<button class="btn-mini ml-analisar" data-act="analisar-prato" data-id="${m.id}">Analisar agora</button>` : ''}
                 <span class="wk-date">${dia}</span>
             </div>
         </div>`;
@@ -7009,6 +7015,32 @@ async function converterFotosHeic() {
     } catch (_) {}
 }
 
+// ---- Refeições com análise pendente (a IA falhou na hora): tenta de novo ----
+async function analisarRefeicao(id) {
+    const { data: p } = await sb.from('posts').select('id, image_url, meta, meal_score').eq('id', id).eq('user_id', state.session.user.id).maybeSingle();
+    if (!p || p.meal_score != null || !p.image_url) return { ok: false };
+    const urlIA = ehPrivada(p.image_url) ? await linkPrivado(p.image_url, 600) : p.image_url;
+    const { data: an, error } = await sb.functions.invoke('analyze-meal', { body: { imageUrl: urlIA } });
+    if (error || !an || typeof an.score !== 'number') return { ok: false };
+    const meta = { ...(p.meta || {}) }; delete meta.analise_pendente;
+    await sb.from('posts').update({ meal_score: an.score, meal_analysis: an.analysis || null, meta }).eq('id', id).eq('user_id', state.session.user.id);
+    const { data: pts } = await sb.rpc('creditar_refeicao_analisada', { pid: id });
+    return { ok: true, nota: an.score, pts: Number(pts || 0) };
+}
+async function tentarAnalisesPendentes() {
+    if (!state.session) return;
+    const desde = new Date(Date.now() - 7 * 86400000).toISOString();
+    const { data } = await sb.from('posts').select('id').eq('user_id', state.session.user.id).eq('kind', 'meal')
+        .is('meal_score', null).not('image_url', 'is', null).eq('meta->>analise_pendente', 'true').gte('created_at', desde).limit(5);
+    let feitas = 0, pontos = 0;
+    for (const p of data || []) {
+        const r = await analisarRefeicao(p.id);
+        if (!r.ok) break; // a IA ainda está fora: tenta na próxima abertura
+        feitas++; pontos += r.pts;
+    }
+    if (feitas) { loadScore(); toast(`${feitas === 1 ? 'A refeição pendente foi analisada' : feitas + ' refeições pendentes foram analisadas'}${pontos ? ` · +${pontos} pts` : ''}`, 'ok'); }
+}
+
 // Faxina: fotos dos seus stories vencidos há mais de 30 dias e fora de destaques (1 vez por semana)
 async function limparStoriesAntigos() {
     if (!state.session) return;
@@ -7197,6 +7229,7 @@ function menuAdminUsuario(btn) {
     const ops = [
         `<button class="post-menu-item" data-act="view-user" data-uid="${u.id}">${icon('perfil')}Ver perfil</button>`,
         `<button class="post-menu-item" data-act="start-chat" data-uid="${u.id}" data-name="${escapeHTML(u.display_name || '')}" data-username="${escapeHTML(u.username || '')}" data-avatar="${u.avatar_url || ''}">${icon('mensagem')}Mandar mensagem</button>`,
+        `<button class="post-menu-item" data-act="adm-editar-dados" data-uid="${u.id}">${icon('editar')}Editar dados</button>`,
         `<button class="post-menu-item" data-act="toggle-creator" data-uid="${u.id}" data-on="${cria ? '1' : '0'}">${icon('comunidade')}${cria ? 'Tirar permissão de criar desafios' : 'Liberar criar desafios'}</button>`,
     ];
     if (!u.is_admin) {
@@ -7246,6 +7279,88 @@ function confirmarExclusaoConta(u) {
         toast('Conta excluída', 'ok');
         hydrateAdminUsuarios();
     };
+}
+
+// ---- Painel Admin › Usuários › Editar dados ----
+async function abrirEditarDadosAdmin(uid) {
+    const { data, error } = await sb.rpc('admin_dados_usuario', { alvo: uid });
+    if (error || !data) { toast(error ? erroParaAdmin(error) : 'Não encontrei esse usuário', 'err'); return; }
+    const p = data.perfil || {}, pesos = data.pesagens || [];
+    // marca pesagens muito diferentes das vizinhas
+    const fora = new Set();
+    const ordenados = pesos.map(w => Number(w.kg)).sort((x, y) => x - y);
+    const mediana = ordenados.length ? ordenados[Math.floor(ordenados.length / 2)] : 0;
+    if (ordenados.length >= 2) pesos.forEach(w => { if (Math.abs(Number(w.kg) - mediana) > Math.max(5, mediana * 0.08)) fora.add(w.id); });
+    const old = document.getElementById('admDadosSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'admDadosSheet';
+    sheet.className = 'sheet on';
+    const campo = (id, rot, val, tipo = 'text', extra = '') => `<div class="field"><label>${rot}</label><input type="${tipo}" id="${id}" value="${val == null ? '' : escapeHTML(String(val))}" ${extra}></div>`;
+    sheet.innerHTML = `<div class="sheet-card adm-dados">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Editar dados · ${escapeHTML(p.display_name || '')}</h3>
+        <div class="badge-secao">Perfil</div>
+        ${campo('adNome', 'Nome', p.display_name, 'text', 'maxlength="40"')}
+        ${campo('adUser', 'Usuário', p.username, 'text', 'maxlength="30" autocapitalize="off"')}
+        <div class="badge-secao">Corpo</div>
+        <div class="field-row">
+            ${campo('adPesoIni', 'Peso inicial (kg)', p.peso_inicial, 'number', 'step="0.1" min="25" max="300" inputmode="decimal"')}
+            ${campo('adAltura', 'Altura (m)', p.altura, 'number', 'step="0.01" min="1" max="2.5" inputmode="decimal"')}
+        </div>
+        <div class="field-row">
+            ${campo('adMeta', 'Meta de peso (kg)', p.target_weight, 'number', 'step="0.1" min="25" max="300" inputmode="decimal"')}
+            ${campo('adPrazo', 'Prazo da meta', p.goal_deadline, 'date')}
+        </div>
+        <div class="badge-secao">Pesagens</div>
+        <div class="adm-pesos">${pesos.length ? pesos.map(w => `<div class="adm-peso${fora.has(w.id) ? ' fora' : ''}" data-pid="${w.id}">
+            <span class="ap-dia">${new Date(w.quando).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</span>
+            <input type="number" class="ap-kg" step="0.1" min="25" max="300" inputmode="decimal" value="${w.kg}">
+            ${fora.has(w.id) ? '<span class="ap-fora">fora do normal</span>' : '<span></span>'}
+            <button type="button" class="ah-x" data-apagar-peso="${w.id}" aria-label="Apagar pesagem">×</button>
+        </div>`).join('') : '<p class="faixa-nota">Nenhuma pesagem registrada.</p>'}</div>
+        <div class="sheet-footer">
+            <button class="btn-ghost" id="adCancelar">Cancelar</button>
+            <button class="btn-primary" id="adSalvar">Salvar</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const apagar = new Set();
+    sheet.querySelectorAll('[data-apagar-peso]').forEach(b => b.onclick = () => {
+        const linha = b.closest('.adm-peso'); linha.classList.toggle('apagando');
+        linha.classList.contains('apagando') ? apagar.add(b.dataset.apagarPeso) : apagar.delete(b.dataset.apagarPeso);
+    });
+    sheet.querySelector('#adCancelar').onclick = () => sheet.remove();
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    sheet.querySelector('#adSalvar').onclick = async () => {
+        const num = id => { const v = sheet.querySelector('#' + id).value; return v === '' ? null : Number(v); };
+        const pesagens = [...sheet.querySelectorAll('.adm-peso')].map(l => ({ id: l.dataset.pid, kg: Number(l.querySelector('.ap-kg').value), apagar: apagar.has(l.dataset.pid) }));
+        const invalida = pesagens.find(w => !w.apagar && !(w.kg >= 25 && w.kg <= 300));
+        if (invalida) { toast('Peso fora do possível (25 a 300 kg). Confira as pesagens.', 'err'); return; }
+        const btn = sheet.querySelector('#adSalvar');
+        btnCarregando(btn, true);
+        const { error } = await sb.rpc('admin_salvar_dados', { alvo: uid, dados: {
+            display_name: sheet.querySelector('#adNome').value.trim(),
+            username: sheet.querySelector('#adUser').value.trim().toLowerCase(),
+            peso_inicial: num('adPesoIni'), altura: num('adAltura'), target_weight: num('adMeta'),
+            goal_deadline: sheet.querySelector('#adPrazo').value || null,
+            pesagens,
+        } });
+        if (error) { btnCarregando(btn, false); toast(erroParaAdmin(error), 'err'); return; }
+        sheet.remove();
+        toast('Dados atualizados. A pessoa foi avisada.', 'ok');
+        hydrateAdminUsuarios();
+        hydrateAdminLog();
+    };
+}
+async function hydrateAdminLog() {
+    const box = document.getElementById('admLog');
+    if (!box) return;
+    const { data } = await sb.rpc('admin_log_recente');
+    if (!document.getElementById('admLog')) return;
+    box.innerHTML = (data || []).length ? data.map(l => `<div class="adm-log-linha">
+        <span>${new Date(l.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+        <b>${escapeHTML(l.alvo_nome || '')}</b><small>${escapeHTML(l.acao || '')}</small>
+    </div>`).join('') : '<p class="faixa-nota">Nenhuma alteração feita ainda.</p>';
 }
 
 // ---- Painel Admin: novos cadastros ----
@@ -9295,7 +9410,7 @@ function openWeightLogSheet() {
     sheet.querySelectorAll('[data-kg]').forEach(b => b.onclick = () => {
         let v = parseFloat(kgCampo.value);
         if (!(v > 0)) v = Number(state.profile.peso_inicial) || 70;
-        v = Math.max(30, Math.min(250, Math.round((v + Number(b.dataset.kg)) * 10) / 10));
+        v = Math.max(25, Math.min(300, Math.round((v + Number(b.dataset.kg)) * 10) / 10));
         kgCampo.value = v; mostrarKg();
     });
     sb.from('posts').select('weight_kg').eq('user_id', state.session.user.id).eq('kind', 'weight')
@@ -9310,7 +9425,7 @@ function openWeightLogSheet() {
     document.getElementById('weightLogSave').onclick = async () => {
         const btn = document.getElementById('weightLogSave');
         const kg = parseFloat(document.getElementById('wlKg').value);
-        if (!kg || kg < 30 || kg > 250) { toast('Informe um peso válido', 'err'); return; }
+        if (!kg || kg < 25 || kg > 300) { toast('Esse peso não parece certo. Confira e tente de novo (entre 25 e 300 kg).', 'err'); return; }
 
         btn.disabled = true; btn.textContent = 'Salvando...';
         try {
@@ -10291,6 +10406,9 @@ document.addEventListener('click', async e => {
     } else if (act === 'adm-u-menu') {
         e.stopPropagation();
         menuAdminUsuario(btn);
+    } else if (act === 'adm-editar-dados') {
+        hidePostMenu();
+        abrirEditarDadosAdmin(btn.dataset.uid);
     } else if (act === 'adm-filtro') {
         state.admFiltro = btn.dataset.f;
         pintarAdminUsuarios();
@@ -10423,6 +10541,14 @@ document.addEventListener('click', async e => {
         const acoes = btn.closest('.nt-acoes');
         if (acoes) acoes.outerHTML = `<span class="nt-sub">${aceitar ? 'Registrado no seu histórico ✓' : 'Você recusou'}</span>`;
         if (aceitar) { toast('Treino registrado pra você também 💪', 'ok'); loadScore(); }
+    } else if (act === 'analisar-prato') {
+        e.stopPropagation();
+        btnCarregando(btn, true);
+        const r = await analisarRefeicao(btn.dataset.id);
+        if (!r.ok) { btnCarregando(btn, false); toast('A IA ainda está indisponível. Tento de novo mais tarde.', 'err'); return; }
+        loadScore();
+        toast(`Nota ${br(r.nota)}${r.pts ? ` · +${r.pts} pt` : ''}`, 'ok');
+        renderMealHistory(state.session.user.id);
     } else if (act === 'caption-mais') {
         const cap = btn.previousElementSibling;
         if (cap) cap.classList.add('aberta');
@@ -13319,6 +13445,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                 } catch (e) {
                     console.warn('analyze-meal indisponível', e);
                     mealAnalysisFailed = true;
+                    post.meta = { ...(post.meta || {}), analise_pendente: true };
                 }
             }
         }
@@ -13419,7 +13546,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         if (mealFeedback) {
             showMealResult(mealFeedback, ptsToCredit, ptsToCredit === 0);
         } else if (mealAnalysisFailed) {
-            toast('Não consegui analisar o prato agora. Ficou registrado, mas sem pontos. Tente de novo em instantes.', 'err');
+            toast('A análise do prato ficou pendente. Vou tentar de novo sozinho, e os pontos entram quando sair a nota.', 'ok');
         } else if (ptsToCredit === 0) {
             const semFoto = state.composerKind === 'meal'
                 ? 'Refeição registrada. Só as com foto analisada pela IA valem ponto.'
@@ -13530,6 +13657,7 @@ async function bootInterno() {
     setTimeout(checarQuedaCoach, 8000);
     setTimeout(carregarCopoAgua, 5000);
     setTimeout(converterFotosHeic, 20000);
+    setTimeout(tentarAnalisesPendentes, 12000);
     setTimeout(limparStoriesAntigos, 15000);
     // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
