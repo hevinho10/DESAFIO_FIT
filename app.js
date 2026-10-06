@@ -196,7 +196,8 @@ function compressImage(file, maxSide = 1200, quality = 0.8) {
             const canvas = document.createElement('canvas');
             canvas.width = width; canvas.height = height;
             canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-            canvas.toBlob(blob => resolve(blob && blob.size < file.size ? blob : file), 'image/jpeg', quality);
+            const universal = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+            canvas.toBlob(blob => resolve(blob && (!universal || blob.size < file.size) ? blob : file), 'image/jpeg', quality);
         };
         img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
         img.src = url;
@@ -6839,26 +6840,36 @@ const seloHTML = p => p && p.fundador ? `<button class="selo-fundador" data-act=
         limparSelecao();
         if (navigator.vibrate) navigator.vibrate(12);
         const manha = new Date().getHours() < 11;
-        const ml = state.copoAgua || 250;
+        let mostrarSono = false;
+        if (manha) {
+            // de manhã, Sono no lugar do Story, a não ser que a noite passada já esteja registrada
+            const ontem = isoDe(new Date(Date.now() - 86400000));
+            if (state.sonoRegistrado === ontem) mostrarSono = false;
+            else {
+                const { data: sn } = await sb.from('sleep_logs').select('slept_on').eq('user_id', state.session.user.id).eq('slept_on', ontem).limit(1);
+                if (sn && sn.length) state.sonoRegistrado = ontem; else mostrarSono = true;
+            }
+        }
         const itens = [
-            manha ? { k: 'sleep', emo: '😴', txt: 'Sono' } : { k: 'story', emo: '📸', txt: 'Story' },
-            { k: 'agua', emo: '💧', txt: `Água · +${ml} ml` },
+            mostrarSono ? { k: 'sleep', emo: '😴', txt: 'Sono' } : { k: 'story', emo: '📸', txt: 'Story' },
+            { k: 'agua', emo: '💧', txt: 'Água' },
             { k: 'workout', emo: '🏋️', txt: 'Treino' },
             { k: 'meal', emo: '🍽️', txt: 'Refeição' },
         ];
+        const angulos = [160, 117, 63, 20];
         const r = fab.getBoundingClientRect();
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2, raio = 122;
         const arco = document.createElement('div');
         arco.className = 'fab-arco';
-        // pílulas empilhadas acima do +, no estilo dos atalhos rápidos do iPhone
-        arco.innerHTML = `<div class="fab-lista" style="bottom:${window.innerHeight - r.top + 14}px">
-            ${itens.map((it, k) => `<button type="button" class="fab-op" data-k="${it.k}" style="transition-delay:${(itens.length - 1 - k) * 30}ms"><span>${it.emo}</span><b>${it.txt}</b></button>`).join('')}
-        </div>
-        <button type="button" class="fab-fechar" style="left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px" aria-label="Fechar">×</button>`;
+        arco.innerHTML = itens.map((it, k) => {
+            const x = cx + raio * Math.cos(angulos[k] * Math.PI / 180), y = cy - raio * Math.sin(angulos[k] * Math.PI / 180);
+            return `<button type="button" class="fab-bola" data-k="${it.k}" style="left:${x}px;top:${y}px;transition-delay:${k * 25}ms"><span>${it.emo}</span><small>${it.txt}</small></button>`;
+        }).join('') + `<button type="button" class="fab-fechar" style="left:${cx}px;top:${cy}px" aria-label="Fechar">×</button>`;
         document.body.appendChild(arco);
         requestAnimationFrame(() => arco.classList.add('on'));
         const fechar = () => { arco.classList.remove('on'); setTimeout(() => arco.remove(), 160); };
         arco.addEventListener('click', e => {
-            const op = e.target.closest('.fab-op');
+            const op = e.target.closest('.fab-bola');
             fechar();
             if (op) usarAtalho(op.dataset.k);
         });
@@ -6952,6 +6963,51 @@ function dicaDoMais() {
         if (prox) { prox.click(); prox.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
     }, { passive: true });
 })();
+
+// Converte fotos antigas em HEIC (formato do iPhone) pra JPEG, pra abrirem no Android e no computador.
+// Só roda num iPhone (é ele que consegue ler o HEIC), uma vez por semana, nas fotos da própria pessoa.
+async function converterFotosHeic() {
+    if (!state.session || tipoAparelho() !== 'iphone') return;
+    const chave = 'pulso-heic-' + state.session.user.id;
+    if (Date.now() - Number(lsGet(chave) || 0) < 7 * 86400000) return;
+    lsSet(chave, String(Date.now()));
+    const uid = state.session.user.id;
+    const ehHeic = u => typeof u === 'string' && /\.(heic|heif)(\?|$)/i.test(u);
+    const converter = async url => {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('baixar');
+        const original = await resp.blob();
+        const arquivo = new File([original], 'foto.heic', { type: 'image/heic' });
+        const jpg = await compressImage(arquivo, 1200, 0.82);
+        if (!jpg || jpg === arquivo || jpg.type !== 'image/jpeg') throw new Error('converter');
+        const caminho = `${uid}/${Date.now()}-conv.jpg`;
+        const { error } = await sb.storage.from('post-images').upload(caminho, jpg, { contentType: 'image/jpeg' });
+        if (error) throw error;
+        return sb.storage.from('post-images').getPublicUrl(caminho).data.publicUrl;
+    };
+    try {
+        const { data: posts } = await sb.from('posts').select('id, image_url, thumb_url')
+            .eq('user_id', uid).or('image_url.ilike.%.heic,image_url.ilike.%.heif').limit(15);
+        for (const p of posts || []) {
+            try {
+                const novo = await converter(p.image_url);
+                const mudanca = { image_url: novo };
+                if (!p.thumb_url || ehHeic(p.thumb_url)) mudanca.thumb_url = novo;
+                await sb.from('posts').update(mudanca).eq('id', p.id).eq('user_id', uid);
+                removeStoredImage(p.image_url);
+            } catch (_) {}
+        }
+        const { data: sts } = await sb.from('stories').select('id, image_url')
+            .eq('user_id', uid).or('image_url.ilike.%.heic,image_url.ilike.%.heif').limit(10);
+        for (const st of sts || []) {
+            try {
+                const novo = await converter(st.image_url);
+                await sb.from('stories').update({ image_url: novo }).eq('id', st.id).eq('user_id', uid);
+                await sb.from('story_highlight_items').update({ image_url: novo }).eq('image_url', st.image_url);
+            } catch (_) {}
+        }
+    } catch (_) {}
+}
 
 // Faxina: fotos dos seus stories vencidos há mais de 30 dias e fora de destaques (1 vez por semana)
 async function limparStoriesAntigos() {
@@ -13159,6 +13215,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                 }
                 throw erroSono;
             }
+            state.sonoRegistrado = dia;
 
             await updateStreak(hojeISO());
             await loadScore();
@@ -13472,6 +13529,7 @@ async function bootInterno() {
     setTimeout(checarConquistasNovas, 6000);
     setTimeout(checarQuedaCoach, 8000);
     setTimeout(carregarCopoAgua, 5000);
+    setTimeout(converterFotosHeic, 20000);
     setTimeout(limparStoriesAntigos, 15000);
     // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
