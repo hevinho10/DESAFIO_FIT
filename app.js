@@ -6047,7 +6047,6 @@ function linhaMenu(act, ic, texto, valor = '', extra = '', aviso = 0) {
 const ATALHOS_MENU = {
     peso:   { ic: 'peso',  txt: 'Peso',     act: 'm-peso' },
     agua:   { ic: 'agua',  txt: 'Água',     act: 'quick-water' },
-    coach:  { ic: 'coach', txt: 'Coach',    act: 'm-go', extra: ' data-view="coach"' },
     treino: { ic: 'grafico', txt: 'Treino', act: 'atalho-registro', extra: ' data-k="workout"' },
     refeicao: { ic: 'alvo', txt: 'Refeição', act: 'atalho-registro', extra: ' data-k="meal"' },
     sono:   { ic: 'relogio', txt: 'Sono',   act: 'atalho-registro', extra: ' data-k="sleep"' },
@@ -6062,7 +6061,7 @@ function contarUsoAtalho(k) {
 function atalhosDoMenu() {
     let uso = {};
     try { uso = JSON.parse(localStorage.getItem('pulso-uso-atalhos') || '{}'); } catch (_) {}
-    const padrao = ['peso', 'agua', 'coach'];
+    const padrao = ['peso', 'agua', 'treino'];
     const ordem = Object.keys(ATALHOS_MENU).sort((a, b) => (uso[b] || 0) - (uso[a] || 0) || padrao.indexOf(b) - padrao.indexOf(a));
     const usados = ordem.filter(k => (uso[k] || 0) >= 3);
     const escolha = [...usados, ...padrao.filter(k => !usados.includes(k))].slice(0, 3);
@@ -6091,7 +6090,6 @@ async function renderMenu() {
                 <div class="cfg-titulo">Suas metas</div>
                 ${linhaMenu('cfg-page', 'alvo', 'Objetivo', objetivo ? escapeHTML(objetivo + prazo) : 'Definir', ' data-page="objetivos"')}
                 ${linhaMenu('cfg-page', 'historico', 'Jeito de treinar', `${p.weekly_goal || 3}x por semana`, ' data-page="jeito-treino"')}
-                ${linhaMenu('m-go', 'coach', 'Coach', '', ' data-view="coach"')}
             </div>
 
             <div class="cfg-grupo">
@@ -6830,60 +6828,61 @@ function esqueleto(tipo) {
 const SELO_FUNDADOR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.2l1.45 2.95 3.25.47-2.35 2.3.55 3.23L12 14.62l-2.9 1.53.55-3.23-2.35-2.3 3.25-.47z"/></svg>';
 const seloHTML = p => p && p.fundador ? `<button class="selo-fundador" data-act="ver-selo" data-desde="${p.created_at || ''}" aria-label="Membro fundador">${SELO_FUNDADOR}</button>` : '';
 
-// ---- Segurar o + : atalhos rápidos em arco (água na hora, treino, refeição, story) ----
+// ---- Segurar o + : atalhos rápidos em arco (fica aberto; toca no item; toca fora fecha) ----
 (function atalhosDoMais() {
     const fab = document.getElementById('postFab');
     if (!fab) return;
-    let timer = null, aberto = false, ignorarClique = false, arco = null;
-    const ITENS = [
-        { k: 'story', emo: '📸', txt: 'Story', ang: 155 },
-        { k: 'agua', emo: '💧', txt: '+250 ml', ang: 117 },
-        { k: 'workout', emo: '🏋️', txt: 'Treino', ang: 63 },
-        { k: 'meal', emo: '🍽️', txt: 'Refeição', ang: 25 },
-    ];
-    const abrir = () => {
-        aberto = true; ignorarClique = true;
+    let timer = null, ignorarClique = false;
+    const limparSelecao = () => { try { window.getSelection().removeAllRanges(); } catch (_) {} };
+    const abrir = async () => {
+        ignorarClique = true;
+        limparSelecao();
         if (navigator.vibrate) navigator.vibrate(12);
+        const manha = new Date().getHours() < 11;
+        const ml = state.copoAgua || 250;
+        const itens = [
+            manha ? { k: 'sleep', emo: '😴', txt: 'Sono' } : { k: 'story', emo: '📸', txt: 'Story' },
+            { k: 'agua', emo: '💧', txt: `Água · +${ml} ml` },
+            { k: 'workout', emo: '🏋️', txt: 'Treino' },
+            { k: 'meal', emo: '🍽️', txt: 'Refeição' },
+        ];
         const r = fab.getBoundingClientRect();
-        const cx = r.left + r.width / 2, cy = r.top + r.height / 2, raio = 104;
-        arco = document.createElement('div');
+        const arco = document.createElement('div');
         arco.className = 'fab-arco';
-        arco.innerHTML = ITENS.map(it => {
-            const x = cx + raio * Math.cos(it.ang * Math.PI / 180), y = cy - raio * Math.sin(it.ang * Math.PI / 180);
-            return `<div class="fab-op" data-k="${it.k}" style="left:${x}px;top:${y}px"><span>${it.emo}</span><small>${it.txt}</small></div>`;
-        }).join('');
+        // pílulas empilhadas acima do +, no estilo dos atalhos rápidos do iPhone
+        arco.innerHTML = `<div class="fab-lista" style="bottom:${window.innerHeight - r.top + 14}px">
+            ${itens.map((it, k) => `<button type="button" class="fab-op" data-k="${it.k}" style="transition-delay:${(itens.length - 1 - k) * 30}ms"><span>${it.emo}</span><b>${it.txt}</b></button>`).join('')}
+        </div>
+        <button type="button" class="fab-fechar" style="left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px" aria-label="Fechar">×</button>`;
         document.body.appendChild(arco);
         requestAnimationFrame(() => arco.classList.add('on'));
+        const fechar = () => { arco.classList.remove('on'); setTimeout(() => arco.remove(), 160); };
+        arco.addEventListener('click', e => {
+            const op = e.target.closest('.fab-op');
+            fechar();
+            if (op) usarAtalho(op.dataset.k);
+        });
     };
-    const alvoEm = (x, y) => { const el = document.elementFromPoint(x, y); return el && el.closest('.fab-op'); };
-    const fechar = () => { aberto = false; if (arco) { const a = arco; a.classList.remove('on'); setTimeout(() => a.remove(), 150); arco = null; } };
-    fab.addEventListener('pointerdown', e => {
-        ignorarClique = false;
-        timer = setTimeout(abrir, 450);
-        try { fab.setPointerCapture(e.pointerId); } catch (_) {}
-    });
-    fab.addEventListener('pointermove', e => {
-        if (!aberto || !arco) return;
-        const op = alvoEm(e.clientX, e.clientY);
-        arco.querySelectorAll('.fab-op').forEach(x => x.classList.toggle('foco', x === op));
-    });
-    const soltar = e => {
-        clearTimeout(timer);
-        if (!aberto) return;
-        const op = arco ? (alvoEm(e.clientX, e.clientY) || arco.querySelector('.fab-op.foco')) : null;
-        fechar();
-        if (op) usarAtalho(op.dataset.k);
-    };
-    fab.addEventListener('pointerup', soltar);
-    fab.addEventListener('pointercancel', () => { clearTimeout(timer); fechar(); });
+    fab.addEventListener('touchstart', limparSelecao, { passive: true });
+    fab.addEventListener('pointerdown', () => { ignorarClique = false; clearTimeout(timer); timer = setTimeout(abrir, 600); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => fab.addEventListener(ev, () => { clearTimeout(timer); limparSelecao(); }));
     fab.addEventListener('contextmenu', e => e.preventDefault());
-    // o clique normal só abre a tela de sempre se não foi um "segurar"
     fab.addEventListener('click', e => { if (ignorarClique) { e.stopImmediatePropagation(); e.preventDefault(); ignorarClique = false; } }, true);
 })();
+// Copo de água mais usado (pro atalho "+250 ml" virar o tamanho de cada um)
+async function carregarCopoAgua() {
+    if (!state.session) return;
+    const { data } = await sb.from('posts').select('water_ml').eq('user_id', state.session.user.id).eq('kind', 'water')
+        .order('created_at', { ascending: false }).limit(40);
+    const cont = {};
+    (data || []).forEach(r => { if (r.water_ml) cont[r.water_ml] = (cont[r.water_ml] || 0) + 1; });
+    const top = Object.entries(cont).sort((a, b) => b[1] - a[1])[0];
+    if (top && top[1] >= 3) state.copoAgua = Number(top[0]);
+}
 async function usarAtalho(k) {
-    if (k === 'agua') { registrarAguaRapida(250); return; }
+    if (k === 'agua') { registrarAguaRapida(state.copoAgua || 250); return; }
     if (k === 'story') { openStoryCreator(); return; }
-    contarUsoAtalho({ workout: 'treino', meal: 'refeicao' }[k]);
+    contarUsoAtalho({ workout: 'treino', meal: 'refeicao', sleep: 'sono' }[k]);
     $('#tileDesafio').classList.toggle('hidden', !podeCriarDesafio());
     limparComposer();
     $('#composerPick').classList.add('hidden');
@@ -13472,6 +13471,7 @@ async function bootInterno() {
     setTimeout(registrarAcesso, 2000);
     setTimeout(checarConquistasNovas, 6000);
     setTimeout(checarQuedaCoach, 8000);
+    setTimeout(carregarCopoAgua, 5000);
     setTimeout(limparStoriesAntigos, 15000);
     // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
