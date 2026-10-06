@@ -3222,7 +3222,7 @@ async function renderMealHistory(uid) {
             </div>
             <div class="ml-side">
                 ${sc != null ? `<span class="ml-score" style="color:${cor}">${br(sc)}</span>` : ''}
-                ${sc == null && isMe && m.image_url && m.meta && m.meta.analise_pendente ? `<button class="btn-mini ml-analisar" data-act="analisar-prato" data-id="${m.id}">Analisar agora</button>` : ''}
+                ${sc == null && isMe && m.image_url && m.meta && m.meta.analise_pendente && Date.now() - new Date(m.created_at) < 7 * 86400000 ? `<button class="btn-mini ml-analisar" data-act="analisar-prato" data-id="${m.id}">Analisar agora</button>` : ''}
                 <span class="wk-date">${dia}</span>
             </div>
         </div>`;
