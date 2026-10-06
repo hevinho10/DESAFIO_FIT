@@ -6830,6 +6830,130 @@ function esqueleto(tipo) {
 const SELO_FUNDADOR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.2l1.45 2.95 3.25.47-2.35 2.3.55 3.23L12 14.62l-2.9 1.53.55-3.23-2.35-2.3 3.25-.47z"/></svg>';
 const seloHTML = p => p && p.fundador ? `<button class="selo-fundador" data-act="ver-selo" data-desde="${p.created_at || ''}" aria-label="Membro fundador">${SELO_FUNDADOR}</button>` : '';
 
+// ---- Segurar o + : atalhos rápidos em arco (água na hora, treino, refeição, story) ----
+(function atalhosDoMais() {
+    const fab = document.getElementById('postFab');
+    if (!fab) return;
+    let timer = null, aberto = false, ignorarClique = false, arco = null;
+    const ITENS = [
+        { k: 'story', emo: '📸', txt: 'Story', ang: 155 },
+        { k: 'agua', emo: '💧', txt: '+250 ml', ang: 117 },
+        { k: 'workout', emo: '🏋️', txt: 'Treino', ang: 63 },
+        { k: 'meal', emo: '🍽️', txt: 'Refeição', ang: 25 },
+    ];
+    const abrir = () => {
+        aberto = true; ignorarClique = true;
+        if (navigator.vibrate) navigator.vibrate(12);
+        const r = fab.getBoundingClientRect();
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2, raio = 104;
+        arco = document.createElement('div');
+        arco.className = 'fab-arco';
+        arco.innerHTML = ITENS.map(it => {
+            const x = cx + raio * Math.cos(it.ang * Math.PI / 180), y = cy - raio * Math.sin(it.ang * Math.PI / 180);
+            return `<div class="fab-op" data-k="${it.k}" style="left:${x}px;top:${y}px"><span>${it.emo}</span><small>${it.txt}</small></div>`;
+        }).join('');
+        document.body.appendChild(arco);
+        requestAnimationFrame(() => arco.classList.add('on'));
+    };
+    const alvoEm = (x, y) => { const el = document.elementFromPoint(x, y); return el && el.closest('.fab-op'); };
+    const fechar = () => { aberto = false; if (arco) { const a = arco; a.classList.remove('on'); setTimeout(() => a.remove(), 150); arco = null; } };
+    fab.addEventListener('pointerdown', e => {
+        ignorarClique = false;
+        timer = setTimeout(abrir, 450);
+        try { fab.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    fab.addEventListener('pointermove', e => {
+        if (!aberto || !arco) return;
+        const op = alvoEm(e.clientX, e.clientY);
+        arco.querySelectorAll('.fab-op').forEach(x => x.classList.toggle('foco', x === op));
+    });
+    const soltar = e => {
+        clearTimeout(timer);
+        if (!aberto) return;
+        const op = arco ? (alvoEm(e.clientX, e.clientY) || arco.querySelector('.fab-op.foco')) : null;
+        fechar();
+        if (op) usarAtalho(op.dataset.k);
+    };
+    fab.addEventListener('pointerup', soltar);
+    fab.addEventListener('pointercancel', () => { clearTimeout(timer); fechar(); });
+    fab.addEventListener('contextmenu', e => e.preventDefault());
+    // o clique normal só abre a tela de sempre se não foi um "segurar"
+    fab.addEventListener('click', e => { if (ignorarClique) { e.stopImmediatePropagation(); e.preventDefault(); ignorarClique = false; } }, true);
+})();
+async function usarAtalho(k) {
+    if (k === 'agua') { registrarAguaRapida(250); return; }
+    if (k === 'story') { openStoryCreator(); return; }
+    contarUsoAtalho({ workout: 'treino', meal: 'refeicao' }[k]);
+    $('#tileDesafio').classList.toggle('hidden', !podeCriarDesafio());
+    limparComposer();
+    $('#composerPick').classList.add('hidden');
+    $('#composerForm').classList.remove('hidden');
+    setComposerKind(k);
+    abrirComposer();
+}
+async function registrarAguaRapida(ml) {
+    contarUsoAtalho('agua');
+    const { data: criado, error } = await sb.from('posts').insert({
+        user_id: state.session.user.id, kind: 'water', water_ml: ml, visibility: 'private', is_public: false, in_feed: false,
+    }).select().single();
+    if (error) {
+        if (!navigator.onLine) { guardarNaFila({ tipo: 'post', post: { kind: 'water', water_ml: ml, visibility: 'private', is_public: false, in_feed: false } }); toast('Sem internet agora. Guardei e envio assim que voltar.', 'ok'); return; }
+        toast(msgErro(error), 'err'); return;
+    }
+    await updateStreak(hojeISO());
+    loadScore();
+    toastComAcao(`+${ml} ml de água`, 'Desfazer', async () => {
+        await sb.from('posts').delete().eq('id', criado.id).eq('user_id', state.session.user.id);
+        loadScore();
+        toast('Registro desfeito', 'ok');
+    });
+    if (typeof hydrateLembretes === 'function') hydrateLembretes();
+}
+// dica do atalho: aparece uma única vez, na primeira vez que a pessoa abre o +
+function dicaDoMais() {
+    const k = 'pulso-dica-mais-' + state.session.user.id;
+    if (lsGet(k)) return;
+    lsSet(k, '1');
+    setTimeout(() => toast('Dica: segure o + pra atalhos rápidos, como água com um gesto só', 'ok'), 400);
+}
+
+// Faixa de "sem conexão" no topo
+(function avisoSemInternet() {
+    const faixa = document.createElement('div');
+    faixa.className = 'sem-net';
+    faixa.textContent = 'Sem conexão. O que você registrar será enviado quando voltar.';
+    document.body.appendChild(faixa);
+    const atualizar = () => faixa.classList.toggle('on', !navigator.onLine);
+    window.addEventListener('online', () => { atualizar(); toast('Conexão de volta ✓', 'ok'); });
+    window.addEventListener('offline', atualizar);
+    atualizar();
+})();
+
+// Deslizar pro lado troca de aba (Evolução e perfil)
+(function deslizarEntreAbas() {
+    let x0 = null, y0 = null, alvo = null;
+    document.addEventListener('touchstart', e => {
+        alvo = null;
+        if (document.querySelector('.sheet.on, .story-viewer.on, .posts-viewer, .msg-camada, #onbTela')) return;
+        const t = e.target;
+        if (t.closest('.cal-mes, .ed-grade, .tr-chips, .cm-grade, input, textarea, .chart-card svg, .destaques, .stories-row, .pd-card, .adm-filtros, .evo-abas, .ig-tabs')) return;
+        if (state.view === 'progress') alvo = '.evo-abas .evo-aba';
+        else if (state.view === 'profile' || state.view === 'user-profile') alvo = '.ig-tabs .ig-tab';
+        else return;
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', e => {
+        if (!alvo || x0 == null) return;
+        const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+        x0 = null;
+        if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+        const abas = [...document.querySelectorAll(alvo)];
+        const i = abas.findIndex(b => b.classList.contains('on'));
+        const prox = abas[i + (dx < 0 ? 1 : -1)];
+        if (prox) { prox.click(); prox.scrollIntoView({ inline: 'nearest', block: 'nearest' }); }
+    }, { passive: true });
+})();
+
 // Faxina: fotos dos seus stories vencidos há mais de 30 dias e fora de destaques (1 vez por semana)
 async function limparStoriesAntigos() {
     if (!state.session) return;
@@ -9716,6 +9840,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) sinc
 async function switchView(v, params = {}) {
     const viewAnterior = state.view;
     const paramsAnteriores = state.viewParams || {};
+    if (viewAnterior === 'feed' && v !== 'feed') state.feedScroll = window.scrollY; // lembra onde parou
     closeDynamicSheets();
     const noChat = (v === 'chat' || v === 'coach');
     document.documentElement.classList.toggle('chat-mode', noChat);
@@ -9776,6 +9901,10 @@ async function switchView(v, params = {}) {
     else if (v === 'termos') renderTermos();
     else if (v === 'arquivados') renderArquivados();
     else if (v === 'medidas') await renderProgress();
+    if (v === 'feed' && state.feedScroll > 0) {
+        const y = state.feedScroll;
+        requestAnimationFrame(() => setTimeout(() => window.scrollTo(0, y), 60));
+    }
     else if (v === 'gerenciar') await renderGerenciarDesafio(params.id);
     else if (v === 'politica-privacidade') renderPoliticaPrivacidade();
     else if (v === 'saved') await renderSalvos();
@@ -9792,7 +9921,17 @@ async function switchView(v, params = {}) {
     document.scrollingElement.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-$$('.nav-btn').forEach(b => b.addEventListener('click', e => switchView(e.currentTarget.dataset.view)));
+$$('.nav-btn').forEach(b => b.addEventListener('click', e => {
+    const v = e.currentTarget.dataset.view;
+    // já está nessa aba: volta pro topo (e no feed, atualiza)
+    if (state.view === v) {
+        if (window.scrollY > 40) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        if (v === 'feed') { state.feedScroll = 0; renderFeed(); }
+        return;
+    }
+    if (v === 'feed') state.feedScroll = 0; // pela barra, o feed abre do topo
+    switchView(v);
+}));
 
 // Toque num ponto/barra/dia de gráfico mostra o valor no canto do card
 document.addEventListener('click', e => {
@@ -12387,6 +12526,7 @@ $('#postFab').addEventListener('click', () => {
     limparComposer();
     mostrarEscolhaDeTipo();
     abrirComposer();
+    dicaDoMais();
 });
 // + do feed: vai direto pro post livre
 $('#feedPostBtn').addEventListener('click', () => {
@@ -13021,7 +13161,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                 throw erroSono;
             }
 
-            await updateStreak(new Date().toISOString().split('T')[0]);
+            await updateStreak(hojeISO());
             await loadScore();
             closeComposer();
             toast('Sono registrado. Isso ajuda o coach a entender seus dias.', 'ok');
@@ -13056,7 +13196,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                 aguaDeHoje(),
             ]);
             const agora = [agoraW];
-            await updateStreak(new Date().toISOString().split('T')[0]);
+            await updateStreak(hojeISO());
             await loadScore();
             closeComposer();
 

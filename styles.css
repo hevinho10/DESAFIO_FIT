@@ -2795,3 +2795,15 @@ html.tela-cheia .toast{ bottom:calc(28px + env(safe-area-inset-bottom)) !importa
 .badge-nova{ position:absolute; top:8px; right:8px; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; padding:2px 7px; border-radius:8px; background:var(--vital); color:#06110B; }
 .badge-card.nova{ box-shadow:0 0 0 1px rgba(53,225,155,.5), 0 0 22px rgba(53,225,155,.18); animation:badgeBrilho 2.4s ease-in-out infinite; }
 @keyframes badgeBrilho{ 0%,100%{ box-shadow:0 0 0 1px rgba(53,225,155,.45), 0 0 14px rgba(53,225,155,.12); } 50%{ box-shadow:0 0 0 1px rgba(53,225,155,.7), 0 0 26px rgba(53,225,155,.26); } }
+
+/* ================= ONDA 46: atalhos do +, sem internet ================= */
+.fab-arco{ position:fixed; inset:0; z-index:150; pointer-events:none; background:rgba(6,9,8,0); transition:background .15s; }
+.fab-arco.on{ background:rgba(6,9,8,.45); }
+.fab-op{ position:absolute; width:62px; height:62px; margin:-31px 0 0 -31px; border-radius:50%; background:var(--bg-card); border:1px solid var(--line); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; box-shadow:0 8px 24px rgba(0,0,0,.35); transform:scale(.4); opacity:0; transition:transform .18s cubic-bezier(.2,1.4,.4,1), opacity .15s, background .12s; pointer-events:auto; }
+.fab-arco.on .fab-op{ transform:scale(1); opacity:1; }
+.fab-op span{ font-size:22px; line-height:1; }
+.fab-op small{ font-size:9.5px; font-weight:700; color:var(--ink-dim); }
+.fab-op.foco{ background:var(--vital); transform:scale(1.15) !important; }
+.fab-op.foco small{ color:#06110B; }
+.sem-net{ position:fixed; left:0; right:0; top:0; z-index:300; padding:calc(6px + env(safe-area-inset-top)) 14px 6px; background:var(--gold); color:#1A1206; font-size:12.5px; font-weight:600; text-align:center; transform:translateY(-100%); transition:transform .25s; }
+.sem-net.on{ transform:none; }
