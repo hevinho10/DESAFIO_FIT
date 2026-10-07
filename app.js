@@ -7014,11 +7014,12 @@ const seloHTML = p => p && p.fundador ? `<button class="selo-fundador" data-act=
                 if (sn && sn.length) state.sonoRegistrado = ontem; else mostrarSono = true;
             }
         }
+        const ic = kind => { const el = document.querySelector(`#composerPick .kind-tile[data-kind="${kind}"] .kt-ico svg`) || document.querySelector(`.kind-tile[data-kind="${kind}"] .kt-ico svg`); return el ? el.outerHTML : ''; };
         const itens = [
-            mostrarSono ? { k: 'sleep', emo: '😴', txt: 'Sono' } : { k: 'story', emo: '📸', txt: 'Story' },
-            { k: 'agua', emo: '💧', txt: 'Água' },
-            { k: 'workout', emo: '🏋️', txt: 'Treino' },
-            { k: 'meal', emo: '🍽️', txt: 'Refeição' },
+            mostrarSono ? { k: 'sleep', emo: ic('sleep'), txt: 'Sono' } : { k: 'story', emo: ic('story'), txt: 'Story' },
+            { k: 'agua', emo: ic('water'), txt: 'Água' },
+            { k: 'workout', emo: ic('workout'), txt: 'Treino' },
+            { k: 'meal', emo: ic('meal'), txt: 'Refeição' },
         ];
         const angulos = [160, 117, 63, 20];
         const r = fab.getBoundingClientRect();
@@ -7129,12 +7130,15 @@ function dicaDoMais() {
 })();
 
 // Converte fotos antigas em HEIC (formato do iPhone) pra JPEG, pra abrirem no Android e no computador.
-// Só roda num iPhone (é ele que consegue ler o HEIC), uma vez por semana, nas fotos da própria pessoa.
+// Só roda num iPhone (é ele que consegue ler o HEIC), nas fotos da própria pessoa.
+// Leve: se ficou foto pendente, tenta de novo na próxima abertura; se não, confere no máximo 1 vez por dia.
 async function converterFotosHeic() {
     if (!state.session || tipoAparelho() !== 'iphone') return;
     const chave = 'pulso-heic-' + state.session.user.id;
-    if (Date.now() - Number(lsGet(chave) || 0) < 7 * 86400000) return;
+    const ultimo = lsGet(chave) || '';
+    if (ultimo !== 'pendente' && Date.now() - Number(ultimo || 0) < 86400000) return;
     lsSet(chave, String(Date.now()));
+    let sobrou = false;
     const uid = state.session.user.id;
     const ehHeic = u => typeof u === 'string' && /\.(heic|heif)(\?|$)/i.test(u);
     const converter = async url => {
@@ -7159,7 +7163,7 @@ async function converterFotosHeic() {
                 if (!p.thumb_url || ehHeic(p.thumb_url)) mudanca.thumb_url = novo;
                 await sb.from('posts').update(mudanca).eq('id', p.id).eq('user_id', uid);
                 removeStoredImage(p.image_url);
-            } catch (_) {}
+            } catch (_) { sobrou = true; }
         }
         const { data: sts } = await sb.from('stories').select('id, image_url')
             .eq('user_id', uid).or('image_url.ilike.%.heic,image_url.ilike.%.heif').limit(10);
@@ -7168,10 +7172,22 @@ async function converterFotosHeic() {
                 const novo = await converter(st.image_url);
                 await sb.from('stories').update({ image_url: novo }).eq('id', st.id).eq('user_id', uid);
                 await sb.from('story_highlight_items').update({ image_url: novo }).eq('image_url', st.image_url);
-            } catch (_) {}
+            } catch (_) { sobrou = true; }
         }
-    } catch (_) {}
+        if ((posts || []).length >= 15) sobrou = true;
+    } catch (_) { sobrou = true; }
+    if (sobrou) lsSet(chave, 'pendente');
 }
+// Foto que o aparelho não consegue abrir (ex: formato do iPhone no Android/PC): quadro discreto no lugar do ícone quebrado
+document.addEventListener('error', e => {
+    const img = e.target;
+    if (!img || img.tagName !== 'IMG' || img.dataset.semFoto) return;
+    img.dataset.semFoto = '1';
+    const ph = document.createElement('div');
+    ph.className = 'foto-indisp' + (img.classList.length ? ' ' + [...img.classList].join(' ') : '');
+    ph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></svg><span>Foto indisponível neste aparelho</span>';
+    if (img.parentNode) img.parentNode.replaceChild(ph, img);
+}, true);
 
 // ---- Refeições com análise pendente (a IA falhou na hora): tenta de novo ----
 async function analisarRefeicao(id) {
