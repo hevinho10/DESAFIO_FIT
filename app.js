@@ -11388,6 +11388,8 @@ function hidePostMenu() {
     if (m) m.remove();
 }
 function hidePostMenuOnce(e) {
+    // tocar no ··· de outro item abre o menu dele (não fecha o novo que acabou de abrir)
+    if (e.target.closest('.wk-mais, .ger-mais, .post-menu-btn, .cm-mais, [data-act="adm-u-menu"], [data-act="chat-menu"], [data-act="comentario-menu"]')) return;
     if (!e.target.closest('#floatingPostMenu') && !e.target.closest('#floatingPrivacyMenu')) hidePostMenu();
 }
 
