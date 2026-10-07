@@ -11831,7 +11831,7 @@ const STORY_DEGRADES = [
 ];
 const FONTES_STORY = [['classico', 'Clássico'], ['forte', 'Forte'], ['manuscrito', 'Escrito']];
 const bgPadraoStory = () => document.documentElement.getAttribute('data-theme') === 'light' ? '#FFFFFF' : '#000000';
-const sc = { mode: null, file: null, bg: '#000000', busy: false, fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo' };
+const sc = { mode: null, file: null, bg: '#000000', busy: false, fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 };
 
 function corDeTextoPara(bg) {
     const b = (bg || '').toLowerCase();
@@ -11852,7 +11852,9 @@ function estiloTextoStory(st, len, emFoto) {
 }
 
 function openStoryCreator() {
-    Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo' });
+    Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 });
+    $('#scText').style.transform = ''; $('#scSticker').style.transform = '';
+    $('#storyCreator').classList.remove('arrastando');
     $('#scPaleta').classList.add('hidden');
     $('#scColuna').classList.remove('recolhida');
     $('#scText').style.textAlign = '';
@@ -11899,8 +11901,8 @@ function ajustarAlturaTextoStory() {
 function atualizarBotaoPublicarStory() {
     const temTexto = $('#scText').value.trim().length > 0;
     const pronto = (sc.mode === 'photo' && sc.file) || (sc.mode === 'text' && (temTexto || sc.adesivo));
-    $('#scPublish').classList.toggle('hidden', !pronto || sc.mode === 'text');
-    $('#scPublicarGrande').disabled = !(sc.mode === 'text' && pronto);
+    $('#scPublish').classList.add('hidden'); // o botão redondo grande publica nos dois modos
+    $('#scPublicarGrande').disabled = !pronto;
 }
 function aplicarCorStory() {
     $('#scStage').style.background = sc.bg;
@@ -11992,6 +11994,7 @@ function entrarModoFoto(file) {
     t.placeholder = 'Escreva por cima da foto';
     if (!sc.pos) sc.pos = { x: 50, y: 76 };
     posicionar(t, sc.pos);
+    transformarItem(t);
     t.classList.toggle('hidden', !t.value.trim());
     t.readOnly = true;
     aplicarFonteStory();
@@ -11999,32 +12002,118 @@ function entrarModoFoto(file) {
     atualizarBotaoPublicarStory();
 }
 
-// Arrastar texto e adesivo (toque curto no texto = editar)
+// Arrastar texto e adesivo (toque curto no texto = editar), com guias de centro e lixeira
+function transformarItem(el) {
+    const ehTexto = el.id === 'scText';
+    if (ehTexto && sc.mode !== 'photo') { el.style.transform = ''; return; }
+    const esc = ehTexto ? sc.txtEsc : sc.adEsc, rot = ehTexto ? sc.txtRot : sc.adRot;
+    el.style.transform = `translate(-50%, -50%) scale(${esc}) rotate(${rot}deg)`;
+}
+function apagarItemStory(el) {
+    if (el.id === 'scText') {
+        el.value = ''; el.classList.add('hidden'); el.readOnly = true;
+        sc.txtEsc = 1; sc.txtRot = 0; el.style.transform = '';
+        if (sc.mode === 'text') { el.classList.remove('hidden'); el.readOnly = false; }
+    } else {
+        sc.adesivo = null; sc.adEsc = 1; sc.adRot = 0;
+        el.classList.add('hidden'); el.style.transform = '';
+    }
+    ajustarAlturaTextoStory();
+    atualizarBotaoPublicarStory();
+}
 function tornarArrastavel(el, campoPos, aoTocar) {
-    let ini = null, movendo = false;
+    let ini = null, movendo = false, sobre = false;
+    const cr = $('#storyCreator'), lix = $('#scLixeira');
     el.addEventListener('pointerdown', e => {
         if (sc.mode !== 'photo' && el.id === 'scText') return;
         if (el.id === 'scText' && !el.readOnly) return; // editando: deixa o cursor funcionar
-        ini = { x: e.clientX, y: e.clientY }; movendo = false;
+        if (sc.doisDedos) return;
+        ini = { x: e.clientX, y: e.clientY }; movendo = false; sobre = false;
+        sc.itemAtivo = el;
         el.setPointerCapture(e.pointerId);
     });
     el.addEventListener('pointermove', e => {
-        if (!ini) return;
+        if (!ini || sc.doisDedos) return;
         if (!movendo && Math.hypot(e.clientX - ini.x, e.clientY - ini.y) < 6) return;
-        movendo = true;
+        if (!movendo) { movendo = true; cr.classList.add('arrastando'); }
         const r = $('#scStage').getBoundingClientRect();
-        const pos = {
-            x: Math.max(8, Math.min(92, ((e.clientX - r.left) / r.width) * 100)),
-            y: Math.max(8, Math.min(92, ((e.clientY - r.top) / r.height) * 100)),
-        };
-        sc[campoPos] = pos;
-        posicionar(el, pos);
+        let x = Math.max(4, Math.min(96, ((e.clientX - r.left) / r.width) * 100));
+        let y = Math.max(4, Math.min(96, ((e.clientY - r.top) / r.height) * 100));
+        // guias: gruda no centro
+        const nx = Math.abs(x - 50) < 2.5, ny = Math.abs(y - 50) < 2.5;
+        if (nx) x = 50; if (ny) y = 50;
+        $('#scGuiaV').classList.toggle('on', nx); $('#scGuiaH').classList.toggle('on', ny);
+        sc[campoPos] = { x, y };
+        posicionar(el, sc[campoPos]);
+        // lixeira
+        const lr = lix.querySelector('.sc-lix-circ').getBoundingClientRect();
+        const agora = Math.hypot(e.clientX - (lr.left + lr.width / 2), e.clientY - (lr.top + lr.height / 2)) < 60;
+        if (agora !== sobre) {
+            sobre = agora;
+            lix.classList.toggle('sobre', sobre);
+            el.classList.toggle('vai-apagar', sobre);
+            if (sobre && navigator.vibrate) navigator.vibrate(15);
+        }
     });
-    el.addEventListener('pointerup', () => {
-        if (ini && !movendo && aoTocar) aoTocar();
-        ini = null;
-    });
+    const fim = () => {
+        if (ini && !movendo && aoTocar && !sc.doisDedos) aoTocar();
+        if (movendo && sobre) apagarItemStory(el);
+        ini = null; movendo = false;
+        cr.classList.remove('arrastando');
+        lix.classList.remove('sobre'); el.classList.remove('vai-apagar');
+        $('#scGuiaV').classList.remove('on'); $('#scGuiaH').classList.remove('on');
+        sobre = false;
+    };
+    el.addEventListener('pointerup', fim);
+    el.addEventListener('pointercancel', fim);
 }
+// Dois dedos: aumentar/diminuir e girar o texto (na foto) ou o adesivo
+(function pincaStory() {
+    const stage = document.getElementById('scStage');
+    let g = null;
+    const alvo = (cx, cy) => {
+        const cands = [$('#scSticker'), $('#scText')].filter(el => !el.classList.contains('hidden') && (el.id !== 'scText' || sc.mode === 'photo'));
+        if (!cands.length) return null;
+        if (sc.itemAtivo && cands.includes(sc.itemAtivo)) {
+            const r = sc.itemAtivo.getBoundingClientRect();
+            if (cx > r.left - 80 && cx < r.right + 80 && cy > r.top - 80 && cy < r.bottom + 80) return sc.itemAtivo;
+        }
+        return cands.map(el => { const r = el.getBoundingClientRect(); return [el, Math.hypot(cx - (r.left + r.width / 2), cy - (r.top + r.height / 2))]; })
+            .sort((a, b) => a[1] - b[1])[0][0];
+    };
+    stage.addEventListener('touchstart', e => {
+        if (e.touches.length !== 2) return;
+        const [a, b] = e.touches;
+        const el = alvo((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+        if (!el) return;
+        sc.doisDedos = true;
+        const ehTexto = el.id === 'scText';
+        if (ehTexto) { el.readOnly = true; el.blur(); }
+        g = { el, ehTexto, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX),
+              esc0: ehTexto ? sc.txtEsc : sc.adEsc, rot0: ehTexto ? sc.txtRot : sc.adRot };
+        $('#storyCreator').classList.add('arrastando');
+    }, { passive: true });
+    stage.addEventListener('touchmove', e => {
+        if (!g || e.touches.length !== 2) return;
+        e.preventDefault();
+        const [a, b] = e.touches;
+        const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
+        const esc = Math.max(0.5, Math.min(3, g.esc0 * d / g.d0));
+        let rot = g.rot0 + (ang - g.a0) * 180 / Math.PI;
+        if (Math.abs(rot % 90) < 4) rot = Math.round(rot / 90) * 90; // gruda reto
+        if (g.ehTexto) { sc.txtEsc = esc; sc.txtRot = rot; } else { sc.adEsc = esc; sc.adRot = rot; }
+        transformarItem(g.el);
+    }, { passive: false });
+    const fim = e => {
+        if (!g || e.touches.length >= 2) return;
+        g = null;
+        setTimeout(() => { sc.doisDedos = false; }, 80);
+        $('#storyCreator').classList.remove('arrastando');
+    };
+    stage.addEventListener('touchend', fim);
+    stage.addEventListener('touchcancel', fim);
+})();
 tornarArrastavel($('#scText'), 'pos', () => {
     const t = $('#scText');
     t.readOnly = false;
@@ -12066,6 +12155,7 @@ $('#scColAlinhar').addEventListener('click', e => {
 });
 $('#scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
 $('#scColTreino').addEventListener('click', e => { e.stopPropagation(); $('#scAdesivo').click(); });
+$('#scColTexto').addEventListener('click', e => { e.stopPropagation(); $('#scAddText').click(); });
 $('#scColFechar').addEventListener('click', e => {
     e.stopPropagation();
     const col = $('#scColuna');
@@ -12117,6 +12207,7 @@ $('#scAdesivo').addEventListener('click', async () => {
     if (!sc.adesivoPos) sc.adesivoPos = { x: 50, y: sc.mode === 'photo' ? 62 : 72 };
     st.textContent = sc.adesivo + '  ·  Pulso';
     posicionar(st, sc.adesivoPos);
+    transformarItem(st);
     st.classList.remove('hidden');
     atualizarBotaoPublicarStory();
 });
@@ -12151,9 +12242,17 @@ $('#scPublish').addEventListener('click', async () => {
             } catch (e) { console.warn('moderação indisponível', e); }
         }
         const style = { font: sc.fonte, fundo: sc.fundoTxt };
-        if (sc.mode === 'photo') style.pos = sc.pos;
+        if (sc.mode === 'photo') {
+            style.pos = sc.pos;
+            if (sc.txtEsc !== 1) style.textScale = Math.round(sc.txtEsc * 100) / 100;
+            if (sc.txtRot) style.textRot = Math.round(sc.txtRot);
+        }
         if (sc.mode === 'text') { style.align = sc.alinhar; if (sc.corLetra) style.color = sc.corLetra; }
-        if (sc.adesivo) { style.sticker = sc.adesivo; style.stickerPos = sc.adesivoPos; }
+        if (sc.adesivo) {
+            style.sticker = sc.adesivo; style.stickerPos = sc.adesivoPos;
+            if (sc.adEsc !== 1) style.stickerScale = Math.round(sc.adEsc * 100) / 100;
+            if (sc.adRot) style.stickerRot = Math.round(sc.adRot);
+        }
         if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
 
         const { data: story, error } = await sb.from('stories').insert({
@@ -12346,14 +12445,14 @@ function showCurrentStory() {
     const content = $('#svContent');
     const st = item.style || {};
     const adesivoHTML = st.sticker
-        ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%">${escapeHTML(st.sticker)}  ·  Pulso</div>` : '';
+        ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${escapeHTML(st.sticker)}  ·  Pulso</div>` : '';
     if (item.image_url) {
         content.className = 'story-content';
         content.style.background = '#000';
         const e = estiloTextoStory(st, (item.caption || '').length, true);
         const pos = st.pos || null;
         content.innerHTML = `<img src="${item.image_url}">
-            ${item.caption ? `<div class="caption-over ${e.cls} fundo-${st.fundo || 'escuro'}${pos ? ' posicionado' : ''}" style="font-size:${e.size}px;${pos ? `left:${pos.x}%;top:${pos.y}%` : ''}">${escapeHTML(item.caption)}</div>` : ''}
+            ${item.caption ? `<div class="caption-over ${e.cls} fundo-${st.fundo || 'escuro'}${pos ? ' posicionado' : ''}" style="font-size:${e.size}px;${pos ? `left:${pos.x}%;top:${pos.y}%;transform:translate(-50%, -50%) scale(${Number(st.textScale) || 1}) rotate(${Number(st.textRot) || 0}deg)` : ''}">${escapeHTML(item.caption)}</div>` : ''}
             ${adesivoHTML}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     } else {
@@ -12619,12 +12718,13 @@ function ligarToqueStory(zona, direcao) {
         }, 220);
     });
     zona.addEventListener('pointerup', e => {
+        if (state.storyArrastou) { clearTimeout(timerSegurar); segurou = false; $('#storyViewer').classList.remove('segurando'); return; }
         if (segurou) { e.preventDefault(); soltar(); return; }
         clearTimeout(timerSegurar);
         advanceStory(direcao);
     });
-    zona.addEventListener('pointerleave', soltar);
-    zona.addEventListener('pointercancel', soltar);
+    zona.addEventListener('pointerleave', () => { if (!state.storyArrastou) soltar(); else clearTimeout(timerSegurar); });
+    zona.addEventListener('pointercancel', () => { if (!state.storyArrastou) soltar(); else clearTimeout(timerSegurar); });
     zona.addEventListener('contextmenu', e => e.preventDefault());
 }
 // Pausa guardando quanto tempo falta, pra continuar do mesmo ponto
@@ -12784,15 +12884,53 @@ document.getElementById('svAdd').addEventListener('click', e => {
     closeStoryViewer();
     openStoryCreator();
 });
-(function gestoArrastarPraCima() {
+(function gestosDoStory() {
     const v = document.getElementById('storyViewer');
-    let x0 = 0, y0 = 0;
-    v.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+    let x0 = 0, y0 = 0, t0 = 0, puxando = false, ativo = false;
+    const livre = t => t.closest('input, textarea, button, .sv-menu, #svMenu, .sheet');
+    v.addEventListener('touchstart', e => {
+        ativo = e.touches.length === 1 && !livre(e.target);
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); puxando = false;
+        state.storyArrastou = false;
+    }, { passive: true });
+    v.addEventListener('touchmove', e => {
+        if (!ativo) return;
+        const dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
+        if (!puxando) {
+            if (dy > 12 && dy > Math.abs(dx) * 1.3) {
+                puxando = true; state.storyArrastou = true;
+                v.classList.add('puxando');
+                if (!v.classList.contains('paused')) pausarStoryNoPonto();
+            } else return;
+        }
+        const d = Math.max(0, dy);
+        v.style.transform = `translateY(${d}px) scale(${1 - Math.min(0.2, d / 1600)})`;
+        v.style.borderRadius = Math.min(28, d / 6) + 'px';
+        v.style.opacity = String(Math.max(0.35, 1 - d / 700));
+    }, { passive: true });
     v.addEventListener('touchend', e => {
-        const dx = e.changedTouches[0].clientX - x0;
-        const dy = e.changedTouches[0].clientY - y0;
-        if (dy < -60 && Math.abs(dy) > Math.abs(dx) * 1.5 && state.storyAtual) abrirQuemViuStory();
-        else if (dy > 90 && Math.abs(dy) > Math.abs(dx) * 1.5) closeStoryViewer();
+        if (!ativo) return;
+        const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+        if (!puxando) {
+            if (dy < -60 && Math.abs(dy) > Math.abs(dx) * 1.5 && state.storyAtual) { state.storyArrastou = true; abrirQuemViuStory(); }
+            return;
+        }
+        puxando = false;
+        const rapido = dy / Math.max(1, Date.now() - t0) > 0.6;
+        v.classList.remove('puxando');
+        v.classList.add('soltando');
+        if (dy > window.innerHeight * 0.22 || (rapido && dy > 40)) {
+            v.style.transform = `translateY(${window.innerHeight}px) scale(.8)`;
+            v.style.opacity = '0';
+            setTimeout(() => {
+                closeStoryViewer();
+                v.classList.remove('soltando');
+                v.style.transform = ''; v.style.opacity = ''; v.style.borderRadius = '';
+            }, 220);
+        } else {
+            v.style.transform = ''; v.style.opacity = ''; v.style.borderRadius = '';
+            setTimeout(() => { v.classList.remove('soltando'); retomarStoryDoPonto(); }, 220);
+        }
     });
 })();
 

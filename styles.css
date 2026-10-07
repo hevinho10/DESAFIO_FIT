@@ -2870,3 +2870,35 @@ html.tela-cheia .toast{ bottom:calc(28px + env(safe-area-inset-bottom)) !importa
 .wk-ic{ width:38px; height:38px; flex-shrink:0; border-radius:50%; background:var(--vital-dim); color:var(--vital); display:grid; place-items:center; }
 .wk-ic svg{ width:19px; height:19px; }
 .wk-sub{ color:var(--ink-faint); }
+
+/* ================= ONDA 51: editor e visualizador de story ================= */
+/* colunas com nome também no modo foto */
+.sc.photo-mode .sc-coluna{ display:flex; }
+.sc.photo-mode .sc-publicar-grande{ display:grid; }
+.sc.photo-mode .sc-bottom{ display:none !important; }
+.sc-publish{ display:none !important; }
+.sc-col-item.so-foto{ display:none; }
+.sc.photo-mode .sc-col-item.so-foto{ display:flex; }
+.sc.photo-mode .sc-col-item.so-texto{ display:none; }
+.sc-col-nome{ text-shadow:0 1px 6px rgba(0,0,0,.55); }
+/* arrastando: some o resto, aparece a lixeira */
+.sc-top, .sc-coluna, .sc-publicar-grande, .sc-paleta{ transition:opacity .15s; }
+.sc.arrastando .sc-top, .sc.arrastando .sc-coluna, .sc.arrastando .sc-publicar-grande, .sc.arrastando .sc-paleta{ opacity:0; pointer-events:none; }
+.sc-lixeira{ position:absolute; left:50%; bottom:calc(40px + env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:5; display:flex; flex-direction:column; align-items:center; gap:10px; opacity:0; pointer-events:none; transition:opacity .15s; }
+.sc.arrastando .sc-lixeira{ opacity:1; }
+.sc-lix-txt{ font-size:13.5px; font-weight:600; color:#fff; text-shadow:0 1px 6px rgba(0,0,0,.6); }
+.sc-lix-circ{ width:56px; height:56px; border-radius:50%; border:2px solid #fff; display:grid; place-items:center; color:#fff; background:rgba(0,0,0,.25); transition:transform .15s, background .15s; }
+.sc-lix-circ svg{ width:24px; height:24px; }
+.sc-lixeira.sobre .sc-lix-circ{ transform:scale(1.3); background:#FF5E5E; border-color:#FF5E5E; }
+.sc-text.vai-apagar, .sc-sticker.vai-apagar{ opacity:.45; filter:saturate(.6); }
+.sc-text, .sc-sticker{ transition:opacity .12s; }
+/* guias de centro */
+.sc-guia{ position:absolute; z-index:2; pointer-events:none; opacity:0; transition:opacity .1s; background:rgba(255,255,255,.75); }
+.sc-guia-v{ left:50%; top:0; bottom:0; width:1px; }
+.sc-guia-h{ top:50%; left:0; right:0; height:1px; }
+.sc-guia.on{ opacity:1; }
+.sc-stage{ touch-action:none; }
+.sc-sticker{ transform-origin:center; }
+/* visualizador: arrastar pra baixo */
+.story-viewer.puxando{ transition:none; overflow:hidden; }
+.story-viewer.soltando{ transition:transform .22s ease, opacity .22s ease, border-radius .22s ease; overflow:hidden; }

@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261122">
+<link rel="stylesheet" href="styles.css?v=20261123">
 </head>
 <body>
 
@@ -442,12 +442,19 @@
         <img id="scImg" class="sc-img hidden" alt="">
         <textarea id="scText" class="sc-text hidden fonte-classico" maxlength="300" rows="1" placeholder="Escreva algo"></textarea>
         <div id="scSticker" class="sc-sticker hidden"></div>
+        <div class="sc-guia sc-guia-v" id="scGuiaV"></div>
+        <div class="sc-guia sc-guia-h" id="scGuiaH"></div>
+    </div>
+    <div class="sc-lixeira" id="scLixeira" aria-hidden="true">
+        <span class="sc-lix-txt">Arraste para excluir</span>
+        <span class="sc-lix-circ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9.5 7V4.5h5V7M6.5 7l1 12.5h9l1-12.5M10 11v5M14 11v5"/></svg></span>
     </div>
 
     <div class="sc-coluna" id="scColuna">
+        <button type="button" class="sc-col-item so-foto" id="scColTexto"><span class="sc-col-nome">Texto</span><span class="sc-col-ico"><b class="sc-aa">Aa</b></span></button>
         <button type="button" class="sc-col-item" id="scColEstilo"><span class="sc-col-nome">Estilo</span><span class="sc-col-ico"><b class="sc-aa">Aa</b></span></button>
-        <button type="button" class="sc-col-item" id="scColCor"><span class="sc-col-nome">Cor</span><span class="sc-col-ico"><span class="sc-dot" id="scColDot"></span></span></button>
-        <button type="button" class="sc-col-item" id="scColAlinhar"><span class="sc-col-nome">Alinhar</span><span class="sc-col-ico" id="scColAlinharIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M8 12h8M5 18h14"/></svg></span></button>
+        <button type="button" class="sc-col-item so-texto" id="scColCor" data-so-texto="1"><span class="sc-col-nome">Cor</span><span class="sc-col-ico"><span class="sc-dot" id="scColDot"></span></span></button>
+        <button type="button" class="sc-col-item so-texto" id="scColAlinhar"><span class="sc-col-nome">Alinhar</span><span class="sc-col-ico" id="scColAlinharIco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M8 12h8M5 18h14"/></svg></span></button>
         <button type="button" class="sc-col-item" id="scColMarcador"><span class="sc-col-nome">Marcador</span><span class="sc-col-ico"><span class="sc-fundo-ico modo-nenhum" id="scColMarcadorIco">A</span></span></button>
         <button type="button" class="sc-col-item" id="scColTreino"><span class="sc-col-nome">Treino de hoje</span><span class="sc-col-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/></svg></span></button>
         <button type="button" class="sc-col-item" id="scColFechar"><span class="sc-col-nome" id="scColFecharNome">Fechar</span><span class="sc-col-ico sc-col-seta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></span></button>
@@ -527,6 +534,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=20261122"></script>
+<script src="app.js?v=20261123"></script>
 </body>
 </html>
