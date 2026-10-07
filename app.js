@@ -3399,18 +3399,34 @@ async function renderWorkoutHistory(uid) {
 
     state.wkDados = state.wkDados || {};
     data.forEach(w => { state.wkDados[w.id] = w; });
+    // grupos: Esta semana, Semana passada, depois por mês
+    const seg = segundaDe(); seg.setHours(0, 0, 0, 0);
+    const segPassada = new Date(seg); segPassada.setDate(seg.getDate() - 7);
+    const grupoDe = d => d >= seg ? 'Esta semana' : d >= segPassada ? 'Semana passada'
+        : (n => n.charAt(0).toUpperCase() + n.slice(1))(d.toLocaleDateString('pt-BR', { month: 'long' }) + (d.getFullYear() !== new Date().getFullYear() ? ' de ' + d.getFullYear() : ''));
+    let grupoAtual = null;
     const rows = data.map(w => {
         const d = new Date(w.created_at);
         const dia = d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
         const tipo = w.activity_type || 'Treino';
-        // no seu perfil, tocar abre os detalhes; no dos outros, abre o post
         const act = ehMeuPerfil ? ` data-act="wk-detalhe" data-id="${w.id}"` : (w.in_feed ? ` data-act="view-post" data-id="${w.id}"` : '');
         const km = w.distance_km ? ` · ${br(w.distance_km)} km` : '';
-        return `<div class="wk-row tappable"${act}>
-            <span class="wk-emo">${WORKOUT_EMOJI[tipo] || '💪'}</span>
+        // detalhe sem repetir o nome da atividade; sem detalhe, o que treinou ou a hora
+        let sub = String(w.caption || '').trim();
+        const prefixo = new RegExp('^' + tipo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[:\\-–·,]?\\s*', 'i');
+        sub = sub.replace(prefixo, '').trim();
+        if (sub) sub = sub.charAt(0).toUpperCase() + sub.slice(1);
+        if (!sub && (w.muscle_groups || []).length) sub = w.muscle_groups.join(', ');
+        if (!sub) sub = 'às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(':00', 'h');
+        const g = grupoDe(d);
+        const titulo = g !== grupoAtual ? `<div class="wk-grupo">${g}</div>` : '';
+        grupoAtual = g;
+        const ic = (typeof ICONES_ATIVIDADE !== 'undefined' && (ICONES_ATIVIDADE[tipo] || ICONES_ATIVIDADE.Outro)) || '';
+        return `${titulo}<div class="wk-row tappable"${act}>
+            <span class="wk-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg></span>
             <div class="wk-body">
                 <div class="wk-title">${escapeHTML(tipo)} <b>${w.duration_min || 0} min</b><span class="wk-km">${km}</span>${ehMeuPerfil && w.in_feed ? ' <svg class="wk-feed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="Publicado no feed"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 9h17"/></svg>' : ''}</div>
-                ${w.caption ? `<div class="wk-sub">${escapeHTML(w.caption.slice(0, 70))}</div>` : ''}
+                <div class="wk-sub">${escapeHTML(sub.slice(0, 70))}</div>
             </div>
             <span class="wk-date">${dia}</span>
             ${ehMeuPerfil ? `<button class="wk-mais" data-act="wk-menu" data-id="${w.id}" data-tipo="treino" aria-label="Opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>` : ''}
@@ -3421,12 +3437,11 @@ async function renderWorkoutHistory(uid) {
     const kmTotal = data.reduce((t, w) => t + Number(w.distance_km || 0), 0);
     const partes = [
         `<b>${noMes}</b> ${noMes === 1 ? 'treino' : 'treinos'} no mês`,
-        `<b>${horas}h${mins ? String(mins).padStart(2,'0') : ''}</b> de atividade`,
+        `<b>${horas}h${mins ? String(mins).padStart(2,'0') : ''}</b>`,
     ];
     if (kmTotal) partes.push(`<b>${String(Math.round(kmTotal * 10) / 10).replace('.', ',')}</b> km`);
-    if (ofensiva && ofensiva.current_streak) partes.push(`🔥 <b>${ofensiva.current_streak}</b> ${ofensiva.current_streak === 1 ? 'dia' : 'dias'} de ofensiva`);
-    if (ofensiva && ofensiva.longest_streak > (ofensiva.current_streak || 0)) partes.push(`recorde <b>${ofensiva.longest_streak}</b>`);
-    body.innerHTML = `<div class="wk-summary">${partes.join(' · ')}</div>
+    if (ofensiva && ofensiva.current_streak) partes.push(`🔥 <b>${ofensiva.current_streak}</b>`);
+    body.innerHTML = `<div class="wk-summary wk-summary-1">${partes.join(' · ')}</div>
         <div class="wk-list">${rows}</div>`;
 }
 
@@ -10175,7 +10190,7 @@ async function switchView(v, params = {}) {
     if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
     // No perfil o @usuário fica no centro do topo: a busca sai pra não apertar
     const buscaBtn = document.querySelector('.topbar [data-act="go-search"]');
-    if (buscaBtn) buscaBtn.classList.toggle('hidden', v === 'profile');
+    if (buscaBtn) buscaBtn.classList.remove('hidden');
     // Telas de configuração ocupam a tela toda, sem topo nem menu do app
     const telaCheia = ehTelaCheia(v);
     if ((v === 'objetivos' || v === 'jeito-treino') && viewAnterior && viewAnterior !== 'objetivos' && viewAnterior !== 'jeito-treino') {

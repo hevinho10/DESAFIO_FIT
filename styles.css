@@ -2853,3 +2853,11 @@ html.tela-cheia .toast{ bottom:calc(28px + env(safe-area-inset-bottom)) !importa
 .re-linha{ justify-content:center; margin:6px 0 14px; }
 .re-slots{ display:grid !important; grid-template-columns:repeat(2, 1fr); gap:8px; margin:6px 0 16px; }
 .re-slots button{ height:44px; }
+
+/* ================= ONDA 50: lista de treinos ================= */
+.wk-summary-1{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wk-grupo{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint); margin:16px 2px 2px; }
+.wk-list > .wk-grupo:first-child{ margin-top:4px; }
+.wk-ic{ width:38px; height:38px; flex-shrink:0; border-radius:50%; background:var(--vital-dim); color:var(--vital); display:grid; place-items:center; }
+.wk-ic svg{ width:19px; height:19px; }
+.wk-sub{ color:var(--ink-faint); }
