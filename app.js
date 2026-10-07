@@ -3214,10 +3214,11 @@ async function renderMealHistory(uid) {
             ? `<img class="ml-thumb" src="${m.image_url}" loading="lazy">`
             : `<span class="ml-thumb ml-thumb-empty">🍽️</span>`;
         const act = m.image_url ? ` data-act="view-post" data-id="${m.id}"` : '';
+        if (isMe) { state.wkDados = state.wkDados || {}; state.wkDados[m.id] = { ...m, kind: 'meal' }; }
         return `<div class="wk-row${m.image_url ? ' tappable' : ''}"${act}>
             ${thumb}
             <div class="wk-body">
-                <div class="wk-title">${MEAL_SLOT_NAME[m.meal_slot] || 'Refeição'}${!m.in_feed && isMe ? ' <span class="ml-private">🔒</span>' : ''}</div>
+                <div class="wk-title">${MEAL_SLOT_NAME[m.meal_slot] || 'Refeição'}${isMe && m.in_feed ? ' <svg class="wk-feed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="Publicado no feed"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 9h17"/></svg>' : ''}</div>
                 ${m.meal_analysis ? `<div class="wk-sub">${escapeHTML(m.meal_analysis.slice(0, 80))}</div>` : ''}
             </div>
             <div class="ml-side">
@@ -3225,11 +3226,148 @@ async function renderMealHistory(uid) {
                 ${sc == null && isMe && m.image_url && m.meta && m.meta.analise_pendente && Date.now() - new Date(m.created_at) < 7 * 86400000 ? `<button class="btn-mini ml-analisar" data-act="analisar-prato" data-id="${m.id}">Analisar agora</button>` : ''}
                 <span class="wk-date">${dia}</span>
             </div>
+            ${isMe ? `<button class="wk-mais" data-act="wk-menu" data-id="${m.id}" data-tipo="refeicao" aria-label="Opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>` : ''}
         </div>`;
     }).join('');
 
     body.innerHTML = `<div class="wk-summary"><b>${data.length}</b> refeições${media ? ` · nota média <b>${media}</b>` : ''}</div>
         <div class="wk-list">${rows}</div>`;
+}
+
+// ---- Seus treinos e refeições no perfil: detalhes, editar (só hoje) e apagar ----
+const ehDeHoje = iso => isoDe(new Date(iso)) === hojeISO();
+function menuRegistro(btn) {
+    hidePostMenu();
+    const r = (state.wkDados || {})[btn.dataset.id];
+    if (!r) return;
+    const treino = btn.dataset.tipo === 'treino';
+    const ops = [];
+    if (ehDeHoje(r.created_at)) ops.push(`<button class="post-menu-item" data-act="reg-editar" data-id="${r.id}" data-tipo="${btn.dataset.tipo}">${icon('editar')}Editar</button>`);
+    ops.push(`<button class="post-menu-item danger" data-act="reg-apagar" data-id="${r.id}" data-tipo="${btn.dataset.tipo}">${icon('lixo')}Apagar ${treino ? 'treino' : 'refeição'}</button>`);
+    const menu = document.createElement('div');
+    menu.id = 'floatingPostMenu';
+    menu.className = 'post-menu';
+    menu.innerHTML = ops.join('');
+    const rect = btn.getBoundingClientRect();
+    menu.style.position = 'fixed';
+    menu.style.top = Math.min(window.innerHeight - 70 - ops.length * 46, rect.bottom + 4) + 'px';
+    menu.style.right = (window.innerWidth - rect.right) + 'px';
+    menu.style.zIndex = 160;
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+}
+async function apagarRegistro(id, tipo) {
+    const treino = tipo === 'treino';
+    if (!(await confirmar(`Apagar ${treino ? 'este treino' : 'esta refeição'}? Os pontos ${treino ? 'dele' : 'dela'} saem junto.`))) return;
+    const r = (state.wkDados || {})[id] || {};
+    const { error } = await sb.from('posts').delete().eq('id', id).eq('user_id', state.session.user.id);
+    if (error) { toast(msgErro(error), 'err'); return; }
+    if (r.image_url) removeStoredImage(r.image_url);
+    const det = document.getElementById('regDetalhe'); if (det) det.remove();
+    toast(treino ? 'Treino apagado' : 'Refeição apagada', 'ok');
+    loadScore();
+    const aba = document.querySelector('.ig-tab.on');
+    if (aba) aba.click();
+}
+function abrirDetalheTreino(id) {
+    const w = (state.wkDados || {})[id];
+    if (!w) return;
+    const old = document.getElementById('regDetalhe'); if (old) old.remove();
+    const d = new Date(w.created_at);
+    const quando = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }) + ' · ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const ritmo = w.distance_km && w.duration_min ? (() => { const sp = (w.duration_min * 60) / w.distance_km; return `${Math.floor(sp / 60)}'${String(Math.round(sp % 60)).padStart(2, '0')}"/km`; })() : '';
+    const com = (w.meta && Array.isArray(w.meta.com) && w.meta.com.length) ? w.meta.com.map(u => '@' + escapeHTML(u.username || '')).join(', ') : '';
+    const linha = (rot, val) => val ? `<div class="rd-linha"><span>${rot}</span><b>${val}</b></div>` : '';
+    const sheet = document.createElement('div');
+    sheet.id = 'regDetalhe';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <div class="rd-topo"><span class="rd-emo">${WORKOUT_EMOJI[w.activity_type] || '💪'}</span>
+            <div><h3 class="sheet-title" style="margin:0">${escapeHTML(w.activity_type || 'Treino')}</h3><small>${quando.charAt(0).toUpperCase() + quando.slice(1)}</small></div></div>
+        ${w.image_url ? `<img class="rd-foto" src="${w.image_url}" alt="">` : ''}
+        <div class="rd-dados">
+            ${linha('Duração', (w.duration_min || 0) + ' min')}
+            ${linha('Distância', w.distance_km ? br(w.distance_km) + ' km' : '')}
+            ${linha('Ritmo', ritmo)}
+            ${linha('O que treinou', (w.muscle_groups || []).join(', '))}
+            ${linha('Treinou com', com)}
+            ${linha('No feed', w.in_feed ? 'Publicado' : 'Só no seu histórico')}
+        </div>
+        <div class="sheet-footer">
+            <button class="btn-ghost btn-perigo-txt" data-act="reg-apagar" data-id="${w.id}" data-tipo="treino">Apagar</button>
+            ${ehDeHoje(w.created_at) ? `<button class="btn-secondary" data-act="reg-editar" data-id="${w.id}" data-tipo="treino">Editar</button>` : ''}
+            ${w.in_feed ? `<button class="btn-primary" data-act="view-post" data-id="${w.id}">Ver no feed</button>` : ''}
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet || e.target.closest('[data-act="view-post"]')) sheet.remove(); });
+}
+function abrirEditarRegistro(id, tipo) {
+    const r = (state.wkDados || {})[id];
+    if (!r) return;
+    const det = document.getElementById('regDetalhe'); if (det) det.remove();
+    const old = document.getElementById('regEditar'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'regEditar';
+    sheet.className = 'sheet on';
+    if (tipo === 'treino') {
+        let ativ = r.activity_type || 'Musculação', dur = r.duration_min || 45, km = r.distance_km ? Number(r.distance_km) : null;
+        const pintar = () => {
+            const comKm = ATIVIDADES_COM_KM.includes(ativ);
+            const passoKm = (KM_PADRAO[ativ] || [3, 0.5])[1];
+            sheet.innerHTML = `<div class="sheet-card">
+                <div class="sheet-handle"></div>
+                <h3 class="sheet-title">Editar treino</h3>
+                <div class="tr-chips re-chips">${[...$('#wType').options].map(o => o.value).map(t => `<button type="button" class="tr-chip${t === ativ ? ' on' : ''}" data-ativ="${t}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONES_ATIVIDADE[t] || ICONES_ATIVIDADE.Outro}</svg>${NOME_CURTO_ATIV[t] || t}</button>`).join('')}</div>
+                <div class="tr-dur-linha re-linha"><button type="button" class="tr-dur-btn" data-d="-5">−</button><div class="tr-dur-num"><span>${dur}</span><small>min</small></div><button type="button" class="tr-dur-btn" data-d="5">+</button></div>
+                ${comKm ? `<div class="tr-dur-linha re-linha"><button type="button" class="tr-dur-btn" data-k="-1">−</button><div class="tr-km-num"><span>${km ? br(km, km % 1 ? (passoKm < 0.5 ? 2 : 1) : 0) : '–'}</span><small>km</small></div><button type="button" class="tr-dur-btn" data-k="1">+</button></div>` : ''}
+                <div class="sheet-footer"><button class="btn-ghost" data-r="cancelar">Cancelar</button><button class="btn-primary" data-r="salvar">Salvar</button></div>
+            </div>`;
+            const chips = sheet.querySelector('.re-chips'); const ativo = chips.querySelector('.on'); if (ativo) ativo.scrollIntoView({ inline: 'center', block: 'nearest' });
+        };
+        pintar();
+        sheet.addEventListener('click', async e => {
+            if (e.target === sheet) { sheet.remove(); return; }
+            const c = e.target.closest('[data-ativ]'); if (c) { ativ = c.dataset.ativ; if (!ATIVIDADES_COM_KM.includes(ativ)) km = null; pintar(); return; }
+            const bd = e.target.closest('[data-d]'); if (bd) { dur = Math.max(5, Math.min(300, dur + Number(bd.dataset.d))); pintar(); return; }
+            const bk = e.target.closest('[data-k]'); if (bk) { const p = (KM_PADRAO[ativ] || [3, 0.5]); km = km ? Math.max(p[1], Math.round((km + Number(bk.dataset.k) * p[1]) * 100) / 100) : p[0]; pintar(); return; }
+            const b = e.target.closest('[data-r]'); if (!b) return;
+            if (b.dataset.r === 'cancelar') { sheet.remove(); return; }
+            btnCarregando(b, true);
+            const { data: pts, error } = await sb.rpc('editar_treino', { pid: id, atividade: ativ, duracao: dur, distancia: km });
+            if (error) { btnCarregando(b, false); toast(String(error.message || '').includes('treino_repetido') ? 'Já existe um treino igual hoje.' : msgErro(error), 'err'); return; }
+            sheet.remove();
+            toast(`Treino atualizado${pts != null ? ` · ${br(pts, 0)} pts` : ''}`, 'ok');
+            loadScore();
+            const aba = document.querySelector('.ig-tab.on'); if (aba) aba.click();
+        });
+    } else {
+        let slot = r.meal_slot || 'lanche';
+        const pintar = () => {
+            sheet.innerHTML = `<div class="sheet-card">
+                <div class="sheet-handle"></div>
+                <h3 class="sheet-title">Editar refeição</h3>
+                <div class="ref-slots re-slots">${[['cafe', 'Café da manhã'], ['almoco', 'Almoço'], ['jantar', 'Jantar'], ['lanche', 'Lanche']].map(([k, n]) => `<button type="button" class="${k === slot ? 'on' : ''}" data-slot="${k}">${n}</button>`).join('')}</div>
+                <div class="sheet-footer"><button class="btn-ghost" data-r="cancelar">Cancelar</button><button class="btn-primary" data-r="salvar">Salvar</button></div>
+            </div>`;
+        };
+        pintar();
+        sheet.addEventListener('click', async e => {
+            if (e.target === sheet) { sheet.remove(); return; }
+            const c = e.target.closest('[data-slot]'); if (c) { slot = c.dataset.slot; pintar(); return; }
+            const b = e.target.closest('[data-r]'); if (!b) return;
+            if (b.dataset.r === 'cancelar') { sheet.remove(); return; }
+            btnCarregando(b, true);
+            const { error } = await sb.rpc('editar_refeicao', { pid: id, slot });
+            if (error) { btnCarregando(b, false); toast(msgErro(error), 'err'); return; }
+            sheet.remove();
+            toast('Refeição atualizada', 'ok');
+            loadScore();
+            const aba = document.querySelector('.ig-tab.on'); if (aba) aba.click();
+        });
+    }
+    document.body.appendChild(sheet);
 }
 
 // ---- Histórico de treinos no perfil (visível pra quem visita) ----
@@ -3247,7 +3385,7 @@ async function renderWorkoutHistory(uid) {
     const { data: ofensiva } = await sb.from('daily_streaks').select('current_streak, longest_streak').eq('user_id', uid).maybeSingle();
     const ehMeuPerfil = uid === state.session.user.id;
     let qTr = sb.from('posts')
-        .select('id, activity_type, duration_min, distance_km, caption, created_at, image_url, in_feed')
+        .select('id, activity_type, duration_min, distance_km, caption, created_at, image_url, in_feed, muscle_groups, meta, user_id')
         .eq('user_id', uid).eq('kind', 'workout');
     if (!ehMeuPerfil) qTr = qTr.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
     const { data, error } = await qTr.order('created_at', { ascending: false }).limit(60);
@@ -3259,18 +3397,23 @@ async function renderWorkoutHistory(uid) {
     const totalMin = data.reduce((s, w) => s + (w.duration_min || 0), 0);
     const horas = Math.floor(totalMin / 60), mins = totalMin % 60;
 
+    state.wkDados = state.wkDados || {};
+    data.forEach(w => { state.wkDados[w.id] = w; });
     const rows = data.map(w => {
         const d = new Date(w.created_at);
         const dia = d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
         const tipo = w.activity_type || 'Treino';
-        const act = w.in_feed ? ` data-act="view-post" data-id="${w.id}"` : '';
-        return `<div class="wk-row${w.in_feed ? ' tappable' : ''}"${act}>
+        // no seu perfil, tocar abre os detalhes; no dos outros, abre o post
+        const act = ehMeuPerfil ? ` data-act="wk-detalhe" data-id="${w.id}"` : (w.in_feed ? ` data-act="view-post" data-id="${w.id}"` : '');
+        const km = w.distance_km ? ` · ${br(w.distance_km)} km` : '';
+        return `<div class="wk-row tappable"${act}>
             <span class="wk-emo">${WORKOUT_EMOJI[tipo] || '💪'}</span>
             <div class="wk-body">
-                <div class="wk-title">${escapeHTML(tipo)} <b>${w.duration_min || 0} min</b>${w.image_url ? ' <span class="wk-photo">📷</span>' : ''}</div>
+                <div class="wk-title">${escapeHTML(tipo)} <b>${w.duration_min || 0} min</b><span class="wk-km">${km}</span>${ehMeuPerfil && w.in_feed ? ' <svg class="wk-feed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="Publicado no feed"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 9h17"/></svg>' : ''}</div>
                 ${w.caption ? `<div class="wk-sub">${escapeHTML(w.caption.slice(0, 70))}</div>` : ''}
             </div>
             <span class="wk-date">${dia}</span>
+            ${ehMeuPerfil ? `<button class="wk-mais" data-act="wk-menu" data-id="${w.id}" data-tipo="treino" aria-label="Opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>` : ''}
         </div>`;
     }).join('');
 
@@ -10541,6 +10684,18 @@ document.addEventListener('click', async e => {
         const acoes = btn.closest('.nt-acoes');
         if (acoes) acoes.outerHTML = `<span class="nt-sub">${aceitar ? 'Registrado no seu histórico ✓' : 'Você recusou'}</span>`;
         if (aceitar) { toast('Treino registrado pra você também 💪', 'ok'); loadScore(); }
+    } else if (act === 'wk-menu') {
+        e.stopPropagation();
+        menuRegistro(btn);
+    } else if (act === 'wk-detalhe') {
+        if (e.target.closest('.wk-mais')) return;
+        abrirDetalheTreino(btn.dataset.id);
+    } else if (act === 'reg-apagar') {
+        hidePostMenu();
+        apagarRegistro(btn.dataset.id, btn.dataset.tipo);
+    } else if (act === 'reg-editar') {
+        hidePostMenu();
+        abrirEditarRegistro(btn.dataset.id, btn.dataset.tipo);
     } else if (act === 'analisar-prato') {
         e.stopPropagation();
         btnCarregando(btn, true);
