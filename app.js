@@ -7129,64 +7129,51 @@ function dicaDoMais() {
     }, { passive: true });
 })();
 
-// Converte fotos antigas em HEIC (formato do iPhone) pra JPEG, pra abrirem no Android e no computador.
-// Só roda num iPhone (é ele que consegue ler o HEIC), nas fotos da própria pessoa.
-// Leve: se ficou foto pendente, tenta de novo na próxima abertura; se não, confere no máximo 1 vez por dia.
+// Converte fotos em HEIC (formato do iPhone/alguns Android) pra JPEG, pra abrirem no Android e no PC.
+// Roda SÓ no iPhone do admin (é o aparelho que consegue ler o HEIC), em segundo plano, pra fotos de qualquer usuário.
+// Leve: 20s depois de abrir, até 10 fotos por vez; sem pendência, confere no máximo 1 vez por dia.
 async function converterFotosHeic() {
-    if (!state.session || tipoAparelho() !== 'iphone') return;
-    const chave = 'pulso-heic-' + state.session.user.id;
+    if (!state.session || !state.profile || !state.profile.is_admin || tipoAparelho() !== 'iphone') return;
+    const chave = 'pulso-heic-adm-' + state.session.user.id;
     const ultimo = lsGet(chave) || '';
     if (ultimo !== 'pendente' && Date.now() - Number(ultimo || 0) < 86400000) return;
     lsSet(chave, String(Date.now()));
-    let sobrou = false;
-    const uid = state.session.user.id;
-    const ehHeic = u => typeof u === 'string' && /\.(heic|heif)(\?|$)/i.test(u);
-    const converter = async url => {
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error('baixar');
-        const original = await resp.blob();
-        const arquivo = new File([original], 'foto.heic', { type: 'image/heic' });
-        const jpg = await compressImage(arquivo, 1200, 0.82);
-        if (!jpg || jpg === arquivo || jpg.type !== 'image/jpeg') throw new Error('converter');
-        const caminho = `${uid}/${Date.now()}-conv.jpg`;
-        const { error } = await sb.storage.from('post-images').upload(caminho, jpg, { contentType: 'image/jpeg' });
-        if (error) throw error;
-        return sb.storage.from('post-images').getPublicUrl(caminho).data.publicUrl;
-    };
+    const meu = state.session.user.id;
+    let sobrou = false, feitas = 0;
     try {
-        const { data: posts } = await sb.from('posts').select('id, image_url, thumb_url')
-            .eq('user_id', uid).or('image_url.ilike.%.heic,image_url.ilike.%.heif').limit(15);
-        for (const p of posts || []) {
+        const { data: lista, error } = await sb.rpc('admin_fotos_heic');
+        if (error) return;
+        for (const it of lista || []) {
             try {
-                const novo = await converter(p.image_url);
-                const mudanca = { image_url: novo };
-                if (!p.thumb_url || ehHeic(p.thumb_url)) mudanca.thumb_url = novo;
-                await sb.from('posts').update(mudanca).eq('id', p.id).eq('user_id', uid);
-                removeStoredImage(p.image_url);
+                const resp = await fetch(it.image_url);
+                if (!resp.ok) throw new Error('baixar');
+                const original = await resp.blob();
+                const arquivo = new File([original], 'foto.heic', { type: 'image/heic' });
+                const jpg = await compressImage(arquivo, 1200, 0.82);
+                if (!jpg || jpg === arquivo || jpg.type !== 'image/jpeg') throw new Error('converter');
+                const caminho = `${meu}/conv-${Date.now()}-${feitas}.jpg`;
+                const { error: eUp } = await sb.storage.from('post-images').upload(caminho, jpg, { contentType: 'image/jpeg' });
+                if (eUp) throw eUp;
+                const novo = sb.storage.from('post-images').getPublicUrl(caminho).data.publicUrl;
+                const { error: eTr } = await sb.rpc('admin_trocar_foto_heic', { tabela: it.tabela, rid: it.id, antigo: it.image_url, novo });
+                if (eTr) throw eTr;
+                feitas++;
             } catch (_) { sobrou = true; }
         }
-        const { data: sts } = await sb.from('stories').select('id, image_url')
-            .eq('user_id', uid).or('image_url.ilike.%.heic,image_url.ilike.%.heif').limit(10);
-        for (const st of sts || []) {
-            try {
-                const novo = await converter(st.image_url);
-                await sb.from('stories').update({ image_url: novo }).eq('id', st.id).eq('user_id', uid);
-                await sb.from('story_highlight_items').update({ image_url: novo }).eq('image_url', st.image_url);
-            } catch (_) { sobrou = true; }
-        }
-        if ((posts || []).length >= 15) sobrou = true;
+        if ((lista || []).length >= 10) sobrou = true;
     } catch (_) { sobrou = true; }
     if (sobrou) lsSet(chave, 'pendente');
+    if (feitas) toast(`${feitas} ${feitas === 1 ? 'foto de usuário foi ajustada' : 'fotos de usuários foram ajustadas'} pra abrir em todos os aparelhos`, 'ok');
 }
-// Foto que o aparelho não consegue abrir (ex: formato do iPhone no Android/PC): quadro discreto no lugar do ícone quebrado
+// Foto que o aparelho não consegue abrir (ex: formato do iPhone no Android/PC): some sem deixar ícone quebrado
 document.addEventListener('error', e => {
     const img = e.target;
     if (!img || img.tagName !== 'IMG' || img.dataset.semFoto) return;
     img.dataset.semFoto = '1';
-    const ph = document.createElement('div');
-    ph.className = 'foto-indisp' + (img.classList.length ? ' ' + [...img.classList].join(' ') : '');
-    ph.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></svg><span>Foto indisponível neste aparelho</span>';
-    if (img.parentNode) img.parentNode.replaceChild(ph, img);
+    img.style.display = 'none';
+    // miniatura na grade do perfil: esconde o quadrinho inteiro
+    const caixa = img.closest('.grid-item');
+    if (caixa) caixa.style.display = 'none';
 }, true);
 
 // ---- Refeições com análise pendente (a IA falhou na hora): tenta de novo ----
