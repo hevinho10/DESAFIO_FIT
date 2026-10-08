@@ -1755,7 +1755,12 @@ async function hydrateLembretes() {
         if ((w.pct || 0) < 100) {
             faltas.push({ emo: '💧', txt: `Beber água: ${formatLitros(w.total_ml)} de ${formatLitros(w.goal_ml)}`, kind: 'water' });
         }
-        if (!treinos) faltas.push({ emo: '💪', txt: 'Você ainda não registrou treino hoje', kind: 'workout' });
+        if (!treinos) {
+            await carregarHistSemana().catch(() => {});
+            const h = planoDeHoje();
+            faltas.push(h ? { emo: WORKOUT_EMOJI[h.a] || '💪', txt: `Hoje é dia de ${textoItemSemana(h)}`, kind: 'workout' }
+                          : { emo: '💪', txt: 'Você ainda não registrou treino hoje', kind: 'workout' });
+        }
         const ontemISO = new Date(Date.now() - 86400000).toISOString().split('T')[0];
         const { data: sonoOntem } = await sb.from('sleep_logs')
             .select('hours').eq('user_id', uid).eq('slept_on', ontemISO).maybeSingle();
@@ -4502,12 +4507,16 @@ async function renderFeed() {
         if (!storiesByUser[uid]) storiesByUser[uid] = { user: autor, items: [] };
         storiesByUser[uid].items.push(s);
     });
-    // Ordena: meus primeiro, resto por mais recente
+    // Dentro de cada pessoa: do mais antigo pro mais novo (igual ao Instagram)
+    Object.values(storiesByUser).forEach(g => g.items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
+    await carregarVistosStory((stories || []).map(s => s.id));
+    // Ordena: meus primeiro, depois quem tem story não visto (mais recente antes), e os já vistos no fim
     const mine = storiesByUser[state.session.user.id];
+    const recente = g => new Date(g.items[g.items.length - 1].created_at);
     const others = Object.entries(storiesByUser)
         .filter(([uid]) => uid !== state.session.user.id)
         .map(([, v]) => v)
-        .sort((a, b) => new Date(b.items[0].created_at) - new Date(a.items[0].created_at));
+        .sort((a, b) => (grupoVisto(a) - grupoVisto(b)) || (recente(b) - recente(a)));
     const storiesOrdered = mine ? [mine, ...others] : others;
     state.storiesData = storiesOrdered;
 
@@ -4515,7 +4524,7 @@ async function renderFeed() {
     let storiesHTML = '<div class="stories-bar">';
     // Meu botão de adicionar story sempre presente
     storiesHTML += `<div class="story-item" data-add-story="1">
-        <div class="story-avatar mine">
+        <div class="story-avatar mine${mine && grupoVisto(mine) ? ' seen' : ''}">
             <div class="story-avatar-in">${avatarHTML(state.profile, 'md').replace('avatar-md','avatar')}</div>
             <span class="story-plus">+</span>
         </div>
@@ -4524,7 +4533,7 @@ async function renderFeed() {
     storiesOrdered.forEach((group, i) => {
         if (group === mine) return;  // já ficou embutido no botão de cima quando eu tenho meus stories, mostro os outros aqui
         storiesHTML += `<div class="story-item" data-story-idx="${i}">
-            <div class="story-avatar">
+            <div class="story-avatar${grupoVisto(group) ? ' seen' : ''}">
                 <div class="story-avatar-in">${avatarHTML(group.user, 'md').replace('avatar-md','avatar')}</div>
             </div>
             <span class="story-name">${escapeHTML(group.user.display_name || group.user.username)}</span>
@@ -5049,6 +5058,8 @@ function perfilTreinoTexto(p) {
     if (Array.isArray(p.train_equipment) && p.train_equipment.length) L.push(`Equipamento em casa: ${p.train_equipment.join(', ')}`);
     if (p.train_limits) L.push(`Limitações: ${p.train_limits}`);
     L.push(`Meta: ${p.weekly_goal || 3} treinos por semana`);
+    const st = semanaTexto();
+    if (st) L.push(`Semana de costume (o que faz em cada dia): ${st}`);
     return L.join('\n');
 }
 function lacunasTexto(l) {
@@ -5082,6 +5093,7 @@ HISTÓRICO REAL (calculado pelo app):
 ${lacunasTexto(l)}
 
 COMO DECIDIR:
+- ${(() => { const h = planoDeHoje(); return h ? `HOJE ela costuma fazer: ${textoItemSemana(h)}. O treino do dia é ISSO; se for um esporte (ex: futebol), o "treino" é o próprio jogo, e você sugere só aquecimento e recuperação curtos em volta.` : 'Hoje não é dia de treino no costume dela: sugira algo leve ou descanso ativo, a não ser que a semana esteja atrasada.'; })()}
 - Use o que a pessoa gosta como base, mas encaixe o que está faltando no jeito mais próximo do gosto dela. Ex: quem gosta de correr e está sem força recebe força pensada pra corredor; quem só treina pernas recebe superior.
 - Referência de equilíbrio: força pelo menos 2x por semana, todos os grupos musculares ao longo da semana, cardio regular.
 - ${leve ? 'HOJE É DIA LEVE: sequência longa, sono curto ou esforço alto recente. Sugira mobilidade, alongamento ou cardio bem leve, curto.' : 'Pode ser um treino normal, na duração que a pessoa tem disponível.'}
@@ -5141,6 +5153,7 @@ async function obterPlanoSemana(forcar = false) {
 PERFIL:
 ${perfilTreinoTexto(p)}
 Dias disponíveis: ${(p.train_days || []).length ? p.train_days.map(n => NOME_DIA[n]).join(', ') : 'não informou, distribua bem'}
+${semanaTexto() ? `RESPEITE A SEMANA DE COSTUME: nos dias em que ela já faz algo (ex: futebol no sábado), mantenha exatamente essa atividade naquele dia. Só preencha os outros dias.` : ''}
 
 HISTÓRICO REAL:
 ${lacunasTexto(l)}
@@ -5254,6 +5267,7 @@ async function hydrateIAEvolucao() {
     }
     slot.innerHTML = '<div class="chart-card ia-card ia-carregando"><div class="spinner"></div><span>O coach está montando seu dia...</span></div>';
     try {
+        await carregarHistSemana().catch(() => {});
         const l = await calcularLacunas();
         // treinos de hoje (00:00 às 23:59 do Brasil)
         const ini0 = new Date(); ini0.setHours(0, 0, 0, 0);
@@ -6428,7 +6442,163 @@ function renderObjetivos() {
     });
 }
 
-function renderJeitoTreino() {
+// ============================================================
+// SUA SEMANA: o que a pessoa costuma fazer em cada dia
+// train_week = { "1": [{a:"Musculação", g:["Peito","Tríceps"]}], "6": [{a:"Futebol"}] }  (chave = dia, 0 = domingo)
+// Começa com o que a pessoa contou e aprende com os registros (3 das últimas 4 semanas)
+// ============================================================
+const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+const DIA_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const GRUPOS_TREINO = ['Peito', 'Costas', 'Ombros', 'Bíceps', 'Tríceps', 'Abdômen', 'Lombar', 'Glúteos', 'Quadríceps', 'Posterior', 'Panturrilha', 'Corpo todo'];
+const diaLocal = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+async function carregarHistSemana(forcar = false) {
+    if (!state.session) return [];
+    if (state.semanaHist && !forcar && Date.now() - state.semanaHist.em < 10 * 60000) return state.semanaHist.lista;
+    const desde = new Date(Date.now() - 49 * 86400000).toISOString();
+    const [{ data }, { data: antigo }] = await Promise.all([
+        sb.from('posts').select('activity_type, muscle_groups, duration_min, created_at')
+            .eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', desde)
+            .order('created_at', { ascending: false }).limit(200),
+        sb.from('posts').select('created_at').eq('user_id', state.session.user.id).eq('kind', 'workout')
+            .order('created_at', { ascending: true }).limit(1),
+    ]);
+    state.semanaHist = { em: Date.now(), lista: data || [], desde: antigo && antigo[0] ? new Date(antigo[0].created_at) : null };
+    return state.semanaHist.lista;
+}
+// As últimas n datas que caíram nesse dia da semana (hoje só conta se já tem treino hoje)
+function ultimasOcorrencias(dia, n, lista) {
+    const hoje = diaLocal(new Date());
+    const treinouHoje = lista.some(w => diaLocal(w.created_at).getTime() === hoje.getTime());
+    const datas = [];
+    const x = new Date(hoje);
+    if (x.getDay() === dia && !treinouHoje) x.setDate(x.getDate() - 7);
+    else x.setDate(x.getDate() - ((x.getDay() - dia + 7) % 7));
+    while (datas.length < n) { datas.push(new Date(x)); x.setDate(x.getDate() - 7); }
+    return datas;
+}
+// O que o histórico mostra pra cada dia: atividade feita em pelo menos `minimo` das últimas `janela` semanas
+function aprenderDoHistorico(lista, janela = 4, minimo = 3) {
+    const res = {};
+    for (let dia = 0; dia < 7; dia++) {
+        const datas = ultimasOcorrencias(dia, janela, lista).map(d => d.getTime());
+        const porAtiv = {};
+        lista.forEach(w => {
+            const t = diaLocal(w.created_at).getTime();
+            const k = datas.indexOf(t);
+            if (k < 0 || !w.activity_type) return;
+            const r = porAtiv[w.activity_type] = porAtiv[w.activity_type] || { semanas: new Set(), grupos: {} };
+            r.semanas.add(k);
+            (w.muscle_groups || []).forEach(g => { r.grupos[g] = (r.grupos[g] || 0) + 1; });
+        });
+        const itens = Object.entries(porAtiv).filter(([, r]) => r.semanas.size >= minimo)
+            .sort((a, b) => b[1].semanas.size - a[1].semanas.size)
+            .map(([a, r]) => {
+                const g = Object.entries(r.grupos).filter(([, n]) => n >= 2).sort((x, y) => y[1] - x[1]).map(([nome]) => nome);
+                return g.length && a === 'Musculação' ? { a, g } : { a };
+            });
+        if (itens.length) res[dia] = itens;
+    }
+    return res;
+}
+// Atividade combinada que não acontece há 4 semanas (com histórico suficiente): perde força
+function combinadoFraco(dia, ativ, lista) {
+    const hist = state.semanaHist;
+    if (!hist || !hist.desde || Date.now() - hist.desde < 28 * 86400000) return false;
+    const datas = ultimasOcorrencias(dia, 4, lista).map(d => d.getTime());
+    return !lista.some(w => w.activity_type === ativ && datas.includes(diaLocal(w.created_at).getTime()));
+}
+function semanaCombinada() {
+    const tw = state.profile && state.profile.train_week;
+    return tw && typeof tw === 'object' ? tw : null;
+}
+// A semana que vale pras sugestões: aprendido primeiro, depois o combinado que não perdeu força
+function semanaEfetiva() {
+    const lista = (state.semanaHist && state.semanaHist.lista) || [];
+    const aprendido = aprenderDoHistorico(lista);
+    const comb = semanaCombinada() || {};
+    const res = {};
+    for (let dia = 0; dia < 7; dia++) {
+        const itens = [];
+        (aprendido[dia] || []).forEach(x => {
+            const c = (comb[dia] || []).find(y => y.a === x.a);
+            itens.push({ a: x.a, g: (x.g && x.g.length) ? x.g : (c && c.g) || [], aprendido: !c });
+        });
+        (comb[dia] || []).forEach(c => {
+            if (itens.some(x => x.a === c.a)) return;
+            if (combinadoFraco(dia, c.a, lista)) return;
+            itens.push({ a: c.a, g: c.g || [] });
+        });
+        res[dia] = itens;
+    }
+    return res;
+}
+function textoItemSemana(x) { return x.a + (x.a === 'Musculação' && x.g && x.g.length ? ' · ' + x.g.join(', ') : ''); }
+function semanaTexto() {
+    const ef = semanaEfetiva();
+    const linhas = ORDEM_SEMANA.map(d => `${NOME_DIA[d]}: ${(ef[d] || []).length ? ef[d].map(textoItemSemana).join(' + ') : 'descanso'}`);
+    return ORDEM_SEMANA.some(d => (ef[d] || []).length) ? linhas.join('; ') : '';
+}
+function planoDeHoje() { return (semanaEfetiva()[new Date().getDay()] || [])[0] || null; }
+// Monta a semana a partir do histórico (quem já usa o app e nunca preencheu)
+function semanaDoHistorico() {
+    const lista = (state.semanaHist && state.semanaHist.lista) || [];
+    const a = aprenderDoHistorico(lista, 6, 2);
+    const out = {};
+    Object.entries(a).forEach(([d, itens]) => { out[d] = itens.map(x => ({ a: x.a, g: x.g || [] })); });
+    return out;
+}
+
+// Folha pra escolher o que faz num dia
+function abrirEditorDiaSemana(dia, itensAtuais, aoSalvar, gostos = []) {
+    const old = document.getElementById('diaSemanaSheet'); if (old) old.remove();
+    let itens = (itensAtuais || []).map(x => ({ a: x.a, g: [...(x.g || [])] }));
+    const ativs = [...new Set([...(gostos || []), ...MODALIDADES])];
+    const sheet = document.createElement('div');
+    sheet.id = 'diaSemanaSheet';
+    sheet.className = 'sheet on dia-semana-sheet';
+    const pintar = () => {
+        const musc = itens.find(x => x.a === 'Musculação');
+        sheet.innerHTML = `<div class="sheet-card">
+            <div class="sheet-handle"></div>
+            <h3 class="sheet-title">${NOME_DIA[dia].charAt(0).toUpperCase() + NOME_DIA[dia].slice(1)}</h3>
+            <p class="sheet-sub">O que você costuma fazer nesse dia? Pode marcar mais de um.</p>
+            <div class="chip-row ds-ativs">
+                <button type="button" class="chip${!itens.length ? ' on' : ''}" data-ds-descanso="1">Descanso</button>
+                ${ativs.map(a => `<button type="button" class="chip${itens.some(x => x.a === a) ? ' on' : ''}" data-ds-ativ="${a}">${a}</button>`).join('')}
+            </div>
+            ${musc ? `<div class="obj-rotulo ds-rot">Musculação: o que você treina nesse dia?</div>
+            <div class="chip-row musc-grade">${GRUPOS_TREINO.map(g => `<button type="button" class="chip${musc.g.includes(g) ? ' on' : ''}" data-ds-grupo="${g}">${g}</button>`).join('')}</div>` : ''}
+            <div class="sheet-footer"><button class="btn-ghost" data-ds="cancelar">Cancelar</button><button class="btn-primary" data-ds="ok">Pronto</button></div>
+        </div>`;
+    };
+    pintar();
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => {
+        if (e.target === sheet) { sheet.remove(); return; }
+        const d = e.target.closest('[data-ds-descanso]'); if (d) { itens = []; pintar(); return; }
+        const a = e.target.closest('[data-ds-ativ]');
+        if (a) { const n = a.dataset.dsAtiv; itens = itens.some(x => x.a === n) ? itens.filter(x => x.a !== n) : [...itens, { a: n, g: [] }]; pintar(); return; }
+        const g = e.target.closest('[data-ds-grupo]');
+        if (g) { const m = itens.find(x => x.a === 'Musculação'); const n = g.dataset.dsGrupo; m.g = m.g.includes(n) ? m.g.filter(x => x !== n) : [...m.g, n]; pintar(); return; }
+        const b = e.target.closest('[data-ds]'); if (!b) return;
+        if (b.dataset.ds === 'ok') aoSalvar(itens);
+        sheet.remove();
+    });
+}
+function linhasSemanaHTML(semana, aprendidos = {}) {
+    return ORDEM_SEMANA.map(d => {
+        const itens = semana[d] || [];
+        const ap = (aprendidos[d] || []).length;
+        return `<button type="button" class="sem-linha" data-sem-dia="${d}">
+            <span class="sem-dia">${DIA_CURTO[d]}</span>
+            <span class="sem-txt${itens.length ? '' : ' descanso'}">${itens.length ? itens.map(x => escapeHTML(textoItemSemana(x))).join(' + ') : 'Descanso'}${ap ? '<small class="sem-aprendido">aprendido com seus treinos</small>' : ''}</span>
+            <span class="sem-seta">›</span>
+        </button>`;
+    }).join('');
+}
+
+async function renderJeitoTreino() {
+    await carregarHistSemana().catch(() => {});
     const p = state.profile;
     const locais = Array.isArray(p.training_place) ? p.training_place : [];
     telaEditavel({
@@ -6463,8 +6633,9 @@ function renderJeitoTreino() {
                 <input type="text" id="objEvita" class="obj-input" maxlength="160" placeholder="ex: burpee, esteira, treino muito longo" value="${escapeHTML(p.train_avoid || '')}">
             </div>
             <div class="obj-bloco">
-                <div class="obj-rotulo">Dias que você consegue treinar</div>
-                <div class="obj-dias">${DIAS_SEMANA.map(([n, sigla]) => `<button type="button" class="obj-dia${(p.train_days || []).includes(n) ? ' on' : ''}" data-obj-dia-sem="${n}">${sigla}</button>`).join('')}</div>
+                <div class="obj-rotulo">Sua semana</div>
+                <p class="field-hint" style="margin-top:-2px">O que você costuma fazer em cada dia. O app usa isso pra sugerir o treino certo no dia certo, e vai se ajustando com o que você registra.</p>
+                <div class="sem-lista" id="semLista"></div>
             </div>
             <div class="obj-bloco">
                 <div class="obj-rotulo">Tempo por treino</div>
@@ -6480,12 +6651,39 @@ function renderJeitoTreino() {
                 <p class="field-hint">Só você vê. O coach evita exercícios de risco e, se houver dor, recomenda um profissional.</p>
             </div>`,
         aoMontar: c => {
+            // semana de partida: o que a pessoa salvou, ou montada do histórico; mais o que o app aprendeu
+            const lista = (state.semanaHist && state.semanaHist.lista) || [];
+            const base = JSON.parse(JSON.stringify(semanaCombinada() || semanaDoHistorico()));
+            const aprendidos = {};
+            Object.entries(aprenderDoHistorico(lista)).forEach(([d, itens]) => {
+                itens.forEach(x => {
+                    const dia = base[d] = base[d] || [];
+                    const ja = dia.find(y => y.a === x.a);
+                    if (!ja) { dia.unshift({ a: x.a, g: x.g || [] }); (aprendidos[d] = aprendidos[d] || []).push(x.a); }
+                    else if (x.g && x.g.length && !(ja.g || []).length) ja.g = x.g;
+                });
+            });
+            const box = c.querySelector('#semLista');
+            box.dataset.semana = JSON.stringify(base);
+            const pintar = () => { box.innerHTML = linhasSemanaHTML(JSON.parse(box.dataset.semana), aprendidos); };
+            pintar();
+            box.addEventListener('click', e => {
+                const l = e.target.closest('[data-sem-dia]'); if (!l) return;
+                const d = l.dataset.semDia;
+                const atual = JSON.parse(box.dataset.semana);
+                const gostos = [...c.querySelectorAll('[data-obj-gosto].on')].map(x => x.dataset.objGosto);
+                abrirEditorDiaSemana(Number(d), atual[d] || [], itens => {
+                    atual[d] = itens; delete aprendidos[d];
+                    box.dataset.semana = JSON.stringify(atual);
+                    pintar();
+                    c.querySelector('.tela-editavel').dispatchEvent(new Event('change'));
+                }, gostos);
+            });
             ligarEscolhas(c, '[data-obj-dias]', false);
             ligarEscolhas(c, '[data-obj-nivel]', false);
             ligarEscolhas(c, '[data-obj-min]', false);
             ligarEscolhas(c, '[data-obj-local]', true);
             ligarEscolhas(c, '[data-obj-gosto]', true);
-            ligarEscolhas(c, '[data-obj-dia-sem]', true);
             ligarEscolhas(c, '[data-obj-equip]', true);
         },
         coletar: c => {
@@ -6497,7 +6695,8 @@ function renderJeitoTreino() {
                 training_place: varios('[data-obj-local]', 'objLocal'),
                 train_likes: varios('[data-obj-gosto]', 'objGosto'),
                 train_avoid: (document.getElementById('objEvita').value || '').trim() || null,
-                train_days: varios('[data-obj-dia-sem]', 'objDiaSem', Number),
+                train_week: (() => { const w = JSON.parse(c.querySelector('#semLista').dataset.semana || '{}'); const o = {}; Object.entries(w).forEach(([d, it]) => { if ((it || []).length) o[d] = it.map(x => x.a === 'Musculação' && (x.g || []).length ? { a: x.a, g: x.g } : { a: x.a }); }); return o; })(),
+                train_days: (() => { const w = JSON.parse(c.querySelector('#semLista').dataset.semana || '{}'); return Object.keys(w).filter(d => (w[d] || []).length).map(Number).sort(); })(),
                 train_minutes: um('[data-obj-min]', 'objMin', Number),
                 train_equipment: varios('[data-obj-equip]', 'objEquip'),
                 train_limits: (document.getElementById('objLimites').value || '').trim() || null,
@@ -6855,13 +7054,14 @@ async function carregarSugestoes(lim = 8) {
     return data || [];
 }
 
-const ONB_PASSOS = ['objetivo', 'treino', 'pessoas', 'desafios'];
+const ONB_PASSOS = ['objetivo', 'treino', 'semana', 'pessoas', 'desafios'];
 async function abrirPrimeirosPassos(passo = 0) {
     let tela = document.getElementById('onbTela');
     if (!tela) { tela = document.createElement('div'); tela.id = 'onbTela'; tela.className = 'onb'; document.body.appendChild(tela); }
     document.body.style.overflow = 'hidden';
     const p = state.profile;
-    state.onb = state.onb || { goal: p.goal || null, likes: new Set(p.train_likes || []), semana: p.weekly_goal || 3 };
+    if (!state.onb) await carregarHistSemana().catch(() => {});
+    state.onb = state.onb || { goal: p.goal || null, likes: new Set(p.train_likes || []), semana: p.weekly_goal || 3, dias: JSON.parse(JSON.stringify(semanaCombinada() || semanaDoHistorico())) };
     const o = state.onb;
     const pontos = ONB_PASSOS.map((_, k) => `<i class="${k <= passo ? 'on' : ''}"></i>`).join('');
     const topo = `<div class="onb-topo"><div class="onb-pontos">${pontos}</div><button class="onb-pular" data-onb="pular">Pular</button></div>`;
@@ -6878,6 +7078,11 @@ async function abrirPrimeirosPassos(passo = 0) {
             <div class="chip-row onb-likes">${MODALIDADES.map(m => `<button type="button" class="chip${o.likes.has(m) ? ' on' : ''}" data-onb-like="${m}">${m}</button>`).join('')}</div>
             <div class="onb-sub">Quantos treinos por semana?</div>
             <div class="obj-dias">${[1, 2, 3, 4, 5, 6, 7].map(n => `<button type="button" class="obj-dia${o.semana === n ? ' on' : ''}" data-onb-semana="${n}">${n}</button>`).join('')}</div>
+            ${rodape()}`;
+    } else if (ONB_PASSOS[passo] === 'semana') {
+        corpo = `<h2>Como é a sua semana?</h2>
+            <p>Toque em cada dia e conte o que você costuma fazer. Assim o app sugere o treino certo no dia certo. Dá pra mudar quando quiser.</p>
+            <div class="sem-lista onb-semana">${linhasSemanaHTML(o.dias || {})}</div>
             ${rodape()}`;
     } else if (ONB_PASSOS[passo] === 'pessoas') {
         corpo = `<h2>Treinar junto é mais fácil</h2>
@@ -6913,6 +7118,11 @@ async function concluirPrimeirosPassos() {
     if (o.goal) dados.goal = o.goal;
     if (o.likes && o.likes.size) dados.train_likes = [...o.likes];
     if (o.semana) dados.weekly_goal = o.semana;
+    if (o.dias && Object.values(o.dias).some(x => (x || []).length)) {
+        dados.train_week = {};
+        Object.entries(o.dias).forEach(([d, it]) => { if ((it || []).length) dados.train_week[d] = it.map(x => x.a === 'Musculação' && (x.g || []).length ? { a: x.a, g: x.g } : { a: x.a }); });
+        dados.train_days = Object.keys(dados.train_week).map(Number).sort();
+    }
     await sb.from('profiles').update(dados).eq('id', state.session.user.id);
     Object.assign(state.profile, dados);
     state.coachContext = null;
@@ -6930,6 +7140,15 @@ document.addEventListener('click', async e => {
     if (g) { o.goal = g.dataset.onbGoal; abrirPrimeirosPassos(0); return; }
     const l = e.target.closest('[data-onb-like]');
     if (l) { o.likes.has(l.dataset.onbLike) ? o.likes.delete(l.dataset.onbLike) : o.likes.add(l.dataset.onbLike); l.classList.toggle('on'); return; }
+    const sd = e.target.closest('[data-sem-dia]');
+    if (sd) {
+        const d = sd.dataset.semDia;
+        abrirEditorDiaSemana(Number(d), (o.dias || {})[d] || [], itens => {
+            o.dias = o.dias || {}; o.dias[d] = itens;
+            const box = tela.querySelector('.onb-semana'); if (box) box.innerHTML = linhasSemanaHTML(o.dias);
+        }, [...o.likes]);
+        return;
+    }
     const sm = e.target.closest('[data-onb-semana]');
     if (sm) { o.semana = Number(sm.dataset.onbSemana); tela.querySelectorAll('[data-onb-semana]').forEach(x => x.classList.toggle('on', x === sm)); return; }
     const b = e.target.closest('[data-onb]');
@@ -8858,15 +9077,17 @@ async function renderProfile() {
     const metasHTML = await montarCardMetas(goal);
 
     const meusDestaques = await carregarDestaques(state.session.user.id);
-    const { count: myStoryCount } = await sb.from('stories')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', state.session.user.id)
+    const { data: meusStoriesAtivos } = await sb.from('stories')
+        .select('id').eq('user_id', state.session.user.id)
         .gt('expires_at', new Date().toISOString());
+    const myStoryCount = (meusStoriesAtivos || []).length;
+    const meusIdsStory = (meusStoriesAtivos || []).map(x => x.id);
+    const meuVisto = myStoryCount > 0 && meusIdsStory.every(id => vistosStory().has(id));
 
     c.innerHTML = `
         <div class="view">
             <div class="ig-profile-head">
-                <button class="ig-avatar-btn${myStoryCount ? ' has-story' : ''}" data-act="open-user-stories" data-uid="${state.session.user.id}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
+                <button class="ig-avatar-btn${myStoryCount ? ' has-story' : ''}${meuVisto ? ' visto' : ''}" data-act="open-user-stories" data-uid="${state.session.user.id}" data-story-ids="${meusIdsStory.join(',')}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
                 <div class="ig-profile-stats">
                     <div class="ig-stat"><span class="v">${postCount || 0}</span><span class="l">Posts</span></div>
                     <div class="ig-stat tappable" data-act="open-follow-list" data-type="followers" data-uid="${state.session.user.id}"><span class="v">${followersCount || 0}</span><span class="l">Seguidores</span></div>
@@ -9949,10 +10170,13 @@ async function renderUserProfile(uid) {
 
     const { data: mostraBadges } = await sb.rpc('profile_shows_badges', { alvo: uid });
 
-    const { count: theirStoryCount } = await sb.from('stories')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', uid)
+    const { data: delesStoriesAtivos } = await sb.from('stories')
+        .select('id').eq('user_id', uid)
         .gt('expires_at', new Date().toISOString());
+    const theirStoryCount = (delesStoriesAtivos || []).length;
+    const delesIdsStory = (delesStoriesAtivos || []).map(x => x.id);
+    await carregarVistosStory(delesIdsStory);
+    const delesVisto = theirStoryCount > 0 && delesIdsStory.every(id => vistosStory().has(id));
 
     c.innerHTML = `
         <div class="view">
@@ -9962,7 +10186,7 @@ async function renderUserProfile(uid) {
                 <div style="width:28px"></div>
             </div>
             <div class="ig-profile-head">
-                <button class="ig-avatar-btn${theirStoryCount ? ' has-story' : ''}" data-act="open-user-stories" data-uid="${uid}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
+                <button class="ig-avatar-btn${theirStoryCount ? ' has-story' : ''}${delesVisto ? ' visto' : ''}" data-act="open-user-stories" data-uid="${uid}" data-story-ids="${delesIdsStory.join(',')}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
                 <div class="ig-profile-stats">
                     <div class="ig-stat"><span class="v">${postCount || 0}</span><span class="l">Posts</span></div>
                     <div class="ig-stat tappable" data-act="open-follow-list" data-type="followers" data-uid="${uid}"><span class="v">${followersRes.count || 0}</span><span class="l">Seguidores</span></div>
@@ -12289,12 +12513,50 @@ $('#scPublish').addEventListener('click', async () => {
 });
 
 
+// ---- Stories vistos: círculo cinza quando você já viu tudo daquela pessoa ----
+function vistosStory() {
+    if (!state.storyVistos) {
+        let arr = [];
+        try { arr = JSON.parse(localStorage.getItem('pulso-st-vistos-' + state.session.user.id) || '[]'); } catch (_) {}
+        state.storyVistos = new Set(arr);
+    }
+    return state.storyVistos;
+}
+function salvarVistosStory() {
+    try { localStorage.setItem('pulso-st-vistos-' + state.session.user.id, JSON.stringify([...vistosStory()].slice(-400))); } catch (_) {}
+}
+function marcarStoryVisto(id) {
+    const v = vistosStory();
+    if (v.has(id)) return;
+    v.add(id); salvarVistosStory();
+}
+async function carregarVistosStory(ids) {
+    if (!ids.length) return;
+    try {
+        const { data, error } = await sb.rpc('stories_vistos', { ids });
+        if (!error && Array.isArray(data)) { const v = vistosStory(); data.forEach(r => v.add(typeof r === 'string' ? r : (r.stories_vistos || r.id))); salvarVistosStory(); }
+    } catch (_) {}
+}
+const grupoVisto = g => !!g && !g.destaque && g.items.length > 0 && g.items.every(i => vistosStory().has(i.id));
+const primeiroNaoVisto = g => { if (!g || g.destaque) return 0; const k = g.items.findIndex(i => !vistosStory().has(i.id)); return k < 0 ? 0 : k; };
+// Atualiza os círculos na hora, sem recarregar a tela
+function atualizarAneisStory() {
+    (state.storiesData || []).forEach((g, i) => {
+        const el = document.querySelector(`.stories-bar [data-story-idx="${i}"] .story-avatar`);
+        if (el) el.classList.toggle('seen', grupoVisto(g));
+    });
+    document.querySelectorAll('.ig-avatar-btn.has-story[data-story-ids]').forEach(b => {
+        const ids = (b.dataset.storyIds || '').split(',').filter(Boolean);
+        b.classList.toggle('visto', ids.length > 0 && ids.every(id => vistosStory().has(id)));
+    });
+}
+
 // ============================================================
 // STORY VIEWER
 // ============================================================
 async function openStoryViewer(groupIdx) {
     state.storyIdx = groupIdx;
-    state.storyItemIdx = 0;
+    state.storyItemIdx = primeiroNaoVisto((state.storiesData || [])[groupIdx]);
     $('#storyViewer').classList.add('on');
     document.body.style.overflow = 'hidden';
     showCurrentStory();
@@ -12302,6 +12564,7 @@ async function openStoryViewer(groupIdx) {
 
 function closeStoryViewer() {
     state.storyCurtidosVistos = {};
+    setTimeout(atualizarAneisStory, 0);
     $('#storyViewer').classList.remove('on', 'paused');
     setTimeout(sincronizarModoTela, 0);
     state.storyAtual = null;
@@ -12316,7 +12579,7 @@ function showCurrentStory() {
     if (!item) {
         // avança pro próximo grupo
         state.storyIdx++;
-        state.storyItemIdx = 0;
+        state.storyItemIdx = primeiroNaoVisto(state.storiesData[state.storyIdx]);
         if (state.storyIdx >= state.storiesData.length) { closeStoryViewer(); return; }
         showCurrentStory();
         return;
@@ -12469,6 +12732,7 @@ function showCurrentStory() {
     }
 
     // Marca como visto (story e destaque contam separado)
+    if (!ehDestaque) marcarStoryVisto(item.id);
     if (group.user.id !== state.session.user.id) {
         if (ehDestaque) sb.rpc('registrar_view_destaque', { iid: item.id }).then(() => {});
         else sb.from('story_views').insert({ story_id: item.id, viewer_id: state.session.user.id }).then(() => {});
@@ -12943,7 +13207,7 @@ function advanceStory(dir) {
         state.storyItemIdx++;
         if (state.storyItemIdx >= group.items.length) {
             state.storyIdx++;
-            state.storyItemIdx = 0;
+            state.storyItemIdx = primeiroNaoVisto(state.storiesData[state.storyIdx]);
             if (state.storyIdx >= state.storiesData.length) { closeStoryViewer(); return; }
         }
     } else {
@@ -13012,6 +13276,7 @@ function limparComposer() {
     $('#wDistance').value = '';
     $$('#wMuscles .chip').forEach(x => x.classList.remove('on'));
     state.treinoCom = []; pintarTreinoCom();
+    state.treinoSugerir = true;
 }
 
 // + central: primeiro só os ícones, o formulário vem depois
@@ -13198,6 +13463,29 @@ function montarFormTreino() {
     $('#wTypeChips').scrollLeft = 0;
     sincronizarDuracao();
     if (!$('#wDistance').value) definirKmPadrao(); else mostrarKm();
+    let dica = document.getElementById('wSugestao');
+    if (!dica) { dica = document.createElement('p'); dica.id = 'wSugestao'; dica.className = 'w-sugestao'; $('#wTypeChips').before(dica); }
+    dica.textContent = '';
+    if (state.treinoSugerir) { state.treinoSugerir = false; sugerirTreinoDoDia(); }
+}
+// Preenche o registro com o que a pessoa costuma fazer hoje
+async function sugerirTreinoDoDia() {
+    await carregarHistSemana().catch(() => {});
+    if (state.composerKind !== 'workout') return;
+    const plano = planoDeHoje();
+    if (!plano) return;
+    const chip = document.querySelector(`#wTypeChips [data-tipo="${plano.a}"]`);
+    if (!chip) return;
+    chip.click();
+    chip.scrollIntoView({ inline: 'center', block: 'nearest' });
+    if (plano.a === 'Musculação' && (plano.g || []).length) {
+        $$('#wMuscles .chip').forEach(x => x.classList.toggle('on', plano.g.includes(x.dataset.m)));
+    }
+    // duração da última vez que fez essa atividade
+    const ultima = ((state.semanaHist && state.semanaHist.lista) || []).find(w => w.activity_type === plano.a && w.duration_min);
+    if (ultima) { $('#wDuration').value = ultima.duration_min; sincronizarDuracao(); }
+    const dica = document.getElementById('wSugestao');
+    if (dica) dica.textContent = `Hoje é ${NOME_DIA[new Date().getDay()]}: você costuma fazer ${textoItemSemana(plano)}`;
 }
 function sincronizarDuracao() {
     const v = Number($('#wDuration').value) || 45;
@@ -13740,6 +14028,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                 if (state.treinoCom.length) post.meta = { ...(post.meta || {}), com: state.treinoCom.map(u => ({ id: u.id, username: u.username, display_name: u.display_name })) };
             }
             ptsToCredit = workoutPoints(post.activity_type, post.duration_min, !!imageUrl);
+            state.semanaHist = null;
             ptsReason = 'workout';
         } else if (state.composerKind === 'meal') {
             post.meal_slot = $('#mSlot').value;

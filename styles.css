@@ -2902,3 +2902,28 @@ html.tela-cheia .toast{ bottom:calc(28px + env(safe-area-inset-bottom)) !importa
 /* visualizador: arrastar pra baixo */
 .story-viewer.puxando{ transition:none; overflow:hidden; }
 .story-viewer.soltando{ transition:transform .22s ease, opacity .22s ease, border-radius .22s ease; overflow:hidden; }
+
+/* ================= ONDA 52: story visto ================= */
+.story-avatar.seen, .story-avatar.mine.seen{ background:var(--line); padding:1.5px; }
+.story-avatar.seen .story-avatar-in{ border-width:3px; }
+.ig-avatar-btn.has-story.visto{ background:var(--line) !important; padding:2px; }
+
+/* ================= ONDA 53: sua semana ================= */
+.sem-lista{ display:flex; flex-direction:column; border:1px solid var(--line); border-radius:16px; overflow:hidden; background:var(--bg-card); }
+.sem-linha{ display:flex; align-items:center; gap:12px; padding:13px 14px; border:none; background:none; color:var(--ink); text-align:left; width:100%; font:inherit; }
+.sem-linha + .sem-linha{ border-top:1px solid var(--line); }
+.sem-linha:active{ background:var(--bg-elev); }
+.sem-dia{ width:34px; flex-shrink:0; font-size:13px; font-weight:700; color:var(--ink-dim); }
+.sem-txt{ flex:1; font-size:14.5px; font-weight:600; display:flex; flex-direction:column; gap:2px; }
+.sem-txt.descanso{ color:var(--ink-faint); font-weight:500; }
+.sem-aprendido{ font-size:11.5px; font-weight:600; color:var(--vital); }
+.sem-seta{ color:var(--ink-faint); font-size:18px; }
+.onb-semana{ margin:14px 0 18px; text-align:left; }
+.dia-semana-sheet{ z-index:200 !important; }
+.dia-semana-sheet .ds-ativs{ margin:6px 0 4px; }
+.dia-semana-sheet .ds-rot{ margin:16px 0 8px; }
+.dia-semana-sheet .musc-grade{ display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; }
+.dia-semana-sheet .musc-grade .chip{ justify-content:center; padding:8px 4px; font-size:12.5px; }
+.w-sugestao{ font-size:12.5px; color:var(--vital); margin:0 2px 8px; min-height:0; }
+.w-sugestao:empty{ display:none; }
+.dia-semana-sheet .musc-grade .chip{ display:flex; align-items:center; min-height:36px; line-height:1.1; }
