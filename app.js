@@ -2712,6 +2712,11 @@ async function renderNotifications() {
             texto = `<b>${quem}</b> marcou você num treino de ${escapeHTML(m.atividade || 'treino')}${m.duracao ? ' · ' + m.duracao + ' min' : ''}${m.km ? ' · ' + br(m.km) + ' km' : ''}`
                 + (m.resolvido ? `<span class="nt-sub">${m.resolvido === 'aceito' ? 'Registrado no seu histórico ✓' : 'Você recusou'}</span>`
                 : `<span class="nt-acoes"><button class="btn-mini" data-act="treino-com-aceitar" data-post="${n.post_id}">Registrar o mesmo treino</button><button class="btn-ghost btn-xs" data-act="treino-com-recusar" data-post="${n.post_id}">Recusar</button></span>`);
+        } else if (n.kind === 'story_mencao') {
+            const m = n.meta || {};
+            emo = '📣'; texto = `<b>${quem}</b> te marcou no story`
+                + `<span class="nt-acoes"><button class="btn-mini" data-act="repost-mencao" data-uid="${n.actor_id}" data-user="${escapeHTML(n.actor_username || '')}" data-meta="${encodeURIComponent(JSON.stringify(m))}">Repostar no seu story</button></span>`;
+            act = '';
         } else if (n.kind === 'story_curtido') {
             emo = '❤️'; texto = `<b>${quem}</b> curtiu seu story`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
@@ -4548,7 +4553,8 @@ async function renderFeed() {
     let html = '<div class="view feed-view">';
 
     html += `<div id="coachSlot"></div>`;
-    html += storiesHTML;
+    html += storiesHTML + '<div id="lembrancaSlot"></div>';
+    setTimeout(hydrateLembranca, 400);
     html += `<div id="resumoSlot"></div>`;
     html += `<div id="desafioSlot"></div>`;
 
@@ -6283,6 +6289,7 @@ async function renderMenu() {
                 ${linhaMenu('m-go', 'historico', 'Histórico', '', ' data-view="activity-log"')}
                 ${linhaMenu('m-go', 'salvo', 'Salvos', state.salvos.size ? String(state.salvos.size) : '', ' data-view="saved"')}
                 ${linhaMenu('m-go', 'salvo', 'Arquivados', '', ' data-view="arquivados"')}
+                ${linhaMenu('abrir-arquivo-stories', 'historico', 'Arquivo de stories')}
             </div>
 
             <div class="cfg-grupo">
@@ -7428,7 +7435,7 @@ async function limparStoriesAntigos() {
     if (Date.now() - Number(lsGet(chave) || 0) < 7 * 86400000) return;
     lsSet(chave, String(Date.now()));
     try {
-        const limite = new Date(Date.now() - 30 * 86400000).toISOString();
+        const limite = new Date(Date.now() - 183 * 86400000).toISOString(); // arquivo guarda 6 meses
         const { data: velhos } = await sb.from('stories').select('id, image_url')
             .eq('user_id', state.session.user.id).lt('created_at', limite).limit(100);
         if (!velhos || !velhos.length) return;
@@ -11301,28 +11308,23 @@ document.addEventListener('click', async e => {
         toast(novo ? 'Suas conquistas agora aparecem no seu perfil' : 'Suas conquistas voltaram a ser privadas', 'ok');
         renderAchievements();
     } else if (act === 'share-badge') {
-        const code = btn.dataset.code;
-        const { data: lista } = await sb.rpc('my_achievements');
-        const conq = (lista || []).find(x => x.code === code);
-        if (!conq) return;
-        if (!(await confirmar(`Compartilhar "${conq.nome}" no feed?`))) return;
-        const { error } = await sb.from('posts').insert({
-            user_id: state.session.user.id,
-            kind: 'achievement',
-            achievement_code: code,
-            caption: `${conq.emo}|${conq.nome}|${conq.desc}`,
-            visibility: state.defaultPrivacy || 'public',
-            is_public: (state.defaultPrivacy || 'public') === 'public',
-            in_feed: true,
-        });
-        if (error) {
-            toast(String(error.message || '').includes('duplicate') || error.code === '23505'
-                ? 'Essa conquista já foi compartilhada'
-                : 'Erro ao compartilhar', 'err');
-            return;
-        }
-        toast('Conquista compartilhada!', 'ok');
-        renderAchievements();
+        escolherOndeCompartilharConquista(btn.dataset.code);
+    } else if (act === 'lembranca-fechar') {
+        lsSet('pulso-lembranca-' + state.session.user.id, hojeISO());
+        const sl = document.getElementById('lembrancaSlot'); if (sl) sl.innerHTML = '';
+    } else if (act === 'lembranca-repostar') {
+        lsSet('pulso-lembranca-' + state.session.user.id, hojeISO());
+        const sl = document.getElementById('lembrancaSlot'); if (sl) sl.innerHTML = '';
+        if (state.lembranca) abrirRepostStory(state.lembranca);
+    } else if (act === 'lembranca-ver') {
+        if (state.lembranca) { state.storiesData = [{ user: state.profile, items: [state.lembranca], arquivo: true }]; state.storyIdx = 0; state.storyItemIdx = 0; $('#storyViewer').classList.add('on'); showCurrentStory(); }
+    } else if (act === 'repost-mencao') {
+        try {
+            const m = JSON.parse(decodeURIComponent(btn.dataset.meta || ''));
+            abrirRepostStory({ image_url: m.image_url, caption: m.caption, background_color: m.background_color, style: m.style || {} }, { id: btn.dataset.uid, username: btn.dataset.user });
+        } catch (_) { toast('Esse story não está mais disponível', 'err'); }
+    } else if (act === 'abrir-arquivo-stories') {
+        abrirArquivoStories();
     } else if (act === 'quick-water') {
         contarUsoAtalho('agua');
         limparComposer();
@@ -11465,7 +11467,8 @@ document.addEventListener('click', async e => {
             .order('created_at', { ascending: true });
         if (stErr) { toast('Erro ao abrir story: ' + stErr.message, 'err'); return; }
         if (!items || items.length === 0) {
-            toast(suid === state.session.user.id ? 'Você não tem story ativo. Toque no + pra criar.' : 'Nenhum story ativo agora.', 'ok');
+            if (suid === state.session.user.id) { abrirArquivoStories(); return; }
+            toast('Nenhum story ativo agora.', 'ok');
             return;
         }
         const { data: autor } = await sb.from('profiles')
@@ -12075,10 +12078,306 @@ function estiloTextoStory(st, len, emFoto) {
     return { cls: 'fonte-' + fonte, size: tamanhoTextoStory(len, emFoto, fonte) };
 }
 
+// ============================================================
+// STORIES ESPECIAIS: conquista, treino, repostar, arquivo, lembranças e menções
+// ============================================================
+const CARD_STORY_BG = 'linear-gradient(165deg, #0F4A35 0%, #0A0C0B 55%, #1C1446 100%)';
+function htmlCardStory(st, comFoto) {
+    const c = st.card || {};
+    if (c.tipo === 'conquista') {
+        return `<div class="card-story${comFoto ? ' sobre-foto' : ''}">
+            <small class="cs-rot">Nova conquista</small>
+            <span class="cs-emo">${escapeHTML(c.emo || '🏆')}</span>
+            <h2>${escapeHTML(c.nome || '')}</h2>
+            ${c.nivel ? `<span class="badge-nivel ${String(c.nivel).toLowerCase()}">${escapeHTML(c.nivel)}</span>` : ''}
+            <p>${escapeHTML(c.desc || '')}</p>
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
+    if (c.tipo === 'treino') {
+        const ic = ICONES_ATIVIDADE[c.atividade] || ICONES_ATIVIDADE.Outro;
+        const dado = (v, u) => v ? `<div><b>${escapeHTML(String(v))}</b><small>${u}</small></div>` : '';
+        return `<div class="card-story treino${comFoto ? ' sobre-foto' : ''}">
+            <span class="cs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg></span>
+            <h2>${escapeHTML(c.atividade || 'Treino')}</h2>
+            <div class="cs-stats">${dado(c.min, 'min')}${dado(c.km ? br(c.km) : '', 'km')}${dado(c.ritmo ? c.ritmo.replace('/km', '') : '', '/km')}</div>
+            ${(c.grupos || []).length ? `<p>${escapeHTML(c.grupos.join(', '))}</p>` : ''}
+            ${c.ofensiva > 1 ? `<span class="cs-fogo">🔥 ${c.ofensiva} dias de ofensiva</span>` : ''}
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
+    return '';
+}
+// extras do story no visualizador: repostado de @x e menções tocáveis
+function extrasStoryHTML(st) {
+    let h = '';
+    if (st.repost_de && st.repost_de.username) h += `<button type="button" class="sv-repost-de" data-sv-uid="${st.repost_de.id}">↻ Repostado de @${escapeHTML(st.repost_de.username)}</button>`;
+    (st.mencoes || []).forEach(m => {
+        h += `<button type="button" class="sv-mencao" data-sv-uid="${m.id}" style="left:${Number(m.x) || 50}%;top:${Number(m.y) || 40}%">@${escapeHTML(m.username || '')}</button>`;
+    });
+    return h;
+}
+async function publicarStoryPronto({ caption, image_url = null, background_color = CARD_STORY_BG, style }) {
+    const { data: story, error } = await sb.from('stories').insert({
+        user_id: state.session.user.id, caption: caption || null, image_url, background_color: image_url ? null : background_color, style,
+    }).select().single();
+    if (error) { toast(msgErro(error), 'err'); return null; }
+    const { data: pts } = await sb.rpc('points_for_reference', { ref: story.id });
+    loadScore();
+    if (state.view === 'feed') renderFeed();
+    return { story, pts: Number(pts || 0) };
+}
+// Conquista: escolher feed, story ou os dois
+function escolherOndeCompartilharConquista(code) {
+    const old = document.getElementById('compConqSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'compConqSheet';
+    sheet.className = 'sheet on comp-conq-sheet';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Compartilhar conquista</h3>
+        <button class="cfg-row" data-cc="feed">${icon('grafico')}<span class="cfg-txt">No feed</span></button>
+        <button class="cfg-row" data-cc="story">${icon('mais')}<span class="cfg-txt">No story</span></button>
+        <button class="cfg-row" data-cc="ambos">${icon('medalha')}<span class="cfg-txt">Nos dois</span></button>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', async e => {
+        if (e.target === sheet) { sheet.remove(); return; }
+        const b = e.target.closest('[data-cc]'); if (!b) return;
+        sheet.remove();
+        await compartilharConquista(code, b.dataset.cc);
+    });
+}
+async function compartilharConquista(code, onde) {
+    const { data: lista } = await sb.rpc('my_achievements');
+    const conq = (lista || []).find(x => x.code === code);
+    if (!conq) return;
+    let okFeed = false, okStory = false;
+    if (onde === 'feed' || onde === 'ambos') {
+        const { error } = await sb.from('posts').insert({
+            user_id: state.session.user.id, kind: 'achievement', achievement_code: code,
+            caption: `${conq.emo}|${conq.nome}|${conq.desc}`,
+            visibility: state.defaultPrivacy || 'public', is_public: (state.defaultPrivacy || 'public') === 'public', in_feed: true,
+        });
+        if (error && !(String(error.message || '').includes('duplicate') || error.code === '23505')) { toast('Erro ao compartilhar', 'err'); return; }
+        okFeed = !error;
+        if (error && onde === 'feed') { toast('Essa conquista já está no seu feed', 'ok'); return; }
+    }
+    if (onde === 'story' || onde === 'ambos') {
+        const grupo = NIVEIS_CONQ.find(g => g.codes.includes(code));
+        const nivel = grupo ? NOMES_NIVEL[grupo.codes.indexOf(code)] : null;
+        const nome = grupo ? grupo.nome : conq.nome;
+        const r = await publicarStoryPronto({
+            caption: `${conq.emo} ${nome}${nivel ? ' · ' + nivel : ''}`,
+            style: { card: { tipo: 'conquista', emo: conq.emo, nome, desc: conq.desc, nivel } },
+        });
+        okStory = !!r;
+    }
+    toast(okFeed && okStory ? 'Conquista no feed e no story!' : okStory ? 'Conquista no seu story!' : 'Conquista compartilhada!', 'ok');
+    if (document.getElementById('profileTabBody') && state.view === 'profile') renderAchievements();
+}
+// Treino: story pronto em um toque
+async function publicarStoryTreino(post) {
+    const { data: of } = await sb.from('daily_streaks').select('current_streak').eq('user_id', state.session.user.id).maybeSingle();
+    const km = Number(post.distance_km || 0);
+    const card = {
+        tipo: 'treino', atividade: post.activity_type || 'Treino', min: post.duration_min || null,
+        km: km || null, ritmo: km && post.duration_min && ['Corrida', 'Caminhada'].includes(post.activity_type) ? formatarPace(post.duration_min, km) : null,
+        grupos: post.activity_type === 'Musculação' ? (post.muscle_groups || []) : [],
+        ofensiva: (of && of.current_streak) || 0,
+    };
+    const foto = post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
+    const r = await publicarStoryPronto({ caption: `${card.atividade}${card.min ? ' · ' + card.min + ' min' : ''}`, image_url: foto, style: { card } });
+    if (!r) return;
+    toastComAcao(r.pts > 0 ? `Story publicado · +${r.pts} pts` : 'Story publicado', 'Desfazer', async () => {
+        await sb.from('stories').delete().eq('id', r.story.id).eq('user_id', state.session.user.id);
+        loadScore(); if (state.view === 'feed') renderFeed();
+        toast('Story desfeito', 'ok');
+    });
+}
+// Copia a foto pra um arquivo novo seu (assim o repost não some se o original for apagado)
+async function copiarFotoStory(url) {
+    try {
+        const marca = '/post-images/';
+        const i = url.indexOf(marca); if (i < 0) return url;
+        const origem = decodeURIComponent(url.slice(i + marca.length).split('?')[0]);
+        const destino = `${state.session.user.id}/${Date.now()}-repost.jpg`;
+        const { error } = await sb.storage.from('post-images').copy(origem, destino);
+        if (error) return url;
+        return sb.storage.from('post-images').getPublicUrl(destino).data.publicUrl;
+    } catch (_) { return url; }
+}
+// Postar de novo (do arquivo ou de uma menção): abre o editor já preenchido
+async function abrirRepostStory(item, deQuem = null) {
+    const st = JSON.parse(JSON.stringify(item.style || {}));
+    delete st.mencoes; delete st.resumo_semana;
+    if (st.card) {
+        if (!(await confirmar('Postar este story de novo? Repostagem não vale pontos.', 'Postar'))) return;
+        const url = item.image_url ? await copiarFotoStory(item.image_url) : null;
+        const r = await publicarStoryPronto({ caption: item.caption, image_url: url, background_color: item.background_color || CARD_STORY_BG,
+            style: { ...st, repost: true, ...(deQuem ? { repost_de: deQuem } : {}) } });
+        if (r) toast('Story publicado de novo', 'ok');
+        return;
+    }
+    openStoryCreator();
+    sc.repost = true; sc.repostDe = deQuem;
+    $('#scRepostAviso').classList.remove('hidden');
+    sc.fonte = st.font || 'classico';
+    sc.fundoTxt = st.fundo || 'nenhum';
+    if (st.sticker) { sc.adesivo = st.sticker; sc.adesivoPos = st.stickerPos || null; sc.adEsc = Number(st.stickerScale) || 1; sc.adRot = Number(st.stickerRot) || 0; }
+    const t = $('#scText');
+    if (item.image_url) {
+        sc.pos = st.pos || null; sc.txtEsc = Number(st.textScale) || 1; sc.txtRot = Number(st.textRot) || 0;
+        t.value = item.caption || '';
+        entrarModoFoto(null, await copiarFotoStory(item.image_url));
+    } else {
+        sc.bg = item.background_color || bgPadraoStory();
+        sc.alinhar = st.align || 'center';
+        sc.corLetra = st.color || null;
+        entrarModoTexto();
+        t.value = item.caption || '';
+        ajustarAlturaTextoStory();
+    }
+    if (sc.adesivo) {
+        const el = $('#scSticker');
+        el.textContent = sc.adesivo + '  ·  Pulso';
+        if (!sc.adesivoPos) sc.adesivoPos = { x: 50, y: 70 };
+        posicionar(el, sc.adesivoPos); transformarItem(el); el.classList.remove('hidden');
+    }
+    atualizarBotaoPublicarStory();
+}
+
+// ---- Arquivo de stories (só você vê) ----
+async function abrirArquivoStories() {
+    const old = document.getElementById('arquivoStories'); if (old) old.remove();
+    const v = document.createElement('div');
+    v.id = 'arquivoStories';
+    v.className = 'posts-viewer arquivo-stories';
+    v.innerHTML = `<div class="pv-topo">
+            <button class="topbar-back pv-voltar" aria-label="Voltar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <div class="topbar-title">Arquivo de stories</div><div style="width:40px"></div>
+        </div>
+        <div class="pv-lista"><div class="spinner"></div></div>`;
+    document.body.appendChild(v);
+    document.body.style.overflow = 'hidden';
+    v.querySelector('.pv-voltar').onclick = () => { v.remove(); document.body.style.overflow = ''; state.arquivoStories = null; };
+    await pintarArquivoStories();
+}
+async function pintarArquivoStories() {
+    const v = document.getElementById('arquivoStories'); if (!v) return;
+    const { data } = await sb.rpc('my_story_archive');
+    const lista = (data || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    state.arquivoStories = lista;
+    const box = v.querySelector('.pv-lista'); if (!box) return;
+    if (!lista.length) { box.innerHTML = '<div class="log-empty">Seus stories aparecem aqui depois de postados. Só você vê.</div>'; return; }
+    const grupos = {};
+    lista.forEach((x, k) => {
+        const d = new Date(x.created_at);
+        const nome = d.toLocaleDateString('pt-BR', { month: 'long' }) + (d.getFullYear() !== new Date().getFullYear() ? ' de ' + d.getFullYear() : '');
+        (grupos[nome] = grupos[nome] || []).push(k);
+    });
+    const meses = Object.keys(grupos).reverse();
+    box.innerHTML = `<p class="cfg-sub">Só você vê. Ficam guardados os últimos 6 meses.</p>` + meses.map(m => `
+        <div class="badge-secao">${m.charAt(0).toUpperCase() + m.slice(1)}</div>
+        <div class="arq-grade">${grupos[m].slice().reverse().map(k => {
+            const x = lista[k];
+            const fundo = x.image_url ? `background-image:url('${x.image_url}')` : `background:${x.background_color || STORY_BG_PADRAO}`;
+            const txt = !x.image_url && x.caption ? `<span class="ed-txt" style="color:#fff">${escapeHTML(String(x.caption).slice(0, 40))}</span>` : '';
+            return `<button type="button" class="arq-item" data-arq="${k}" style="${fundo}">${txt}<span class="ed-data">${new Date(x.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</span></button>`;
+        }).join('')}</div>`).join('');
+    box.querySelectorAll('[data-arq]').forEach(b => b.onclick = () => {
+        state.storiesData = [{ user: state.profile, items: state.arquivoStories.map(x => ({ ...x })), arquivo: true }];
+        state.storyIdx = 0; state.storyItemIdx = Number(b.dataset.arq);
+        $('#storyViewer').classList.add('on');
+        showCurrentStory();
+    });
+}
+
+// ---- Lembranças: "Há 1 mês você postou isso" (só você vê, 1x por dia) ----
+async function hydrateLembranca() {
+    const slot = document.getElementById('lembrancaSlot');
+    if (!slot || !state.session) return;
+    const hoje = hojeISO();
+    if (lsGet('pulso-lembranca-' + state.session.user.id) === hoje) return;
+    const alvo = new Date(); alvo.setMonth(alvo.getMonth() - 1);
+    const ini = diaLocal(alvo), fim = new Date(ini.getTime() + 86400000);
+    const { data } = await sb.from('stories').select('id, caption, image_url, background_color, style, created_at')
+        .eq('user_id', state.session.user.id).gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString())
+        .order('created_at', { ascending: true }).limit(1);
+    const x = data && data[0];
+    if (!x || !document.getElementById('lembrancaSlot')) return;
+    state.lembranca = x;
+    const fundo = x.image_url ? `background-image:url('${x.image_url}')` : `background:${x.background_color || STORY_BG_PADRAO}`;
+    slot.innerHTML = `<div class="lembranca-card">
+        <span class="lb-thumb" style="${fundo}" data-act="lembranca-ver"></span>
+        <div class="lb-txt"><b>Há 1 mês você postou isso</b><small>${new Date(x.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</small>
+            <button class="btn-mini" data-act="lembranca-repostar">Postar de novo</button></div>
+        <button class="lb-x" data-act="lembranca-fechar" aria-label="Fechar">×</button>
+    </div>`;
+}
+
+// ---- Mencionar alguém no story ----
+async function abrirMencionarStory() {
+    const old = document.getElementById('mencionarSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'mencionarSheet';
+    sheet.className = 'sheet on mencionar-sheet';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Mencionar</h3>
+        <input type="text" class="obj-input" id="menBusca" placeholder="Buscar quem você segue" autocomplete="off">
+        <div class="men-lista" id="menLista"><div class="spinner"></div></div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    const { data: fs } = await sb.from('follows').select('following_id').eq('follower_id', state.session.user.id).limit(500);
+    const ids = (fs || []).map(x => x.following_id);
+    let pessoas = [];
+    if (ids.length) {
+        const { data } = await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', ids);
+        pessoas = (data || []).sort((a, b) => String(a.display_name).localeCompare(String(b.display_name)));
+    }
+    const pintar = (q = '') => {
+        const box = document.getElementById('menLista'); if (!box) return;
+        const t = q.trim().toLowerCase();
+        const l = pessoas.filter(p => !t || String(p.username).toLowerCase().includes(t) || String(p.display_name).toLowerCase().includes(t));
+        box.innerHTML = l.length ? l.map(p => `<button type="button" class="men-pessoa" data-men="${p.id}">${avatarHTML(p, 'sm')}<span><b>${escapeHTML(p.display_name || '')}</b><small>@${escapeHTML(p.username || '')}</small></span></button>`).join('')
+            : '<p class="faixa-nota">Você só pode mencionar quem você segue.</p>';
+    };
+    pintar();
+    document.getElementById('menBusca').addEventListener('input', e => pintar(e.target.value));
+    document.getElementById('menLista').addEventListener('click', e => {
+        const b = e.target.closest('[data-men]'); if (!b) return;
+        const p = pessoas.find(x => x.id === b.dataset.men);
+        sheet.remove();
+        if (p) adicionarMencaoStory(p);
+    });
+}
+function adicionarMencaoStory(p) {
+    sc.mencoes = sc.mencoes || [];
+    if (sc.mencoes.some(m => m.id === p.id)) return;
+    if (sc.mencoes.length >= 5) { toast('Dá pra mencionar até 5 pessoas', 'err'); return; }
+    const chave = 'men_' + p.id;
+    sc[chave] = { x: 50, y: 30 + sc.mencoes.length * 7 };
+    sc.mencoes.push({ id: p.id, username: p.username, chave });
+    const el = document.createElement('div');
+    el.className = 'sc-mencao';
+    el.dataset.uid = p.id;
+    el.textContent = '@' + p.username;
+    $('#scStage').appendChild(el);
+    posicionar(el, sc[chave]);
+    tornarArrastavel(el, chave, null);
+    atualizarBotaoPublicarStory();
+}
+
 function openStoryCreator() {
     Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 });
     $('#scText').style.transform = ''; $('#scSticker').style.transform = '';
     $('#storyCreator').classList.remove('arrastando');
+    document.querySelectorAll('#scStage .sc-mencao').forEach(x => x.remove());
+    Object.keys(sc).filter(k => k.startsWith('men_')).forEach(k => delete sc[k]);
+    sc.mencoes = []; sc.repost = false; sc.repostDe = null; sc.repostUrl = null;
+    $('#scRepostAviso').classList.add('hidden');
     $('#scPaleta').classList.add('hidden');
     $('#scColuna').classList.remove('recolhida');
     $('#scText').style.textAlign = '';
@@ -12124,7 +12423,7 @@ function ajustarAlturaTextoStory() {
 }
 function atualizarBotaoPublicarStory() {
     const temTexto = $('#scText').value.trim().length > 0;
-    const pronto = (sc.mode === 'photo' && sc.file) || (sc.mode === 'text' && (temTexto || sc.adesivo));
+    const pronto = (sc.mode === 'photo' && (sc.file || sc.repostUrl)) || (sc.mode === 'text' && (temTexto || sc.adesivo || (sc.mencoes || []).length));
     $('#scPublish').classList.add('hidden'); // o botão redondo grande publica nos dois modos
     $('#scPublicarGrande').disabled = !pronto;
 }
@@ -12195,15 +12494,16 @@ function entrarModoTexto() {
     atualizarBotaoPublicarStory();
 }
 
-function entrarModoFoto(file) {
+function entrarModoFoto(file, url = null) {
     sc.mode = 'photo';
     sc.file = file;
+    sc.repostUrl = url;
     const cr = $('#storyCreator');
     cr.classList.add('photo-mode'); cr.classList.remove('text-mode');
     $('#scChoose').classList.add('hidden');
     $('#scStage').style.background = '#000';
     const img = $('#scImg');
-    img.src = URL.createObjectURL(file);
+    img.src = url || URL.createObjectURL(file);
     img.classList.remove('hidden');
     $('#scBottom').classList.remove('hidden');
     $('#scAddText').classList.remove('hidden');
@@ -12234,6 +12534,13 @@ function transformarItem(el) {
     el.style.transform = `translate(-50%, -50%) scale(${esc}) rotate(${rot}deg)`;
 }
 function apagarItemStory(el) {
+    if (el.classList.contains('sc-mencao')) {
+        sc.mencoes = (sc.mencoes || []).filter(m => m.id !== el.dataset.uid);
+        delete sc['men_' + el.dataset.uid];
+        el.remove();
+        atualizarBotaoPublicarStory();
+        return;
+    }
     if (el.id === 'scText') {
         el.value = ''; el.classList.add('hidden'); el.readOnly = true;
         sc.txtEsc = 1; sc.txtRot = 0; el.style.transform = '';
@@ -12380,6 +12687,7 @@ $('#scColAlinhar').addEventListener('click', e => {
 $('#scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
 $('#scColTreino').addEventListener('click', e => { e.stopPropagation(); $('#scAdesivo').click(); });
 $('#scColTexto').addEventListener('click', e => { e.stopPropagation(); $('#scAddText').click(); });
+$('#scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrirMencionarStory(); });
 $('#scColFechar').addEventListener('click', e => {
     e.stopPropagation();
     const col = $('#scColuna');
@@ -12445,15 +12753,17 @@ $('#scPublish').addEventListener('click', async () => {
     if (sc.busy) return;
     const btn = $('#scPublish');
     const caption = $('#scText').value.trim();
-    if (sc.mode === 'text' && !caption && !sc.adesivo) return;
-    if (sc.mode === 'photo' && !sc.file) return;
+    if (sc.mode === 'text' && !caption && !sc.adesivo && !(sc.mencoes || []).length) return;
+    if (sc.mode === 'photo' && !sc.file && !sc.repostUrl) return;
     sc.busy = true;
     btn.disabled = true;
     $('#scPublicarGrande').classList.add('enviando');
     btn.textContent = sc.file ? 'Enviando...' : 'Publicando...';
     let imageUrl = null;
     try {
-        if (sc.mode === 'photo') {
+        if (sc.mode === 'photo' && sc.repostUrl) {
+            imageUrl = sc.repostUrl;
+        } else if (sc.mode === 'photo') {
             imageUrl = await uploadImage('post-images', sc.file);
             btn.textContent = 'Verificando...';
             try {
@@ -12478,6 +12788,9 @@ $('#scPublish').addEventListener('click', async () => {
             if (sc.adRot) style.stickerRot = Math.round(sc.adRot);
         }
         if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
+        if ((sc.mencoes || []).length) style.mencoes = sc.mencoes.map(m => ({ id: m.id, username: m.username, x: Math.round((sc[m.chave] || {}).x || 50), y: Math.round((sc[m.chave] || {}).y || 40) }));
+        if (sc.repost) style.repost = true;
+        if (sc.repostDe) style.repost_de = sc.repostDe;
 
         const { data: story, error } = await sb.from('stories').insert({
             user_id: state.session.user.id,
@@ -12494,6 +12807,7 @@ $('#scPublish').addEventListener('click', async () => {
             const rs = document.getElementById('resumoSlot'); if (rs) rs.innerHTML = '';
             const se = document.getElementById('semanaEvoSlot'); if (se) se.innerHTML = '';
         }
+        if ((style.mencoes || []).length) sb.rpc('marcar_story_mencao', { sid: story.id }).then(() => {});
         const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id });
         const ganhos = Number(stPts || 0);
         await loadScore();
@@ -12564,6 +12878,7 @@ async function openStoryViewer(groupIdx) {
 
 function closeStoryViewer() {
     state.storyCurtidosVistos = {};
+    if (state.storiesData && state.storiesData[0] && state.storiesData[0].arquivo) setTimeout(pintarArquivoStories, 50);
     setTimeout(atualizarAneisStory, 0);
     $('#storyViewer').classList.remove('on', 'paused');
     setTimeout(sincronizarModoTela, 0);
@@ -12709,14 +13024,19 @@ function showCurrentStory() {
     const st = item.style || {};
     const adesivoHTML = st.sticker
         ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${escapeHTML(st.sticker)}  ·  Pulso</div>` : '';
-    if (item.image_url) {
+    if (st.card) {
+        content.className = 'story-content' + (item.image_url ? '' : ' text-story card-fundo');
+        content.style.background = item.image_url ? '#000' : (item.background_color || CARD_STORY_BG);
+        content.innerHTML = `${item.image_url ? `<img src="${item.image_url}">` : ''}${htmlCardStory(st, !!item.image_url)}${extrasStoryHTML(st)}
+            <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
+    } else if (item.image_url) {
         content.className = 'story-content';
         content.style.background = '#000';
         const e = estiloTextoStory(st, (item.caption || '').length, true);
         const pos = st.pos || null;
         content.innerHTML = `<img src="${item.image_url}">
             ${item.caption ? `<div class="caption-over ${e.cls} fundo-${st.fundo || 'escuro'}${pos ? ' posicionado' : ''}" style="font-size:${e.size}px;${pos ? `left:${pos.x}%;top:${pos.y}%;transform:translate(-50%, -50%) scale(${Number(st.textScale) || 1}) rotate(${Number(st.textRot) || 0}deg)` : ''}">${escapeHTML(item.caption)}</div>` : ''}
-            ${adesivoHTML}
+            ${adesivoHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     } else {
         // Story de texto puro
@@ -12727,9 +13047,20 @@ function showCurrentStory() {
         const alin = st.align || 'center';
         const marca = st.fundo && st.fundo !== 'nenhum' ? st.fundo : null;
         content.innerHTML = `${item.caption ? `<div class="text-body ${e.cls}" style="color:${st.color || corDeTextoPara(fundo)};font-size:${e.size}px;text-align:${alin}">${marca ? `<span class="marcador-${marca}">${escapeHTML(item.caption)}</span>` : escapeHTML(item.caption)}</div>` : ''}
-            ${adesivoHTML}
+            ${adesivoHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     }
+
+    content.querySelectorAll('[data-sv-uid]').forEach(b => b.addEventListener('click', ev => {
+        ev.stopPropagation();
+        const uid = b.dataset.svUid;
+        closeStoryViewer();
+        switchView(uid === state.session.user.id ? 'profile' : 'user-profile', { uid });
+    }));
+    // Postar de novo (só no arquivo)
+    const repBtn = document.getElementById('svRepost');
+    repBtn.classList.toggle('hidden', !(group.arquivo && souDonoDoStory));
+    repBtn.onclick = ev => { ev.stopPropagation(); closeStoryViewer(); abrirRepostStory(item); };
 
     // Marca como visto (story e destaque contam separado)
     if (!ehDestaque) marcarStoryVisto(item.id);
@@ -14154,6 +14485,9 @@ $('#composerSubmit').addEventListener('click', async () => {
                 ? 'Refeição registrada. Só as com foto analisada pela IA valem ponto.'
                 : 'Registrado! Hoje um treino seu já valeu mais pontos que esse.';
             toast(semFoto, 'ok');
+        } else if (eraTreino && created) {
+            const feito = created;
+            toastComAcao(msg, 'Postar no story', () => publicarStoryTreino(feito));
         } else {
             toast(msg, 'ok');
         }
