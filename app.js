@@ -1589,6 +1589,73 @@ document.addEventListener('focusin', e => {
     el.setAttribute('inputmode', passo.includes('.') || passo === 'any' ? 'decimal' : 'numeric');
 });
 
+// ---- Conversas fixadas no topo (até 3, guardadas no aparelho) ----
+function convsFixadas() {
+    try { return JSON.parse(localStorage.getItem('pulso-conv-fix-' + state.session.user.id) || '[]'); } catch (_) { return []; }
+}
+(function segurarConversa() {
+    let timer = null, alvo = null, segurou = false;
+    document.addEventListener('pointerdown', e => {
+        const it = e.target.closest('.conv-item[data-conv-id]'); if (!it) return;
+        alvo = it; segurou = false;
+        timer = setTimeout(() => {
+            segurou = true;
+            if (navigator.vibrate) navigator.vibrate(10);
+            const id = it.dataset.convId;
+            const fix = convsFixadas();
+            const ja = fix.includes(id);
+            hidePostMenu();
+            const menu = document.createElement('div');
+            menu.id = 'floatingPostMenu';
+            menu.className = 'post-menu';
+            menu.innerHTML = `<button class="post-menu-item" data-fix="${ja ? '0' : '1'}">${ja ? 'Desafixar' : 'Fixar no topo'}</button>`;
+            const r = it.getBoundingClientRect();
+            menu.style.position = 'fixed'; menu.style.top = (r.top + r.height / 2) + 'px'; menu.style.right = '20px'; menu.style.zIndex = 160;
+            document.body.appendChild(menu);
+            menu.querySelector('button').onclick = ev => {
+                ev.stopPropagation();
+                let lista = convsFixadas().filter(x => x !== id);
+                if (!ja) { if (lista.length >= 3) { toast('Dá pra fixar até 3 conversas', 'err'); hidePostMenu(); return; } lista = [id, ...lista]; }
+                try { localStorage.setItem('pulso-conv-fix-' + state.session.user.id, JSON.stringify(lista)); } catch (_) {}
+                hidePostMenu();
+                if (state.view === 'messages') renderMessages();
+            };
+            setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+        }, 450);
+    });
+    const cancelar = () => clearTimeout(timer);
+    document.addEventListener('pointerup', cancelar);
+    document.addEventListener('pointermove', e => { if (alvo && e.movementY && Math.abs(e.movementY) > 4) cancelar(); });
+    // depois de segurar, o soltar não abre a conversa
+    document.addEventListener('click', e => {
+        if (segurou && e.target.closest('.conv-item')) { e.stopImmediatePropagation(); e.preventDefault(); segurou = false; }
+    }, true);
+    document.addEventListener('contextmenu', e => { if (e.target.closest('.conv-item')) e.preventDefault(); });
+})();
+
+// ---- Rascunhos: legenda, comentário e mensagem não se perdem ----
+function chaveRascunho(el) {
+    if (!el || !state.session) return null;
+    if (el.id === 'chatInput' && state.chatConversationId) return 'chat:' + state.chatConversationId;
+    if (el.id === 'commentInput' && state.rascPost) return 'cm:' + state.rascPost;
+    if (el.id === 'pCaption' && state.composerKind) return 'cap:' + state.composerKind;
+    return null;
+}
+function lerRascunho(k) { try { return localStorage.getItem('pulso-rasc-' + state.session.user.id + '-' + k) || ''; } catch (_) { return ''; } }
+function gravarRascunho(k, v) { try { const ch = 'pulso-rasc-' + state.session.user.id + '-' + k; v ? localStorage.setItem(ch, v) : localStorage.removeItem(ch); } catch (_) {} }
+function restaurarRascunho(id) {
+    const el = document.getElementById(id); if (!el || el.value) return;
+    const k = chaveRascunho(el); if (!k) return;
+    const v = lerRascunho(k);
+    if (v) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
+}
+function limparRascunho(id) { const el = document.getElementById(id); const k = chaveRascunho(el); if (k) gravarRascunho(k, ''); }
+document.addEventListener('input', e => {
+    const el = e.target;
+    if (!el || !['chatInput', 'commentInput', 'pCaption'].includes(el.id)) return;
+    const k = chaveRascunho(el); if (k) gravarRascunho(k, el.value.trim() ? el.value : '');
+});
+
 // ---- Convite por link ----
 async function checarConvite() {
     // Link de convite de desafio: abre a vitrine (ou o desafio, se já participa)
@@ -2789,11 +2856,13 @@ async function renderNotifications() {
             <div id="notifList"><div class="spinner"></div></div>
         </div>
     `;
-    const [{ data: base, error }, { data: pedidos }, { data: extras }] = await Promise.all([
+    const [{ data: base, error }, { data: pedidos }, { data: extras }, { data: meusSeguidos }] = await Promise.all([
         sb.rpc('list_notifications'),
         sb.rpc('list_follow_requests'),
         sb.rpc('list_app_notifications'),
+        sb.from('follows').select('following_id').eq('follower_id', state.session.user.id).limit(2000),
     ]);
+    const jaSigo = new Set((meusSeguidos || []).map(x => x.following_id));
     const tudo = [...(base || []), ...(extras || [])]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     // agrupa curtidas e comentários do mesmo post: "Maria e mais 4 pessoas curtiram"
@@ -2853,7 +2922,8 @@ async function renderNotifications() {
             emo = '❤️'; texto = `<b>${quem}</b>${mais} ${n.outros > 0 ? 'curtiram' : 'curtiu'} seu post`;
             act = ` data-act="view-post" data-id="${n.post_id}"`;
         } else if (n.kind === 'follow') {
-            emo = '👤'; texto = `<b>${quem}</b> começou a te seguir`;
+            emo = '👤'; texto = `<b>${quem}</b> começou a te seguir`
+                + (n.actor_id && !jaSigo.has(n.actor_id) ? `<span class="nt-acoes"><button class="btn-mini" data-act="seguir-de-volta" data-uid="${n.actor_id}">Seguir de volta</button></span>` : '');
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
         } else if (n.kind === 'follow_aceito') {
             emo = '✅'; texto = `<b>${quem}</b> aceitou seu pedido pra seguir`;
@@ -3814,7 +3884,7 @@ async function renderMessages() {
         </div>
     `;
 
-    const { data: convs, error } = await sb.rpc('list_conversations');
+    let { data: convs, error } = await sb.rpc('list_conversations');
     const list = $('#convList');
 
     // Coach sempre fixo no topo
@@ -3835,12 +3905,17 @@ async function renderMessages() {
             ${vazioAcao('mensagem', 'Nenhuma conversa ainda', 'Abra o perfil de alguém e toque em Mensagem.', 'Encontrar pessoas', 'data-act="m-go" data-view="search"')}`;
     } else {
         html += `<div class="conv-section-label">Pessoas</div>`;
+        const fixadas = convsFixadas();
+        convs = [...convs].sort((a, b) => {
+            const fa = fixadas.indexOf(a.conversation_id), fb = fixadas.indexOf(b.conversation_id);
+            return (fa < 0 ? 99 : fa) - (fb < 0 ? 99 : fb);
+        });
         html += convs.map(cv => {
             const other = { id: cv.other_id, display_name: cv.other_name, username: cv.other_username, avatar_url: cv.other_avatar };
             return `<div class="conv-item" data-act="open-chat-item" data-conv-id="${cv.conversation_id}" data-uid="${cv.other_id}" data-name="${escapeHTML(cv.other_name)}" data-username="${escapeHTML(cv.other_username)}" data-avatar="${cv.other_avatar||''}">
                 ${avatarHTML(other, 'md')}
                 <div class="conv-info">
-                    <div class="conv-name">${escapeHTML(cv.other_name)}${cv.unread_count>0?` <span class="conv-unread">${cv.unread_count}</span>`:''}</div>
+                    <div class="conv-name">${escapeHTML(cv.other_name)}${convsFixadas().includes(cv.conversation_id) ? ' <svg class="conv-fixo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z"/></svg>' : ''}${cv.unread_count>0?` <span class="conv-unread">${cv.unread_count}</span>`:''}</div>
                     <div class="conv-preview">${escapeHTML(previaMensagem(cv.last_message || 'Diga oi 👋').slice(0,50))}</div>
                 </div>
                 <div class="conv-time">${cv.last_message_at ? timeAgo(cv.last_message_at) : ''}</div>
@@ -3885,7 +3960,7 @@ async function renderChat(conversationId, otherUser) {
                 <button class="topbar-back" data-act="back-messages">←</button>
                 <div class="chat-header-user" data-act="view-user" data-uid="${otherUser.id}">
                     ${avatarHTML(otherUser, 'sm')}
-                    <span class="chat-header-name">${escapeHTML(otherUser.display_name)}</span>
+                    <span class="chat-header-txt"><span class="chat-header-name">${escapeHTML(otherUser.display_name)}</span><small class="chat-digitando" id="chatDigitando">digitando…</small></span>
                 </div>
                 <button class="chat-menu-btn" data-act="chat-menu" data-id="${conversationId}" data-uid="${otherUser.id}" aria-label="Opções">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
@@ -3940,6 +4015,7 @@ async function renderChat(conversationId, otherUser) {
     const atualizarEnviar = () => $('#chatSend').classList.toggle('pronto', !!input.value.trim());
     input.addEventListener('input', atualizarEnviar); atualizarEnviar();
     $('#chatMic').addEventListener('click', () => ditar('chatInput'));
+    restaurarRascunho('chatInput');
 
     // Tempo real (mensagens novas e apagadas)
     const me = state.session.user.id;
@@ -3992,10 +4068,12 @@ function mostrarDigitando() {
         box.appendChild(el);
         box.scrollTop = box.scrollHeight;
     }
+    const dg = document.getElementById('chatDigitando'); if (dg) dg.classList.add('on');
     clearTimeout(state.typingTimer);
     state.typingTimer = setTimeout(() => {
         const t = document.getElementById('typingBubble');
         if (t) t.remove();
+        const d2 = document.getElementById('chatDigitando'); if (d2) d2.classList.remove('on');
     }, 3500);
 }
 
@@ -4201,6 +4279,7 @@ async function sendChatMessage(conversationId) {
     const input = $('#chatInput');
     const text = input.value.trim();
     if (!text) return;
+    limparRascunho('chatInput');
     input.value = ''; input.style.height = 'auto';
 
     let corpoMsg = text;
@@ -9282,7 +9361,7 @@ async function renderProfile() {
                 </div>
             </div>
             <div class="ig-profile-info">
-                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}</div>
+                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}${typeof segueVoce !== 'undefined' && segueVoce ? '<span class="tag-segue">segue você</span>' : ''}</div>
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
@@ -10351,7 +10430,7 @@ async function renderUserProfile(uid) {
     }
     const trancado = !!p.is_private && !iFollow;
     const destaquesDele = trancado ? [] : await carregarDestaques(uid);
-    const txtSeguir = iFollow ? 'Seguindo' : pedi ? 'Solicitado' : 'Seguir';
+    let txtSeguir = iFollow ? 'Seguindo' : pedi ? 'Solicitado' : 'Seguir';
 
     const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
 
@@ -10372,6 +10451,8 @@ async function renderUserProfile(uid) {
         }
     } catch (_) {}
     const podeMsg = !(p.dm_policy === 'ninguem' || (p.dm_policy === 'seguidores' && !iFollow));
+    const { count: meSegue } = await sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', uid).eq('following_id', state.session.user.id);
+    const segueVoce = (meSegue || 0) > 0;
 
     const { data: delesStoriesAtivos } = await sb.from('stories')
         .select('id').eq('user_id', uid)
@@ -10397,7 +10478,7 @@ async function renderUserProfile(uid) {
                 </div>
             </div>
             <div class="ig-profile-info">
-                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}</div>
+                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}${typeof segueVoce !== 'undefined' && segueVoce ? '<span class="tag-segue">segue você</span>' : ''}</div>
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
@@ -10408,7 +10489,7 @@ async function renderUserProfile(uid) {
             </button>` : ''}
             <div class="ig-profile-actions perfil-acoes">
                 ${iFollow ? `<button class="pa-btn pa-seguindo" data-act="perfil-seguindo-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-private="${p.is_private ? '1' : '0'}">Seguindo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`
-                    : `<button class="pa-btn ${pedi ? '' : 'pa-seguir'}" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${pedi ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">${txtSeguir}</button>`}
+                    : `<button class="pa-btn ${pedi ? '' : 'pa-seguir'}" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${pedi ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">${!pedi && segueVoce ? 'Seguir de volta' : txtSeguir}</button>`}
                 ${podeMsg ? `<button class="pa-btn" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url || ''}">Mensagem</button>` : ''}
                 <button class="pa-btn pa-quad" data-act="perfil-sugestoes" data-uid="${uid}" aria-label="Pessoas parecidas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></svg></button>
             </div>
@@ -10919,8 +11000,18 @@ document.addEventListener('click', async e => {
         hidePostMenu();
         const link = `${location.origin}${location.pathname}?u=${encodeURIComponent(btn.dataset.username)}`;
         try { await navigator.clipboard.writeText(link); toast('Link copiado', 'ok'); } catch (_) { toast(link, 'ok'); }
+    } else if (act === 'seguir-de-volta') {
+        e.stopPropagation();
+        btn.disabled = true;
+        const { error } = await sb.rpc('follow_user', { target_id: btn.dataset.uid });
+        if (error) { btn.disabled = false; toast('Não consegui seguir agora.', 'err'); return; }
+        btn.textContent = 'Seguindo'; btn.classList.add('feito');
     } else if (act === 'perfil-seguindo-menu') {
-        abrirMenuSeguindo(btn.dataset.uid, btn.dataset.name, btn.dataset.private === '1');
+        const privado = btn.dataset.private === '1';
+        if (!(await confirmar(`Deixar de seguir ${btn.dataset.name || 'essa pessoa'}?${privado ? ' A conta é privada, pra ver de novo vai precisar pedir.' : ''}`, 'Deixar de seguir', true))) return;
+        await sb.rpc('unfollow_user', { target_id: btn.dataset.uid });
+        toast('Você deixou de seguir', 'ok');
+        renderUserProfile(btn.dataset.uid);
     } else if (act === 'perfil-sugestoes') {
         const box = document.getElementById('perfilSug'); if (!box) return;
         const abrir = box.classList.contains('hidden');
@@ -11957,6 +12048,7 @@ function showPrivacyEditMenu(postId, anchor) {
 // COMENTÁRIOS
 // ============================================================
 async function openCommentSheet(postId) {
+    state.rascPost = postId;
     let sheet = document.getElementById('commentSheet');
     if (!sheet) {
         sheet = document.createElement('div');
@@ -12002,6 +12094,7 @@ async function openCommentSheet(postId) {
 
     await loadComments(postId);
     ligarAjudasDoComentario();
+    restaurarRascunho('commentInput');
 
     document.getElementById('commentSendBtn').onclick = async () => {
         const input = document.getElementById('commentInput');
@@ -12023,6 +12116,7 @@ async function openCommentSheet(postId) {
             toast(t.includes('row-level security') ? 'O autor limitou quem pode comentar nesse post.' : msgErro(error), 'err');
             return;
         }
+        limparRascunho('commentInput');
         input.value = '';
         state.respondendo = null;
         const aviso = document.getElementById('respondendoTag');
@@ -14014,6 +14108,7 @@ function setComposerKind(kind) {
     else if (kind === 'meal') hint.textContent = '(só com foto a IA analisa e vale 1 ponto)';
     else if (kind === 'post') hint.textContent = '(obrigatória)';
     $('#pCaption').placeholder = kind === 'post' ? 'Escreva uma legenda...' : 'Conta pra gente como foi...';
+    setTimeout(() => restaurarRascunho('pCaption'), 0);
 
     state.composerDest = kind === 'post' ? 'feed' : 'log';
     updateDestUI();
@@ -14752,6 +14847,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                 localStorage.setItem('pulso-uso-atividades', JSON.stringify(uso));
             } catch (_) {}
         }
+        limparRascunho('pCaption');
         closeComposer();
         setTimeout(() => checarConquistas(false), 1200);
         if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
