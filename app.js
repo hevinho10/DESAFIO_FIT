@@ -978,12 +978,13 @@ function openOnboarding() {
                     <button type="button" class="step-btn" data-dir="+">+</button>
                 </div>
             </div>
-            <div class="field"><label>Peso hoje (kg)</label>
+            <div class="field ob-peso-destaque"><label>Peso hoje (kg)</label>
                 <div class="stepper" data-target="obPeso" data-min="30" data-max="250" data-step="0.5" data-default="75">
                     <button type="button" class="step-btn" data-dir="-">−</button>
                     <input type="number" id="obPeso" step="0.5" inputmode="decimal">
                     <button type="button" class="step-btn" data-dir="+">+</button>
                 </div>
+                <p class="field-hint">Necessário pra entrar em desafios. Só você vê.</p>
             </div>
         </div>
 
@@ -1423,6 +1424,61 @@ function explicarConceito(tema) {
     sheet.onclick = e => { if (e.target === sheet) close(); };
     document.getElementById('exOk').onclick = close;
     document.getElementById('exRegras').onclick = () => { close(); switchView('rules'); };
+}
+
+// ---- Peso inicial obrigatório pra entrar em desafio ----
+function pedirPesoInicial(titulo = 'Pra entrar no desafio, informe seu peso de hoje') {
+    return new Promise(resolve => {
+        const old = document.getElementById('pesoIniSheet'); if (old) old.remove();
+        let v = Number(state.profile && state.profile.target_weight) || 75;
+        const sheet = document.createElement('div');
+        sheet.id = 'pesoIniSheet';
+        sheet.className = 'sheet on peso-ini-sheet';
+        const pintar = () => { sheet.querySelector('.pi-num span').textContent = br(v, 1); };
+        sheet.innerHTML = `<div class="sheet-card">
+            <div class="sheet-handle"></div>
+            <h3 class="sheet-title">${escapeHTML(titulo)}</h3>
+            <p class="sheet-sub">Ele é a base da sua evolução e do "o grupo perdeu X kg". Ninguém vê o seu peso.</p>
+            <div class="tr-dur-linha pi-linha">
+                <button type="button" class="tr-dur-btn" data-pi="-1">−</button>
+                <div class="tr-dur-num pi-num"><span></span><small>kg</small></div>
+                <button type="button" class="tr-dur-btn" data-pi="1">+</button>
+            </div>
+            <div class="pi-finos"><button type="button" data-pi="-0.1">−0,1</button><button type="button" data-pi="0.1">+0,1</button></div>
+            <div class="sheet-footer"><button class="btn-ghost" data-pr="0">Cancelar</button><button class="btn-primary" data-pr="1">Salvar e continuar</button></div>
+        </div>`;
+        document.body.appendChild(sheet);
+        pintar();
+        const fim = r => { sheet.remove(); resolve(r); };
+        sheet.addEventListener('click', async e => {
+            if (e.target === sheet) return fim(false);
+            const p = e.target.closest('[data-pi]');
+            if (p) { v = Math.max(25, Math.min(300, Math.round((v + Number(p.dataset.pi)) * 10) / 10)); pintar(); return; }
+            const b = e.target.closest('[data-pr]'); if (!b) return;
+            if (b.dataset.pr === '0') return fim(false);
+            btnCarregando(b, true);
+            const { error } = await sb.from('profiles').update({ peso_inicial: v }).eq('id', state.session.user.id);
+            if (error) { btnCarregando(b, false); toast(msgErro(error), 'err'); return; }
+            state.profile.peso_inicial = v;
+            const { count } = await sb.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', state.session.user.id).eq('kind', 'weight');
+            if (!count) await sb.from('posts').insert({ user_id: state.session.user.id, kind: 'weight', weight_kg: v, visibility: 'private', is_public: false, in_feed: false });
+            fim(true);
+        });
+    });
+}
+async function garantirPesoInicial() {
+    if (state.profile && Number(state.profile.peso_inicial) > 0) return true;
+    return await pedirPesoInicial();
+}
+function avisoPesoDesafio() {
+    if (!state.profile || Number(state.profile.peso_inicial) > 0) return;
+    const v = document.querySelector('#viewContainer .view');
+    if (!v || v.querySelector('.aviso-peso-ini')) return;
+    const d = document.createElement('div');
+    d.className = 'aviso-peso-ini';
+    d.innerHTML = `<span>⚖️</span><div><b>Falta seu peso inicial</b><small>Ele conta sua evolução no desafio.</small></div><button class="btn-mini" data-act="informar-peso-ini">Informar agora</button>`;
+    const topo = v.querySelector('.user-topbar');
+    if (topo) topo.after(d); else v.prepend(d);
 }
 
 // ---- Convite por link ----
@@ -7556,6 +7612,8 @@ async function hydrateAdminUsuarios() {
     if (!document.getElementById('admUsuarios')) return;
     if (error) { box.innerHTML = `<p class="faixa-nota">Não consegui carregar: ${escapeHTML(error.message)}</p>`; return; }
     state.admUsuarios = data || [];
+    const { data: semPeso } = await sb.rpc('admin_sem_peso');
+    state.admSemPeso = new Set((semPeso || []).map(x => typeof x === 'string' ? x : (x.admin_sem_peso || x.id)));
     pintarAdminUsuarios();
 }
 function pintarAdminUsuarios() {
@@ -7572,6 +7630,7 @@ function pintarAdminUsuarios() {
         if (filtro === 'instalado' && u.app_installed !== true) return false;
         if (filtro === 'navegador' && u.app_installed !== false) return false;
         if (filtro === 'bloqueados' && u.access_status !== 'bloqueado') return false;
+        if (filtro === 'sempeso' && !(state.admSemPeso || new Set()).has(u.id)) return false;
         if (busca && !(`${u.display_name || ''} ${u.username || ''}`.toLowerCase().includes(busca))) return false;
         return true;
     });
@@ -7596,7 +7655,7 @@ function pintarAdminUsuarios() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             <input type="text" id="admBuscaInput" placeholder="Buscar por nome ou @" value="${escapeHTML(state.admBusca || '')}" autocapitalize="off" autocomplete="off">
         </div>
-        <div class="adm-filtros">${[['todos', 'Todos'], ['instalado', 'Instalado'], ['navegador', 'Navegador'], ['bloqueados', 'Bloqueados']].map(([k, n]) =>
+        <div class="adm-filtros">${[['todos', 'Todos'], ['instalado', 'Instalado'], ['navegador', 'Navegador'], ['bloqueados', 'Bloqueados'], ['sempeso', `Sem peso inicial${state.admSemPeso && state.admSemPeso.size ? ' · ' + state.admSemPeso.size : ''}`]].map(([k, n]) =>
             `<button class="${filtro === k ? 'on' : ''}" data-act="adm-filtro" data-f="${k}">${n}</button>`).join('')}</div>
         <div class="chart-card adm-lista">${lista.map(linha).join('') || '<p class="faixa-nota">Ninguém por aqui.</p>'}</div>`;
     const inp = document.getElementById('admBuscaInput');
@@ -9650,7 +9709,7 @@ function openBodyDataSheet() {
 
     // Peso inicial trava durante desafio
     sb.rpc('in_active_challenge').then(({ data: emDesafio }) => {
-        if (!emDesafio) return;
+        if (!emDesafio || !(Number(state.profile.peso_inicial) > 0)) return; // vazio: pode informar uma vez
         const pi = document.getElementById('bdPesoIni');
         if (!pi) return;
         pi.readOnly = true;
@@ -10472,7 +10531,7 @@ async function switchView(v, params = {}) {
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
     else if (v === 'challenge') await renderChallengeDetail(params.id);
-    else if (v === 'desafio') await renderPainelDesafio(params.id);
+    else if (v === 'desafio') { await renderPainelDesafio(params.id); avisoPesoDesafio(); }
     else if (v === 'install') renderInstall();
     else if (v === 'search') renderSearch();
     else if (v === 'notifications') await renderNotifications();
@@ -11183,6 +11242,7 @@ document.addEventListener('click', async e => {
         const t = document.getElementById('respondendoTag');
         if (t) t.remove();
     } else if (act === 'pedir-acesso') {
+        if (!(await garantirPesoInicial())) return;
         btn.disabled = true;
         const { error } = await sb.from('challenge_requests').insert({
             challenge_id: btn.dataset.id, user_id: state.session.user.id,
@@ -11202,7 +11262,10 @@ document.addEventListener('click', async e => {
         if (error) { toast(erroParaAdmin(error), 'err'); btn.disabled = false; return; }
         toast('Pedido recusado', 'ok');
         renderChallengeDetail(btn.dataset.cid);
+    } else if (act === 'informar-peso-ini') {
+        if (await pedirPesoInicial('Qual é o seu peso hoje?')) { toast('Peso inicial salvo', 'ok'); const a = btn.closest('.aviso-peso-ini'); if (a) a.remove(); }
     } else if (act === 'join-challenge') {
+        if (!(await garantirPesoInicial())) return;
         btn.disabled = true;
         const { error } = await sb.from('challenge_members').insert({ challenge_id: btn.dataset.id, user_id: state.session.user.id });
         if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
