@@ -1656,6 +1656,55 @@ document.addEventListener('input', e => {
     const k = chaveRascunho(el); if (k) gravarRascunho(k, el.value.trim() ? el.value : '');
 });
 
+// ---- "↑ Novos posts": avisa quando chega post novo enquanto você rola o feed ----
+async function checarNovosPosts() {
+    if (!state.session || state.view !== 'feed' || document.visibilityState !== 'visible' || !state.feedMaisNovo) return;
+    if (window.scrollY < 300 || document.getElementById('novosPosts')) return;
+    const { data } = await sb.from('posts').select('user_id, created_at').eq('in_feed', true).eq('archived', false)
+        .neq('user_id', state.session.user.id).neq('kind', 'weight').gt('created_at', state.feedMaisNovo)
+        .order('created_at', { ascending: false }).limit(10);
+    if (!data || !data.length || state.view !== 'feed') return;
+    const ids = [...new Set(data.map(x => x.user_id))].slice(0, 3);
+    const { data: ps } = await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', ids);
+    const el = document.createElement('button');
+    el.id = 'novosPosts';
+    el.className = 'novos-posts';
+    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg><span class="np-fotos">${(ps || []).map(u => avatarHTML(u, 'sm')).join('')}</span><span>Novos posts</span>`;
+    el.onclick = () => { el.remove(); state.feedScroll = 0; window.scrollTo({ top: 0, behavior: 'smooth' }); setTimeout(renderFeed, 250); };
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('on'));
+}
+setInterval(checarNovosPosts, 60000);
+window.addEventListener('scroll', () => { const p = document.getElementById('novosPosts'); if (p && window.scrollY < 80) p.remove(); }, { passive: true });
+
+// ---- Foto no chat ----
+const MARCA_FOTO = '⟦foto⟧';
+function lerFotoDaMensagem(body) {
+    const b = String(body || '');
+    if (!b.startsWith(MARCA_FOTO)) return null;
+    const fim = b.indexOf('\n');
+    return { url: b.slice(MARCA_FOTO.length, fim < 0 ? undefined : fim), texto: fim < 0 ? '' : b.slice(fim + 1) };
+}
+async function enviarFotoNoChat(file) {
+    const conv = state.chatConversationId;
+    if (!file || !conv) return;
+    const aviso = toastComAcao('Enviando foto...', '', () => {});
+    try {
+        const url = await uploadImage('post-images', file, { maxSide: 1400, quality: 0.82 });
+        const { data, error } = await sb.from('messages').insert({ conversation_id: conv, sender_id: state.session.user.id, body: MARCA_FOTO + url }).select().single();
+        if (error) throw error;
+        if (data && !state.chatMessages.some(m => m.id === data.id)) { state.chatMessages.push(data); paintChatMessages(); }
+    } catch (err) { toast(msgErro(err), 'err'); }
+    finally { if (aviso) aviso.remove(); }
+}
+function verFotoChat(url) {
+    const v = document.createElement('div');
+    v.className = 'foto-tela';
+    v.innerHTML = `<img src="${url}" alt=""><button aria-label="Fechar">×</button>`;
+    v.onclick = () => v.remove();
+    document.body.appendChild(v);
+}
+
 // ---- Convite por link ----
 async function checarConvite() {
     // Link de convite de desafio: abre a vitrine (ou o desafio, se já participa)
@@ -2910,7 +2959,12 @@ async function renderNotifications() {
         return;
     }
 
+    let grupoNotif = null;
+    const grupoDaNotif = iso => { const d = new Date(iso), hoje = diaLocal(new Date()); return d >= hoje ? 'Hoje' : d >= new Date(hoje.getTime() - 6 * 86400000) ? 'Esta semana' : 'Antes'; };
     box.innerHTML = pedidosHTML + data.map(n => {
+        const gNot = grupoDaNotif(n.created_at);
+        const cabNot = gNot !== grupoNotif ? `<div class="nt-grupo">${gNot}</div>` : '';
+        grupoNotif = gNot;
         const quem = escapeHTML(n.actor_name || 'Alguém');
         const autor = { id: n.actor_id, display_name: n.actor_name, username: n.actor_username, avatar_url: n.actor_avatar };
         let texto, emo, act = '', extra = '';
@@ -3004,7 +3058,7 @@ async function renderNotifications() {
             emo = '🏆'; texto = `<b>${quem}</b> te adicionou no desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         }
-        return `<div class="notif-row${n.read_at ? '' : ' nova'}"${act}>
+        return `${cabNot}<div class="notif-row${n.read_at ? '' : ' nova'}"${act}>
             <span class="notif-av">${avatarHTML(autor, 'sm')}<span class="notif-mark">${emo}</span></span>
             <div class="notif-body">
                 <div class="notif-text">${texto}</div>
@@ -3972,7 +4026,8 @@ async function renderChat(conversationId, otherUser) {
                 <button type="button" id="chatRespX" aria-label="Cancelar resposta">×</button>
             </div>
             <div class="coach-composer">
-                <textarea id="chatInput" placeholder="Escreva uma mensagem..." maxlength="2000" rows="1"></textarea>
+                <textarea id="chatInput" placeholder="Mensagem..." maxlength="2000" rows="1"></textarea>
+                <label class="mic-btn chat-foto-btn" aria-label="Mandar foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></svg><input type="file" id="chatFoto" accept="image/*" hidden></label>
                 <button class="mic-btn" id="chatMic" aria-label="Ditar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
                 </button>
@@ -4015,6 +4070,8 @@ async function renderChat(conversationId, otherUser) {
     const atualizarEnviar = () => $('#chatSend').classList.toggle('pronto', !!input.value.trim());
     input.addEventListener('input', atualizarEnviar); atualizarEnviar();
     $('#chatMic').addEventListener('click', () => ditar('chatInput'));
+    $('#chatFoto').addEventListener('change', e => { const fl = e.target.files && e.target.files[0]; e.target.value = ''; if (fl) enviarFotoNoChat(fl); });
+    $('#chatMessages').addEventListener('click', e => { const f = e.target.closest('[data-ver-foto]'); if (f) verFotoChat(f.dataset.verFoto); });
     restaurarRascunho('chatInput');
 
     // Tempo real (mensagens novas e apagadas)
@@ -4103,6 +4160,8 @@ function paintChatMessages() {
                 }
             }
             let corpo = m.body, topo = '';
+            const ft = lerFotoDaMensagem(corpo);
+            if (ft) { topo = `<button class="cmsg-foto" data-ver-foto="${escapeHTML(ft.url)}" data-msg="${m.id}"><img src="${escapeHTML(ft.url)}" alt="" loading="lazy"></button>`; corpo = ft.texto; }
             const st = lerStoryDaMensagem(corpo);
             if (st) {
                 const mini = st.ref.img ? `<img src="${st.ref.img}" alt="" onerror="this.parentElement.classList.add('sem')">` : `<span class="cmsg-st-txt" style="background:${st.ref.bg || '#1C2420'}">${escapeHTML(st.ref.txt || '')}</span>`;
@@ -4118,7 +4177,7 @@ function paintChatMessages() {
             const reacHTML = r.length ? `<span class="cmsg-reac">${[...new Set(r.map(x => x.emoji))].join('')}${r.length > 1 ? `<small>${r.length}</small>` : ''}</span>` : '';
             return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${r.length ? ' com-reac' : ''}" data-mid="${m.id}">
                 ${topo}
-                <div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>
+                ${corpo || !ft ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
             </div>`;
         }).join('');
         if (digitando) box.appendChild(digitando);
@@ -4746,6 +4805,8 @@ async function renderFeed() {
 
     const [{ data: stories }, { data: posts, error }] = await Promise.all([storiesPromise, postsPromise]);
     state.feedOffset = (posts || []).length;
+    state.feedMaisNovo = (posts || []).length ? posts[0].created_at : new Date().toISOString();
+    const pilulaVelha = document.getElementById('novosPosts'); if (pilulaVelha) pilulaVelha.remove();
 
     if (error) { c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro ao carregar: ${error.message}</p></div>`; return; }
 
@@ -10484,8 +10545,8 @@ async function renderUserProfile(uid) {
             </div>
             
             ${mutuosTotal ? `<button class="perfil-mutuos" data-act="open-follow-list" data-type="followers" data-uid="${uid}">
-                <span class="pm-fotos">${mutuos.map(m => avatarHTML(m, 'sm')).join('')}</span>
-                <span>Seguida por <b>${mutuos.slice(0, 2).map(m => escapeHTML(m.username)).join('</b>, <b>')}</b>${mutuosTotal > 2 ? ` e mais ${mutuosTotal - 2}` : ''}</span>
+                <span class="pm-fotos">${mutuos.slice(0, 2).map(m => avatarHTML(m, 'sm')).join('')}</span>
+                <span>${p.sexo === 'F' ? 'Seguida' : p.sexo === 'M' ? 'Seguido' : 'Seguido(a)'} por <b>${mutuos.slice(0, 2).map(m => escapeHTML(m.username)).join('</b> e <b>')}</b></span>
             </button>` : ''}
             <div class="ig-profile-actions perfil-acoes">
                 ${iFollow ? `<button class="pa-btn pa-seguindo" data-act="perfil-seguindo-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-private="${p.is_private ? '1' : '0'}">Seguindo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`
@@ -11032,6 +11093,7 @@ document.addEventListener('click', async e => {
         btn.disabled = true;
         if (following) {
             const eraPedido = btn.dataset.requested === '1';
+            if (eraPedido && !(await confirmar('Cancelar o pedido pra seguir?', 'Cancelar pedido', true))) { btn.disabled = false; return; }
             if (!eraPedido && btn.dataset.private === '1' && !(await confirmar('Deixar de seguir? A conta é privada, pra ver de novo vai precisar pedir.'))) { btn.disabled = false; return; }
             await sb.rpc('unfollow_user', { target_id: uid });
         } else {
@@ -12356,10 +12418,10 @@ function btnCarregando(btn, on) {
 function toastComAcao(texto, acao, aoClicar) {
     const el = document.createElement('div');
     el.className = 'toast toast-acao';
-    el.innerHTML = `<span>${escapeHTML(texto)}</span><button>${escapeHTML(acao)}</button>`;
+    el.innerHTML = `<span>${escapeHTML(texto)}</span>${acao ? `<button>${escapeHTML(acao)}</button>` : ''}`;
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('on'));
-    el.querySelector('button').onclick = () => { aoClicar(); el.remove(); };
+    const bt = el.querySelector('button'); if (bt) bt.onclick = () => { aoClicar(); el.remove(); };
     setTimeout(() => el.remove(), 5000);
     return el;
 }
@@ -13739,6 +13801,7 @@ function lerStoryDaMensagem(body) {
     try { return { ref: JSON.parse(b.slice(MARCA_STORY.length, fim)), texto: b.slice(fim + 1) }; } catch (_) { return null; }
 }
 const previaMensagem = body => {
+    if (lerFotoDaMensagem(body)) return '📷 Foto';
     const st = lerStoryDaMensagem(body);
     if (st) return 'Respondeu ao story: ' + textoLimpo(body);
     return textoLimpo(body);
