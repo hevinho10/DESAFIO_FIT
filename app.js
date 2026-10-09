@@ -1481,6 +1481,114 @@ function avisoPesoDesafio() {
     if (topo) topo.after(d); else v.prepend(d);
 }
 
+// ---- Extrato do dia: de onde veio cada ponto ----
+function toqueAbreExtrato(el) {
+    if (!el) return;
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', e => { if (e.target.closest('button')) return; el.remove(); abrirExtratoDia(); });
+}
+function nomeMotivoPonto(r) {
+    r = String(r || '');
+    if (r === 'workout') return ['🏋️', 'Treino'];
+    if (r.startsWith('meal_')) return ['🍽️', 'Refeição · ' + (MEAL_SLOT_NAME[r.slice(5)] || r.slice(5))];
+    if (r === 'water_goal') return ['💧', 'Meta de água'];
+    if (r.startsWith('streak')) return ['🔥', 'Bônus de ofensiva'];
+    if (r.includes('weekly') || r.includes('semana')) return ['✅', 'Semana válida'];
+    if (r.startsWith('weight_loss')) return ['📉', 'Evolução no peso'];
+    if (r.startsWith('weight_topup')) return ['📉', 'Evolução no peso'];
+    if (r.includes('story')) return ['📸', 'Story'];
+    if (r.includes('sleep') || r.includes('sono')) return ['😴', 'Sono'];
+    if (r.includes('convite') || r.includes('invite')) return ['🤝', 'Convite'];
+    if (r.includes('depoimento')) return ['💬', 'Depoimento'];
+    return ['⚡', r.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())];
+}
+async function abrirExtratoDia() {
+    const old = document.getElementById('extratoSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'extratoSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card"><div class="sheet-handle"></div><h3 class="sheet-title">Seus pontos de hoje</h3><div class="spinner"></div></div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    const ini = new Date(); ini.setHours(0, 0, 0, 0);
+    const { data, error } = await sb.from('points_ledger').select('amount, reason, earned_at')
+        .eq('user_id', state.session.user.id).gte('earned_at', ini.toISOString()).order('earned_at', { ascending: true });
+    const card = sheet.querySelector('.sheet-card'); if (!card) return;
+    const lista = (data || []).filter(x => Number(x.amount));
+    const total = lista.reduce((t, x) => t + Number(x.amount), 0);
+    card.innerHTML = `<div class="sheet-handle"></div>
+        <h3 class="sheet-title">Seus pontos de hoje</h3>
+        ${error ? '<p class="faixa-nota">Não consegui carregar agora.</p>' : lista.length ? `<div class="extrato">${lista.map(x => {
+            const [emo, nome] = nomeMotivoPonto(x.reason);
+            return `<div class="ex-linha"><span class="ex-emo">${emo}</span><span class="ex-nome">${escapeHTML(nome)}<small>${new Date(x.earned_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</small></span><b>${Number(x.amount) > 0 ? '+' : ''}${br(Number(x.amount), Number(x.amount) % 1 ? 1 : 0)}</b></div>`;
+        }).join('')}</div>
+        <div class="ex-total"><span>Total hoje</span><b>${br(total, total % 1 ? 1 : 0)} pts</b></div>`
+        : vazioAcao('grafico', 'Nenhum ponto hoje ainda', 'Um treino vale até 15 pontos.', 'Registrar treino', 'data-act="quick-kind" data-kind="workout"')}
+        <button class="link-btn ex-regras" data-act="go-rules">Como funcionam os pontos</button>`;
+    card.addEventListener('click', e => { if (e.target.closest('[data-act]')) sheet.remove(); });
+}
+
+// ---- Voltar do celular (botão do Android e gesto da borda): fecha o que está aberto ou volta uma tela ----
+function fecharTopo() {
+    const arco = document.querySelector('.fab-arco'); if (arco) { arco.click(); return true; }
+    if (document.getElementById('floatingPostMenu')) { hidePostMenu(); return true; }
+    const conf = document.getElementById('confirmarSheet'); if (conf) { const c = conf.querySelector('[data-r="0"]'); if (c) c.click(); else conf.remove(); return true; }
+    const conq = document.getElementById('conqSheet'); if (conq) { conq.remove(); return true; }
+    const dinamicas = [...document.querySelectorAll('.sheet.on')].filter(x => x.id !== 'composerSheet' && x.id !== 'termsSheet');
+    if (dinamicas.length) {
+        const s = dinamicas[dinamicas.length - 1];
+        s.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        if (document.body.contains(s) && s.classList.contains('on')) { s.remove(); }
+        document.body.style.overflow = document.querySelector('.sheet.on, .posts-viewer, .story-viewer.on, .sc.on') ? 'hidden' : '';
+        return true;
+    }
+    if ($('#storyCreator').classList.contains('on')) { closeStoryCreator(); return true; }
+    if ($('#storyViewer').classList.contains('on')) { closeStoryViewer(); return true; }
+    const pv = [...document.querySelectorAll('.posts-viewer')];
+    if (pv.length) { pv[pv.length - 1].remove(); if (!document.querySelector('.posts-viewer')) { document.body.style.overflow = ''; state.arquivoStories = null; } return true; }
+    if ($('#composerSheet').classList.contains('on')) { closeComposer(); return true; }
+    return false;
+}
+function voltarUmPasso() {
+    const ts = document.getElementById('termsSheet');
+    if (document.getElementById('onbTela') || (ts && ts.classList.contains('on') && ts.style.display !== 'none')) return true;
+    if (fecharTopo()) return true;
+    const pilha = state.navPilha || [];
+    if (pilha.length) { const ant = pilha.pop(); switchView(ant.v, { ...(ant.p || {}), _voltando: true }); return true; }
+    if (state.view && state.view !== 'feed') { switchView('feed', { _voltando: true }); return true; }
+    return false; // no feed sem nada aberto: deixa sair
+}
+(function ligarVoltar() {
+    try {
+        history.replaceState({ pulso: 'base' }, '');
+        history.pushState({ pulso: 'app' }, '');
+    } catch (_) {}
+    window.addEventListener('popstate', () => {
+        if (voltarUmPasso()) { try { history.pushState({ pulso: 'app' }, ''); } catch (_) {} }
+    });
+    // iPhone com o app instalado: arrastar da borda esquerda pra direita volta
+    let x0 = null, y0 = 0;
+    document.addEventListener('touchstart', e => {
+        const t = e.touches[0];
+        x0 = t.clientX < 18 && e.touches.length === 1 ? t.clientX : null; y0 = t.clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', e => {
+        if (x0 == null) return;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - x0, dy = Math.abs(t.clientY - y0);
+        x0 = null;
+        if (dx > 80 && dy < 60) voltarUmPasso();
+    }, { passive: true });
+})();
+
+// Teclado certo: campo de número sem indicação ganha o teclado numérico (com vírgula quando aceita decimal)
+document.addEventListener('focusin', e => {
+    const el = e.target;
+    if (!el || el.tagName !== 'INPUT' || el.type !== 'number' || el.getAttribute('inputmode')) return;
+    const passo = el.getAttribute('step') || '';
+    el.setAttribute('inputmode', passo.includes('.') || passo === 'any' ? 'decimal' : 'numeric');
+});
+
 // ---- Convite por link ----
 async function checarConvite() {
     // Link de convite de desafio: abre a vitrine (ou o desafio, se já participa)
@@ -1838,6 +1946,16 @@ async function hydrateLembretes() {
     }
 }
 
+// Botão de tela vazia dentro de uma folha: fecha a folha ao seguir pro próximo passo
+document.addEventListener('click', e => {
+    const b = e.target.closest('.vazio-acao [data-act]'); if (!b) return;
+    const sh = b.closest('.sheet'); if (sh && sh.id !== 'composerSheet') setTimeout(() => { sh.remove(); document.body.style.overflow = ''; }, 0);
+});
+// Tela vazia com o próximo passo (ícone discreto, frase curta e um botão)
+function vazioAcao(ic, titulo, texto, botao = '', attrs = '') {
+    return `<div class="grid-empty grid-empty-cta vazio-acao">${ic ? icon(ic) : ''}<b>${titulo}</b>${texto ? `<span>${texto}</span>` : ''}${botao ? `<button class="btn-mini" ${attrs}>${botao}</button>` : ''}</div>`;
+}
+
 // ---- Conquistas ----
 async function renderAchievements(uid) {
     const alvo = uid || state.session.user.id;
@@ -1891,7 +2009,7 @@ async function renderAchievements(uid) {
         ${ehMeu ? `<div class="wk-summary"><b>${ganhas.length}</b> ${ganhas.length === 1 ? 'conquista' : 'conquistas'}${andamento.filter(x => !x.ok).length ? ` · ${andamento.filter(x => !x.ok).length} em andamento` : ''} · <button class="link-btn" data-act="toggle-badges-public">${state.profile.show_badges ? 'visíveis no seu perfil' : 'só você vê'}</button></div>` : ''}
         ${ganhas.length ? `${ehMeu ? '<div class="badge-secao">Conquistadas</div>' : ''}<div class="badge-grid">${ganhas.map(a => card(a, true)).join('')}</div>` : ''}
         ${andamento.filter(a => !a.ok).length ? `<div class="badge-secao">Em andamento</div><div class="badge-grid">${andamento.filter(a => !a.ok).map(a => card(a, false)).join('')}</div>` : ''}
-        ${ehMeu && !ganhas.length && !andamento.length ? '<div class="grid-empty">Registre seu primeiro treino e as conquistas começam a aparecer.</div>' : ''}`;
+        ${ehMeu && !ganhas.length && !andamento.length ? vazioAcao('medalha', 'Suas conquistas começam aqui', 'Registre seu primeiro treino e elas vão aparecendo.', 'Registrar treino', 'data-act="quick-kind" data-kind="workout"') : ''}`;
 }
 
 // Conquistas em níveis: Treinos, Ofensiva e Evolução no peso viram um card só (bronze → prata → ouro)
@@ -1987,6 +2105,7 @@ function showUserMenu(anchor) {
     menu.dataset.menuType = 'user';
     menu.className = 'post-menu';
     menu.innerHTML = `
+        ${anchor.dataset.username ? `<button class="post-menu-item" data-act="copiar-link-perfil" data-username="${escapeHTML(anchor.dataset.username)}">${icon('chave')}Copiar link do perfil</button>` : ''}
         <button class="post-menu-item" data-act="report-user" data-uid="${uid}" data-name="${escapeHTML(nome)}">${icon('bandeira')}Denunciar</button>
         <button class="post-menu-item danger" data-act="toggle-block" data-uid="${uid}" data-name="${escapeHTML(nome)}" data-blocked="${bloqueado ? '1' : '0'}">
             ${bloqueado ? icon('ok') + 'Desbloquear' : icon('bloquear') + 'Bloquear'}
@@ -3265,7 +3384,8 @@ async function renderMealHistory(uid) {
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
     if (!data || data.length === 0) {
-        body.innerHTML = `<div class="grid-empty">${isMe ? 'Nenhuma refeição registrada ainda.' : 'Nenhuma refeição compartilhada.'}</div>`;
+        body.innerHTML = isMe ? vazioAcao('alvo', 'Nenhuma refeição ainda', 'Com foto, a IA dá nota pro prato e vale ponto.', 'Registrar refeição', 'data-act="quick-kind" data-kind="meal"')
+            : '<div class="grid-empty">Nenhuma refeição compartilhada.</div>';
         return;
     }
 
@@ -3458,7 +3578,7 @@ async function renderWorkoutHistory(uid) {
 
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
-    if (!data || data.length === 0) { body.innerHTML = `<div class="grid-empty">${ehMeuPerfil ? 'Nenhum treino registrado ainda.' : 'Nenhum treino publicado ainda.'}</div>`; return; }
+    if (!data || data.length === 0) { body.innerHTML = ehMeuPerfil ? vazioAcao('grafico', 'Nenhum treino ainda', 'Vale até 15 pontos por treino, com ou sem foto.', 'Registrar treino', 'data-act="quick-kind" data-kind="workout"') : '<div class="grid-empty">Nenhum treino publicado ainda.</div>'; return; }
 
     const totalMin = data.reduce((s, w) => s + (w.duration_min || 0), 0);
     const horas = Math.floor(totalMin / 60), mins = totalMin % 60;
@@ -3559,7 +3679,10 @@ async function openFollowList(uid, type) {
     if (!body) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
     if (!data || data.length === 0) {
-        body.innerHTML = `<div class="log-empty">${type === 'followers' ? 'Ninguém segue ainda.' : 'Não segue ninguém ainda.'}</div>`;
+        const minha = uid === state.session.user.id;
+        body.innerHTML = !minha ? `<div class="log-empty">${type === 'followers' ? 'Ninguém segue ainda.' : 'Não segue ninguém ainda.'}</div>`
+            : type === 'followers' ? vazioAcao('pessoaMais', 'Ninguém te segue ainda', 'Chame seus amigos pra treinar junto.', 'Convidar amigos', 'data-act="convidar-amigo"')
+            : vazioAcao('perfil', 'Você ainda não segue ninguém', 'Siga pessoas pra ver os treinos delas no feed.', 'Ver sugestões', 'data-act="m-go" data-view="search"');
         return;
     }
     body.innerHTML = data.map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
@@ -3709,11 +3832,7 @@ async function renderMessages() {
         html += `<p style="color:var(--danger); padding:12px 4px">Erro ao carregar conversas: ${error.message}</p>`;
     } else if (!convs || convs.length === 0) {
         html += `<div class="conv-section-label">Pessoas</div>
-            <div class="feed-empty" style="margin-top:0">
-                <span class="emo">💬</span>
-                <h3>Nenhuma conversa ainda</h3>
-                <p>Vai no perfil de alguém e toca no ícone de mensagem (o aviãozinho) pra começar a falar.</p>
-            </div>`;
+            ${vazioAcao('mensagem', 'Nenhuma conversa ainda', 'Abra o perfil de alguém e toque em Mensagem.', 'Encontrar pessoas', 'data-act="m-go" data-view="search"')}`;
     } else {
         html += `<div class="conv-section-label">Pessoas</div>`;
         html += convs.map(cv => {
@@ -5988,7 +6107,8 @@ async function renderChallenges() {
                 ${ch.pedidos > 0 ? `<span class="ch-pedidos">${plural(ch.pedidos, 'pedido', 'pedidos')}</span>` : ''}
             </div>
         </div>`;
-    }).join('') || `<div class="feed-empty"><span class="emo">🏆</span><h3>Nenhum desafio ainda</h3><p>${podeCriarDesafio() ? 'Crie o primeiro no botão acima.' : 'Fique de olho, logo aparece um por aqui.'}</p></div>`;
+    }).join('') || (podeCriarDesafio() ? vazioAcao('medalha', 'Nenhum desafio ainda', 'Crie um e chame o pessoal.', 'Criar desafio', 'data-act="new-challenge"')
+        : vazioAcao('medalha', 'Nenhum desafio ainda', 'Quando abrir um, ele aparece aqui. Enquanto isso, chame quem treina com você.', 'Convidar amigos', 'data-act="convidar-amigo"'));
 
     const fx = mine ? faixaRanking(mine.rank, mine.total) : null;
     // Compara com a faixa da semana passada (guardada no aparelho)
@@ -7223,6 +7343,7 @@ document.addEventListener('click', async e => {
 
 // Esqueletos de carregamento (no lugar da rodinha)
 function esqueleto(tipo) {
+    if (state.cacheAtivo) return state.cacheAtivo; // aba já visitada: mostra a última versão na hora
     const b = (w, h, extra = '') => `<span class="esq" style="width:${w};height:${h}px;${extra}"></span>`;
     if (tipo === 'feed') return `<div class="view feed-view esq-wrap">
         <div class="esq-linha">${b('62px', 62, 'border-radius:50%')}${b('62px', 62, 'border-radius:50%')}${b('62px', 62, 'border-radius:50%')}</div>
@@ -10235,6 +10356,22 @@ async function renderUserProfile(uid) {
     const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
 
     const { data: mostraBadges } = await sb.rpc('profile_shows_badges', { alvo: uid });
+    // "Seguida por": quem você segue e também segue essa pessoa
+    let mutuos = [], mutuosTotal = 0;
+    try {
+        const { data: meus } = await sb.from('follows').select('following_id').eq('follower_id', state.session.user.id).limit(1000);
+        const ids = (meus || []).map(x => x.following_id).filter(x => x !== uid);
+        if (ids.length) {
+            const { data: comuns } = await sb.from('follows').select('follower_id').eq('following_id', uid).in('follower_id', ids.slice(0, 900));
+            const cid = (comuns || []).map(x => x.follower_id);
+            mutuosTotal = cid.length;
+            if (cid.length) {
+                const { data: pf } = await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', cid.slice(0, 3));
+                mutuos = pf || [];
+            }
+        }
+    } catch (_) {}
+    const podeMsg = !(p.dm_policy === 'ninguem' || (p.dm_policy === 'seguidores' && !iFollow));
 
     const { data: delesStoriesAtivos } = await sb.from('stories')
         .select('id').eq('user_id', uid)
@@ -10249,7 +10386,7 @@ async function renderUserProfile(uid) {
             <div class="user-topbar">
                 <button class="topbar-back" data-act="back">←</button>
                 <div class="topbar-title topbar-title-user">${p.is_private ? '<svg class="tu-cadeado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>' : ''}${escapeHTML(p.username)}</div>
-                <div style="width:28px"></div>
+                <button class="topo-mais" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" aria-label="Mais opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
             </div>
             <div class="ig-profile-head">
                 <button class="ig-avatar-btn${theirStoryCount ? ' has-story' : ''}${delesVisto ? ' visto' : ''}" data-act="open-user-stories" data-uid="${uid}" data-story-ids="${delesIdsStory.join(',')}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
@@ -10265,13 +10402,17 @@ async function renderUserProfile(uid) {
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
             
-            <div class="ig-profile-actions">
-                <button class="${(iFollow || pedi) ? 'btn-secondary' : 'btn-primary-sm'} flex-1" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${(iFollow || pedi) ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">
-                    ${txtSeguir}
-                </button>
-                ${(p.dm_policy === 'ninguem' || (p.dm_policy === 'seguidores' && !iFollow)) ? '' : `<button class="btn-secondary" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url||''}" aria-label="Mensagem"><svg class="btn-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3L11 13M22 3l-7 19-4-9-9-4 20-6z"/></svg></button>`}
-                <button class="btn-secondary" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" aria-label="Mais opções"><svg class="btn-ico" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
+            ${mutuosTotal ? `<button class="perfil-mutuos" data-act="open-follow-list" data-type="followers" data-uid="${uid}">
+                <span class="pm-fotos">${mutuos.map(m => avatarHTML(m, 'sm')).join('')}</span>
+                <span>Seguida por <b>${mutuos.slice(0, 2).map(m => escapeHTML(m.username)).join('</b>, <b>')}</b>${mutuosTotal > 2 ? ` e mais ${mutuosTotal - 2}` : ''}</span>
+            </button>` : ''}
+            <div class="ig-profile-actions perfil-acoes">
+                ${iFollow ? `<button class="pa-btn pa-seguindo" data-act="perfil-seguindo-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-private="${p.is_private ? '1' : '0'}">Seguindo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`
+                    : `<button class="pa-btn ${pedi ? '' : 'pa-seguir'}" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${pedi ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">${txtSeguir}</button>`}
+                ${podeMsg ? `<button class="pa-btn" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url || ''}">Mensagem</button>` : ''}
+                <button class="pa-btn pa-quad" data-act="perfil-sugestoes" data-uid="${uid}" aria-label="Pessoas parecidas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></svg></button>
             </div>
+            <div class="perfil-sug hidden" id="perfilSug"></div>
             ${destaquesHTML(destaquesDele, uid)}
 
             ${trancado ? `<div class="perfil-privado">
@@ -10288,6 +10429,50 @@ async function renderUserProfile(uid) {
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>`}
         </div>
     `;
+}
+
+// Folha do "Seguindo ⌄" no perfil de outra pessoa
+async function abrirMenuSeguindo(uid, nome, privado) {
+    const old = document.getElementById('seguindoSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'seguindoSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card"><div class="sheet-handle"></div><h3 class="sheet-title">${escapeHTML(nome || '')}</h3><div class="spinner"></div></div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    let oculto = false;
+    try {
+        const { data } = await sb.rpc('my_followers_story_visibility');
+        const r = (data || []).find(x => x.id === uid);
+        oculto = !!(r && r.hidden);
+        var segueVoce = !!r;
+    } catch (_) {}
+    const card = sheet.querySelector('.sheet-card');
+    card.innerHTML = `<div class="sheet-handle"></div>
+        <h3 class="sheet-title">${escapeHTML(nome || '')}</h3>
+        ${segueVoce ? `<button class="cfg-row" data-sg="story">${icon('storyOculto')}<span class="cfg-txt">Ocultar seu story dela</span><span class="cfg-check${oculto ? ' on' : ''}"></span></button>` : ''}
+        <button class="cfg-row" data-sg="msg">${icon('mensagem')}<span class="cfg-txt">Mandar mensagem</span></button>
+        <button class="cfg-row cfg-perigo" data-sg="sair"><span class="cfg-txt">Deixar de seguir</span></button>`;
+    card.addEventListener('click', async e => {
+        const b = e.target.closest('[data-sg]'); if (!b) return;
+        if (b.dataset.sg === 'story') {
+            oculto = !oculto;
+            b.querySelector('.cfg-check').classList.toggle('on', oculto);
+            const { error } = await sb.rpc('set_story_hidden', { target: uid, hide: oculto });
+            if (error) { toast(msgErro(error), 'err'); return; }
+            toast(oculto ? 'Ela não vê mais seus stories' : 'Ela volta a ver seus stories', 'ok');
+        } else if (b.dataset.sg === 'msg') {
+            sheet.remove();
+            const m = document.querySelector('.perfil-acoes [data-act="start-chat"]');
+            if (m) m.click(); else toast('Essa pessoa não recebe mensagens agora', 'err');
+        } else {
+            if (privado && !(await confirmar('Deixar de seguir? A conta é privada, pra ver de novo vai precisar pedir.'))) return;
+            sheet.remove();
+            await sb.rpc('unfollow_user', { target_id: uid });
+            toast('Você deixou de seguir', 'ok');
+            renderUserProfile(uid);
+        }
+    });
 }
 
 async function renderEditProfile() {
@@ -10462,6 +10647,20 @@ async function switchView(v, params = {}) {
     const viewAnterior = state.view;
     const paramsAnteriores = state.viewParams || {};
     if (viewAnterior === 'feed' && v !== 'feed') state.feedScroll = window.scrollY; // lembra onde parou
+    // Evolução e Desafio: guarda a última versão pra mostrar na hora na próxima visita
+    const ABAS_CACHE = ['progress', 'desafio'];
+    state.cacheTela = state.cacheTela || {};
+    if (ABAS_CACHE.includes(viewAnterior) && viewAnterior !== v) {
+        const vc = document.getElementById('viewContainer');
+        if (vc && !vc.querySelector('.esq-wrap')) state.cacheTela[viewAnterior + ':' + (paramsAnteriores.id || '')] = vc.innerHTML;
+    }
+    state.cacheAtivo = ABAS_CACHE.includes(v) && v !== viewAnterior ? (state.cacheTela[v + ':' + (params.id || '')] || null) : null;
+    // pilha pra o "voltar" do celular
+    if (!params._voltando && viewAnterior && viewAnterior !== v) {
+        state.navPilha = state.navPilha || [];
+        state.navPilha.push({ v: viewAnterior, p: paramsAnteriores });
+        if (state.navPilha.length > 30) state.navPilha.shift();
+    }
     closeDynamicSheets();
     const noChat = (v === 'chat' || v === 'coach');
     document.documentElement.classList.toggle('chat-mode', noChat);
@@ -10522,6 +10721,7 @@ async function switchView(v, params = {}) {
     else if (v === 'termos') renderTermos();
     else if (v === 'arquivados') renderArquivados();
     else if (v === 'medidas') await renderProgress();
+    state.cacheAtivo = null;
     if (v === 'feed' && state.feedScroll > 0) {
         const y = state.feedScroll;
         requestAnimationFrame(() => setTimeout(() => window.scrollTo(0, y), 60));
@@ -10715,6 +10915,26 @@ document.addEventListener('click', async e => {
             }
         }
         btn.disabled = false;
+    } else if (act === 'copiar-link-perfil') {
+        hidePostMenu();
+        const link = `${location.origin}${location.pathname}?u=${encodeURIComponent(btn.dataset.username)}`;
+        try { await navigator.clipboard.writeText(link); toast('Link copiado', 'ok'); } catch (_) { toast(link, 'ok'); }
+    } else if (act === 'perfil-seguindo-menu') {
+        abrirMenuSeguindo(btn.dataset.uid, btn.dataset.name, btn.dataset.private === '1');
+    } else if (act === 'perfil-sugestoes') {
+        const box = document.getElementById('perfilSug'); if (!box) return;
+        const abrir = box.classList.contains('hidden');
+        btn.classList.toggle('on', abrir);
+        if (!abrir) { box.classList.add('hidden'); return; }
+        box.classList.remove('hidden');
+        box.innerHTML = '<div class="spinner"></div>';
+        const lista = (await carregarSugestoes(10)).filter(u => u.id !== btn.dataset.uid);
+        box.innerHTML = lista.length ? `<div class="ps-topo"><b>Pessoas parecidas</b></div><div class="suggestions-row">${lista.map(u => `<div class="suggestion-card" data-act="view-user" data-uid="${u.id}">
+                ${avatarHTML(u, 'md')}
+                <div class="suggestion-name">${escapeHTML(u.display_name)}</div>
+                <div class="suggestion-uname">${escapeHTML(u.motivo || '@' + u.username)}</div>
+                <button class="suggestion-follow" data-act="quick-follow" data-uid="${u.id}" data-following="0">Seguir</button>
+            </div>`).join('')}</div>` : '<p class="faixa-nota">Sem sugestões por enquanto. Quando mais gente entrar, elas aparecem aqui.</p>';
     } else if (act === 'profile-follow-toggle') {
         const uid = btn.dataset.uid;
         const following = btn.dataset.following === '1';
@@ -10730,7 +10950,7 @@ document.addEventListener('click', async e => {
         btn.disabled = false;
         renderUserProfile(uid);
     } else if (act === 'back') {
-        switchView('feed');
+        if (!voltarUmPasso()) switchView('feed');
     } else if (act === 'back-profile') {
         switchView('profile');
     } else if (act === 'open-body-data') {
@@ -11386,6 +11606,9 @@ document.addEventListener('click', async e => {
             const m = JSON.parse(decodeURIComponent(btn.dataset.meta || ''));
             abrirRepostStory({ image_url: m.image_url, caption: m.caption, background_color: m.background_color, style: m.style || {} }, { id: btn.dataset.uid, username: btn.dataset.user });
         } catch (_) { toast('Esse story não está mais disponível', 'err'); }
+    } else if (act === 'arquivo-novo-story') {
+        const a = document.getElementById('arquivoStories'); if (a) { a.remove(); document.body.style.overflow = ''; }
+        openStoryCreator();
     } else if (act === 'abrir-arquivo-stories') {
         abrirArquivoStories();
     } else if (act === 'quick-water') {
@@ -12332,7 +12555,7 @@ async function pintarArquivoStories() {
     const lista = (data || []).slice().sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     state.arquivoStories = lista;
     const box = v.querySelector('.pv-lista'); if (!box) return;
-    if (!lista.length) { box.innerHTML = '<div class="log-empty">Seus stories aparecem aqui depois de postados. Só você vê.</div>'; return; }
+    if (!lista.length) { box.innerHTML = vazioAcao('historico', 'Nenhum story ainda', 'Seus stories ficam guardados aqui. Só você vê.', 'Criar story', 'data-act="arquivo-novo-story"'); return; }
     const grupos = {};
     lista.forEach((x, k) => {
         const d = new Date(x.created_at);
@@ -14534,7 +14757,9 @@ $('#composerSubmit').addEventListener('click', async () => {
         if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
         if (created) setTimeout(efeitoNoDesafio, 3200);
 
-        let msg = `+${ptsToCredit} pontos!`;
+        const oQue = post.kind === 'workout' ? `${post.activity_type || 'Treino'}${post.duration_min ? ' de ' + post.duration_min + ' min' : ''}`
+            : post.kind === 'meal' ? (MEAL_SLOT_NAME[post.meal_slot] || 'Refeição') : '';
+        let msg = `+${ptsToCredit} pts${oQue ? ' · ' + oQue : ''}`;
         if (streakInfo?.streak_bonus > 0) msg += ` · +${streakInfo.streak_bonus} bônus ofensiva 🔥`;
         if (streakInfo?.shield_used) msg += ' · escudo usado, sua sequência continua 🛡️';
         if (weeklyBonus > 0) msg += ` · +${weeklyBonus} semana válida ✅`;
@@ -14550,9 +14775,9 @@ $('#composerSubmit').addEventListener('click', async () => {
             toast(semFoto, 'ok');
         } else if (eraTreino && created) {
             const feito = created;
-            toastComAcao(msg, 'Postar no story', () => publicarStoryTreino(feito));
+            toqueAbreExtrato(toastComAcao(msg, 'Postar no story', () => publicarStoryTreino(feito)));
         } else {
-            toast(msg, 'ok');
+            toqueAbreExtrato(toastComAcao(msg, 'Ver pontos', abrirExtratoDia));
         }
 
         if (state.view === 'feed') await renderFeed();
