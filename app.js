@@ -68,6 +68,7 @@ const ICO = {
     cadeado:'<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
     baixar:'<path d="M12 3v12M8 11l4 4 4-4M4 20h16"/>',
     alerta:'<path d="M12 3l9 17H3l9-17zM12 9v5M12 17h.01"/>',
+    ajustes:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
     sino:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8M13.7 21a2 2 0 0 1-3.4 0"/>',
     mensagem:'<path d="M22 3L11 13M22 3l-7 19-4-9-9-4 20-6z"/>',
     comentario:'<path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5.2A8.5 8.5 0 1 1 21 12z"/>',
@@ -1770,6 +1771,8 @@ async function abrirRetrospecto() {
     tela.innerHTML = '<div class="spinner"></div>';
     document.body.appendChild(tela);
     document.body.style.overflow = 'hidden';
+    lsSet(`pulso-retro-${state.session.user.id}-${ano}-${mes}`, 'fim'); // já viu: o aviso não volta
+    const slRet = document.getElementById('retroSlot'); if (slRet) slRet.innerHTML = '';
     const r = await calcularRetrospecto(ano, mes);
     const frase = await fraseRetrospecto(r);
     state.retro = { ...r, frase };
@@ -1800,10 +1803,19 @@ async function hydrateRetroFeed() {
     const slot = document.getElementById('retroSlot');
     if (!slot || !state.session) return;
     const hoje = new Date();
-    if (hoje.getDate() > 7) return;
+    if (hoje.getDate() > 3) return;
     const { ano, mes } = mesPassado();
     const chave = `pulso-retro-${state.session.user.id}-${ano}-${mes}`;
-    if (lsGet(chave)) return;
+    const st = lsGet(chave);
+    // 'fim' = já viu ou postou; número = quantas vezes fechou
+    if (st === 'fim' || Number(st || 0) >= 3) return;
+    if (lsGet(chave + '-dia') === hojeISO()) return;
+    // já postou no story (em qualquer aparelho)? não insiste
+    try {
+        const iniMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString();
+        const { data: sts } = await sb.from('stories').select('style').eq('user_id', state.session.user.id).gte('created_at', iniMes).limit(30);
+        if ((sts || []).some(x => x.style && x.style.card && x.style.card.tipo === 'retro')) { lsSet(chave, 'fim'); return; }
+    } catch (_) {}
     const ini = new Date(ano, mes, 1), fim = new Date(ano, mes + 1, 1);
     const { count } = await sb.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', state.session.user.id).eq('kind', 'workout')
         .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString());
@@ -2139,10 +2151,50 @@ async function manterPushAtivo() {
         if (await ligarPush()) lsSet(ch, hojeISO());
     } catch (_) {}
 }
+// ---- O que a pessoa quer receber (tudo ligado por padrão) ----
+const NOTIF_TIPOS = [
+    ['curtidas', 'Curtidas', 'Quando curtirem seus posts'],
+    ['comentarios', 'Comentários e menções', 'Comentários, respostas e quando te marcarem'],
+    ['seguidores', 'Seguidores', 'Novos seguidores e pedidos pra seguir'],
+    ['mensagens', 'Mensagens', 'Conversas no chat'],
+    ['desafios', 'Desafios', 'Convites, placar e reta final'],
+    ['lembretes', 'Lembrete da ofensiva', 'No seu horário, se ainda não registrou nada'],
+    ['resumo', 'Resumo da semana', 'Domingo à noite, como foi sua semana'],
+];
+const prefNotif = k => ((state.profile && state.profile.notif_prefs) || {})[k] !== false;
+async function salvarPrefsNotif(novas) {
+    const atual = { ...((state.profile && state.profile.notif_prefs) || {}), ...novas };
+    state.profile.notif_prefs = atual;
+    const { error } = await sb.from('profiles').update({ notif_prefs: atual }).eq('id', state.session.user.id);
+    if (error) toast(msgErro(error), 'err');
+}
+function resumoPrefsNotif() {
+    const off = NOTIF_TIPOS.filter(([k]) => !prefNotif(k)).length;
+    return off === 0 ? 'Todas' : off === NOTIF_TIPOS.length ? 'Nenhuma' : `${NOTIF_TIPOS.length - off} de ${NOTIF_TIPOS.length}`;
+}
+function linhaSwitch(act, ic, texto, sub, on, extra = '') {
+    return `<button class="cfg-row" data-act="${act}" role="switch" aria-checked="${on}"${extra}>
+        ${ic ? icon(ic) : ''}<span class="cfg-txt">${texto}${sub ? `<small class="cfg-sub-linha">${sub}</small>` : ''}</span>
+        <span class="cfg-switch${on ? ' on' : ''}"><i></i></span>
+    </button>`;
+}
+
+// ---- Número no ícone do app ----
+state.badgeNotif = 0; state.badgeMsg = 0;
+function atualizarBadgeIcone() {
+    const n = (state.badgeNotif || 0) + (state.badgeMsg || 0);
+    try {
+        if ('setAppBadge' in navigator) { n > 0 ? navigator.setAppBadge(n).catch(() => {}) : navigator.clearAppBadge().catch(() => {}); }
+        // o service worker soma a partir daqui quando chega push com o app fechado
+        if (window.caches) caches.open('pulso-badge').then(c => c.put('/badge', new Response(String(n)))).catch(() => {});
+    } catch (_) {}
+}
+
 // ---- Aviso do fim do dia ----
 // Só dispara com o app aberto. Aviso com o app fechado exigiria servidor de push.
 async function checkDailyReminder() {
     if (localStorage.getItem('pulso-reminder') !== 'on') return;
+    if (!prefNotif('lembretes')) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
     const agora = new Date();
@@ -2216,11 +2268,12 @@ async function checkDailyReminder() {
 // ---- Convite pra ativar os lembretes (o celular exige um toque da pessoa) ----
 function talvezConvidarLembretes() {
     const p = state.profile;
-    if (!p || p.reminders_on === false) return;
+    if (!p) return;
     if (!('Notification' in window)) return;
     if (localStorage.getItem('pulso-reminder') === 'on' && Notification.permission === 'granted') return;
     if (Notification.permission === 'denied') return;
-    if (localStorage.getItem('pulso-convite-lembrete') === hojeISO()) return; // no máximo 1 vez por dia
+    const ultimo = localStorage.getItem('pulso-convite-lembrete');
+    if (ultimo && (new Date(hojeISO()) - new Date(ultimo)) / 864e5 < 7) return; // no máximo 1 vez por semana
     if (document.querySelector('.sheet.on')) return;
     localStorage.setItem('pulso-convite-lembrete', hojeISO());
     const sheet = document.createElement('div');
@@ -2228,20 +2281,15 @@ function talvezConvidarLembretes() {
     sheet.className = 'sheet on';
     sheet.innerHTML = `<div class="sheet-card">
         <div class="sheet-handle"></div>
-        <h3 class="sheet-title">Ativar lembretes do dia?</h3>
-        <p class="sheet-sub">Um aviso curto pra lembrar do sono pela manhã, da água à tarde e do treino à noite. Você desliga quando quiser em Configurações.</p>
+        <h3 class="sheet-title">Quer que eu te avise?</h3>
+        <p class="sheet-sub">Pra não perder a ofensiva, e saber na hora quando curtirem, comentarem ou te mandarem mensagem. Você escolhe o que recebe em Configurações.</p>
         <div class="sheet-footer">
             <button class="btn-ghost" id="lbNao">Agora não</button>
             <button class="btn-primary" id="lbSim">Ativar</button>
         </div>
     </div>`;
     document.body.appendChild(sheet);
-    sheet.querySelector('#lbNao').onclick = async () => {
-        sheet.remove();
-        localStorage.setItem('pulso-reminder', 'off');
-        await sb.from('profiles').update({ reminders_on: false }).eq('id', state.session.user.id);
-        state.profile.reminders_on = false;
-    };
+    sheet.querySelector('#lbNao').onclick = () => { sheet.remove(); };
     sheet.querySelector('#lbSim').onclick = async () => {
         let perm = Notification.permission;
         if (perm === 'default') perm = await Notification.requestPermission();
@@ -2249,7 +2297,8 @@ function talvezConvidarLembretes() {
         if (perm !== 'granted') { toast('O celular não liberou os avisos. Dá pra ativar depois em Configurações.', 'err'); return; }
         try { await ligarPush(); } catch (_) {}
         localStorage.setItem('pulso-reminder', 'on');
-        toast('Lembretes ativados ✓', 'ok');
+        sb.from('profiles').update({ reminders_on: true }).eq('id', state.session.user.id).then(() => {});
+        toast('Pronto, vou te avisar ✓', 'ok');
     };
 }
 
@@ -3123,6 +3172,7 @@ async function updateNotifBadge() {
         sb.rpc('unread_app_notifications'),
     ]);
     const n = Number(data || 0) + Number(pend || 0) + Number(extra || 0);
+    state.badgeNotif = n; atualizarBadgeIcone();
     const dot = $('#notifDot');
     if (!dot) return;
     dot.textContent = n > 9 ? '9+' : String(n);
@@ -3628,10 +3678,8 @@ function renderSettings() {
 
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Notificações</div>
-                <button class="cfg-row" data-act="toggle-reminder" role="switch" aria-checked="${lembrete}">
-                    ${icon('sino')}<span class="cfg-txt">Lembretes do dia</span>
-                    <span class="cfg-switch${lembrete ? ' on' : ''}"><i></i></span>
-                </button>
+                ${linhaSwitch('toggle-reminder', 'sino', 'Notificações neste aparelho', lembrete ? '' : 'Desligadas aqui', lembrete)}
+                ${linhaConfig('cfg-page', 'ajustes', 'Escolher o que receber', resumoPrefsNotif(), ' data-page="set-notifs"')}
             </div>
 
             <div class="cfg-grupo">
@@ -3703,6 +3751,18 @@ async function renderPaginaConfig(page) {
             'comment_policy', p.comment_policy || 'todos', [
                 ['todos', 'Todos', ''], ['seguidores', 'Só quem me segue', ''], ['ninguem', 'Ninguém', ''],
             ]);
+    } else if (page === 'set-notifs') {
+        const todasOff = NOTIF_TIPOS.every(([k]) => !prefNotif(k));
+        c.innerHTML = `<div class="view cfg-view">${cabecalhoConfig('Notificações')}
+            <p class="cfg-sub">Escolha o que chega no seu celular. Vale pra todos os seus aparelhos.</p>
+            <div class="cfg-grupo">
+                ${NOTIF_TIPOS.map(([k, nome, sub]) => linhaSwitch('notif-pref', '', nome, sub, prefNotif(k), ` data-k="${k}"`)).join('')}
+            </div>
+            <div class="cfg-grupo">
+                ${linhaSwitch('notif-pref', '', 'Silêncio à noite', 'Das 22h às 7h nada toca. De manhã chega um resumo do que aconteceu', prefNotif('silencio'), ' data-k="silencio"')}
+            </div>
+            <button class="cfg-todas" data-act="notif-todas" data-on="${todasOff ? '1' : '0'}">${todasOff ? 'Ativar todas' : 'Desativar todas'}</button>
+        </div>`;
     } else if (page === 'set-appearance') {
         c.innerHTML = paginaOpcoes('Aparência', 'Vale só pra este aparelho.', 'tema', temaEscolhido(), [
             ['auto', 'Igual ao celular', 'Fica escuro ou claro junto com o seu aparelho'], ['dark', 'Escuro', ''], ['light', 'Claro', ''],
@@ -4232,6 +4292,7 @@ async function renderMessages() {
 async function updateUnreadBadge() {
     const { data } = await sb.rpc('unread_conversations');
     const n = Number(data || 0);
+    state.badgeMsg = n; atualizarBadgeIcone();
     const dot = $('#navUnreadDot');
     if (!dot) return;
     dot.textContent = n > 9 ? '9+' : String(n);
@@ -12002,6 +12063,18 @@ document.addEventListener('click', async e => {
         openPeopleSheet('Quem curtiu', 'Só você vê essa lista.', () => sb.rpc('post_likers', { pid: btn.dataset.id }));
     } else if (act === 'see-story-viewers') {
         openPeopleSheet('Quem viu seu story', 'Só você vê essa lista.', () => sb.rpc('story_viewers', { sid: btn.dataset.id }));
+    } else if (act === 'notif-pref') {
+        const k = btn.dataset.k, on = !prefNotif(k);
+        btn.setAttribute('aria-checked', on);
+        const sw = btn.querySelector('.cfg-switch'); if (sw) sw.classList.toggle('on', on);
+        await salvarPrefsNotif({ [k]: on });
+        const tb = document.querySelector('[data-act="notif-todas"]');
+        if (tb) { const off = NOTIF_TIPOS.every(([x]) => !prefNotif(x)); tb.dataset.on = off ? '1' : '0'; tb.textContent = off ? 'Ativar todas' : 'Desativar todas'; }
+    } else if (act === 'notif-todas') {
+        const on = btn.dataset.on === '1';
+        await salvarPrefsNotif(Object.fromEntries(NOTIF_TIPOS.map(([k]) => [k, on])));
+        toast(on ? 'Todas as notificações ligadas' : 'Notificações desativadas. Você ainda vê tudo dentro do app.', 'ok');
+        renderPaginaConfig('set-notifs');
     } else if (act === 'toggle-reminder') {
         const ligado = localStorage.getItem('pulso-reminder') === 'on';
         if (ligado) {
@@ -12132,7 +12205,9 @@ document.addEventListener('click', async e => {
         abrirRetrospecto();
     } else if (act === 'retro-fechar') {
         const { ano, mes } = mesPassado();
-        lsSet(`pulso-retro-${state.session.user.id}-${ano}-${mes}`, '1');
+        const ch = `pulso-retro-${state.session.user.id}-${ano}-${mes}`;
+        if (lsGet(ch) !== 'fim') lsSet(ch, String(Number(lsGet(ch) || 0) + 1));
+        lsSet(ch + '-dia', hojeISO());
         const sl = document.getElementById('retroSlot'); if (sl) sl.innerHTML = '';
     } else if (act === 'retro-story') {
         const r = state.retro; if (!r) return;
@@ -12140,7 +12215,7 @@ document.addEventListener('click', async e => {
         const ok = await publicarStoryPronto({ caption: `Meu ${NOME_MES[r.mes]} no Pulso`, style: { card: { tipo: 'retro', mes: r.mes, treinos: r.treinos, minutos: r.minutos, dias: r.dias, km: r.km, seq: r.melhorSeq, frase: r.frase } } });
         btnCarregando(btn, false);
         if (ok) {
-            const { ano, mes } = mesPassado(); lsSet(`pulso-retro-${state.session.user.id}-${ano}-${mes}`, '1');
+            const { ano, mes } = mesPassado(); lsSet(`pulso-retro-${state.session.user.id}-${ano}-${mes}`, 'fim');
             const t = document.getElementById('retroTela'); if (t) t.remove(); document.body.style.overflow = '';
             toast(ok.pts > 0 ? `Story publicado · +${ok.pts} pts` : 'Story publicado', 'ok');
         }
@@ -15310,6 +15385,8 @@ $('#composerSubmit').addEventListener('click', async () => {
         setTimeout(() => checarConquistas(false), 1200);
         if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
         if (created) setTimeout(efeitoNoDesafio, 3200);
+        // melhor hora pra pedir as notificações: logo depois de registrar algo
+        if (created) setTimeout(talvezConvidarLembretes, eraTreino ? 7000 : 3500);
 
         const oQue = post.kind === 'workout' ? `${post.activity_type || 'Treino'}${post.duration_min ? ' de ' + post.duration_min + ' min' : ''}`
             : post.kind === 'meal' ? (MEAL_SLOT_NAME[post.meal_slot] || 'Refeição') : '';
@@ -15450,7 +15527,6 @@ async function bootInterno() {
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
     if (state.profile && state.profile.onboarding_done === false) setTimeout(() => abrirPrimeirosPassos(0), 900);
     else {
-        setTimeout(talvezConvidarLembretes, 4000);
         setTimeout(() => convidarParaInstalar(false), 9000);
     }
     checkDailyReminder();

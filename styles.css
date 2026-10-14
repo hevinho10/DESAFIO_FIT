@@ -3115,3 +3115,8 @@ html.tela-cheia .toast{ bottom:calc(28px + env(safe-area-inset-bottom)) !importa
 .freq-titulo{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .cmsg-foto{ display:block; margin-bottom:4px; }
 .cmsg-foto img{ display:block; max-width:220px; max-height:260px; border-radius:14px; object-fit:cover; }
+
+/* ===== Notificações: escolher o que receber ===== */
+.cfg-sub-linha{ display:block; margin-top:2px; font-size:12px; font-weight:400; color:var(--ink-faint); line-height:1.35; }
+.cfg-todas{ display:block; width:100%; margin:4px 0 24px; padding:13px; border:0; border-radius:14px; background:transparent; color:var(--ink-dim); font-size:14px; font-weight:600; cursor:pointer; }
+.cfg-todas:active{ background:var(--bg-elev); }

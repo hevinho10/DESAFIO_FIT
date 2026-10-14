@@ -4,7 +4,7 @@
 // o "Instalar aplicativo" do Chrome no Android e no computador.
 // ============================================================
 
-const CACHE = 'pulso-v3';
+const CACHE = 'pulso-v4';
 const ESTATICOS = [
   './',
   './index.html',
@@ -36,7 +36,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(nomes => Promise.all(nomes.filter(n => n !== CACHE).map(n => caches.delete(n))))
+      .then(nomes => Promise.all(nomes.filter(n => n !== CACHE && n !== 'pulso-badge').map(n => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });
@@ -108,7 +108,8 @@ self.addEventListener('push', event => {
   let dados = { title: 'Pulso', body: 'Você tem algo pra registrar hoje.' };
   try { if (event.data) dados = event.data.json(); } catch (e) {}
 
-  event.waitUntil(
+  event.waitUntil(Promise.all([
+    somarBadge(),
     self.registration.showNotification(dados.title || 'Pulso', {
       body: dados.body || '',
       icon: dados.icon || './icon-192.png',
@@ -116,9 +117,22 @@ self.addEventListener('push', event => {
       tag: dados.tag || 'pulso',
       renotify: false,
       data: { url: dados.url || './' },
-    })
-  );
+    }),
+  ]));
 });
+
+// Número no ícone do app: soma 1 a cada aviso com o app fechado.
+// Quando o app abre, ele corrige pro número real.
+async function somarBadge() {
+  try {
+    if (!self.navigator || !('setAppBadge' in self.navigator)) return;
+    const c = await caches.open('pulso-badge');
+    const r = await c.match('/badge');
+    const n = (r ? Number(await r.text()) || 0 : 0) + 1;
+    await c.put('/badge', new Response(String(n)));
+    await self.navigator.setAppBadge(n);
+  } catch (e) {}
+}
 
 // Toque na notificação: abre o app (e vai direto pro lugar certo, se a notificação indicar)
 self.addEventListener('notificationclick', event => {
