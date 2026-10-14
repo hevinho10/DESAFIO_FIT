@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<script>try{if(localStorage.getItem('pulso-theme')==='light'){document.documentElement.setAttribute('data-theme','light');}}catch(e){}</script>
+<script>try{var t=localStorage.getItem('pulso-theme');if(t==='light'||(t!=='dark'&&window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches)){document.documentElement.setAttribute('data-theme','light');}}catch(e){}</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261129">
+<link rel="stylesheet" href="styles.css?v=20261130">
 </head>
 <body>
 
@@ -275,6 +275,13 @@
                 <img id="refFotoImg" alt="">
                 <input type="file" id="pPhotoMeal" accept="image/*" hidden>
             </label>
+            <div class="ia-ajuda-ref">
+                <small>Ainda não comeu?</small>
+                <div class="iar-botoes">
+                    <label class="iar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>Escolher no cardápio<input type="file" accept="image/*" hidden data-ia-foto="cardapio"></label>
+                    <label class="iar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M5 10h14M8.5 6v1.5M8.5 13v3"/></svg>O que fazer com o que tenho<input type="file" accept="image/*" hidden data-ia-foto="geladeira"></label>
+                </div>
+            </div>
             <div class="field ref-antigo">
                 <label>Refeição</label>
                 <select id="mSlot">
@@ -540,6 +547,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=20261129"></script>
+<script src="app.js?v=20261130"></script>
 </body>
 </html>

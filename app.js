@@ -1705,6 +1705,223 @@ function verFotoChat(url) {
     document.body.appendChild(v);
 }
 
+// Voltou pro app com os avisos abertos: recarrega (nada de pedido já respondido aparecendo de novo)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !state.session) return;
+    if (typeof updateNotifBadge === 'function') updateNotifBadge();
+    if (state.view === 'notifications' && !document.querySelector('.sheet.on')) renderNotifications();
+});
+
+// ============================================================
+// RETROSPECTO DO MÊS: "Seu setembro no Pulso" (nos primeiros dias do mês seguinte)
+// ============================================================
+const NOME_MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+function mesPassado() { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return { ano: d.getFullYear(), mes: d.getMonth() }; }
+async function calcularRetrospecto(ano, mes) {
+    const ini = new Date(ano, mes, 1), fim = new Date(ano, mes + 1, 1);
+    const uid = state.session.user.id;
+    const [{ data: tr }, { data: pts }, { data: ref }] = await Promise.all([
+        sb.from('posts').select('activity_type, duration_min, distance_km, created_at').eq('user_id', uid).eq('kind', 'workout')
+            .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()),
+        sb.from('points_ledger').select('amount, reason').eq('user_id', uid).gte('earned_at', ini.toISOString()).lt('earned_at', fim.toISOString()),
+        sb.from('posts').select('meal_score').eq('user_id', uid).eq('kind', 'meal').not('meal_score', 'is', null)
+            .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()),
+    ]);
+    const t = tr || [];
+    const dias = [...new Set(t.map(w => isoDe(new Date(w.created_at))))].sort();
+    let melhor = 0, seq = 0, ant = null;
+    dias.forEach(d => { const x = new Date(d + 'T12:00:00'); seq = ant && (x - ant) / 86400000 === 1 ? seq + 1 : 1; melhor = Math.max(melhor, seq); ant = x; });
+    const tipos = {}; t.forEach(w => { tipos[w.activity_type || 'Treino'] = (tipos[w.activity_type || 'Treino'] || 0) + 1; });
+    const fav = Object.entries(tipos).sort((a, b) => b[1] - a[1])[0];
+    const notas = (ref || []).map(x => Number(x.meal_score));
+    const datas = datasConquistas();
+    const conq = Object.values(datas).filter(ts => ts >= ini.getTime() && ts < fim.getTime()).length;
+    return {
+        ano, mes, treinos: t.length, dias: dias.length, melhorSeq: melhor,
+        minutos: t.reduce((a, w) => a + (w.duration_min || 0), 0),
+        km: Math.round(t.reduce((a, w) => a + Number(w.distance_km || 0), 0) * 10) / 10,
+        fav: fav ? fav[0] : null, favN: fav ? fav[1] : 0,
+        pontos: Math.round((pts || []).reduce((a, x) => a + Number(x.amount || 0), 0)),
+        agua: (pts || []).filter(x => x.reason === 'water_goal').length,
+        notaMedia: notas.length ? Math.round(notas.reduce((a, b) => a + b, 0) / notas.length * 10) / 10 : null,
+        conquistas: conq,
+    };
+}
+async function fraseRetrospecto(r) {
+    const chave = `retro-${r.ano}-${r.mes}`;
+    const salvo = await iaGuardado('retro', `${r.ano}-${String(r.mes + 1).padStart(2, '0')}-01`).catch(() => null);
+    if (salvo && salvo.frase) return salvo.frase;
+    let frase = r.dias >= 16 ? 'Que mês! Constância assim muda tudo.' : r.dias >= 8 ? 'Mês sólido. Bora subir mais um degrau.' : 'Todo começo conta. Esse mês é seu pra crescer.';
+    try {
+        const j = await iaJSON(`Você é o Coach Pulso. Escreva UMA frase curta (até 18 palavras), calorosa e específica, sobre o mês de ${NOME_MES[r.mes]} desta pessoa, sem travessão e sem emoji demais.
+Dados: ${r.treinos} treinos em ${r.dias} dias, ${Math.round(r.minutos / 60)}h de atividade, ${r.km} km, melhor sequência ${r.melhorSeq} dias, favorita ${r.fav || 'nenhuma'}.
+Formato do JSON: {"frase": "..."}`);
+        if (j && j.frase) frase = String(j.frase).slice(0, 160);
+    } catch (_) {}
+    iaGuardar('retro', `${r.ano}-${String(r.mes + 1).padStart(2, '0')}-01`, { frase }).catch(() => {});
+    return frase;
+}
+async function abrirRetrospecto() {
+    const { ano, mes } = mesPassado();
+    const old = document.getElementById('retroTela'); if (old) old.remove();
+    const tela = document.createElement('div');
+    tela.id = 'retroTela';
+    tela.className = 'retro-tela';
+    tela.innerHTML = '<div class="spinner"></div>';
+    document.body.appendChild(tela);
+    document.body.style.overflow = 'hidden';
+    const r = await calcularRetrospecto(ano, mes);
+    const frase = await fraseRetrospecto(r);
+    state.retro = { ...r, frase };
+    const h = Math.floor(r.minutos / 60), m = r.minutos % 60;
+    const bloco = (v, l) => `<div class="rt-num"><b>${v}</b><small>${l}</small></div>`;
+    tela.innerHTML = `<button class="rt-fechar" aria-label="Fechar">×</button>
+        <div class="rt-card">
+            <small class="cs-rot">Seu mês no Pulso</small>
+            <h2>${NOME_MES[mes].charAt(0).toUpperCase() + NOME_MES[mes].slice(1)}</h2>
+            <div class="rt-grade">
+                ${bloco(r.treinos, r.treinos === 1 ? 'treino' : 'treinos')}
+                ${bloco(`${h}h${m ? String(m).padStart(2, '0') : ''}`, 'de atividade')}
+                ${bloco(r.dias, r.dias === 1 ? 'dia ativo' : 'dias ativos')}
+                ${bloco(r.melhorSeq, 'dias seguidos (recorde)')}
+                ${r.km ? bloco(br(r.km), 'km') : ''}
+                ${bloco(r.pontos, 'pontos')}
+            </div>
+            ${r.fav ? `<p class="rt-linha">Favorita: <b>${escapeHTML(r.fav)}</b> · ${r.favN}x</p>` : ''}
+            ${r.notaMedia ? `<p class="rt-linha">Nota média dos pratos: <b>${br(r.notaMedia)}</b></p>` : ''}
+            ${r.conquistas ? `<p class="rt-linha">${r.conquistas} ${r.conquistas === 1 ? 'conquista nova' : 'conquistas novas'} 🏅</p>` : ''}
+            <p class="rt-frase">“${escapeHTML(frase)}”</p>
+            <b class="cs-marca">Pulso.</b>
+        </div>
+        <button class="btn-primary rt-story" data-act="retro-story">Postar no story</button>`;
+    tela.querySelector('.rt-fechar').onclick = () => { tela.remove(); document.body.style.overflow = ''; };
+}
+async function hydrateRetroFeed() {
+    const slot = document.getElementById('retroSlot');
+    if (!slot || !state.session) return;
+    const hoje = new Date();
+    if (hoje.getDate() > 7) return;
+    const { ano, mes } = mesPassado();
+    const chave = `pulso-retro-${state.session.user.id}-${ano}-${mes}`;
+    if (lsGet(chave)) return;
+    const ini = new Date(ano, mes, 1), fim = new Date(ano, mes + 1, 1);
+    const { count } = await sb.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', state.session.user.id).eq('kind', 'workout')
+        .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString());
+    if (!count || !document.getElementById('retroSlot')) return;
+    slot.innerHTML = `<div class="retro-aviso">
+        <span class="ra-emo">✨</span>
+        <div><b>Seu ${NOME_MES[mes]} no Pulso está pronto</b><small>${count} ${count === 1 ? 'treino' : 'treinos'} e muito mais</small></div>
+        <button class="btn-mini" data-act="retro-ver">Ver</button>
+        <button class="lb-x" data-act="retro-fechar" aria-label="Fechar">×</button>
+    </div>`;
+}
+
+// ---- IA com foto: cardápio, geladeira e foto pro Coach ----
+function contextoCurtoIA() {
+    const p = state.profile || {};
+    const obj = (OBJETIVOS.find(o => o[0] === p.goal) || [])[1];
+    const L = [];
+    if (obj) L.push('objetivo: ' + obj);
+    if (p.target_weight) L.push('meta de peso: ' + br(p.target_weight) + ' kg');
+    if (p.train_avoid) L.push('evita: ' + p.train_avoid);
+    const mem = memoriaCoach(); if (mem.length) L.push('já contou: ' + mem.slice(-6).join('; '));
+    return L.join(' · ');
+}
+async function iaComFoto(task, file, pergunta = '') {
+    const b64 = await imagemJpegParaIA(file, 1280, 0.85);
+    const { data, error } = await sb.functions.invoke('vision-tools', { body: { task, imageBase64: b64, mimeType: 'image/jpeg', contexto: contextoCurtoIA(), pergunta } });
+    if (error || !data || data.error) throw (error || new Error(data && data.error || 'sem resposta'));
+    return data;
+}
+async function abrirAjudaRefeicao(task, file) {
+    const old = document.getElementById('iaRefSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'iaRefSheet';
+    sheet.className = 'sheet on ia-ref-sheet';
+    const titulo = task === 'cardapio' ? 'Melhores escolhas do cardápio' : 'O que dá pra fazer';
+    sheet.innerHTML = `<div class="sheet-card"><div class="sheet-handle"></div><h3 class="sheet-title">${titulo}</h3>
+        <div class="ia-carregando-txt"><div class="spinner"></div><span>${task === 'cardapio' ? 'Lendo o cardápio...' : 'Olhando o que você tem...'}</span></div></div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet || e.target.closest('[data-iar-fechar]')) sheet.remove(); });
+    const card = sheet.querySelector('.sheet-card');
+    try {
+        const r = await iaComFoto(task, file);
+        if (!document.body.contains(sheet)) return;
+        const itens = task === 'cardapio' ? (r.opcoes || []) : (r.ideias || []);
+        card.innerHTML = `<div class="sheet-handle"></div><h3 class="sheet-title">${titulo}</h3>
+            ${itens.length ? `<div class="iar-lista">${itens.slice(0, 3).map((x, i) => `<div class="iar-item">
+                <span class="iar-n">${i + 1}</span>
+                <div><b>${escapeHTML(x.prato || x.nome || '')}</b>${x.tempo_min ? `<small class="iar-tempo">${Number(x.tempo_min)} min</small>` : ''}<p>${escapeHTML(x.porque || x.como || '')}</p></div>
+            </div>`).join('')}</div>` : `<p class="faixa-nota">${task === 'cardapio' ? 'Não consegui ler esse cardápio. Tenta uma foto mais de perto e com luz.' : 'Não consegui ver os alimentos. Tenta uma foto mais aberta e com luz.'}</p>`}
+            ${r.dica ? `<p class="iar-dica">💡 ${escapeHTML(r.dica)}</p>` : ''}
+            <p class="iar-nota">Depois de comer, tire a foto do prato pra a IA dar a nota e valer ponto.</p>
+            <div class="sheet-footer"><button class="btn-primary" data-iar-fechar>Entendi</button></div>`;
+    } catch (e) {
+        console.warn('vision-tools', e);
+        if (document.body.contains(sheet)) card.innerHTML = `<div class="sheet-handle"></div><h3 class="sheet-title">${titulo}</h3>
+            <p class="faixa-nota">A IA de fotos está indisponível agora. Tenta de novo daqui a pouco.</p>
+            <div class="sheet-footer"><button class="btn-ghost" data-iar-fechar>Fechar</button></div>`;
+    }
+}
+document.addEventListener('change', e => {
+    const inp = e.target.closest && e.target.closest('[data-ia-foto]');
+    if (!inp) return;
+    const fl = inp.files && inp.files[0]; inp.value = '';
+    if (fl) abrirAjudaRefeicao(inp.dataset.iaFoto, fl);
+});
+async function enviarFotoAoCoach(file) {
+    const { data: quota } = await sb.rpc('ai_quota');
+    const q = (quota && quota[0]) || { usadas: 0, limite: 30 };
+    if (q.usadas >= q.limite) { toast(`Por hoje chegamos no limite de ${q.limite} mensagens com o Coach.`, 'err'); return; }
+    const input = $('#coachInput');
+    const pergunta = (input && input.value.trim()) || '';
+    if (input) { input.value = ''; input.style.height = 'auto'; }
+    const urlLocal = URL.createObjectURL(file);
+    const textoUser = '📷 Foto' + (pergunta ? ': ' + pergunta : '');
+    state.coachHistory.push({ role: 'user', body: textoUser, foto: urlLocal });
+    paintCoachChat();
+    const chat = $('#coachChat');
+    const digit = document.createElement('div');
+    digit.className = 'cmsg coach'; digit.innerHTML = '<div class="cmsg-bubble typing"><span></span><span></span><span></span></div>';
+    if (chat) { chat.appendChild(digit); chat.scrollTop = chat.scrollHeight; }
+    let resposta;
+    try {
+        const r = await iaComFoto('coach', file, pergunta);
+        resposta = String(r.resposta || '').trim() || 'Não consegui ver direito essa foto. Manda outra?';
+    } catch (_) { resposta = 'A leitura de fotos está indisponível agora. Me conta em texto que eu te ajudo.'; }
+    digit.remove();
+    state.coachHistory.push({ role: 'coach', body: resposta });
+    paintCoachChat();
+    await sb.from('ai_messages').insert([
+        { user_id: state.session.user.id, role: 'user', body: textoUser },
+        { user_id: state.session.user.id, role: 'coach', body: resposta },
+    ]);
+}
+
+// ---- Abrir no que a pessoa mais usa ----
+const ABAS_INICIO = ['feed', 'progress', 'desafio', 'messages'];
+function contarUsoAba(v) {
+    if (!ABAS_INICIO.includes(v) || !state.session || !state.bootPronto) return;
+    try {
+        const k = 'pulso-uso-' + state.session.user.id;
+        const u = JSON.parse(localStorage.getItem(k) || '{}');
+        // peso maior pro uso recente: o histórico vai "esfriando"
+        Object.keys(u).forEach(x => { u[x] = Math.round(u[x] * 0.97 * 100) / 100; });
+        u[v] = (u[v] || 0) + 1;
+        localStorage.setItem(k, JSON.stringify(u));
+    } catch (_) {}
+}
+function abaInicial() {
+    try {
+        const u = JSON.parse(localStorage.getItem('pulso-uso-' + state.session.user.id) || '{}');
+        const total = Object.values(u).reduce((a, b) => a + b, 0);
+        if (total < 15) return 'feed';
+        const [top, n] = Object.entries(u).sort((a, b) => b[1] - a[1])[0] || ['feed', 0];
+        // só troca o início se a outra aba for claramente a preferida
+        return top !== 'feed' && n > (u.feed || 0) * 1.3 ? top : 'feed';
+    } catch (_) { return 'feed'; }
+}
+
 // ---- Convite por link ----
 async function checarConvite() {
     // Link de convite de desafio: abre a vitrine (ou o desafio, se já participa)
@@ -1856,7 +2073,7 @@ async function renderCompare() {
             </div>
         </div>`;
 }
-const VAPID_PUBLIC = 'BNJ3oZgUsEZlykYnN_2RnotEOQuFzKhIGTNO8qvpWDHRMZ2aUqUx0ZRFrK3MAcFbI9wJygm1bONzsVQszgK6NT0';
+const VAPID_PUBLIC = 'BPgBcQ_E2h7QgoX5hWx3GMg00p-IMZ2HAJHrAIhprmAp6-BkP3iMs9lvLTVIN64nGJeXzIGx0Qb-Z8PCAiFf9AE';
 
 function base64ParaUint8(base64) {
     const pad = '='.repeat((4 - base64.length % 4) % 4);
@@ -1870,6 +2087,15 @@ async function ligarPush() {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
         const reg = await navigator.serviceWorker.ready;
         let sub = await reg.pushManager.getSubscription();
+        // chave do servidor mudou: refaz a inscrição com a chave nova
+        if (sub && sub.options && sub.options.applicationServerKey) {
+            const atual = new Uint8Array(sub.options.applicationServerKey);
+            const nova = base64ParaUint8(VAPID_PUBLIC);
+            if (atual.length !== nova.length || atual.some((x, i) => x !== nova[i])) {
+                await sb.from('push_subs').delete().eq('endpoint', sub.endpoint);
+                await sub.unsubscribe(); sub = null;
+            }
+        }
         if (!sub) {
             sub = await reg.pushManager.subscribe({
                 userVisibleOnly: true,
@@ -1903,6 +2129,16 @@ async function desligarPush() {
     } catch (e) {}
 }
 
+// Quem já ativou os avisos: garante a inscrição atualizada (1x por dia)
+async function manterPushAtivo() {
+    try {
+        if (!state.session || !('Notification' in window) || Notification.permission !== 'granted') return;
+        if (localStorage.getItem('pulso-reminder') !== 'on') return;
+        const ch = 'pulso-push-ok-' + state.session.user.id;
+        if (lsGet(ch) === hojeISO()) return;
+        if (await ligarPush()) lsSet(ch, hojeISO());
+    } catch (_) {}
+}
 // ---- Aviso do fim do dia ----
 // Só dispara com o app aberto. Aviso com o app fechado exigiria servidor de push.
 async function checkDailyReminder() {
@@ -2933,7 +3169,7 @@ async function renderNotifications() {
     if (!box) return;
     if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
     const pedidosHTML = (pedidos && pedidos.length) ? `<div class="freq-box">
-        <div class="freq-titulo">Pedidos pra seguir</div>
+        <div class="freq-titulo"><span>Pedidos pra seguir você</span>${pedidos.length > 1 ? `<button class="btn-mini" data-act="aprovar-todos">Aprovar todos</button>` : ''}</div>
         ${pedidos.map(u => `<div class="freq-row" data-act="view-user" data-uid="${u.id}">
             ${avatarHTML(u, 'sm')}
             <div class="freq-info">
@@ -3321,13 +3557,26 @@ function renderInstall() {
 }
 
 // ---- Tema e configurações ----
-function applyTheme(theme) {
-    const light = theme === 'light';
+// Tema: 'auto' (segue o celular), 'dark' ou 'light'. Sem escolha = auto.
+function temaEscolhido() {
+    try { const t = localStorage.getItem('pulso-theme'); return t === 'light' || t === 'dark' ? t : 'auto'; } catch (_) { return 'auto'; }
+}
+const midiaClaro = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+function pintarTema(light) {
     if (light) document.documentElement.setAttribute('data-theme', 'light');
     else document.documentElement.removeAttribute('data-theme');
-    try { localStorage.setItem('pulso-theme', light ? 'light' : 'dark'); } catch (e) {}
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', light ? '#F4F6F4' : '#0A0C0B');
+}
+if (midiaClaro) {
+    const mudou = () => { if (temaEscolhido() === 'auto') pintarTema(midiaClaro.matches); };
+    if (midiaClaro.addEventListener) midiaClaro.addEventListener('change', mudou); else if (midiaClaro.addListener) midiaClaro.addListener(mudou);
+}
+pintarTema(document.documentElement.getAttribute('data-theme') === 'light');
+function applyTheme(theme) {
+    const t = theme === 'light' || theme === 'dark' ? theme : 'auto';
+    try { if (t === 'auto') localStorage.removeItem('pulso-theme'); else localStorage.setItem('pulso-theme', t); } catch (e) {}
+    pintarTema(t === 'auto' ? !!(midiaClaro && midiaClaro.matches) : t === 'light');
 }
 
 const POLITICA_NOME = { todos: 'Todos', seguidores: 'Seguidores', ninguem: 'Ninguém' };
@@ -3352,7 +3601,7 @@ function cabecalhoConfig(titulo, voltar = 'go-settings-back') {
 
 function renderSettings() {
     const p = state.profile;
-    const tema = document.documentElement.getAttribute('data-theme') === 'light' ? 'Claro' : 'Escuro';
+    const tema = { auto: 'Igual ao celular', light: 'Claro', dark: 'Escuro' }[temaEscolhido()];
     const lembrete = localStorage.getItem('pulso-reminder') === 'on';
     $('#viewContainer').innerHTML = `
         <div class="view cfg-view">
@@ -3455,9 +3704,8 @@ async function renderPaginaConfig(page) {
                 ['todos', 'Todos', ''], ['seguidores', 'Só quem me segue', ''], ['ninguem', 'Ninguém', ''],
             ]);
     } else if (page === 'set-appearance') {
-        const cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-        c.innerHTML = paginaOpcoes('Aparência', 'Vale só pra este aparelho.', 'tema', cur, [
-            ['dark', 'Escuro', ''], ['light', 'Claro', ''],
+        c.innerHTML = paginaOpcoes('Aparência', 'Vale só pra este aparelho.', 'tema', temaEscolhido(), [
+            ['auto', 'Igual ao celular', 'Fica escuro ou claro junto com o seu aparelho'], ['dark', 'Escuro', ''], ['light', 'Claro', ''],
         ]);
     } else if (page === 'set-requests') {
         c.innerHTML = `<div class="view cfg-view">${cabecalhoConfig('Pedidos pra seguir')}<div id="cfgBody"><div class="spinner"></div></div></div>`;
@@ -4562,17 +4810,69 @@ async function askCoach(question, history = []) {
             `${m.role === 'user' ? 'Pessoa' : 'Você'}: ${m.body}`).join('\n')
         : '';
 
+    const mem = memoriaCoach();
     const prompt = `${COACH_PERSONA}
 
 DOSSIÊ DA PESSOA (dados reais do app, use-os na resposta):
-${brief}${historyText}
+${brief}
+${mem.length ? `\nO QUE VOCÊ JÁ SABE DELA (de conversas anteriores, use quando fizer sentido):\n- ${mem.join('\n- ')}` : ''}${historyText}
 
 PERGUNTA DA PESSOA:
 ${question}
 
-Responda como o Coach Pulso.`;
+Responda como o Coach Pulso.
+Se nesta mensagem a pessoa contou algo NOVO e duradouro sobre ela (rotina, horário, limitação física, preferência, agenda, meta), acrescente no fim, em linhas separadas, até 2 linhas exatamente assim: [LEMBRAR] fato curto em terceira pessoa. Não repita o que você já sabe e não use isso pra coisas passageiras.`;
 
-    return await callAI(prompt);
+    const bruto = await callAI(prompt);
+    const novos = [];
+    const limpo = String(bruto || '').split('\n').filter(l => {
+        const m = l.match(/^\s*\[LEMBRAR\]\s*(.+)$/i);
+        if (m) { novos.push(m[1].trim().slice(0, 140)); return false; }
+        return true;
+    }).join('\n').trim();
+    if (novos.length) guardarMemoriaCoach(novos);
+    return limpo;
+}
+// ---- Memória do Coach: fatos que a pessoa contou e valem pras próximas conversas ----
+function memoriaCoach() {
+    const m = state.profile && state.profile.coach_memoria;
+    return Array.isArray(m) ? m.filter(Boolean) : [];
+}
+async function guardarMemoriaCoach(novos) {
+    const atual = memoriaCoach();
+    const norm = t => String(t).toLowerCase().replace(/[^a-zà-ú0-9 ]/gi, '').trim();
+    const lista = [...atual];
+    novos.forEach(n => { if (!lista.some(x => norm(x) === norm(n))) lista.push(n); });
+    const final = lista.slice(-20);
+    if (final.length === atual.length) return;
+    state.profile.coach_memoria = final;
+    await sb.from('profiles').update({ coach_memoria: final }).eq('id', state.session.user.id);
+}
+function abrirMemoriaCoach() {
+    const old = document.getElementById('memCoachSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'memCoachSheet';
+    sheet.className = 'sheet on';
+    const pintar = () => {
+        const mem = memoriaCoach();
+        sheet.innerHTML = `<div class="sheet-card">
+            <div class="sheet-handle"></div>
+            <h3 class="sheet-title">O que o Coach lembra</h3>
+            <p class="sheet-sub">Coisas que você contou e que ele usa nas próximas conversas. Toque no × pra ele esquecer.</p>
+            ${mem.length ? `<div class="mem-lista">${mem.map((m, i) => `<div class="mem-item"><span>${escapeHTML(m)}</span><button type="button" class="ah-x" data-mem="${i}" aria-label="Esquecer">×</button></div>`).join('')}</div>`
+                : vazioAcao('coach', 'Nada guardado ainda', 'Conte pro Coach sua rotina, horários ou alguma limitação, e ele vai lembrando.')}
+        </div>`;
+    };
+    pintar();
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', async e => {
+        if (e.target === sheet) { sheet.remove(); return; }
+        const b = e.target.closest('[data-mem]'); if (!b) return;
+        const lista = memoriaCoach(); lista.splice(Number(b.dataset.mem), 1);
+        state.profile.coach_memoria = lista;
+        pintar();
+        await sb.from('profiles').update({ coach_memoria: lista }).eq('id', state.session.user.id);
+    });
 }
 
 // ---- Coach que percebe a queda (no máximo 1 vez por semana) ----
@@ -4868,8 +5168,9 @@ async function renderFeed() {
     let html = '<div class="view feed-view">';
 
     html += `<div id="coachSlot"></div>`;
-    html += storiesHTML + '<div id="lembrancaSlot"></div>';
+    html += storiesHTML + '<div id="lembrancaSlot"></div><div id="retroSlot"></div>';
     setTimeout(hydrateLembranca, 400);
+    setTimeout(hydrateRetroFeed, 600);
     html += `<div id="resumoSlot"></div>`;
     html += `<div id="desafioSlot"></div>`;
 
@@ -5360,7 +5661,39 @@ async function calcularLacunas() {
         diasSemRegistro: tudo && tudo[0] ? Math.floor((agora - new Date(tudo[0].created_at)) / 86400000) : null,
         tipos: contagemTipos,
         treinouHoje: diasTreino.has(new Date().toDateString()),
+        treinouOntem: diasTreino.has(new Date(agora - 86400000).toDateString()),
+        sonoOntem: (sonos || []).find(x => x.slept_on === isoDe(new Date(agora - 86400000))) ? Number((sonos || []).find(x => x.slept_on === isoDe(new Date(agora - 86400000))).hours) : null,
     };
+}
+// ---- Prontidão do dia (0 a 100): sono, sequência e esforço recente ----
+function prontidaoDoDia(l) {
+    let n = 74; const motivos = [];
+    const meta = Number(state.profile && state.profile.sleep_goal_h) || 7;
+    if (l.sonoOntem != null) {
+        if (l.sonoOntem >= meta) { n += 12; motivos.push(`dormiu bem (${br(l.sonoOntem)}h)`); }
+        else if (l.sonoOntem >= meta - 1) { n += 3; }
+        else if (l.sonoOntem < 5) { n -= 28; motivos.push(`dormiu pouco (${br(l.sonoOntem)}h)`); }
+        else if (l.sonoOntem < 6) { n -= 16; motivos.push(`sono curto (${br(l.sonoOntem)}h)`); }
+        else { n -= 6; }
+    }
+    if (l.seguidos >= 5) { n -= 18; motivos.push(`${l.seguidos} dias seguidos treinando`); }
+    else if (l.seguidos === 4) { n -= 8; motivos.push('4 dias seguidos treinando'); }
+    else if (!l.treinouOntem) { n += 6; motivos.push('descansou ontem'); }
+    const puxados = (l.ultimosEsforcos || []).slice(0, 2).filter(e => e === 'puxado').length;
+    if (puxados) { n -= 10 * puxados; motivos.push(puxados > 1 ? 'últimos treinos puxados' : 'último treino puxado'); }
+    n = Math.max(15, Math.min(98, Math.round(n)));
+    const nivel = n >= 75 ? 'forte' : n >= 55 ? 'moderado' : 'leve';
+    const frase = nivel === 'forte' ? 'Dia bom pra treino forte' : nivel === 'moderado' ? 'Bom pra um treino moderado' : 'Dia de pegar leve';
+    return { n, nivel, frase, motivos };
+}
+function prontidaoHTML(pr, treinouHoje) {
+    if (!pr) return '';
+    const cor = pr.nivel === 'forte' ? 'var(--vital)' : pr.nivel === 'moderado' ? 'var(--gold)' : 'var(--effort)';
+    const C = 2 * Math.PI * 22;
+    return `<div class="chart-card pront-card">
+        <svg class="pront-anel" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="var(--line)" stroke-width="5"/><circle cx="27" cy="27" r="22" fill="none" stroke="${cor}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${(pr.n / 100) * C} ${C}" transform="rotate(-90 27 27)"/><text x="27" y="32" text-anchor="middle" fill="var(--ink)" font-size="15" font-weight="700">${pr.n}</text></svg>
+        <div class="pront-txt"><small>Prontidão de hoje</small><b>${treinouHoje ? 'Treino de hoje feito ✓' : pr.frase}</b>${pr.motivos.length ? `<span>${escapeHTML(pr.motivos.slice(0, 2).join(' · '))}</span>` : '<span>Registre seu sono pra a leitura ficar mais precisa</span>'}</div>
+    </div>`;
 }
 function precisaDescanso(l) {
     const puxados = l.ultimosEsforcos.filter(e => e === 'puxado').length;
@@ -5381,6 +5714,8 @@ function perfilTreinoTexto(p) {
     L.push(`Meta: ${p.weekly_goal || 3} treinos por semana`);
     const st = semanaTexto();
     if (st) L.push(`Semana de costume (o que faz em cada dia): ${st}`);
+    const mem = memoriaCoach();
+    if (mem.length) L.push(`O que ela já contou ao coach: ${mem.join('; ')}`);
     return L.join('\n');
 }
 function lacunasTexto(l) {
@@ -5403,7 +5738,8 @@ async function obterTreinoDoDia(forcar = false, trocarDe = null) {
     if (atual && !forcar && !state.iaTreinoForcar) return atual;
     state.iaTreinoForcar = false;
     const l = await calcularLacunas();
-    const leve = precisaDescanso(l);
+    const pr = prontidaoDoDia(l);
+    const leve = precisaDescanso(l) || pr.nivel === 'leve';
     const trocas = atual ? (atual.trocas || 0) : 0;
     const prompt = `Você é o coach do app Pulso. Monte o treino de HOJE (${NOME_DIA[new Date().getDay()]}) pra esta pessoa.
 
@@ -5417,6 +5753,7 @@ COMO DECIDIR:
 - ${(() => { const h = planoDeHoje(); return h ? `HOJE ela costuma fazer: ${textoItemSemana(h)}. O treino do dia é ISSO; se for um esporte (ex: futebol), o "treino" é o próprio jogo, e você sugere só aquecimento e recuperação curtos em volta.` : 'Hoje não é dia de treino no costume dela: sugira algo leve ou descanso ativo, a não ser que a semana esteja atrasada.'; })()}
 - Use o que a pessoa gosta como base, mas encaixe o que está faltando no jeito mais próximo do gosto dela. Ex: quem gosta de correr e está sem força recebe força pensada pra corredor; quem só treina pernas recebe superior.
 - Referência de equilíbrio: força pelo menos 2x por semana, todos os grupos musculares ao longo da semana, cardio regular.
+- PRONTIDÃO DE HOJE: ${pr.n}/100 (${pr.motivos.join(', ') || 'sem sinais fortes'}). ${pr.nivel === 'forte' ? 'Pode puxar mais hoje.' : pr.nivel === 'moderado' ? 'Intensidade moderada.' : ''}
 - ${leve ? 'HOJE É DIA LEVE: sequência longa, sono curto ou esforço alto recente. Sugira mobilidade, alongamento ou cardio bem leve, curto.' : 'Pode ser um treino normal, na duração que a pessoa tem disponível.'}
 - Ajuste ao nível, ao local e ao equipamento. Sem equipamento, use peso do corpo.
 ${trocarDe ? `- A pessoa pediu pra TROCAR a sugestão "${trocarDe}". Proponha algo diferente, mantendo o equilíbrio.` : ''}
@@ -5612,6 +5949,7 @@ async function hydrateIAEvolucao() {
         const anteriores = (antigas || []).filter(a => !carta || a.day !== carta.semana).slice(0, 4);
         slot.innerHTML = [
             alerta && alerta.mensagem ? `<div class="chart-card ia-card ia-alerta"><div class="chart-head"><span class="chart-title">Tudo bem por aí?</span></div><p>${escapeHTML(alerta.mensagem || '')}</p>${alerta.passo ? `<p class="ia-passo">${escapeHTML(alerta.passo)}</p>` : ''}</div>` : '',
+            prontidaoHTML(prontidaoDoDia(l), l.treinouHoje),
             treinoDoDiaHTML(treino, l.treinouHoje),
             planoSemanaHTML(plano, diasFeitos),
             cartaHTML(carta, anteriores),
@@ -5638,7 +5976,7 @@ async function interpretarRegistro(texto) {
     const r = await iaJSON(`Transforme o que a pessoa escreveu num registro do app Pulso.
 Texto: "${texto.replace(/"/g, "'")}"
 Tipos: "workout" (treino), "water" (água), "sleep" (sono), "meal" (refeição).
-Formato do JSON: {"kind": "workout|water|sleep|meal", "activity_type": "um destes: ${TIPOS_TREINO.join(', ')}", "duration_min": número ou null, "distance_km": número ou null, "water_ml": número ou null, "sleep_hours": número ou null, "legenda": "texto curto opcional ou null"}
+Formato do JSON: {"kind": "workout|water|sleep|meal", "activity_type": "um destes: ${TIPOS_TREINO.join(', ')}", "duration_min": número ou null, "distance_km": número ou null, "grupos": ["grupos musculares citados, só destes: ${GRUPOS_TREINO.join(', ')}"] ou [], "water_ml": número ou null (copo = 250, garrafa = 500, litro = 1000), "sleep_hours": número ou null, "meal_slot": "cafe|almoco|jantar|lanche ou null", "legenda": "texto curto opcional ou null"}
 Se não der pra entender, use {"kind": null}.`);
     return r;
 }
@@ -6606,6 +6944,7 @@ async function renderMenu() {
                 ${linhaMenu('m-go', 'salvo', 'Salvos', state.salvos.size ? String(state.salvos.size) : '', ' data-view="saved"')}
                 ${linhaMenu('m-go', 'salvo', 'Arquivados', '', ' data-view="arquivados"')}
                 ${linhaMenu('abrir-arquivo-stories', 'historico', 'Arquivo de stories')}
+                ${linhaMenu('retro-ver', 'grafico', 'Retrospecto do mês')}
             </div>
 
             <div class="cfg-grupo">
@@ -9483,12 +9822,13 @@ async function renderCoach() {
                     <span class="conv-coach-avatar" style="width:32px;height:32px;font-size:16px">🤖</span>
                     <span class="chat-header-name">Coach Pulso</span>
                 </div>
-                <div style="width:28px"></div>
+                <button class="topo-mais" data-act="coach-memoria" aria-label="O que o Coach lembra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3.5a3 3 0 0 0-3 3 3 3 0 0 0-2 5.2A3.5 3.5 0 0 0 8 17.5a2.5 2.5 0 0 0 4 1V5a2 2 0 0 0-2.5-1.5zM14.5 3.5a3 3 0 0 1 3 3 3 3 0 0 1 2 5.2 3.5 3.5 0 0 1-3.5 5.8 2.5 2.5 0 0 1-4 1"/></svg></button>
             </div>
             <div id="coachChat" class="coach-chat"><div class="spinner"></div></div>
             <div id="coachSuggestions" class="coach-suggestions"></div>
             <div class="coach-composer">
                 <textarea id="coachInput" placeholder="Pergunta o que quiser..." maxlength="500" rows="1"></textarea>
+                <label class="mic-btn chat-foto-btn" aria-label="Mandar foto pro Coach"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></svg><input type="file" id="coachFoto" accept="image/*" hidden></label>
                 <button class="mic-btn" id="coachMic" aria-label="Ditar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
                 </button>
@@ -9519,6 +9859,7 @@ async function renderCoach() {
     });
     $('#coachSend').addEventListener('click', () => sendCoachMessage());
     $('#coachMic').addEventListener('click', () => ditar('coachInput'));
+    $('#coachFoto').addEventListener('change', e => { const fl = e.target.files && e.target.files[0]; e.target.value = ''; if (fl) enviarFotoAoCoach(fl); });
 }
 
 function paintCoachChat() {
@@ -9535,6 +9876,7 @@ function paintCoachChat() {
         chat.innerHTML = state.coachHistory.map(m => `
             <div class="cmsg ${m.role}">
                 ${m.role === 'coach' ? '<span class="cmsg-avatar">🤖</span>' : ''}
+                ${m.foto ? `<span class="cmsg-foto"><img src="${m.foto}" alt=""></span>` : ''}
                 <div class="cmsg-bubble">${escapeHTML(m.body).replace(/\n/g, '<br>')}</div>
             </div>
         `).join('');
@@ -10811,6 +11153,7 @@ async function switchView(v, params = {}) {
     if (v !== 'chat') stopChatSync();
     state.view = v;
     state.viewParams = params;
+    contarUsoAba(v);
     // Coach e conversas ficam sob a aba Chat na navegação
     const navView = (v === 'challenge' || v === 'challenges') ? 'desafio' : v;
     const topoUser = document.getElementById('topbarUser');
@@ -11785,11 +12128,46 @@ document.addEventListener('click', async e => {
         if (error) { toast('Não consegui mudar agora. Tente de novo.', 'err'); return; }
         state.profile.is_private = privado;
         toast(privado ? 'Conta privada. Só seguidores aprovados veem seus posts.' : 'Conta pública. Pedidos pendentes foram aprovados.', 'ok');
+    } else if (act === 'retro-ver') {
+        abrirRetrospecto();
+    } else if (act === 'retro-fechar') {
+        const { ano, mes } = mesPassado();
+        lsSet(`pulso-retro-${state.session.user.id}-${ano}-${mes}`, '1');
+        const sl = document.getElementById('retroSlot'); if (sl) sl.innerHTML = '';
+    } else if (act === 'retro-story') {
+        const r = state.retro; if (!r) return;
+        btnCarregando(btn, true);
+        const ok = await publicarStoryPronto({ caption: `Meu ${NOME_MES[r.mes]} no Pulso`, style: { card: { tipo: 'retro', mes: r.mes, treinos: r.treinos, minutos: r.minutos, dias: r.dias, km: r.km, seq: r.melhorSeq, frase: r.frase } } });
+        btnCarregando(btn, false);
+        if (ok) {
+            const { ano, mes } = mesPassado(); lsSet(`pulso-retro-${state.session.user.id}-${ano}-${mes}`, '1');
+            const t = document.getElementById('retroTela'); if (t) t.remove(); document.body.style.overflow = '';
+            toast(ok.pts > 0 ? `Story publicado · +${ok.pts} pts` : 'Story publicado', 'ok');
+        }
+    } else if (act === 'coach-memoria') {
+        abrirMemoriaCoach();
+    } else if (act === 'aprovar-todos') {
+        e.stopPropagation();
+        btn.disabled = true;
+        const linhas = [...document.querySelectorAll('.freq-row')].filter(r => r.querySelector('[data-accept="1"]'));
+        for (const r of linhas) {
+            const b = r.querySelector('[data-accept="1"]');
+            const { error } = await sb.rpc('respond_follow_request', { requester: b.dataset.uid, accept: true });
+            const ac = r.querySelector('.freq-acoes');
+            if (ac) ac.innerHTML = `<span class="freq-feito">${error ? 'Tente de novo' : 'Aprovado'}</span>`;
+        }
+        btn.remove();
+        updateNotifBadge();
+        toast('Pedidos aprovados', 'ok');
     } else if (act === 'follow-request') {
         e.stopPropagation();
         btn.closest('.freq-row').querySelectorAll('button').forEach(b => b.disabled = true);
         const aceitar = btn.dataset.accept === '1';
         const { error } = await sb.rpc('respond_follow_request', { requester: btn.dataset.uid, accept: aceitar });
+        if (error && String(error.message || '').includes('pedido_nao_encontrado')) {
+            btn.closest('.freq-row').querySelector('.freq-acoes').innerHTML = '<span class="freq-feito">Já respondido</span>';
+            updateNotifBadge(); return;
+        }
         if (error) { toast('Não consegui responder agora.', 'err'); btn.closest('.freq-row').querySelectorAll('button').forEach(b => b.disabled = false); return; }
         const row = btn.closest('.freq-row');
         row.querySelector('.freq-acoes').innerHTML = `<span class="freq-feito">${aceitar ? 'Aprovado' : 'Recusado'}</span>`;
@@ -12533,6 +12911,17 @@ function htmlCardStory(st, comFoto) {
             <h2>${escapeHTML(c.nome || '')}</h2>
             ${c.nivel ? `<span class="badge-nivel ${String(c.nivel).toLowerCase()}">${escapeHTML(c.nivel)}</span>` : ''}
             <p>${escapeHTML(c.desc || '')}</p>
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
+    if (c.tipo === 'retro') {
+        const h = Math.floor((c.minutos || 0) / 60), m = (c.minutos || 0) % 60;
+        return `<div class="card-story retro${comFoto ? ' sobre-foto' : ''}">
+            <small class="cs-rot">Meu mês no Pulso</small>
+            <h2>${escapeHTML((NOME_MES[c.mes] || '').replace(/^./, x => x.toUpperCase()))}</h2>
+            <div class="cs-stats"><div><b>${c.treinos || 0}</b><small>treinos</small></div><div><b>${h}h${m ? String(m).padStart(2, '0') : ''}</b><small>ativo</small></div><div><b>${c.dias || 0}</b><small>dias</small></div></div>
+            ${c.seq > 1 ? `<span class="cs-fogo">🔥 recorde de ${c.seq} dias seguidos</span>` : ''}
+            ${c.frase ? `<p>“${escapeHTML(c.frase)}”</p>` : ''}
             <b class="cs-marca">Pulso.</b>
         </div>`;
     }
@@ -14093,17 +14482,23 @@ async function enviarRegistroIA() {
         const r = await interpretarRegistro(texto);
         if (!r || !r.kind) { toast('Não entendi bem. Tenta de outro jeito, ex: "caminhei 40 minutos".', 'err'); return; }
         campo.value = '';
+        state.treinoSugerir = false; // o que a pessoa disse vale mais que a sugestão do dia
         setComposerKind(r.kind);
         if (r.kind === 'workout') {
-            if (TIPOS_TREINO.includes(r.activity_type)) $('#wType').value = r.activity_type;
-            if (r.duration_min) $('#wDuration').value = Math.round(r.duration_min);
-            if (r.distance_km) $('#wDistance').value = r.distance_km;
+            const chip = TIPOS_TREINO.includes(r.activity_type) ? document.querySelector(`#wTypeChips [data-tipo="${r.activity_type}"]`) : null;
+            if (chip) { chip.click(); chip.scrollIntoView({ inline: 'center', block: 'nearest' }); }
+            if (r.duration_min) { $('#wDuration').value = Math.max(5, Math.round(r.duration_min)); sincronizarDuracao(); }
+            if (r.distance_km) { $('#wDistance').value = r.distance_km; if (typeof mostrarKm === 'function') mostrarKm(); }
+            if (Array.isArray(r.grupos) && r.grupos.length) $$('#wMuscles .chip').forEach(x => x.classList.toggle('on', r.grupos.includes(x.dataset.m)));
             atualizarCamposTreino();
         } else if (r.kind === 'water' && r.water_ml) {
             $('#wMl').value = Math.round(r.water_ml);
         } else if (r.kind === 'sleep' && r.sleep_hours) {
             $('#skHours').value = r.sleep_hours;
+        } else if (r.kind === 'meal' && ['cafe', 'almoco', 'jantar', 'lanche'].includes(r.meal_slot)) {
+            marcarSlotRefeicao(r.meal_slot);
         }
+        setTimeout(sincronizarContadores, 0);
         if (r.legenda) $('#pCaption').value = r.legenda;
         toast('Preenchi pra você. Confere e salva.', 'ok');
     } catch (e) {
@@ -14965,6 +15360,7 @@ async function bootInterno() {
         const q = new URLSearchParams(location.search);
         const u = q.get('u') || q.get('seguir');
         if (q.get('d')) localStorage.setItem('pulso-link-desafio', q.get('d'));
+        if (q.get('abrir')) state.abrirPush = { tela: q.get('abrir'), id: q.get('id') || '' };
         if (u) {
             localStorage.setItem('pulso-link-user', u);
             localStorage.setItem('pulso-link-tipo', q.get('u') ? 'perfil' : 'convite');
@@ -15024,7 +15420,14 @@ async function bootInterno() {
     updatePrivacyChip();
 
     await loadScore();
-    await switchView('feed');
+    // Veio de uma notificação? Vai direto pro lugar. Senão, abre na aba mais usada.
+    const ap = state.abrirPush; state.abrirPush = null;
+    if (ap && ap.tela === 'post' && ap.id) { await switchView('feed'); openPostSheet(ap.id); }
+    else if (ap && ap.tela === 'desafio' && ap.id) await switchView('challenge', { id: ap.id });
+    else if (ap && ap.tela === 'perfil' && ap.id) await switchView('user-profile', { uid: ap.id });
+    else if (ap && ['notifications', 'messages', 'progress', 'coach'].includes(ap.tela)) await switchView(ap.tela);
+    else await switchView(abaInicial());
+    state.bootPronto = true;
     updateUnreadBadge();
     updateNotifBadge();
     checarConquistas(true);
@@ -15041,6 +15444,7 @@ async function bootInterno() {
     setTimeout(carregarCopoAgua, 5000);
     setTimeout(converterFotosHeic, 20000);
     setTimeout(tentarAnalisesPendentes, 12000);
+    setTimeout(manterPushAtivo, 4000);
     setTimeout(limparStoriesAntigos, 15000);
     // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
