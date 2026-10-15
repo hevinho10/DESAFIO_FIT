@@ -3552,3 +3552,28 @@ html.topo-feed #feedPostBtn{ margin-right:6px; }
 .nd-base .btn-primary{ width:100%; max-width:600px; display:block; margin:0 auto; height:52px; font-size:16px; }
 .post .post-photo{ max-height:min(82vh, 125vw); }
 @media (min-width:640px){ .post .post-photo{ max-height:min(82vh, 750px); } }
+
+/* =====================================================================
+   Chat/Coach: tela presa à área visível (teclado do iPhone não empurra mais)
+   ===================================================================== */
+html.na-conversa .app{ transform:none !important; }
+html.na-conversa .view.coach-view{
+    position:fixed; left:0; right:0; top:var(--vv-offset, 0px); height:var(--app-h, 100vh);
+    max-width:600px; margin:0 auto; padding:0 16px; z-index:20;
+    display:flex; flex-direction:column; background:var(--bg); overflow:hidden;
+}
+html.na-conversa .view.coach-view > .user-topbar{
+    position:relative; flex-shrink:0; margin:0 -16px 0; padding:calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+}
+html.na-conversa .view.coach-view .coach-chat{ flex:1; min-height:0; max-height:none; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+html.na-conversa .view.coach-view .coach-composer{ flex-shrink:0; }
+html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer{ padding-bottom:8px !important; }
+
+/* Foto do post inteira, sem corte (feed e Publicações) */
+.post .post-photo{ height:auto !important; max-height:88vh !important; object-fit:contain !important; background:var(--bg) !important; }
+
+/* Refeição: só os nomes; ✓ nas já registradas hoje */
+.ref-slots button{ flex-direction:row !important; justify-content:center; gap:3px !important; padding:11px 2px !important; }
+.ref-slots button small{ font-size:12px !important; color:var(--vital) !important; }
+.ref-slots button small:empty{ display:none; }
+.cr-flip.on{ background:rgba(255,255,255,.4); }

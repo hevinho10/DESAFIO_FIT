@@ -11385,6 +11385,11 @@ async function renderEditProfile() {
 function setKeyboardMode(on) {
     document.documentElement.classList.toggle('kb-open', on);
     syncLayoutVars();
+    if (on) [80, 300, 600].forEach(t => setTimeout(() => {
+        syncLayoutVars();
+        const box = document.getElementById('chatMessages') || document.getElementById('coachChat');
+        if (box) box.scrollTop = box.scrollHeight;
+    }, t));
 }
 
 // Detecta o teclado abrindo e fechando no celular
@@ -14837,7 +14842,7 @@ async function abrirCriar(modo = 'post') {
     tela.id = 'criarTela';
     tela.className = 'criar-tela modo-' + modo;
     tela.innerHTML = `
-        <div class="cr-cam"><video id="crVideo" playsinline autoplay muted></video><div class="cr-sem-cam"><span>${SVG_C('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}</span><p>Toque no botão pra tirar a foto<br>ou escolha da galeria</p></div></div>
+        <div class="cr-cam"><div class="cr-sem-cam"><span>${SVG_C('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}</span><p id="crDica">Toque no botão pra tirar a foto<br>ou escolha da galeria</p></div></div>
         <div class="cr-topo">
             <button type="button" class="cr-x" data-cr="fechar" aria-label="Fechar">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
             <span class="cr-titulo">Novo post</span>
@@ -14879,23 +14884,21 @@ async function abrirCriar(modo = 'post') {
         const a = b.dataset.cr;
         if (a === 'fechar') fecharCriar();
         else if (a === 'modo') setModo(b.dataset.m);
-        else if (a === 'virar') { state.criar.frente = !state.criar.frente; ligarCameraCriar(); }
+        else if (a === 'virar') {
+            state.criar.frente = !state.criar.frente;
+            tela.querySelector('#crCamNativa').setAttribute('capture', state.criar.frente ? 'user' : 'environment');
+            b.classList.toggle('on', state.criar.frente);
+            tela.querySelector('#crDica').innerHTML = state.criar.frente ? 'Câmera da frente selecionada' : 'Toque no botão pra tirar a foto<br>ou escolha da galeria';
+            vibrar(6);
+        }
         else if (a === 'texto') { fecharCriar(); openStoryCreator(); entrarModoTexto(); }
         else if (a === 'treino') {
             const { data: ult } = await sb.from('posts').select('*').eq('user_id', state.session.user.id).eq('kind', 'workout').order('created_at', { ascending: false }).limit(1);
             if (!ult || !ult.length) { toast('Registre um treino primeiro pra virar story.', 'err'); return; }
             fecharCriar(); publicarStoryTreino(ult[0]);
         } else if (a === 'foto') {
-            const v = tela.querySelector('#crVideo');
-            if (!state.criar.stream || !v.videoWidth) { tela.querySelector('#crCamNativa').click(); return; }
-            vibrar(12);
-            tela.classList.add('flash'); setTimeout(() => tela.classList.remove('flash'), 180);
-            const cv = document.createElement('canvas');
-            cv.width = v.videoWidth; cv.height = v.videoHeight;
-            const ctx = cv.getContext('2d');
-            if (state.criar.frente) { ctx.translate(cv.width, 0); ctx.scale(-1, 1); }
-            ctx.drawImage(v, 0, 0);
-            cv.toBlob(bl => { if (bl) usarArquivo(new File([bl], `foto-${Date.now()}.jpg`, { type: 'image/jpeg' })); }, 'image/jpeg', 0.9);
+            vibrar(10);
+            tela.querySelector('#crCamNativa').click(); // câmera do próprio celular: sem pedido de permissão
         }
     });
     // deslizar pro lado troca POST / STORY
@@ -14906,7 +14909,6 @@ async function abrirCriar(modo = 'post') {
         const dx = e.changedTouches[0].clientX - x0; x0 = null;
         if (Math.abs(dx) > 60) setModo(dx < 0 ? 'story' : 'post');
     });
-    ligarCameraCriar();
 }
 async function ligarCameraCriar() {
     const tela = document.getElementById('criarTela'); if (!tela || !state.criar) return;
@@ -15392,13 +15394,13 @@ function slotSugerido(feitos) {
     return prox || agora;
 }
 function pintarSlots() {
-    const sel = $('#mSlot'), feitos = state.slotsFeitos || new Set(), agora = horaParaSlot();
+    const sel = $('#mSlot'), feitos = state.slotsFeitos || new Set();
     $$('#mSlotChips [data-slot]').forEach(b => {
         const k = b.dataset.slot;
         b.classList.toggle('on', k === sel.value);
         b.classList.toggle('feito', feitos.has(k));
         const sm = b.querySelector('small');
-        if (sm) sm.textContent = feitos.has(k) ? '✓ feito' : k === agora ? 'agora' : sm.dataset.hora;
+        if (sm) sm.textContent = feitos.has(k) ? '✓' : '';
     });
     const btn = $('#composerSubmit');
     if (btn && state.composerKind === 'meal' && !btn.disabled && state.composerDest !== 'feed') {
