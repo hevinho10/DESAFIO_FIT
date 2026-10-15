@@ -3596,7 +3596,7 @@ html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer
 /* =====================================================================
    Tema claro: contraste, cartões com sombra leve, vidro claro
    ===================================================================== */
-:root[data-theme="light"]{ --vital:#14A574; --vital-2:#0F9C8A; --vital-dim:rgba(20,165,116,.12); --ink-dim:#46504A; --ink-faint:#68726B; --line:#E1E6E2; }
+:root[data-theme="light"]{ --vital:#2BC98A; --vital-2:#27BFA5; --vital-dim:rgba(43,201,138,.12); --ink-dim:#46504A; --ink-faint:#68726B; --line:#E1E6E2; }
 :root[data-theme="light"] .chart-card, :root[data-theme="light"] .atv-card, :root[data-theme="light"] .dia-item,
 :root[data-theme="light"] .ch-hero, :root[data-theme="light"] .ch-card, :root[data-theme="light"] .nd-cartoes button,
 :root[data-theme="light"] .mem-item, :root[data-theme="light"] .retro-aviso, :root[data-theme="light"] .cfg-grupo,
@@ -3610,7 +3610,7 @@ html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer
 :root[data-theme="light"] .evo-abas{ background:#E9EDEA !important; }
 :root[data-theme="light"] .evo-aba.on{ background:#fff !important; box-shadow:0 1px 3px rgba(16,21,18,.08); }
 :root[data-theme="light"] .atv-chips span, :root[data-theme="light"] .nota-pill{ font-weight:700; }
-:root[data-theme="light"] .ss-d.ok i{ background:rgba(20,165,116,.14); }
+:root[data-theme="light"] .ss-d.ok i{ background:rgba(43,201,138,.14); }
 :root[data-theme="light"] html.topo-interna .view > .user-topbar, :root[data-theme="light"].topo-interna .view > .user-topbar{ background:rgba(244,246,244,.92) !important; }
 .np-destino{ display:flex; gap:2px; padding:3px; border-radius:12px; background:var(--bg-elev); }
 .np-destino button{ border:0; background:none; padding:7px 16px; border-radius:10px; font-family:inherit; font-size:13.5px; font-weight:700; color:var(--ink-dim); }
@@ -3683,3 +3683,38 @@ html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer
 .ms-txt p{ margin:0; font-size:14px; line-height:1.45; color:var(--ink); }
 .ms-txt b{ font-weight:700; }
 .ms-acoes{ display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
+
+/* Tema claro: verde suave nos botões de destaque */
+:root[data-theme="light"] [data-act="meta-sug-sim"]{ background:rgba(43,201,138,.12) !important; color:#1E9E6B !important; border-color:transparent !important; box-shadow:none !important; }
+
+/* Menu do + segurado, tema claro: bolinhas brancas limpas, ícone colorido, sem brilho borrado */
+:root[data-theme="light"] .fab-arco{ background:rgba(246,248,246,.78) !important; -webkit-backdrop-filter:blur(14px) saturate(1.2) !important; backdrop-filter:blur(14px) saturate(1.2) !important; }
+:root[data-theme="light"] .fab-bola{ background:#fff !important; border:1px solid rgba(16,21,18,.05) !important; box-shadow:0 1px 2px rgba(16,21,18,.06), 0 10px 26px -6px rgba(16,21,18,.16) !important; }
+:root[data-theme="light"] .fab-bola span{ width:40px; height:40px; border-radius:50%; background:rgba(var(--c),.13); }
+:root[data-theme="light"] .fab-bola span svg{ width:22px; height:22px; }
+:root[data-theme="light"] .fab-bola[data-k="workout"]{ --c:31,178,118; }
+:root[data-theme="light"] .fab-bola[data-k="meal"]{ --c:230,160,30; }
+:root[data-theme="light"] .fab-bola[data-k="agua"]{ --c:59,140,230; }
+:root[data-theme="light"] .fab-bola[data-k="story"]{ --c:240,104,60; }
+:root[data-theme="light"] .fab-bola small{ font-size:12.5px; font-weight:600 !important; color:#3C4540 !important; text-shadow:none !important; }
+:root[data-theme="light"] .fab-bola:active{ background:#F3F6F4 !important; }
+:root[data-theme="light"] .fab-fechar{ background:#fff !important; color:#101512 !important; border-radius:50% !important; box-shadow:0 1px 2px rgba(16,21,18,.08), 0 8px 22px -6px rgba(16,21,18,.2) !important; font-size:24px !important; font-weight:300; }
+
+/* Câmera no app: enquanto liga, tela preta limpa (sem a dica) */
+.criar-tela.carregando-cam .cr-sem-cam{ opacity:0; }
+.cr-sem-cam{ transition:opacity .2s; }
+.criar-tela.com-cam .cr-cam{ background:#000; }
+
+/* Capa do destaque: foto por cima da cor (se a foto falhar, fica a cor) */
+.destaque-capa{ position:relative; overflow:hidden; }
+.destaque-capa img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:50%; }
+.ed-capa-op{ opacity:.75; }
+.ed-capa-gal{ display:grid; place-items:center; background:var(--bg-elev); color:var(--ink); border:1px solid var(--line) !important; opacity:1; cursor:pointer; }
+.ed-capa-gal svg{ width:22px; height:22px; }
+.ed-capa-dica2{ margin-top:-4px !important; }
+.ed-capa.carregando{ opacity:.5; animation:pulsoPisca 1s infinite alternate; }
+@keyframes pulsoPisca{ to{ opacity:.25; } }
+.esq-conv{ display:flex; align-items:center; gap:12px; padding:12px 4px; }
+.onb-sino{ width:64px; height:64px; border-radius:20px; display:grid; place-items:center; margin:8px 0 6px; background:var(--vital-dim); color:var(--vital); }
+.onb-sino svg{ width:30px; height:30px; }
+.onb-depois{ display:block; width:100%; margin-top:10px; padding:12px; border:0; background:none; font-family:inherit; font-size:14.5px; font-weight:600; color:var(--ink-dim); }

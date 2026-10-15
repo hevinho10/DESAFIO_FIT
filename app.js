@@ -224,6 +224,32 @@ function workoutPoints(type, duration, hasPhoto) {
     return Math.round(pts * 10) / 10;
 }
 
+// Prato com nota acima de 8,5: a IA só elogia, sem sugerir mais nada
+const RX_SUGESTAO = /(^|\s)(para|pra) deixar|ainda mais|que tal|voc[eê] (pode|poderia)|experimente|sugest|considere|tente |uma dica|se quiser|adicione|adicionar|inclua|incluir|acrescent|faltou|falta |poderia|trocar|substitu|da pr[oó]xima/i;
+function textoIA(txt, nota) {
+    if (!txt) return txt;
+    if (!(Number(nota) > 8.5)) return txt;
+    const frases = String(txt).match(/[^.!?]+[.!?]*/g) || [txt];
+    const boas = frases.filter(f => !RX_SUGESTAO.test(f)).map(f => f.trim()).filter(Boolean);
+    return (boas.length ? boas : [frases[0].trim()]).join(' ');
+}
+
+// Formato da foto (largura x altura): o post já abre com o espaço certo, sem pulos na tela
+function medirFoto(file) {
+    return new Promise(res => {
+        if (!file) return res(null);
+        const u = URL.createObjectURL(file), im = new Image();
+        im.onload = () => { URL.revokeObjectURL(u); res(im.naturalWidth ? { w: im.naturalWidth, h: im.naturalHeight } : null); };
+        im.onerror = () => { URL.revokeObjectURL(u); res(null); };
+        im.src = u;
+    });
+}
+function estiloProporcao(meta) {
+    const w = meta && Number(meta.w), h = meta && Number(meta.h);
+    if (!w || !h) return '';
+    return ` style="aspect-ratio:${w} / ${h}"`;
+}
+
 // Reduz a foto antes de subir: economiza dados e deixa o feed leve
 function compressImage(file, maxSide = 1200, quality = 0.8) {
     return new Promise((resolve) => {
@@ -1300,6 +1326,32 @@ function openTermsSheet() {
     };
 }
 
+// ---- Registro de erros: o que quebrar no celular de alguém vai pra tabela app_erros (você vê no Supabase) ----
+(function registrarErros() {
+    const vistos = new Set(); let enviados = 0;
+    const IGNORAR = /ResizeObserver loop|Script error\.?$|AbortError|The operation was aborted|Load failed|Failed to fetch|NetworkError|cancel/i;
+    const mandar = (msg, pilha) => {
+        try {
+            msg = String(msg || '').slice(0, 500);
+            if (!msg || IGNORAR.test(msg) || enviados >= 8 || typeof sb === 'undefined') return;
+            const chave = msg + '|' + (state && state.view);
+            if (vistos.has(chave)) return;
+            vistos.add(chave); enviados++;
+            sb.from('app_erros').insert({
+                user_id: state && state.session ? state.session.user.id : null,
+                tela: (state && state.view) || null,
+                mensagem: msg,
+                pilha: String(pilha || '').slice(0, 2000) || null,
+                aparelho: navigator.userAgent.slice(0, 300),
+                versao: (document.querySelector('script[src*="app.js"]') || {}).src?.split('v=')[1] || null,
+                instalado: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches),
+            }).then(() => {}, () => {});
+        } catch (_) {}
+    };
+    window.addEventListener('error', e => { if (e && e.message) mandar(e.message, e.error && e.error.stack); });
+    window.addEventListener('unhandledrejection', e => { const r = e && e.reason; mandar(r && (r.message || r), r && r.stack); });
+})();
+
 // ---- Fila offline: o que você registrou sem internet ----
 function guardarNaFila(registro) {
     try {
@@ -1341,7 +1393,50 @@ async function enviarFilaOffline() {
     }
 }
 
-window.addEventListener('online', () => { if (state.session) enviarFilaOffline(); });
+window.addEventListener('online', () => { if (state.session) { enviarFilaOffline(); enviarRascunhos(); } });
+
+// ---- Rascunhos de post com foto: se a internet cair no envio, o post fica guardado no aparelho ----
+function dbRascunhos() {
+    return new Promise((res, rej) => {
+        if (!window.indexedDB) return rej(new Error('sem idb'));
+        const r = indexedDB.open('pulso-rascunhos', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('posts', { keyPath: 'id', autoIncrement: true });
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+    });
+}
+async function rascunhoOp(modo, fn) {
+    const db = await dbRascunhos();
+    return new Promise((res, rej) => {
+        const tx = db.transaction('posts', modo);
+        const req = fn(tx.objectStore('posts'));
+        tx.oncomplete = () => res(req && req.result);
+        tx.onerror = () => rej(tx.error);
+    });
+}
+const ehFalhaDeRede = e => !navigator.onLine || /failed to fetch|network|load failed|fetch|internet|timeout/i.test(String((e && (e.message || e.name)) || e));
+async function guardarRascunho(r) {
+    try { await rascunhoOp('readwrite', st => st.add({ ...r, uid: state.session.user.id, quando: Date.now() })); return true; }
+    catch (_) { return false; }
+}
+let enviandoRascunhos = false;
+async function enviarRascunhos() {
+    if (enviandoRascunhos || !state.session || !navigator.onLine) return;
+    enviandoRascunhos = true;
+    try {
+        const lista = (await rascunhoOp('readonly', st => st.getAll())) || [];
+        let ok = 0;
+        for (const r of lista) {
+            if (r.uid !== state.session.user.id) continue;
+            try {
+                await enviarPostLivre(r.fotos, r.legenda, r.vis);
+                await rascunhoOp('readwrite', st => st.delete(r.id));
+                ok++;
+            } catch (e) { if (ehFalhaDeRede(e)) break; await rascunhoOp('readwrite', st => st.delete(r.id)); }
+        }
+        if (ok) { toast(ok === 1 ? 'Seu post guardado foi publicado' : ok + ' posts guardados foram publicados', 'ok'); if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile(); }
+    } catch (_) {} finally { enviandoRascunhos = false; }
+}
 
 // ---- Trocar senha ----
 function abrirTrocaSenha() {
@@ -4067,7 +4162,7 @@ async function renderMealHistory(uid) {
             ${thumb}
             <div class="wk-body">
                 <div class="wk-title">${MEAL_SLOT_NAME[m.meal_slot] || 'Refeição'}${isMe && m.in_feed ? ' <svg class="wk-feed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="Publicado no feed"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 9h17"/></svg>' : ''}</div>
-                ${m.meal_analysis ? `<div class="wk-sub">${escapeHTML(m.meal_analysis.slice(0, 80))}</div>` : ''}
+                ${m.meal_analysis ? `<div class="wk-sub">${escapeHTML(textoIA(m.meal_analysis, m.meal_score).slice(0, 80))}</div>` : ''}
             </div>
             <div class="ml-side">
                 ${sc != null ? `<span class="ml-score" style="color:${cor}">${br(sc)}</span>` : ''}
@@ -4510,7 +4605,7 @@ async function renderMessages() {
     c.innerHTML = `
         <div class="view">
             <div class="page-head"><h1 class="screen-title">Chat</h1><span class="page-sub">coach e comunidade</span></div>
-            <div id="convList"><div class="spinner"></div></div>
+            <div id="convList">${Array.from({ length: 5 }, () => '<div class="esq-conv"><span class="esq" style="width:52px;height:52px;border-radius:50%"></span><div style="flex:1"><span class="esq" style="width:42%;height:13px"></span><span class="esq" style="width:70%;height:11px;margin-top:8px"></span></div></div>').join('')}</div>
         </div>
     `;
 
@@ -5601,7 +5696,7 @@ function renderPost(p) {
         const scoreTag = p.meal_score != null ? `<span class="nota-pill" style="--n:${corNota}">${br(p.meal_score)}</span>` : '';
         badge = `<div class="atv-linha" style="--c:255,194,75"><span class="atv-ic mini">${SVG_REFEICAO}</span><span class="al-txt"><b>${slotName}</b></span>${scoreTag}</div>`;
         if (p.meal_analysis) {
-            badge += `<p class="ia-nota" data-act="ia-nota">${SVG_BRILHO}<span>${escapeHTML(p.meal_analysis)}</span></p>`;
+            badge += `<p class="ia-nota" data-act="ia-nota">${SVG_BRILHO}<span>${escapeHTML(textoIA(p.meal_analysis, p.meal_score))}</span></p>`;
         }
     } else if (p.kind === 'weight') {
         badge = `<div class="post-badge">Pesagem · <b>${p.weight_kg} kg</b></div>`;
@@ -5642,7 +5737,7 @@ function renderPost(p) {
     if (fotos) {
         body += `<div class="post-carrossel" data-n="${fotos.length}"><div class="pc-trilho">${fotos.map(u => `<img class="post-photo pc-foto" src="${escapeHTML(u)}" loading="lazy" decoding="async">`).join('')}</div>
             <span class="pc-cont">1/${fotos.length}</span><div class="pc-pontos">${fotos.map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div></div>`;
-    } else if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy" decoding="async">`;
+    } else if (p.image_url) body += `<img class="post-photo" src="${p.image_url}"${estiloProporcao(p.meta)} loading="lazy" decoding="async">`;
 
     const isMine = p.user_id === state.session.user.id;
     const autorDoDepoimento = p.meta && p.meta.depoimento && p.meta.depoimento.autor_id === state.session.user.id;
@@ -8135,8 +8230,10 @@ async function carregarSugestoes(lim = 8) {
     return data || [];
 }
 
-const ONB_PASSOS = ['objetivo', 'treino', 'semana', 'pessoas', 'desafios'];
+const ONB_PASSOS = ['objetivo', 'treino', 'semana', 'pessoas', 'avisos', 'desafios'];
 async function abrirPrimeirosPassos(passo = 0) {
+    // avisos: só pergunta se o celular ainda não respondeu sobre notificações
+    if (ONB_PASSOS[passo] === 'avisos' && !(typeof Notification !== 'undefined' && Notification.permission === 'default' && 'PushManager' in window)) passo++;
     let tela = document.getElementById('onbTela');
     if (!tela) { tela = document.createElement('div'); tela.id = 'onbTela'; tela.className = 'onb'; document.body.appendChild(tela); }
     document.body.style.overflow = 'hidden';
@@ -8170,6 +8267,12 @@ async function abrirPrimeirosPassos(passo = 0) {
             <p>Siga algumas pessoas pra ver os treinos delas no seu feed.</p>
             <div class="follow-list onb-lista" id="onbPessoas"><div class="spinner"></div></div>
             ${rodape()}`;
+    } else if (ONB_PASSOS[passo] === 'avisos') {
+        corpo = `<span class="onb-sino">${SVG_C('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>')}</span>
+            <h2>Quer receber avisos?</h2>
+            <p>Curtidas, mensagens, lembrete do treino e da água. Você escolhe o que recebe e dá pra desligar quando quiser.</p>
+            <button class="btn-primary onb-ok" data-onb="avisos">Ativar avisos</button>
+            <button class="onb-depois" data-onb="proximo">Agora não</button>`;
     } else {
         corpo = `<h2>Entre num desafio</h2>
             <p>É no desafio que a mágica acontece: ranking, times e o grupo te puxando.</p>
@@ -8236,6 +8339,11 @@ document.addEventListener('click', async e => {
     if (!b) return;
     const atual = ONB_PASSOS.findIndex((_, k) => tela.querySelectorAll('.onb-pontos i.on').length - 1 === k);
     if (b.dataset.onb === 'pular' || (b.dataset.onb === 'proximo' && atual >= ONB_PASSOS.length - 1)) { concluirPrimeirosPassos(); return; }
+    if (b.dataset.onb === 'avisos') {
+        b.disabled = true; b.textContent = 'Ativando...';
+        const ok = await ligarPush().catch(() => false);
+        if (ok) toast('Avisos ligados', 'ok');
+    }
     abrirPrimeirosPassos(atual + 1);
 });
 
@@ -8485,7 +8593,7 @@ async function analisarRefeicao(id) {
     const { data: an, error } = await sb.functions.invoke('analyze-meal', { body: { imageUrl: urlIA } });
     if (error || !an || typeof an.score !== 'number') return { ok: false };
     const meta = { ...(p.meta || {}) }; delete meta.analise_pendente;
-    await sb.from('posts').update({ meal_score: an.score, meal_analysis: an.analysis || null, meta }).eq('id', id).eq('user_id', state.session.user.id);
+    await sb.from('posts').update({ meal_score: an.score, meal_analysis: textoIA(an.analysis, an.score) || null, meta }).eq('id', id).eq('user_id', state.session.user.id);
     const { data: pts } = await sb.rpc('creditar_refeicao_analisada', { pid: id });
     return { ok: true, nota: an.score, pts: Number(pts || 0) };
 }
@@ -8514,8 +8622,11 @@ async function limparStoriesAntigos() {
         const { data: velhos } = await sb.from('stories').select('id, image_url')
             .eq('user_id', state.session.user.id).lt('created_at', limite).limit(100);
         if (!velhos || !velhos.length) return;
-        const { data: dest } = await sb.from('story_highlight_items').select('image_url, source_story_id');
-        const usadas = new Set((dest || []).map(x => x.image_url).filter(Boolean));
+        const [{ data: dest }, { data: capas }] = await Promise.all([
+            sb.from('story_highlight_items').select('image_url, source_story_id'),
+            sb.from('story_highlights').select('cover_url').eq('user_id', state.session.user.id),
+        ]);
+        const usadas = new Set([...(dest || []).map(x => x.image_url), ...(capas || []).map(x => x.cover_url)].filter(Boolean));
         const usadosIds = new Set((dest || []).map(x => x.source_story_id).filter(Boolean));
         const apagar = velhos.filter(v => !usadosIds.has(v.id) && !(v.image_url && usadas.has(v.image_url)));
         for (const v of apagar) {
@@ -8539,7 +8650,7 @@ async function abrirListaDePosts(ids, inicio) {
             <div class="topbar-title">Publicações</div>
             <div style="width:36px"></div>
         </div>
-        <div class="pv-lista"><div class="spinner"></div></div>`;
+        <div class="pv-lista"><div class="esq-wrap"><div class="esq-linha"><span class="esq" style="width:40px;height:40px;border-radius:50%"></span><div style="flex:1"><span class="esq" style="width:40%;height:12px"></span><span class="esq" style="width:25%;height:10px;margin-top:6px"></span></div></div><span class="esq" style="width:100%;height:360px;margin-top:12px;border-radius:14px"></span></div></div>`;
     document.body.appendChild(v);
     document.body.style.overflow = 'hidden';
     const fechar = () => { v.remove(); document.body.style.overflow = ''; };
@@ -8557,7 +8668,20 @@ async function abrirListaDePosts(ids, inicio) {
     const posts = (data || []).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     lista.innerHTML = posts.map(p => renderPost(p)).join('') || '<div class="log-empty">Nada por aqui.</div>';
     const alvo = lista.querySelector(`.post[data-post-id="${inicio}"]`);
-    if (alvo) v.scrollTop = alvo.offsetTop - 64;
+    if (!alvo) return;
+    // As fotos de cima carregam depois e empurram a lista: mantém o post tocado parado no lugar
+    // até tudo acima carregar (ou até a pessoa mexer na tela)
+    const posicionar = () => { v.scrollTop = alvo.offsetTop - 64; };
+    posicionar();
+    let preso = true;
+    const soltar = () => { preso = false; ro && ro.disconnect(); };
+    ['touchstart', 'wheel', 'mousedown'].forEach(ev => v.addEventListener(ev, soltar, { once: true, passive: true }));
+    setTimeout(soltar, 6000);
+    let el = alvo.previousElementSibling;
+    while (el) { el.querySelectorAll('img[loading="lazy"]').forEach(i => { i.loading = 'eager'; }); el = el.previousElementSibling; }
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (preso) posicionar(); }) : null;
+    if (ro) ro.observe(lista);
+    else lista.querySelectorAll('img').forEach(i => i.addEventListener('load', () => { if (preso) posicionar(); }));
 }
 
 // Depois de arquivar/apagar um post: tira de todo lugar e atualiza a tela de trás
@@ -12907,10 +13031,11 @@ document.addEventListener('click', async e => {
     } else if (act === 'delete-post') {
         if (!(await confirmar('Apagar este post? Essa ação não pode ser desfeita.'))) return;
         const postId = btn.dataset.id;
-        const { data: velho } = await sb.from('posts').select('image_url, thumb_url').eq('id', postId).maybeSingle();
-        await sb.from('posts').delete().eq('id', postId);
-        if (velho && velho.image_url) removeStoredImage(velho.image_url);
-        if (velho && velho.thumb_url) removeStoredImage(velho.thumb_url);
+        const { data: velho } = await sb.from('posts').select('image_url, thumb_url, meta').eq('id', postId).maybeSingle();
+        const { error: errApagar } = await sb.from('posts').delete().eq('id', postId);
+        if (errApagar) { toast(msgErro(errApagar), 'err'); return; }
+        // apaga do armazenamento todas as fotos do post (carrossel e miniatura também)
+        if (velho) [...new Set([velho.image_url, velho.thumb_url, ...((velho.meta && velho.meta.fotos) || [])].filter(Boolean))].forEach(removeStoredImage);
         toast('Post apagado', 'ok');
         // remove do histórico se estiver na tela de log
         const logEl = btn.closest('.log-item');
@@ -14346,12 +14471,17 @@ function showCurrentStory() {
             : await sb.from('stories').delete().eq('id', item.id);
         if (!error && ehDestaque && group.items.length === 1) {
             await sb.from('story_highlights').delete().eq('id', group.destaque);
+        } else if (!error && ehDestaque && item.image_url) {
+            // era a capa: volta pra capa automática (primeira foto que sobrou)
+            await sb.from('story_highlights').update({ cover_url: null }).eq('id', group.destaque).eq('cover_url', item.image_url);
         }
         if (error) { toast('Erro ao apagar story', 'err'); return; }
         // apaga a foto do armazenamento se ela não estiver em nenhum destaque
         if (!ehDestaque && item.image_url) {
-            sb.from('story_highlight_items').select('id').eq('image_url', item.image_url).limit(1)
-                .then(({ data }) => { if (!data || !data.length) removeStoredImage(item.image_url); });
+            Promise.all([
+                sb.from('story_highlight_items').select('id').eq('image_url', item.image_url).limit(1),
+                sb.from('story_highlights').select('id').eq('cover_url', item.image_url).limit(1),
+            ]).then(([a, b]) => { if (!(a.data || []).length && !(b.data || []).length) removeStoredImage(item.image_url); });
         }
         toast(ehDestaque ? 'Tirado do destaque' : 'Story apagado', 'ok');
         group.items.splice(state.storyItemIdx, 1);
@@ -14443,13 +14573,22 @@ function destaquesHTML(lista, uid) {
         </button>` : '';
     return `<div class="destaques">${(lista || []).map(h => {
         const itens = [...h.story_highlight_items].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-        const capaUrl = h.cover_url || (itens.find(i => i.image_url) || {}).image_url;
-        const fundo = capaUrl ? `background-image:url('${capaUrl}')` : `background:${itens[0].background_color || STORY_BG_PADRAO}`;
+        const corCapa = h.cover_url && h.cover_url.startsWith('cor:') ? h.cover_url.slice(4) : null;
+        const fotos = [...new Set([corCapa ? null : h.cover_url, ...itens.map(i => i.image_url)].filter(Boolean))];
+        const cor = corCapa || (itens.find(i => !i.image_url) || {}).background_color || STORY_BG_PADRAO;
+        // se a foto da capa não existir mais, tenta a próxima do destaque; sem nenhuma, fica a cor
+        const img = !corCapa && fotos.length ? `<img src="${fotos[0]}" alt="" data-alt="${fotos.slice(1).join('|')}" onerror="capaFalhou(this)">` : '';
         return `<button class="destaque" data-act="abrir-destaque" data-id="${h.id}" data-uid="${uid}">
-            <span class="destaque-capa" style="${fundo}"></span>
+            <span class="destaque-capa" style="background:${cor}">${img}</span>
             <span class="destaque-nome">${escapeHTML(h.title)}</span>
         </button>`;
     }).join('')}${novo}</div>`;
+}
+function capaFalhou(img) {
+    const resto = (img.dataset.alt || '').split('|').filter(Boolean);
+    if (!resto.length) { img.remove(); return; }
+    img.dataset.alt = resto.slice(1).join('|');
+    img.src = resto[0];
 }
 // ---- Editor de destaque (criar ou editar, escolhendo vários stories) ----
 function miniStoryHTML(x, marcado) {
@@ -14490,6 +14629,10 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null) {
     ].sort((a, b) => new Date(b.dado.created_at) - new Date(a.dado.created_at));
     let nome = dest.data ? dest.data.title : '';
     let capa = dest.data ? dest.data.cover_url : null;
+    const capasQuebradas = new Set();
+    // capa que não é de nenhum story do destaque = foto da galeria escolhida antes
+    const urlsItens = new Set((itensAtuais || []).map(i => i.image_url).filter(Boolean));
+    let capaPropria = capa && !capa.startsWith('cor:') && !urlsItens.has(capa) && !(arquivo || []).some(st => st.image_url === capa) ? capa : null;
 
     // ---------- passo 1: escolher ----------
     const passo1 = () => {
@@ -14520,9 +14663,13 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null) {
     // ---------- passo 2: capa e nome ----------
     const passo2 = () => {
         const escolhidos = opcoes.filter(o => o.on);
-        const comFoto = escolhidos.filter(o => o.dado.image_url);
-        if (!capa || !escolhidos.some(o => o.dado.image_url === capa)) capa = comFoto.length ? comFoto[comFoto.length - 1].dado.image_url : null;
-        const fundoCapa = capa ? `background-image:url('${capa}')` : `background:${(escolhidos[0] && escolhidos[0].dado.background_color) || STORY_BG_PADRAO}`;
+        // capa: qualquer story do destaque (foto ou cor do texto) ou uma foto da galeria
+        const opsCapa = escolhidos.map(o => o.dado.image_url || ('cor:' + (o.dado.background_color || STORY_BG_PADRAO)));
+        const valida = capa && (capa === capaPropria || opsCapa.includes(capa)) && !capasQuebradas.has(capa);
+        if (!valida) capa = opsCapa.find(c => !c.startsWith('cor:') && !capasQuebradas.has(c)) || opsCapa[0] || null;
+        const estiloCapa = c => !c ? `background:${STORY_BG_PADRAO}` : c.startsWith('cor:') ? `background:${c.slice(4)}` : `background-image:url('${c}')`;
+        const fundoCapa = estiloCapa(capa);
+        const lista = [...new Set([...(capaPropria ? [capaPropria] : []), ...opsCapa])].filter(c => !capasQuebradas.has(c));
         v.innerHTML = `<div class="pv-topo">
                 <button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button>
                 <div class="topbar-title">${hid ? 'Editar destaque' : 'Novo destaque'}</div>
@@ -14530,13 +14677,29 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null) {
             </div>
             <div class="pv-lista ed-passo2">
                 <span class="ed-capa" style="${fundoCapa}"></span>
-                ${comFoto.length > 1 ? `<p class="ed-capa-dica">Toque numa foto pra usar como capa</p>
-                <div class="ed-capas">${comFoto.map(o => `<button type="button" class="ed-capa-op${o.dado.image_url === capa ? ' on' : ''}" data-capa="${o.dado.image_url}" style="background-image:url('${o.dado.image_url}')"></button>`).join('')}</div>` : ''}
+                <p class="ed-capa-dica">Escolha a capa</p>
+                <div class="ed-capas">${lista.map(c => `<button type="button" class="ed-capa-op${c === capa ? ' on' : ''}" data-capa="${c}" style="${estiloCapa(c)}"></button>`).join('')}<label class="ed-capa-op ed-capa-gal" aria-label="Foto da galeria">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}<input type="file" accept="image/*" id="edCapaGal" hidden></label></div>
+                <p class="ed-capa-dica ed-capa-dica2">ou use uma foto da galeria</p>
                 <input type="text" id="edNome" class="obj-input ed-nome" maxlength="20" placeholder="Nome do destaque (opcional)" value="${escapeHTML(nome)}">
                 ${hid ? '<button class="cfg-row cfg-perigo ed-excluir" id="edExcluir"><span class="cfg-txt">Excluir destaque</span></button>' : ''}
             </div>`;
         v.querySelector('.pv-voltar').onclick = () => { nome = document.getElementById('edNome').value; passo1(); };
         v.querySelectorAll('[data-capa]').forEach(b => b.onclick = () => { nome = document.getElementById('edNome').value; capa = b.dataset.capa; passo2(); });
+        // foto da capa que não abre mais (foi apagada): some da lista e a capa troca sozinha
+        lista.filter(c => !c.startsWith('cor:')).forEach(c => {
+            const t = new Image();
+            t.onerror = () => { if (capasQuebradas.has(c)) return; capasQuebradas.add(c); if (document.getElementById('edNome')) { nome = document.getElementById('edNome').value; passo2(); } };
+            t.src = c;
+        });
+        document.getElementById('edCapaGal').onchange = async e => {
+            const f = e.target.files && e.target.files[0]; if (!f) return;
+            nome = document.getElementById('edNome').value;
+            const capaEl = v.querySelector('.ed-capa'); if (capaEl) capaEl.classList.add('carregando');
+            try {
+                capaPropria = await uploadImage('post-images', f, { maxSide: 600, quality: 0.82 });
+                capa = capaPropria; passo2();
+            } catch (err) { toast(msgErro(err), 'err'); if (capaEl) capaEl.classList.remove('carregando'); }
+        };
         const exc = document.getElementById('edExcluir');
         if (exc) exc.onclick = async () => {
             if (!(await confirmar('Excluir este destaque? Os stories originais não são apagados.', 'Excluir', true))) return;
@@ -15008,29 +15171,16 @@ $('#postFab').addEventListener('click', () => {
 // CRIAR (+ do topo): câmera em tela cheia com POST / STORY, igual Instagram
 // ============================================================
 function abrirPostDireto() { abrirCriar('post'); }
-// Abre a câmera do próprio celular na hora (precisa ser no mesmo toque, por isso o input já existe)
-const camRapida = (() => {
-    const i = document.createElement('input');
-    i.type = 'file'; i.accept = 'image/*'; i.setAttribute('capture', 'environment'); i.hidden = true;
-    document.body.appendChild(i);
-    i.addEventListener('change', () => {
-        const f = i.files && i.files[0]; i.value = '';
-        if (f) abrirNovoPost(f, camRapida.modo || 'post');
-    });
-    return i;
-})();
 const SVG_C = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+// Câmera dentro do app (POST / STORY + galeria). Se o celular negar a câmera, o botão abre a câmera nativa.
 function abrirCriar(modo = 'post') {
-    camRapida.modo = modo;
-    camRapida.click();
-}
-async function abrirCriarAntigo(modo = 'post') {
     fecharCriar();
     const tela = document.createElement('div');
     tela.id = 'criarTela';
     tela.className = 'criar-tela modo-' + modo;
     tela.innerHTML = `
-        <div class="cr-cam"><div class="cr-sem-cam"><span>${SVG_C('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}</span><p id="crDica">Toque no botão pra tirar a foto<br>ou escolha da galeria</p></div></div>
+        <div class="cr-cam"><video id="crVideo" playsinline muted autoplay></video>
+            <div class="cr-sem-cam"><span>${SVG_C('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}</span><p id="crDica">Toque no botão pra tirar a foto<br>ou escolha da galeria</p></div></div>
         <div class="cr-topo">
             <button type="button" class="cr-x" data-cr="fechar" aria-label="Fechar">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
             <span class="cr-titulo">Novo post</span>
@@ -15041,7 +15191,7 @@ async function abrirCriarAntigo(modo = 'post') {
             <button type="button" data-cr="treino">${SVG_C('<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>')}<small>Último treino</small></button>
         </div>
         <div class="cr-base">
-            <label class="cr-gal" aria-label="Galeria"><span id="crGalThumb">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}</span><input type="file" accept="image/*" id="crGal" hidden></label>
+            <label class="cr-gal" aria-label="Galeria"><span id="crGalThumb">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}</span><input type="file" accept="image/*" multiple id="crGal" hidden></label>
             <button type="button" class="cr-shot" data-cr="foto" aria-label="Tirar foto"><i></i></button>
             <button type="button" class="cr-flip" data-cr="virar" aria-label="Virar câmera">${SVG_C('<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"/>')}</button>
             <input type="file" accept="image/*" capture="environment" id="crCamNativa" hidden>
@@ -15051,6 +15201,8 @@ async function abrirCriarAntigo(modo = 'post') {
     document.body.style.overflow = 'hidden';
     state.criar = { modo, frente: false, stream: null };
     requestAnimationFrame(() => tela.classList.add('on'));
+    const negada = Date.now() - Number(lsGet('pulso-cam-negada') || 0) < 7 * 86400000; // negou: tenta de novo só depois de 7 dias
+    if (!negada) { tela.classList.add('carregando-cam'); ligarCameraCriar(); }
     const setModo = m => {
         state.criar.modo = m;
         tela.classList.toggle('modo-post', m === 'post'); tela.classList.toggle('modo-story', m === 'story');
@@ -15058,15 +15210,15 @@ async function abrirCriarAntigo(modo = 'post') {
         vibrar(6);
     };
     setModo(modo);
-    const usarArquivo = file => {
-        if (!file) return;
+    const usarArquivos = files => {
+        const lista = [...(files || [])].filter(Boolean);
+        if (!lista.length) return;
         const m = state.criar.modo;
         fecharCriar();
-        if (m === 'story') { openStoryCreator(); entrarModoFoto(file); }
-        else abrirNovoPost(file);
+        abrirNovoPost(m === 'story' ? lista[0] : lista.slice(0, 5), m);
     };
-    tela.querySelector('#crGal').addEventListener('change', e => usarArquivo(e.target.files && e.target.files[0]));
-    tela.querySelector('#crCamNativa').addEventListener('change', e => usarArquivo(e.target.files && e.target.files[0]));
+    tela.querySelector('#crGal').addEventListener('change', e => { usarArquivos(e.target.files); e.target.value = ''; });
+    tela.querySelector('#crCamNativa').addEventListener('change', e => { usarArquivos(e.target.files); e.target.value = ''; });
     tela.addEventListener('click', async e => {
         const b = e.target.closest('[data-cr]'); if (!b) return;
         const a = b.dataset.cr;
@@ -15076,8 +15228,9 @@ async function abrirCriarAntigo(modo = 'post') {
             state.criar.frente = !state.criar.frente;
             tela.querySelector('#crCamNativa').setAttribute('capture', state.criar.frente ? 'user' : 'environment');
             b.classList.toggle('on', state.criar.frente);
-            tela.querySelector('#crDica').innerHTML = state.criar.frente ? 'Câmera da frente selecionada' : 'Toque no botão pra tirar a foto<br>ou escolha da galeria';
             vibrar(6);
+            if (state.criar.stream) ligarCameraCriar();
+            else tela.querySelector('#crDica').innerHTML = state.criar.frente ? 'Câmera da frente selecionada' : 'Toque no botão pra tirar a foto<br>ou escolha da galeria';
         }
         else if (a === 'texto') { fecharCriar(); openStoryCreator(); entrarModoTexto(); }
         else if (a === 'treino') {
@@ -15086,7 +15239,16 @@ async function abrirCriarAntigo(modo = 'post') {
             fecharCriar(); publicarStoryTreino(ult[0]);
         } else if (a === 'foto') {
             vibrar(10);
-            tela.querySelector('#crCamNativa').click(); // câmera do próprio celular: sem pedido de permissão
+            const v = tela.querySelector('#crVideo');
+            if (state.criar.stream && v.videoWidth) {
+                const c = document.createElement('canvas');
+                c.width = v.videoWidth; c.height = v.videoHeight;
+                const cx = c.getContext('2d');
+                if (state.criar.frente) { cx.translate(c.width, 0); cx.scale(-1, 1); }
+                cx.drawImage(v, 0, 0, c.width, c.height);
+                tela.classList.add('flash'); setTimeout(() => tela.classList.remove('flash'), 120);
+                c.toBlob(blob => { if (blob) usarArquivos([new File([blob], 'camera.jpg', { type: 'image/jpeg' })]); }, 'image/jpeg', 0.92);
+            } else tela.querySelector('#crCamNativa').click(); // sem câmera ao vivo: câmera do próprio celular
         }
     });
     // deslizar pro lado troca POST / STORY
@@ -15110,8 +15272,10 @@ async function ligarCameraCriar() {
         v.srcObject = st;
         v.classList.toggle('espelho', !!state.criar.frente);
         tela.classList.add('com-cam');
-    } catch (_) {
-        tela.classList.remove('com-cam');
+        tela.classList.remove('carregando-cam');
+    } catch (err) {
+        tela.classList.remove('com-cam', 'carregando-cam');
+        if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError')) lsSet('pulso-cam-negada', String(Date.now()));
     }
 }
 function fecharCriar() {
@@ -15127,6 +15291,8 @@ $('#feedPostBtn').addEventListener('click', e => { e.stopPropagation(); abrirCri
 const VIS_NOME = { public: 'Público', followers: 'Seguidores', private: 'Só eu' };
 function abrirNovoPost(file, destino = 'post') {
     const old = document.getElementById('novoPostTela'); if (old) old.remove();
+    const extras = Array.isArray(file) ? file.slice(1) : [];
+    if (Array.isArray(file)) file = file[0];
     const url = URL.createObjectURL(file);
     state.novoPost = { file, url, vis: state.defaultPrivacy || 'public', destino };
     const tela = document.createElement('div');
@@ -15160,7 +15326,7 @@ function abrirNovoPost(file, destino = 'post') {
     const ta = tela.querySelector('#npLegenda');
     ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(160, ta.scrollHeight) + 'px'; });
     // até 5 fotos (carrossel)
-    state.novoPost.fotos = [{ file, url }];
+    state.novoPost.fotos = [{ file, url }, ...extras.map(f => ({ file: f, url: URL.createObjectURL(f) }))];
     const pintarFotos = () => {
         const fs = state.novoPost.fotos;
         state.novoPost.file = fs[0].file;
@@ -15206,32 +15372,43 @@ function abrirNovoPost(file, destino = 'post') {
         }
     });
 }
+// Sobe as fotos e cria o post (usado na hora e pelos rascunhos guardados)
+async function enviarPostLivre(files, legenda, vis) {
+    const [urls, thumbUrl, dims] = await Promise.all([Promise.all(files.map(f => uploadImage('post-images', f))), uploadMiniatura(files[0]), medirFoto(files[0])]);
+    const imageUrl = urls[0];
+    const { data: criado, error } = await sb.from('posts').insert({
+        user_id: state.session.user.id, kind: 'text', caption: legenda || null,
+        image_url: imageUrl, thumb_url: thumbUrl, visibility: vis, is_public: vis === 'public', in_feed: true,
+        meta: { ...(urls.length > 1 ? { fotos: urls } : {}), ...(dims || {}) },
+    }).select('id').single();
+    if (error) {
+        // não deixa foto solta no armazenamento
+        [...urls, thumbUrl].forEach(u => u && removeStoredImage(u));
+        throw error;
+    }
+    if (criado) checarFotoDepois(criado.id, imageUrl);
+    return criado;
+}
 async function publicarNovoPost(btn) {
     const np = state.novoPost; if (!np || btn.disabled) return;
     btn.disabled = true; btn.textContent = 'Enviando...';
+    const fs = (np.fotos && np.fotos.length ? np.fotos : [{ file: np.file }]).map(x => x.file);
+    const legenda = (document.getElementById('npLegenda').value || '').trim();
+    const fecharTela = () => { const tela = document.getElementById('novoPostTela'); if (tela) tela.remove(); document.body.style.overflow = ''; };
     try {
-        const fs = np.fotos && np.fotos.length ? np.fotos : [{ file: np.file }];
-        const [urls, thumbUrl] = await Promise.all([Promise.all(fs.map(x => uploadImage('post-images', x.file))), uploadMiniatura(fs[0].file)]);
-        const imageUrl = urls[0];
-        const legenda = (document.getElementById('npLegenda').value || '').trim();
-        const { data: criado, error } = await sb.from('posts').insert({
-            user_id: state.session.user.id, kind: 'text', caption: legenda || null,
-            image_url: imageUrl, thumb_url: thumbUrl, visibility: np.vis, is_public: np.vis === 'public', in_feed: true,
-            ...(urls.length > 1 ? { meta: { fotos: urls } } : {}),
-        }).select('id').single();
-        if (error) {
-            const t = String(error.message || '');
-            if (t.includes('limite_por_hora')) { toast('Você postou bastante na última hora. Dá um tempinho e volte.', 'err'); return; }
-            throw error;
-        }
-        const tela = document.getElementById('novoPostTela'); if (tela) tela.remove();
-        document.body.style.overflow = '';
+        if (!navigator.onLine) throw new Error('offline');
+        await enviarPostLivre(fs, legenda, np.vis);
+        fecharTela();
         vibrar([10, 40, 14]);
         toast('Publicado no feed', 'ok');
         if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile();
-        if (criado) checarFotoDepois(criado.id, imageUrl);
     } catch (e) {
-        toast(msgErro(e), 'err');
+        const t = String((e && e.message) || '');
+        if (t.includes('limite_por_hora')) toast('Você postou bastante na última hora. Dá um tempinho e volte.', 'err');
+        else if (ehFalhaDeRede(e) && await guardarRascunho({ fotos: fs, legenda, vis: np.vis })) {
+            fecharTela();
+            toast('Sem conexão agora. Seu post ficou guardado e sai sozinho quando a internet voltar.', 'ok');
+        } else toast(msgErro(e), 'err');
     } finally {
         btn.disabled = false; btn.textContent = 'Publicar';
     }
@@ -15839,9 +16016,10 @@ $('#composerSubmit').addEventListener('click', async () => {
         }
 
         // upload da foto se houver
-        let thumbUrl = null;
+        let thumbUrl = null, dimsFoto = null;
         if (state.composerPhoto) {
             btn.textContent = 'Enviando foto...';
+            dimsFoto = await medirFoto(state.composerPhoto);
             // Refeição fora do feed fica "Só eu": a foto vai pra pasta privada
             const soEu = state.composerDest !== 'feed' && state.composerKind === 'meal';
             if (soEu) {
@@ -15883,6 +16061,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                 visibility: vis,
                 is_public: vis === 'public',
                 in_feed: true,
+                ...(dimsFoto ? { meta: dimsFoto } : {}),
             });
             if (postLivreErr) {
                 const t = String(postLivreErr.message || '');
@@ -16008,6 +16187,7 @@ $('#composerSubmit').addEventListener('click', async () => {
             caption: caption || null,
             image_url: imageUrl,
             ...(thumbUrl ? { thumb_url: thumbUrl } : {}),
+            ...(dimsFoto ? { meta: { ...dimsFoto } } : {}),
             // Registro: treino fica visível no histórico do perfil; refeição fica privada
             visibility: postVisibility,
             is_public: postVisibility === 'public',
@@ -16046,6 +16226,7 @@ $('#composerSubmit').addEventListener('click', async () => {
                     });
                     if (anErr || !an || typeof an.score !== 'number') throw (anErr || new Error('sem nota'));
                     post.meal_score = an.score;
+                    an.analysis = textoIA(an.analysis, an.score);
                     post.meal_analysis = an.analysis || null;
                     mealFeedback = an;
                 } catch (e) {
@@ -16271,6 +16452,7 @@ async function bootInterno() {
     checarConquistas(true);
     checarConvite();
     enviarFilaOffline();
+    setTimeout(enviarRascunhos, 2500);
 
     await carregarBlocked();
     carregarSalvos();
