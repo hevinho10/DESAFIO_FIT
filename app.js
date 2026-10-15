@@ -162,7 +162,11 @@ const COR_ATIVIDADE = {
     'Natação': '64,200,230', 'Yoga': '167,139,250', 'Pilates': '214,136,232', 'Dança': '240,110,160',
     'Alongamento': '120,214,200', 'Futebol': '95,176,255', 'HIIT': '255,96,96', 'Outro': '150,162,155',
 };
-const corAtividade = t => COR_ATIVIDADE[t] || COR_ATIVIDADE.Outro;
+// No tema claro, as cores mais apagadas ganham um tom mais forte pra não sumirem no branco
+const COR_CLARO = { '53,225,155': '20,165,116', '255,194,75': '206,142,10', '64,200,230': '16,148,186', '95,176,255': '40,118,214',
+    '120,214,200': '24,156,140', '255,166,92': '226,116,36', '150,162,155': '96,108,101', '167,139,250': '124,92,220' };
+const temaClaroAtivo = () => document.documentElement.getAttribute('data-theme') === 'light';
+const corAtividade = t => { const c = COR_ATIVIDADE[t] || COR_ATIVIDADE.Outro; return temaClaroAtivo() ? (COR_CLARO[c] || c) : c; };
 function svgAtividade(t) {
     const p = (typeof ICONES_ATIVIDADE !== 'undefined' && (ICONES_ATIVIDADE[t] || ICONES_ATIVIDADE.Outro))
         || (t === 'HIIT' ? '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>' : '<circle cx="12" cy="12" r="9"/>');
@@ -1724,6 +1728,13 @@ window.addEventListener('scroll', () => { const p = document.getElementById('nov
 
 // ---- Foto no chat ----
 const MARCA_FOTO = '⟦foto⟧';
+const MARCA_POST = '⟦post⟧';
+function lerPostDaMensagem(body) {
+    const b = String(body || '');
+    if (!b.startsWith(MARCA_POST)) return null;
+    const fim = b.indexOf('\n');
+    try { return { ref: JSON.parse(b.slice(MARCA_POST.length, fim < 0 ? undefined : fim)), texto: fim < 0 ? '' : b.slice(fim + 1) }; } catch (_) { return null; }
+}
 function lerFotoDaMensagem(body) {
     const b = String(body || '');
     if (!b.startsWith(MARCA_FOTO)) return null;
@@ -1795,15 +1806,28 @@ async function calcularRetrospecto(ano, mes) {
 async function fraseRetrospecto(r) {
     const chave = `retro-${r.ano}-${r.mes}`;
     const salvo = await iaGuardado('retro', `${r.ano}-${String(r.mes + 1).padStart(2, '0')}-01`).catch(() => null);
-    if (salvo && salvo.frase) return salvo.frase;
-    let frase = r.dias >= 16 ? 'Que mês! Constância assim muda tudo.' : r.dias >= 8 ? 'Mês sólido. Bora subir mais um degrau.' : 'Todo começo conta. Esse mês é seu pra crescer.';
+    if (salvo && salvo.frase && salvo.v === 2) return salvo.frase;
+    // Honesto: compara com a meta do mês (meta da semana x semanas do mês)
+    const diasNoMes = new Date(r.ano, r.mes + 1, 0).getDate();
+    const metaMes = Math.max(1, Math.round((state.profile.weekly_goal || 3) * diasNoMes / 7));
+    const pct = r.treinos / metaMes;
+    const prox = NOME_MES[(r.mes + 1) % 12];
+    const tom = pct >= 1 ? 'BATEU a meta: elogie de verdade, com orgulho, sem exagero.'
+        : pct >= 0.6 ? 'ficou PERTO da meta: reconheça o esforço e puxe pra fechar a meta no mês seguinte.'
+        : pct >= 0.3 ? 'ficou BEM ABAIXO da meta: seja honesto (não diga que foi bom nem que brilhou) e incentive a voltar com força.'
+        : 'quase NÃO treinou: seja direto e motivador, sem elogio e sem culpa, chamando pra recomeçar hoje.';
+    let frase = pct >= 1 ? `Meta batida: ${r.treinos} treinos. Esse é o ritmo que transforma.`
+        : pct >= 0.6 ? `${r.treinos} de ${metaMes} treinos. Faltou pouco, em ${prox} dá pra fechar.`
+        : pct >= 0.3 ? `${r.treinos} de ${metaMes} treinos. Dá pra mais: bora dobrar em ${prox}?`
+        : `${NOME_MES[r.mes].replace(/^./, x => x.toUpperCase())} foi fraco, mas um treino hoje já muda o placar.`;
     try {
-        const j = await iaJSON(`Você é o Coach Pulso. Escreva UMA frase curta (até 18 palavras), calorosa e específica, sobre o mês de ${NOME_MES[r.mes]} desta pessoa, sem travessão e sem emoji demais.
-Dados: ${r.treinos} treinos em ${r.dias} dias, ${Math.round(r.minutos / 60)}h de atividade, ${r.km} km, melhor sequência ${r.melhorSeq} dias, favorita ${r.fav || 'nenhuma'}.
+        const j = await iaJSON(`Você é o Coach Pulso. Escreva UMA frase curta (até 18 palavras) sobre o mês de ${NOME_MES[r.mes]} desta pessoa, sem travessão e sem emoji.
+Meta do mês: ${metaMes} treinos. Fez ${r.treinos} treinos (${Math.round(pct * 100)}% da meta) em ${r.dias} dias, ${Math.round(r.minutos / 60)}h de atividade, ${r.km} km, melhor sequência ${r.melhorSeq} dias.
+Tom: a pessoa ${tom}
 Formato do JSON: {"frase": "..."}`);
         if (j && j.frase) frase = String(j.frase).slice(0, 160);
     } catch (_) {}
-    iaGuardar('retro', `${r.ano}-${String(r.mes + 1).padStart(2, '0')}-01`, { frase }).catch(() => {});
+    iaGuardar('retro', `${r.ano}-${String(r.mes + 1).padStart(2, '0')}-01`, { frase, v: 2 }).catch(() => {});
     return frase;
 }
 async function abrirRetrospecto() {
@@ -1998,6 +2022,79 @@ function vibrar(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch 
         el.style.opacity = 0; el.style.transform = 'translate(-50%, 0)';
     });
 })();
+
+// ---- Silenciar: some do feed e dos stories sem deixar de seguir (a pessoa não sabe) ----
+const estaSilenciado = uid => !!(state.profile && Array.isArray(state.profile.silenciados) && state.profile.silenciados.includes(uid));
+async function alternarSilenciar(uid, nome) {
+    const lista = new Set((state.profile && state.profile.silenciados) || []);
+    const silenciar = !lista.has(uid);
+    if (silenciar) lista.add(uid); else lista.delete(uid);
+    state.profile.silenciados = [...lista];
+    const { error } = await sb.from('profiles').update({ silenciados: state.profile.silenciados }).eq('id', state.session.user.id);
+    if (error) { toast('Não consegui agora. Tente de novo.', 'err'); return; }
+    toast(silenciar ? `${nome || 'Pessoa'} silenciada. Os posts e stories somem do seu feed.` : `${nome || 'Pessoa'} voltou pro seu feed.`, 'ok');
+}
+
+// ---- Carrossel de fotos no post ----
+(function carrosselPost() {
+    // carrossel: contador e bolinhas acompanham a rolagem
+    document.addEventListener('scroll', e => {
+        const tr = e.target; if (!tr.classList || !tr.classList.contains('pc-trilho')) return;
+        const i = Math.round(tr.scrollLeft / tr.clientWidth);
+        const c = tr.parentElement;
+        c.querySelector('.pc-cont').textContent = `${i + 1}/${c.dataset.n}`;
+        c.querySelectorAll('.pc-pontos i').forEach((x, k) => x.classList.toggle('on', k === i));
+    }, true);
+})();
+
+// ---- Enviar post pra alguém no chat ----
+async function abrirEnviarPost(btn) {
+    const ref = { id: btn.dataset.id, img: btn.dataset.img || null, user: btn.dataset.user || '', txt: btn.dataset.txt || '' };
+    const old = document.getElementById('enviarPostSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'enviarPostSheet'; sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Enviar pra</h3>
+        <input type="text" id="epBusca" class="ep-busca" placeholder="Buscar pessoa" autocomplete="off" autocapitalize="off">
+        <div class="ep-lista" id="epLista"><div class="spinner"></div></div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const pintar = lista => {
+        const box = sheet.querySelector('#epLista');
+        box.innerHTML = lista.length ? lista.map(u => `<div class="ep-item">${avatarHTML(u, 'sm')}<span class="ep-nome"><b>${escapeHTML(u.display_name || '')}</b><small>@${escapeHTML(u.username || '')}</small></span>
+            <button class="btn-mini" data-ep="${u.id}" ${u.conv ? `data-conv="${u.conv}"` : ''}>Enviar</button></div>`).join('')
+            : '<p class="cfg-sub" style="text-align:center;padding:16px 0">Ninguém encontrado.</p>';
+    };
+    const { data: convs } = await sb.rpc('list_conversations');
+    const recentes = (convs || []).slice(0, 20).map(c => ({ id: c.other_id, display_name: c.other_name, username: c.other_username, avatar_url: c.other_avatar, conv: c.conversation_id }));
+    pintar(recentes);
+    let tm = null;
+    sheet.querySelector('#epBusca').addEventListener('input', e => {
+        clearTimeout(tm);
+        const q = e.target.value.trim().replace('@', '');
+        if (q.length < 2) { pintar(recentes); return; }
+        tm = setTimeout(async () => {
+            const { data } = await sb.rpc('search_profiles', { q });
+            pintar((data || []).filter(u => u.id !== state.session.user.id).slice(0, 20));
+        }, 250);
+    });
+    sheet.addEventListener('click', async e => {
+        if (e.target === sheet) { sheet.remove(); return; }
+        const b = e.target.closest('[data-ep]'); if (!b || b.disabled) return;
+        b.disabled = true; b.textContent = '...';
+        let conv = b.dataset.conv;
+        if (!conv) {
+            const { data, error } = await sb.rpc('get_or_create_conversation', { other_id: b.dataset.ep });
+            if (error) { b.disabled = false; b.textContent = 'Enviar'; toast('Essa pessoa não está recebendo mensagens.', 'err'); return; }
+            conv = data;
+        }
+        const { error } = await sb.from('messages').insert({ conversation_id: conv, sender_id: state.session.user.id, body: MARCA_POST + JSON.stringify(ref) + '\n' });
+        if (error) { b.disabled = false; b.textContent = 'Enviar'; toast(msgErro(error), 'err'); return; }
+        vibrar(10);
+        b.textContent = 'Enviado'; b.classList.add('feito');
+    });
+}
 
 // ---- Topo de cada tela ----
 // feed: logo + sino + chat · abas: título grande · perfil: + @user sino chat menu · internas: só o cabeçalho da própria tela
@@ -2267,6 +2364,7 @@ const NOTIF_TIPOS = [
     ['mensagens', 'Mensagens', 'Conversas no chat'],
     ['desafios', 'Desafios', 'Convites, placar e reta final'],
     ['lembretes', 'Lembrete da ofensiva', 'No seu horário, se ainda não registrou nada'],
+    ['agua', 'Lembrete de água', 'À tarde, se estiver bem abaixo da meta'],
     ['resumo', 'Resumo da semana', 'Domingo à noite, como foi sua semana'],
 ];
 const prefNotif = k => ((state.profile && state.profile.notif_prefs) || {})[k] !== false;
@@ -2615,6 +2713,7 @@ function showUserMenu(anchor) {
     menu.className = 'post-menu';
     menu.innerHTML = `
         ${anchor.dataset.username ? `<button class="post-menu-item" data-act="copiar-link-perfil" data-username="${escapeHTML(anchor.dataset.username)}">${icon('chave')}Copiar link do perfil</button>` : ''}
+        <button class="post-menu-item" data-act="silenciar" data-uid="${uid}" data-name="${escapeHTML(nome)}">${icon('olho')}${estaSilenciado(uid) ? 'Deixar de silenciar' : 'Silenciar posts e stories'}</button>
         <button class="post-menu-item" data-act="report-user" data-uid="${uid}" data-name="${escapeHTML(nome)}">${icon('bandeira')}Denunciar</button>
         <button class="post-menu-item danger" data-act="toggle-block" data-uid="${uid}" data-name="${escapeHTML(nome)}" data-blocked="${bloqueado ? '1' : '0'}">
             ${bloqueado ? icon('ok') + 'Desbloquear' : icon('bloquear') + 'Bloquear'}
@@ -4646,6 +4745,12 @@ function paintChatMessages() {
                 }
             }
             let corpo = m.body, topo = '';
+            const pp = lerPostDaMensagem(corpo);
+            if (pp) {
+                const r = pp.ref || {};
+                topo = `<button class="cmsg-post" data-act="view-post" data-id="${escapeHTML(r.id || '')}">${r.img ? `<img src="${escapeHTML(r.img)}" alt="" loading="lazy">` : `<span class="cmsg-post-txt">${escapeHTML(r.txt || 'Post')}</span>`}<span class="cmsg-post-de">@${escapeHTML(r.user || '')}</span></button>`;
+                corpo = pp.texto;
+            }
             const ft = lerFotoDaMensagem(corpo);
             if (ft) { topo = `<button class="cmsg-foto" data-ver-foto="${escapeHTML(ft.url)}" data-msg="${m.id}"><img src="${escapeHTML(ft.url)}" alt="" loading="lazy"></button>`; corpo = ft.texto; }
             const st = lerStoryDaMensagem(corpo);
@@ -4663,7 +4768,7 @@ function paintChatMessages() {
             const reacHTML = r.length ? `<span class="cmsg-reac">${[...new Set(r.map(x => x.emoji))].join('')}${r.length > 1 ? `<small>${r.length}</small>` : ''}</span>` : '';
             return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${grupo}${r.length ? ' com-reac' : ''}" data-mid="${m.id}">
                 ${topo}
-                ${corpo || !ft ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
+                ${corpo || (!ft && !pp) ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
                 ${hora}
             </div>`;
         }).join('');
@@ -5373,7 +5478,7 @@ async function renderFeed() {
     const mine = storiesByUser[state.session.user.id];
     const recente = g => new Date(g.items[g.items.length - 1].created_at);
     const others = Object.entries(storiesByUser)
-        .filter(([uid]) => uid !== state.session.user.id)
+        .filter(([uid]) => uid !== state.session.user.id && !estaSilenciado(uid))
         .map(([, v]) => v)
         .sort((a, b) => (grupoVisto(a) - grupoVisto(b)) || (recente(b) - recente(a)));
     const storiesOrdered = mine ? [mine, ...others] : others;
@@ -5476,6 +5581,7 @@ const br = (n, casas = 1) => (n == null || isNaN(Number(n))) ? '-' : Number(n).t
 
 function renderPost(p) {
     const user = p.user || { display_name:'?', username:'?' };
+    if (state.view === 'feed' && estaSilenciado(p.user_id)) return '';
     const reacted = p.reactions?.some(r => r.user_id === state.session.user.id);
     const rCount = p.reactions?.length || 0;
     const cCount = p.comments?.length || 0;
@@ -5532,7 +5638,11 @@ function renderPost(p) {
         if (p.image_url) legendaBaixo = `<p class="post-caption leg-baixo${longa ? ' longa' : ''}"><b data-act="view-user" data-uid="${p.user_id}">${escapeHTML(user.username || '')}</b> ${escapeHTML(p.caption)}</p>${mais}`;
         else body += `<p class="post-caption${longa ? ' longa' : ''}">${escapeHTML(p.caption)}</p>${mais}`;
     }
-    if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy" decoding="async">`;
+    const fotos = (p.meta && Array.isArray(p.meta.fotos) && p.meta.fotos.length > 1) ? p.meta.fotos.slice(0, 5) : null;
+    if (fotos) {
+        body += `<div class="post-carrossel" data-n="${fotos.length}"><div class="pc-trilho">${fotos.map(u => `<img class="post-photo pc-foto" src="${escapeHTML(u)}" loading="lazy" decoding="async">`).join('')}</div>
+            <span class="pc-cont">1/${fotos.length}</span><div class="pc-pontos">${fotos.map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div></div>`;
+    } else if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy" decoding="async">`;
 
     const isMine = p.user_id === state.session.user.id;
     const autorDoDepoimento = p.meta && p.meta.depoimento && p.meta.depoimento.autor_id === state.session.user.id;
@@ -5565,6 +5675,9 @@ function renderPost(p) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     <span>${cCount}</span>
                 </button>
+                ${p.visibility !== 'private' ? `<button class="post-btn" data-act="enviar-post" data-id="${p.id}" data-img="${escapeHTML(p.image_url || '')}" data-user="${escapeHTML(user.username || '')}" data-txt="${escapeHTML(String(p.caption || p.activity_type || '').slice(0, 60))}" aria-label="Enviar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg>
+                </button>` : ''}
                 ${isMine ? `<span class="post-coment-off${p.comments_off ? '' : ' hidden'}">comentários desativados</span>` : ''}
                 ${isMine && rCount > 0 ? `<button class="post-btn ghost" data-act="see-likers" data-id="${p.id}">👀 Quem curtiu</button>` : ''}
                 <button class="post-btn post-salvar${state.salvos && state.salvos.has(p.id) ? ' on' : ''}" data-act="save-post" data-id="${p.id}" aria-label="Salvar">
@@ -5929,8 +6042,15 @@ function prontidaoDoDia(l) {
     const frase = nivel === 'forte' ? 'Dia bom pra treino forte' : nivel === 'moderado' ? 'Bom pra um treino moderado' : 'Dia de pegar leve';
     return { n, nivel, frase, motivos };
 }
-function prontidaoHTML(pr, treinouHoje) {
+function prontidaoHTML(pr, treinouHoje, temSono = true) {
     if (!pr) return '';
+    if (!temSono && !treinouHoje) {
+        return `<div class="chart-card pront-card pront-sono">
+            <span class="pront-lua"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span>
+            <div class="pront-txt"><small>Prontidão de hoje</small><b>Como você dormiu?</b><span>Registre a noite pra ver sua prontidão real</span></div>
+            <button class="btn-mini" data-act="quick-kind" data-kind="sleep">Registrar</button>
+        </div>`;
+    }
     const cor = pr.nivel === 'forte' ? 'var(--vital)' : pr.nivel === 'moderado' ? 'var(--gold)' : 'var(--effort)';
     const C = 2 * Math.PI * 22;
     return `<div class="chart-card pront-card">
@@ -6152,6 +6272,30 @@ Formato do JSON: {"mensagem": "2 frases no máximo", "passo": "o passo pequeno, 
     return a;
 }
 
+// ---------- Meta da semana que evolui (3 semanas seguidas pra cima ou pra baixo) ----------
+function sugestaoMetaHTML(series) {
+    const meta = state.profile.weekly_goal || 3;
+    const segAtual = isoDe(segundaDe());
+    const fechadas = series.filter(r => String(r.week_start).slice(0, 10) < segAtual).slice(-3);
+    if (fechadas.length < 3) return '';
+    const dias = fechadas.map(r => Number(r.days_trained || 0));
+    let nova = null, tipo = '';
+    if (dias.every(d => d >= meta) && meta < 7) { nova = meta + 1; tipo = 'subir'; }
+    else if (dias.every(d => d < meta) && meta > 1) { nova = Math.max(1, Math.round(dias.reduce((a, b) => a + b, 0) / 3)); if (nova >= meta) nova = meta - 1; tipo = 'ajustar'; }
+    if (!nova) return '';
+    const chave = `pulso-meta-sug-${state.session.user.id}-${segAtual}`;
+    if (lsGet(chave)) return '';
+    const txt = tipo === 'subir'
+        ? `Você bateu a meta 3 semanas seguidas. Que tal subir de <b>${meta}</b> pra <b>${nova}</b> treinos por semana?`
+        : `Nas últimas 3 semanas a meta de <b>${meta}</b> não fechou. Uma meta de <b>${nova}</b> por semana deixa a ofensiva mais firme. Ajustar?`;
+    return `<div class="chart-card meta-sug ${tipo}">
+        <span class="ms-ic">${tipo === 'subir' ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8M15 7h6v6"/></svg>' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'}</span>
+        <div class="ms-txt"><p>${txt}</p>
+            <div class="ms-acoes"><button class="btn-ghost btn-xs" data-act="meta-sug-nao" data-k="${chave}">Agora não</button><button class="btn-primary-sm" data-act="meta-sug-sim" data-k="${chave}" data-meta="${nova}">${tipo === 'subir' ? 'Subir pra ' + nova : 'Ajustar pra ' + nova}</button></div>
+        </div>
+    </div>`;
+}
+
 // ---------- Faixa da semana (S T Q Q S S D) na aba Hoje ----------
 function semanaStripHTML() {
     const d = state.semanaStrip;
@@ -6207,7 +6351,7 @@ async function hydrateIAEvolucao() {
         const anteriores = (antigas || []).filter(a => !carta || a.day !== carta.semana).slice(0, 4);
         slot.innerHTML = [
             alerta && alerta.mensagem ? `<div class="chart-card ia-card ia-alerta"><div class="chart-head"><span class="chart-title">Tudo bem por aí?</span></div><p>${escapeHTML(alerta.mensagem || '')}</p>${alerta.passo ? `<p class="ia-passo">${escapeHTML(alerta.passo)}</p>` : ''}</div>` : '',
-            prontidaoHTML(prontidaoDoDia(l), l.treinouHoje),
+            prontidaoHTML(prontidaoDoDia(l), l.treinouHoje, l.sonoOntem != null),
             semanaStripHTML(),
             treinoDoDiaHTML(treino, l.treinouHoje),
             planoSemanaHTML(plano, diasFeitos),
@@ -6747,6 +6891,7 @@ async function renderProgress() {
             <div id="evoPeriodos" class="${aba === 'coach' ? 'hidden' : ''}">${ev.periodosHTML}</div>
 
             ${abaHTML('coach', `
+                ${sugestaoMetaHTML(aSeries || [])}
                 <div id="iaSlot"></div>
                 <p class="coach-rodape">O coach usa seus <button class="ia-link" data-act="m-go" data-view="objetivos">objetivos</button> e o seu <button class="ia-link" data-act="m-go" data-view="jeito-treino">jeito de treinar</button>.</p>
             `)}
@@ -11597,6 +11742,19 @@ document.addEventListener('click', async e => {
     const act = btn.dataset.act, id = btn.dataset.id;
 
     if (act === 'ia-nota') { btn.classList.toggle('aberta'); return; }
+    if (act === 'enviar-post') { abrirEnviarPost(btn); return; }
+    if (act === 'meta-sug-nao') { lsSet(btn.dataset.k, '1'); const c = btn.closest('.meta-sug'); if (c) c.remove(); return; }
+    if (act === 'meta-sug-sim') {
+        const nova = Number(btn.dataset.meta);
+        const { error } = await sb.from('profiles').update({ weekly_goal: nova }).eq('id', state.session.user.id);
+        if (error) { toast(msgErro(error), 'err'); return; }
+        state.profile.weekly_goal = nova; lsSet(btn.dataset.k, '1');
+        vibrar([10, 40, 14]);
+        toast(`Meta da semana: ${nova} treinos. Bora!`, 'ok');
+        const c = btn.closest('.meta-sug'); if (c) c.remove();
+        return;
+    }
+    if (act === 'silenciar') { hidePostMenu(); alternarSilenciar(btn.dataset.uid, btn.dataset.name); return; }
     if (act === 'react') {
         vibrar(8);
         const on = btn.classList.contains('on');
@@ -13415,7 +13573,7 @@ async function abrirRepostStory(item, deQuem = null) {
     }
     if (sc.adesivo) {
         const el = $('#scSticker');
-        el.textContent = sc.adesivo + '  ·  Pulso';
+        el.innerHTML = htmlAdesivo(sc.adesivo);
         if (!sc.adesivoPos) sc.adesivoPos = { x: 50, y: 70 };
         posicionar(el, sc.adesivoPos); transformarItem(el); el.classList.remove('hidden');
     }
@@ -13647,6 +13805,11 @@ function aplicarFundoTexto() {
 }
 function posicionar(el, pos) {
     if (!pos) { el.style.left = ''; el.style.top = ''; return; }
+    // adesivo do treino não sai da tela pelos lados (ele tem largura fixa)
+    if (el.id === 'scSticker' && el.parentElement) {
+        const W = el.parentElement.clientWidth || 1, meia = (el.offsetWidth * (sc.adEsc || 1)) / 2 / W * 100;
+        if (meia > 0 && meia < 50) pos.x = Math.max(meia + 2, Math.min(98 - meia, pos.x));
+    }
     el.style.left = pos.x + '%'; el.style.top = pos.y + '%';
 }
 
@@ -13805,7 +13968,7 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         const [a, b] = e.touches;
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
-        const esc = Math.max(0.5, Math.min(3, g.esc0 * d / g.d0));
+        const esc = Math.max(0.6, Math.min(2.2, g.esc0 * d / g.d0));
         let rot = g.rot0 + (ang - g.a0) * 180 / Math.PI;
         if (Math.abs(rot % 90) < 4) rot = Math.round(rot / 90) * 90; // gruda reto
         if (g.ehTexto) { sc.txtEsc = esc; sc.txtRot = rot; } else { sc.adEsc = esc; sc.adRot = rot; }
@@ -13895,6 +14058,15 @@ $('#scFundoTxt').addEventListener('click', () => {
     sc.fundoTxt = ordem[(ordem.indexOf(sc.fundoTxt) + 1) % ordem.length];
     aplicarFundoTexto();
 });
+// Desenho do adesivo do treino (editor e visualização): vidro escuro, ícone colorido e os números
+function htmlAdesivo(txt) {
+    const limpo = String(txt || '').replace(/^[^\p{L}\d]+/u, '').trim(); // tira o emoji antigo do começo
+    const partes = limpo.split('·').map(x => x.trim()).filter(Boolean);
+    const nome = partes.shift() || 'Treino';
+    const ativ = Object.keys(COR_ATIVIDADE).find(k => k === nome) || 'Outro';
+    const cor = COR_ATIVIDADE[ativ] || COR_ATIVIDADE.Outro;
+    return `<span class="ad-ic" style="--c:${cor}">${svgAtividade(ativ)}</span><span class="ad-txt"><b>${escapeHTML(nome)}</b>${partes.length ? `<span>${partes.map(escapeHTML).join(' · ')}</span>` : ''}</span><i class="ad-marca">Pulso.</i>`;
+}
 // Adesivo "Treino de hoje": usa o último treino das últimas 24h
 $('#scAdesivo').addEventListener('click', async () => {
     const st = $('#scSticker');
@@ -13905,14 +14077,14 @@ $('#scAdesivo').addEventListener('click', async () => {
         .order('created_at', { ascending: false }).limit(1);
     const w = data && data[0];
     if (!w) { toast('Registre um treino hoje pra usar o adesivo', 'err'); return; }
-    const partes = [`${WORKOUT_EMOJI[w.activity_type] || '💪'} ${w.activity_type || 'Treino'}`];
+    const partes = [w.activity_type || 'Treino'];
     const km = Number(w.distance_km || 0);
     if (km) partes.push(`${String(km).replace('.', ',')} km`);
     if (w.duration_min) partes.push(`${w.duration_min} min`);
     if (km && w.duration_min && (w.activity_type === 'Corrida' || w.activity_type === 'Caminhada')) partes.push(formatarPace(w.duration_min, km));
     sc.adesivo = partes.join(' · ');
     if (!sc.adesivoPos) sc.adesivoPos = { x: 50, y: sc.mode === 'photo' ? 62 : 72 };
-    st.textContent = sc.adesivo + '  ·  Pulso';
+    st.innerHTML = htmlAdesivo(sc.adesivo);
     posicionar(st, sc.adesivoPos);
     transformarItem(st);
     st.classList.remove('hidden');
@@ -14198,7 +14370,7 @@ function showCurrentStory() {
     const content = $('#svContent');
     const st = item.style || {};
     const adesivoHTML = st.sticker
-        ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${escapeHTML(st.sticker)}  ·  Pulso</div>` : '';
+        ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${htmlAdesivo(st.sticker)}</div>` : '';
     if (st.card) {
         content.className = 'story-content' + (item.image_url ? '' : ' text-story card-fundo');
         content.style.background = item.image_url ? '#000' : (item.background_color || CARD_STORY_BG);
@@ -14535,6 +14707,7 @@ function lerStoryDaMensagem(body) {
 }
 const previaMensagem = body => {
     if (lerFotoDaMensagem(body)) return '📷 Foto';
+    if (lerPostDaMensagem(body)) return '📎 Enviou um post';
     const st = lerStoryDaMensagem(body);
     if (st) return 'Respondeu ao story: ' + textoLimpo(body);
     return textoLimpo(body);
@@ -14835,8 +15008,23 @@ $('#postFab').addEventListener('click', () => {
 // CRIAR (+ do topo): câmera em tela cheia com POST / STORY, igual Instagram
 // ============================================================
 function abrirPostDireto() { abrirCriar('post'); }
+// Abre a câmera do próprio celular na hora (precisa ser no mesmo toque, por isso o input já existe)
+const camRapida = (() => {
+    const i = document.createElement('input');
+    i.type = 'file'; i.accept = 'image/*'; i.setAttribute('capture', 'environment'); i.hidden = true;
+    document.body.appendChild(i);
+    i.addEventListener('change', () => {
+        const f = i.files && i.files[0]; i.value = '';
+        if (f) abrirNovoPost(f, camRapida.modo || 'post');
+    });
+    return i;
+})();
 const SVG_C = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
-async function abrirCriar(modo = 'post') {
+function abrirCriar(modo = 'post') {
+    camRapida.modo = modo;
+    camRapida.click();
+}
+async function abrirCriarAntigo(modo = 'post') {
     fecharCriar();
     const tela = document.createElement('div');
     tela.id = 'criarTela';
@@ -14937,10 +15125,10 @@ $('#feedPostBtn').addEventListener('click', e => { e.stopPropagation(); abrirCri
 
 // ---- Tela "Novo post" (foto + legenda + quem vê) ----
 const VIS_NOME = { public: 'Público', followers: 'Seguidores', private: 'Só eu' };
-function abrirNovoPost(file) {
+function abrirNovoPost(file, destino = 'post') {
     const old = document.getElementById('novoPostTela'); if (old) old.remove();
     const url = URL.createObjectURL(file);
-    state.novoPost = { file, url, vis: state.defaultPrivacy || 'public' };
+    state.novoPost = { file, url, vis: state.defaultPrivacy || 'public', destino };
     const tela = document.createElement('div');
     tela.id = 'novoPostTela';
     tela.className = 'np-tela';
@@ -14948,46 +15136,88 @@ function abrirNovoPost(file) {
     tela.innerHTML = `
         <div class="np-topo">
             <button type="button" class="np-x" data-np="fechar" aria-label="Fechar">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
-            <b>Novo post</b>
+            <div class="np-destino"><button type="button" data-np="dest" data-d="post">Post</button><button type="button" data-np="dest" data-d="story">Story</button></div>
             <button type="button" class="np-pub" data-np="publicar">Publicar</button>
         </div>
         <div class="np-corpo">
-            <div class="np-foto"><img src="${url}" alt=""><label class="np-trocar">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}Trocar<input type="file" accept="image/*" id="npTrocar" hidden></label></div>
+            <div class="np-foto"><div class="np-trilho" id="npTrilho"></div><span class="np-cont" id="npCont"></span>
+                <label class="np-trocar np-mais" id="npMaisBtn">${SVG_C('<path d="M12 5v14M5 12h14"/>')}<span>Mais fotos</span><input type="file" accept="image/*" multiple id="npMais" hidden></label>
+                <label class="np-trocar np-troca-1">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}Trocar<input type="file" accept="image/*" id="npTrocar" hidden></label></div>
+            <div class="np-minis" id="npMinis"></div>
             <div class="np-leg">${avatarHTML(p, 'sm')}<textarea id="npLegenda" rows="2" maxlength="2200" placeholder="Escreva uma legenda..."></textarea></div>
             <button type="button" class="np-linha" data-np="vis">${SVG_C('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>')}<span>Quem vê</span><span class="np-val" id="npVis">${VIS_NOME[state.novoPost.vis]}</span>${SVG_C('<path d="M9 6l6 6-6 6"/>')}</button>
         </div>`;
     document.body.appendChild(tela);
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(() => tela.classList.add('on'));
+    const setDest = d => {
+        state.novoPost.destino = d;
+        tela.classList.toggle('dest-story', d === 'story');
+        tela.querySelectorAll('[data-np="dest"]').forEach(b => b.classList.toggle('on', b.dataset.d === d));
+        tela.querySelector('.np-pub').textContent = d === 'story' ? 'Avançar' : 'Publicar';
+    };
+    setDest(destino);
     const ta = tela.querySelector('#npLegenda');
     ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(160, ta.scrollHeight) + 'px'; });
+    // até 5 fotos (carrossel)
+    state.novoPost.fotos = [{ file, url }];
+    const pintarFotos = () => {
+        const fs = state.novoPost.fotos;
+        state.novoPost.file = fs[0].file;
+        tela.querySelector('#npTrilho').innerHTML = fs.map(x => `<img src="${x.url}" alt="">`).join('');
+        tela.querySelector('#npCont').textContent = fs.length > 1 ? `1/${fs.length}` : '';
+        tela.querySelector('#npMinis').innerHTML = fs.length > 1 ? fs.map((x, i) => `<span class="np-mini"><img src="${x.url}" alt=""><button type="button" data-np="tirar" data-i="${i}" aria-label="Tirar">×</button></span>`).join('') : '';
+        tela.classList.toggle('varias', fs.length > 1);
+        tela.querySelector('#npMaisBtn').classList.toggle('hidden', fs.length >= 5);
+    };
+    pintarFotos();
+    const trilho = tela.querySelector('#npTrilho');
+    trilho.addEventListener('scroll', () => {
+        const n = state.novoPost.fotos.length; if (n < 2) return;
+        tela.querySelector('#npCont').textContent = `${Math.round(trilho.scrollLeft / trilho.clientWidth) + 1}/${n}`;
+    });
+    tela.querySelector('#npMais').addEventListener('change', e => {
+        const novos = [...(e.target.files || [])].slice(0, 5 - state.novoPost.fotos.length);
+        novos.forEach(f => state.novoPost.fotos.push({ file: f, url: URL.createObjectURL(f) }));
+        e.target.value = ''; pintarFotos();
+    });
     tela.querySelector('#npTrocar').addEventListener('change', e => {
         const f = e.target.files && e.target.files[0]; if (!f) return;
-        URL.revokeObjectURL(state.novoPost.url);
-        state.novoPost.file = f; state.novoPost.url = URL.createObjectURL(f);
-        tela.querySelector('.np-foto img').src = state.novoPost.url;
+        state.novoPost.fotos = [{ file: f, url: URL.createObjectURL(f) }];
+        e.target.value = ''; pintarFotos();
     });
     tela.addEventListener('click', async e => {
         const b = e.target.closest('[data-np]'); if (!b) return;
         const a = b.dataset.np;
         if (a === 'fechar') { tela.remove(); document.body.style.overflow = ''; }
+        else if (a === 'dest') { setDest(b.dataset.d); vibrar(6); }
+        else if (a === 'tirar') { state.novoPost.fotos.splice(Number(b.dataset.i), 1); pintarFotos(); }
         else if (a === 'vis') {
             const ordem = ['public', 'followers', 'private'];
             state.novoPost.vis = ordem[(ordem.indexOf(state.novoPost.vis) + 1) % 3];
             tela.querySelector('#npVis').textContent = VIS_NOME[state.novoPost.vis];
             vibrar(6);
-        } else if (a === 'publicar') publicarNovoPost(b);
+        } else if (a === 'publicar') {
+            if (state.novoPost.destino === 'story') {
+                const f = state.novoPost.file;
+                tela.remove(); document.body.style.overflow = '';
+                openStoryCreator(); entrarModoFoto(f);
+            } else publicarNovoPost(b);
+        }
     });
 }
 async function publicarNovoPost(btn) {
     const np = state.novoPost; if (!np || btn.disabled) return;
     btn.disabled = true; btn.textContent = 'Enviando...';
     try {
-        const [imageUrl, thumbUrl] = await Promise.all([uploadImage('post-images', np.file), uploadMiniatura(np.file)]);
+        const fs = np.fotos && np.fotos.length ? np.fotos : [{ file: np.file }];
+        const [urls, thumbUrl] = await Promise.all([Promise.all(fs.map(x => uploadImage('post-images', x.file))), uploadMiniatura(fs[0].file)]);
+        const imageUrl = urls[0];
         const legenda = (document.getElementById('npLegenda').value || '').trim();
         const { data: criado, error } = await sb.from('posts').insert({
             user_id: state.session.user.id, kind: 'text', caption: legenda || null,
             image_url: imageUrl, thumb_url: thumbUrl, visibility: np.vis, is_public: np.vis === 'public', in_feed: true,
+            ...(urls.length > 1 ? { meta: { fotos: urls } } : {}),
         }).select('id').single();
         if (error) {
             const t = String(error.message || '');

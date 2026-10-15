@@ -3577,3 +3577,109 @@ html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer
 .ref-slots button small{ font-size:12px !important; color:var(--vital) !important; }
 .ref-slots button small:empty{ display:none; }
 .cr-flip.on{ background:rgba(255,255,255,.4); }
+
+/* Grade do perfil: quadros mais altos (quase o formato do celular), rosto nunca cortado */
+.grid-item{ aspect-ratio:2 / 3 !important; }
+.grid-item img{ object-position:center 18% !important; }
+
+/* Prontidão pedindo o sono */
+.pront-sono{ align-items:center; }
+.pront-lua{ width:48px; height:48px; flex:none; border-radius:15px; display:grid; place-items:center; background:rgba(167,139,250,.14); color:#A78BFA; }
+.pront-lua svg{ width:24px; height:24px; }
+.pront-sono .btn-mini{ margin-left:auto; flex:none; }
+
+/* Pílula do perfil cabe na tela: "Destaque" vira só o troféu */
+.prof-pill{ min-width:0; overflow:hidden; }
+.prof-pill .top-rank b{ display:none; }
+.prof-pill .top-rank{ padding-left:4px !important; margin-left:0 !important; border:0 !important; }
+
+/* =====================================================================
+   Tema claro: contraste, cartões com sombra leve, vidro claro
+   ===================================================================== */
+:root[data-theme="light"]{ --vital:#14A574; --vital-2:#0F9C8A; --vital-dim:rgba(20,165,116,.12); --ink-dim:#46504A; --ink-faint:#68726B; --line:#E1E6E2; }
+:root[data-theme="light"] .chart-card, :root[data-theme="light"] .atv-card, :root[data-theme="light"] .dia-item,
+:root[data-theme="light"] .ch-hero, :root[data-theme="light"] .ch-card, :root[data-theme="light"] .nd-cartoes button,
+:root[data-theme="light"] .mem-item, :root[data-theme="light"] .retro-aviso, :root[data-theme="light"] .cfg-grupo,
+:root[data-theme="light"] .stat-card, :root[data-theme="light"] #composerPick .kind-tile{
+    background:#fff !important; border-color:rgba(16,21,18,.06) !important;
+    box-shadow:0 1px 2px rgba(16,21,18,.04), 0 6px 18px rgba(16,21,18,.05);
+}
+:root[data-theme="light"] .post{ background:transparent !important; box-shadow:none; }
+:root[data-theme="light"] .topbar{ background:rgba(244,246,244,.82) !important; -webkit-backdrop-filter:blur(18px) saturate(1.4); backdrop-filter:blur(18px) saturate(1.4); }
+:root[data-theme="light"] .bottomnav{ background:rgba(255,255,255,.78) !important; -webkit-backdrop-filter:blur(20px) saturate(1.5); backdrop-filter:blur(20px) saturate(1.5); box-shadow:0 8px 28px rgba(16,21,18,.10); border-color:rgba(16,21,18,.06) !important; }
+:root[data-theme="light"] .evo-abas{ background:#E9EDEA !important; }
+:root[data-theme="light"] .evo-aba.on{ background:#fff !important; box-shadow:0 1px 3px rgba(16,21,18,.08); }
+:root[data-theme="light"] .atv-chips span, :root[data-theme="light"] .nota-pill{ font-weight:700; }
+:root[data-theme="light"] .ss-d.ok i{ background:rgba(20,165,116,.14); }
+:root[data-theme="light"] html.topo-interna .view > .user-topbar, :root[data-theme="light"].topo-interna .view > .user-topbar{ background:rgba(244,246,244,.92) !important; }
+.np-destino{ display:flex; gap:2px; padding:3px; border-radius:12px; background:var(--bg-elev); }
+.np-destino button{ border:0; background:none; padding:7px 16px; border-radius:10px; font-family:inherit; font-size:13.5px; font-weight:700; color:var(--ink-dim); }
+.np-destino button.on{ background:var(--bg); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,.2); }
+.np-tela.dest-story .np-leg, .np-tela.dest-story .np-linha{ display:none; }
+.np-tela.dest-story .np-foto{ aspect-ratio:9 / 16; max-height:70vh; margin:0 auto; width:auto; }
+.np-tela.dest-story .np-foto{ height:min(66vh, 560px); width:auto; }
+
+/* Adesivo do treino no story: vidro escuro, uma linha só (não muda de tamanho ao arrastar) */
+.sc-sticker, .sv-sticker{
+    display:inline-flex !important; align-items:center; gap:10px; width:max-content !important; max-width:none !important;
+    white-space:nowrap !important; padding:8px 14px 8px 8px !important; border-radius:18px !important;
+    background:rgba(10,12,11,.62) !important; color:#fff !important; border:1px solid rgba(255,255,255,.14);
+    -webkit-backdrop-filter:blur(14px) saturate(1.4); backdrop-filter:blur(14px) saturate(1.4);
+    box-shadow:0 8px 24px rgba(0,0,0,.3) !important; font-family:var(--ff-body) !important; font-weight:500 !important; line-height:1.2 !important; text-align:left !important;
+}
+.sc-sticker.hidden{ display:none !important; }
+.ad-ic{ width:34px; height:34px; border-radius:11px; display:grid; place-items:center; background:rgba(var(--c), .22); color:rgb(var(--c)); flex:none; }
+.ad-ic svg{ width:19px; height:19px; }
+.ad-txt{ display:flex; flex-direction:column; gap:1px; }
+.ad-txt b{ font-size:14px; font-weight:700; color:#fff; }
+.ad-txt span{ font-size:12.5px; color:rgba(255,255,255,.85); }
+.ad-marca{ font-style:normal; font-family:var(--ff-display); font-weight:700; font-size:11.5px; color:#35E19B; margin-left:2px; align-self:flex-end; }
+
+/* Novo post com várias fotos */
+.np-trilho{ position:absolute; inset:0; display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; }
+.np-trilho::-webkit-scrollbar{ display:none; }
+.np-trilho img{ flex:0 0 100%; width:100%; height:100%; object-fit:cover; scroll-snap-align:center; }
+.np-cont{ position:absolute; top:10px; right:10px; padding:4px 9px; border-radius:999px; background:rgba(0,0,0,.55); color:#fff; font-size:12px; font-weight:600; }
+.np-cont:empty{ display:none; }
+.np-mais{ left:10px; right:auto !important; }
+.np-mais.hidden{ display:none !important; }
+.np-tela.dest-story .np-mais, .np-tela.dest-story .np-minis{ display:none !important; }
+.np-minis{ display:flex; gap:8px; padding:10px 16px 0; overflow-x:auto; }
+.np-minis:empty{ display:none; }
+.np-mini{ position:relative; width:52px; height:64px; flex:none; border-radius:10px; overflow:hidden; }
+.np-mini img{ width:100%; height:100%; object-fit:cover; }
+.np-mini button{ position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; border:0; background:rgba(0,0,0,.6); color:#fff; font-size:14px; line-height:1; display:grid; place-items:center; padding:0; }
+
+/* Carrossel no feed */
+.post-carrossel{ position:relative; width:calc(100% + 40px); margin:4px -20px 0; }
+.pc-trilho{ display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; align-items:center; background:var(--bg); }
+.pc-trilho::-webkit-scrollbar{ display:none; }
+.post-carrossel .post-photo.pc-foto{ flex:0 0 100%; width:100% !important; margin:0 !important; scroll-snap-align:center; }
+.pc-cont{ position:absolute; top:10px; right:12px; padding:4px 9px; border-radius:999px; background:rgba(0,0,0,.55); color:#fff; font-size:12px; font-weight:600; }
+.pc-pontos{ display:flex; justify-content:center; gap:5px; padding-top:8px; }
+.pc-pontos i{ width:6px; height:6px; border-radius:50%; background:var(--line); }
+.pc-pontos i.on{ background:var(--vital); }
+@media (min-width:640px){ .post-carrossel{ width:100%; margin:4px 0 0; border-radius:14px; overflow:hidden; } }
+
+/* Post enviado no chat */
+.cmsg-post{ display:flex; flex-direction:column; width:180px; border-radius:16px; overflow:hidden; border:1px solid var(--line); background:var(--bg-card); padding:0; text-align:left; font-family:inherit; color:var(--ink); }
+.cmsg-post img{ width:100%; aspect-ratio:4 / 5; object-fit:cover; display:block; }
+.cmsg-post-txt{ padding:16px 12px; font-size:13px; }
+.cmsg-post-de{ padding:8px 10px; font-size:12px; font-weight:600; color:var(--ink-dim); }
+
+/* Enviar post */
+.ep-busca{ width:100%; height:42px; border-radius:12px; border:1px solid var(--line); background:var(--bg-input); color:var(--ink); padding:0 14px; font-family:inherit; font-size:14px; margin:6px 0 10px; }
+.ep-lista{ max-height:50vh; overflow-y:auto; }
+.ep-item{ display:flex; align-items:center; gap:12px; padding:8px 0; }
+.ep-nome{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.ep-nome b{ font-size:14px; }
+.ep-nome small{ font-size:12px; color:var(--ink-dim); }
+
+/* Sugestão de meta da semana */
+.meta-sug{ display:flex; gap:12px; align-items:flex-start; }
+.ms-ic{ width:40px; height:40px; flex:none; border-radius:13px; display:grid; place-items:center; background:var(--vital-dim); color:var(--vital); }
+.meta-sug.ajustar .ms-ic{ background:rgba(255,194,75,.14); color:var(--gold); }
+.ms-ic svg{ width:21px; height:21px; }
+.ms-txt p{ margin:0; font-size:14px; line-height:1.45; color:var(--ink); }
+.ms-txt b{ font-weight:700; }
+.ms-acoes{ display:flex; gap:8px; justify-content:flex-end; margin-top:10px; }
