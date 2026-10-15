@@ -15172,7 +15172,7 @@ $('#postFab').addEventListener('click', () => {
 // ============================================================
 function abrirPostDireto() { abrirCriar('post'); }
 const SVG_C = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
-// Câmera dentro do app (POST / STORY + galeria). Se o celular negar a câmera, o botão abre a câmera nativa.
+// Tela do + (POST / STORY + galeria). O botão grande abre a câmera do próprio celular.
 function abrirCriar(modo = 'post') {
     fecharCriar();
     const tela = document.createElement('div');
@@ -15201,8 +15201,8 @@ function abrirCriar(modo = 'post') {
     document.body.style.overflow = 'hidden';
     state.criar = { modo, frente: false, stream: null };
     requestAnimationFrame(() => tela.classList.add('on'));
-    const negada = Date.now() - Number(lsGet('pulso-cam-negada') || 0) < 7 * 86400000; // negou: tenta de novo só depois de 7 dias
-    if (!negada) { tela.classList.add('carregando-cam'); ligarCameraCriar(); }
+    // Sem câmera ao vivo de propósito: no iPhone ela acende o aviso vermelho de "gravação".
+    // O botão grande abre a câmera do próprio celular (sem aviso, com zoom e flash).
     const setModo = m => {
         state.criar.modo = m;
         tela.classList.toggle('modo-post', m === 'post'); tela.classList.toggle('modo-story', m === 'story');

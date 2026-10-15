@@ -3718,3 +3718,7 @@ html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer
 .onb-sino{ width:64px; height:64px; border-radius:20px; display:grid; place-items:center; margin:8px 0 6px; background:var(--vital-dim); color:var(--vital); }
 .onb-sino svg{ width:30px; height:30px; }
 .onb-depois{ display:block; width:100%; margin-top:10px; padding:12px; border:0; background:none; font-family:inherit; font-size:14.5px; font-weight:600; color:var(--ink-dim); }
+/* Tela do +: fundo escuro elegante no lugar da câmera ao vivo */
+.criar-tela .cr-cam{ background:radial-gradient(90% 60% at 50% 38%, rgba(53,225,155,.10), transparent 70%), radial-gradient(120% 80% at 50% 30%, #1a211e, #080a09 72%); }
+.cr-sem-cam span{ width:76px; height:76px; border-radius:26px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); }
+.cr-sem-cam p{ color:rgba(255,255,255,.62); font-size:13.5px; }
