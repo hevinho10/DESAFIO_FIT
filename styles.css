@@ -3317,4 +3317,98 @@ html.nav-compacta .bottomnav .nav-fab{ width:40px !important; height:40px !impor
 .gt-atv b small{ font-size:12px; font-weight:500; margin-left:2px; }
 .gt-atv em{ display:block; margin-top:5px; font-style:normal; font-size:11.5px; font-weight:600; }
 .gt-texto{ position:absolute; inset:0; padding:12px; display:flex; align-items:center; font-size:12.5px; line-height:1.35; color:var(--ink); background:var(--bg-card); overflow:hidden; }
-.grid-item{ aspect-ratio:1; }
+.grid-item{ aspect-ratio:3 / 4; }
+
+/* =====================================================================
+   Topo fixo nas telas internas (perfil de outra pessoa, chat, notificações...)
+   ===================================================================== */
+html.topo-interna .view{ padding-top:0; }
+html.topo-interna .view > .user-topbar{
+    position:sticky; top:0; z-index:30;
+    margin:0 -20px 12px; padding:calc(10px + env(safe-area-inset-top, 0px)) 20px 10px;
+    background:var(--bg); border-bottom:1px solid var(--line);
+}
+html.topo-interna .view > .user-topbar .topbar-back{ width:36px; height:36px; border-radius:50%; background:var(--bg-elev); display:grid; place-items:center; font-size:18px; }
+html.chat-mode .view.coach-view > .user-topbar{ position:relative; flex-shrink:0; }
+
+/* =====================================================================
+   Chat
+   ===================================================================== */
+html.na-conversa .bottomnav{ display:none !important; }
+html.na-conversa.chat-mode #viewContainer{ padding-bottom:0 !important; }
+#chatMessages{ gap:8px; padding:6px 0 10px; }
+#chatMessages .cmsg{ flex-direction:column; align-items:flex-start; gap:3px; }
+#chatMessages .cmsg.user{ align-items:flex-end; }
+#chatMessages .cmsg.g-meio, #chatMessages .cmsg.g-fim{ margin-top:-6px; }
+#chatMessages .cmsg-bubble{ font-size:15px; line-height:1.4; padding:9px 14px; border-radius:20px; max-width:80%; }
+#chatMessages .cmsg.coach .cmsg-bubble{ border-bottom-left-radius:20px; }
+#chatMessages .cmsg.user .cmsg-bubble{ border-bottom-right-radius:20px; }
+#chatMessages .cmsg.coach:not(.g-ini):not(.g-meio) .cmsg-bubble{ border-bottom-left-radius:6px; }
+#chatMessages .cmsg.user:not(.g-ini):not(.g-meio) .cmsg-bubble{ border-bottom-right-radius:6px; }
+#chatMessages .cmsg.coach.g-meio .cmsg-bubble, #chatMessages .cmsg.coach.g-fim .cmsg-bubble{ border-top-left-radius:6px; }
+#chatMessages .cmsg.coach.g-ini .cmsg-bubble, #chatMessages .cmsg.coach.g-meio .cmsg-bubble{ border-bottom-left-radius:6px; }
+#chatMessages .cmsg.user.g-meio .cmsg-bubble, #chatMessages .cmsg.user.g-fim .cmsg-bubble{ border-top-right-radius:6px; }
+#chatMessages .cmsg.user.g-ini .cmsg-bubble, #chatMessages .cmsg.user.g-meio .cmsg-bubble{ border-bottom-right-radius:6px; }
+.cmsg-hora{ font-size:10.5px; color:var(--ink-faint); padding:0 6px; }
+.chat-dia{ margin:14px 0 8px !important; }
+.chat-dia span{ background:transparent !important; border:0 !important; font-size:11.5px !important; font-weight:600; color:var(--ink-faint) !important; padding:0 !important; }
+#chatComposer{ border-top:0; padding:8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); align-items:flex-end; gap:8px; }
+#chatComposer .cc-campo{ flex:1; min-width:0; display:flex; align-items:flex-end; gap:0; min-height:46px; padding:4px 4px 4px 16px; border-radius:23px; background:var(--bg-card); border:1px solid var(--line); }
+#chatComposer .cc-campo:focus-within{ border-color:rgba(53,225,155,.45); }
+#chatComposer textarea{ flex:1; min-width:0; background:none !important; border:0 !important; box-shadow:none !important; padding:10px 6px 10px 0; min-height:36px; font-size:15px; }
+#chatComposer .mic-btn{ width:38px; height:38px; flex:none; border:0 !important; background:none !important; color:var(--ink-dim); display:grid; place-items:center; border-radius:50%; }
+#chatComposer .mic-btn svg{ width:21px; height:21px; }
+#chatComposer .coach-send{ width:46px; height:46px; background:var(--vital); color:#06120c; }
+#chatComposer .coach-send:not(.pronto){ display:none; }
+
+/* Feed: informação discreta (a foto é o destaque) */
+.atv-linha{ display:flex; align-items:center; gap:9px; margin:0 0 10px; font-size:14px; font-weight:400; color:var(--ink-dim); line-height:1.35; }
+.atv-linha .atv-ic.mini{ width:26px; height:26px; border-radius:8px; flex:none; }
+.atv-linha .atv-ic.mini svg{ width:15px; height:15px; }
+.al-txt{ min-width:0; }
+.al-txt b{ color:var(--ink); font-weight:600; }
+.al-dim{ color:var(--ink-faint); }
+.nota-pill{ margin-left:2px; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; color:rgb(var(--n)); background:rgba(var(--n), .14); }
+.ia-nota{ display:flex; gap:7px; align-items:flex-start; margin:-4px 0 10px; font-size:13px; line-height:1.45; color:var(--ink-dim); cursor:pointer; }
+.ia-nota svg{ width:14px; height:14px; flex:none; margin-top:2px; color:var(--vital); }
+.ia-nota span{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.ia-nota.aberta span{ -webkit-line-clamp:unset; display:block; }
+/* cartão sem foto, compacto */
+.atv-card{ padding:12px !important; gap:12px !important; border-radius:16px !important; }
+.atv-card .atv-ic{ width:38px; height:38px; border-radius:12px; }
+.atv-card .atv-ic svg{ width:20px; height:20px; }
+.atv-card .atv-nums b{ font-size:18px !important; }
+.atv-card .atv-nome{ font-size:14px; }
+.atv-grupos{ font-size:12.5px; margin-top:4px; }
+
+/* Grade do perfil igual ao Instagram: fotos coladas, linha fina, formato em pé */
+.ig-grid{ gap:2px !important; margin-top:2px !important; }
+#profileTabBody > .ig-grid{ margin-left:-20px !important; margin-right:-20px !important; }
+.grid-item{ background:var(--bg-elev); border-radius:0 !important; }
+.grid-item img{ object-fit:cover !important; background:none !important; display:block; }
+.dia-foto{ position:relative; width:56px; height:72px; flex:none; border-radius:12px; overflow:hidden; background:var(--bg-elev); }
+.dia-foto img{ width:100%; height:100%; object-fit:cover; display:block; }
+.dia-foto i{ position:absolute; left:4px; bottom:4px; width:22px; height:22px; border-radius:7px; display:grid; place-items:center; background:rgba(0,0,0,.55); color:rgb(var(--c)); }
+.dia-foto i svg{ width:13px; height:13px; }
+
+/* + do topo: menuzinho Post / Story */
+#feedPostBtn svg{ width:24px; height:24px; }
+html.topo-feed #feedPostBtn{ margin-right:6px; }
+.novo-menu{ position:fixed; z-index:200; min-width:210px; padding:6px; border-radius:16px; background:var(--bg-elev); border:1px solid var(--line); box-shadow:0 14px 40px rgba(0,0,0,.45); opacity:0; transform:translateY(-6px) scale(.98); transform-origin:top left; transition:opacity .14s, transform .16s; }
+.novo-menu.on{ opacity:1; transform:none; }
+.novo-menu button{ display:flex; align-items:center; gap:12px; width:100%; padding:10px 10px; border:0; border-radius:11px; background:none; color:var(--ink); text-align:left; font-family:inherit; }
+.novo-menu button:active{ background:var(--bg-card); }
+.novo-menu svg{ width:22px; height:22px; color:var(--ink); flex:none; }
+.novo-menu b{ display:block; font-size:14.5px; font-weight:600; }
+.novo-menu small{ font-size:12px; color:var(--ink-dim); }
+:root[data-theme="light"] .novo-menu{ background:#fff; box-shadow:0 14px 40px rgba(0,0,0,.14); }
+#composerPick .kind-tile[data-kind="post"]{ --c:236,128,200; }
+
+/* Registrar com efeito de vidro */
+#composerSheet .sheet-card{ background:rgba(18,23,21,.78) !important; -webkit-backdrop-filter:blur(26px) saturate(1.5); backdrop-filter:blur(26px) saturate(1.5); border-top:1px solid rgba(255,255,255,.08); }
+:root[data-theme="light"] #composerSheet .sheet-card{ background:rgba(250,252,250,.8) !important; border-top-color:rgba(0,0,0,.06); }
+#composerPick .kind-tile{ background:rgba(255,255,255,.04) !important; border-color:rgba(255,255,255,.08) !important; }
+:root[data-theme="light"] #composerPick .kind-tile{ background:rgba(255,255,255,.65) !important; border-color:rgba(0,0,0,.07) !important; }
+#composerPick .kind-tile.pendente{ border-color:rgba(var(--c), .5) !important; }
+#composerSheet .ia-registro{ background:rgba(255,255,255,.05) !important; }
+:root[data-theme="light"] #composerSheet .ia-registro{ background:rgba(255,255,255,.7) !important; }

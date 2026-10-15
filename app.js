@@ -171,26 +171,31 @@ function svgAtividade(t) {
 const SVG_REFEICAO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2 6 0 8v10"/></svg>';
 function cartaoAtividade(p, comQuem = '') {
     const km = Number(p.distance_km || 0);
-    const n = (v, u) => `<span><b>${v}</b><small>${u}</small></span>`;
-    let nums = n(p.duration_min || 0, 'min');
-    if (km > 0) {
-        nums = n(br(km), 'km') + nums;
-        if (p.activity_type === 'Corrida' || p.activity_type === 'Caminhada') {
-            const pace = formatarPace(p.duration_min, km);
-            if (pace) nums += n(pace.replace('/km', ''), '/km');
-        }
+    const pace = km && (p.activity_type === 'Corrida' || p.activity_type === 'Caminhada') ? formatarPace(p.duration_min, km) : '';
+    const grupos = Array.isArray(p.muscle_groups) && p.muscle_groups.length ? p.muscle_groups.map(escapeHTML).join(', ') : '';
+    const nome = escapeHTML(p.activity_type || 'Treino');
+    // Com foto: uma linha discreta (a foto é o destaque)
+    if (p.image_url) {
+        const partes = [];
+        if (km) partes.push(`<b>${br(km)}</b> km`);
+        partes.push(`<b>${p.duration_min || 0}</b> min`);
+        if (pace) partes.push(pace);
+        return `<div class="atv-linha" style="--c:${corAtividade(p.activity_type)}"><span class="atv-ic mini">${svgAtividade(p.activity_type)}</span>
+            <span class="al-txt"><b>${nome}</b> · ${partes.join(' · ')}${grupos ? `<span class="al-dim"> · ${grupos}</span>` : ''}${comQuem}</span></div>`;
     }
-    const grupos = Array.isArray(p.muscle_groups) && p.muscle_groups.length
-        ? `<div class="atv-chips">${p.muscle_groups.map(g => `<span>${escapeHTML(g)}</span>`).join('')}</div>` : '';
+    // Sem foto: cartão compacto
+    const n = (v, u) => `<span><b>${v}</b><small>${u}</small></span>`;
+    let nums = (km ? n(br(km), 'km') : '') + n(p.duration_min || 0, 'min') + (pace ? n(pace.replace('/km', ''), '/km') : '');
     return `<div class="atv-card" style="--c:${corAtividade(p.activity_type)}">
         <span class="atv-ic">${svgAtividade(p.activity_type)}</span>
         <div class="atv-txt">
-            <div class="atv-nome">${escapeHTML(p.activity_type || 'Treino')}${comQuem}</div>
+            <div class="atv-nome">${nome}${comQuem}</div>
             <div class="atv-nums">${nums}</div>
-            ${grupos}
+            ${grupos ? `<div class="al-dim atv-grupos">${grupos}</div>` : ''}
         </div>
     </div>`;
 }
+const SVG_BRILHO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg>';
 
 function detalheTreino(p) {
     let t = '';
@@ -2000,13 +2005,14 @@ function aplicarModoTopo(v) {
     const html = document.documentElement;
     ['feed', 'aba', 'perfil', 'interna'].forEach(m => html.classList.toggle('topo-' + m, m === modo));
     html.classList.toggle('topo-busca', v === 'desafio');
+    html.classList.toggle('na-conversa', v === 'chat' || v === 'coach');
     html.classList.toggle('topo-sem-msg', v === 'messages');
     const t = document.getElementById('topbarTitulo');
     if (t) { t.textContent = TITULO_ABA[v] || ''; t.classList.toggle('hidden', modo !== 'aba'); }
     const brand = document.querySelector('.topbar-brand');
     if (brand) brand.classList.toggle('hidden', modo !== 'feed');
     const novo = document.getElementById('feedPostBtn');
-    if (novo) novo.classList.toggle('hidden', modo !== 'perfil');
+    if (novo) novo.classList.toggle('hidden', modo !== 'perfil' && modo !== 'feed');
 }
 
 // ---- Abrir no que a pessoa mais usa ----
@@ -4123,12 +4129,8 @@ async function renderWorkoutHistory(uid, ano, mes) {
     const ini = new Date(ano, mes, 1), fim = new Date(ano, mes + 1, 1);
     const filtro = q => ehMeuPerfil ? q : q.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
     const campos = 'id, activity_type, duration_min, distance_km, caption, created_at, image_url, thumb_url, in_feed, muscle_groups, meta, user_id';
-    const [{ data, error }, { data: comFoto }] = await Promise.all([
-        filtro(sb.from('posts').select(campos).eq('user_id', uid).eq('kind', 'workout'))
-            .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()).order('created_at', { ascending: true }).limit(200),
-        sb.from('posts').select('id, image_url, thumb_url, activity_type, duration_min, distance_km').eq('user_id', uid).eq('kind', 'workout')
-            .eq('in_feed', true).not('image_url', 'is', null).eq('archived', false).order('created_at', { ascending: false }).limit(30),
-    ]);
+    const { data, error } = await filtro(sb.from('posts').select(campos).eq('user_id', uid).eq('kind', 'workout'))
+        .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()).order('created_at', { ascending: true }).limit(200);
     if (!$('#profileTabBody') || !state.calTreino || state.calTreino.mes !== mes || state.calTreino.ano !== ano) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
     const lista = data || [];
@@ -4173,10 +4175,6 @@ async function renderWorkoutHistory(uid, ano, mes) {
         ? (ehMesAtual ? 'Nenhum treino esse mês ainda. Cada um vale até 15 pontos.' : `Nenhum treino em ${NOME_MES[mes]}.`)
         : `Nenhum treino publicado em ${NOME_MES[mes]}.`}</p>${ehMeuPerfil && ehMesAtual ? '<button class="btn-mini calt-cta" data-act="quick-kind" data-kind="workout">Registrar treino</button>' : ''}` : '';
 
-    const fotos = (comFoto || []);
-    const gradeFotos = fotos.length ? `<div class="calt-sub"><span>Treinos com foto</span><span>${fotos.length}</span></div>
-        <div class="ig-grid">${fotos.map(p => `<div class="grid-item" data-act="view-post" data-id="${p.id}"><img src="${p.thumb_url || p.image_url}" loading="lazy" decoding="async"><span class="gi-leg">${escapeHTML(p.activity_type || 'Treino')} · ${p.distance_km ? br(p.distance_km) + ' km' : (p.duration_min || 0) + ' min'}</span></div>`).join('')}</div>` : '';
-
     body.innerHTML = `<div class="calt">
         <div class="calt-topo">
             <b>${nomeMes} ${ano !== hoje.getFullYear() ? ano : ''}</b>
@@ -4189,7 +4187,7 @@ async function renderWorkoutHistory(uid, ano, mes) {
         <div class="calt-sem">${'STQQSSD'.split('').map(x => `<span>${x}</span>`).join('')}</div>
         <div class="calt-dias">${cel}</div>
         ${legenda}${vazioMes}
-    </div>${gradeFotos}`;
+    </div>`;
 }
 
 function abrirDiaTreino(d) {
@@ -4213,9 +4211,10 @@ function abrirDiaTreino(d) {
             const km = Number(w.distance_km || 0);
             const pace = km && (w.activity_type === 'Corrida' || w.activity_type === 'Caminhada') ? formatarPace(w.duration_min, km) : '';
             const det = [km ? br(km) + ' km' : '', pace, (w.muscle_groups || []).join(', '), new Date(w.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · ');
-            const act = ehMeu ? `data-act="wk-detalhe" data-id="${w.id}"` : `data-act="view-post" data-id="${w.id}"`;
-            return `<button type="button" class="dia-item" ${act} style="--c:${corAtividade(w.activity_type)}">
-                <span class="atv-ic">${svgAtividade(w.activity_type)}</span>
+            const foto = w.image_url ? (w.thumb_url || w.image_url) : '';
+            const act = foto && w.in_feed ? `data-act="view-post" data-id="${w.id}"` : ehMeu ? `data-act="wk-detalhe" data-id="${w.id}"` : `data-act="view-post" data-id="${w.id}"`;
+            return `<button type="button" class="dia-item${foto ? ' com-foto' : ''}" ${act} style="--c:${corAtividade(w.activity_type)}">
+                ${foto ? `<span class="dia-foto"><img src="${escapeHTML(foto)}" alt="" loading="lazy"><i>${svgAtividade(w.activity_type)}</i></span>` : `<span class="atv-ic">${svgAtividade(w.activity_type)}</span>`}
                 <span class="dia-txt"><b>${escapeHTML(w.activity_type || 'Treino')} · ${w.duration_min || 0} min</b><small>${escapeHTML(det)}</small></span>
                 <span class="dia-ver">Ver<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
             </button>`;
@@ -4497,12 +4496,14 @@ async function renderChat(conversationId, otherUser) {
                 <div><small>Respondendo</small><span id="chatRespTxt"></span></div>
                 <button type="button" id="chatRespX" aria-label="Cancelar resposta">×</button>
             </div>
-            <div class="coach-composer">
+            <div class="coach-composer" id="chatComposer">
+                <div class="cc-campo">
                 <textarea id="chatInput" placeholder="Mensagem..." maxlength="2000" rows="1"></textarea>
                 <label class="mic-btn chat-foto-btn" aria-label="Mandar foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></svg><input type="file" id="chatFoto" accept="image/*" hidden></label>
                 <button class="mic-btn" id="chatMic" aria-label="Ditar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
                 </button>
+                </div>
                 <button class="coach-send" id="chatSend" aria-label="Enviar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                 </button>
@@ -4545,6 +4546,7 @@ async function renderChat(conversationId, otherUser) {
     $('#chatFoto').addEventListener('change', e => { const fl = e.target.files && e.target.files[0]; e.target.value = ''; if (fl) enviarFotoNoChat(fl); });
     $('#chatMessages').addEventListener('click', e => { const f = e.target.closest('[data-ver-foto]'); if (f) verFotoChat(f.dataset.verFoto); });
     restaurarRascunho('chatInput');
+    atualizarEnviar();
 
     // Tempo real (mensagens novas e apagadas)
     const me = state.session.user.id;
@@ -4618,8 +4620,13 @@ function paintChatMessages() {
         const eu = state.session.user.id;
         const reac = state.chatReacoes || {};
         let diaAnterior = '';
-        box.innerHTML = lista.map(m => {
+        const juntos = (a, b) => a && b && a.sender_id === b.sender_id && a.created_at && b.created_at
+            && Math.abs(new Date(b.created_at) - new Date(a.created_at)) < 3 * 60000 && isoDe(new Date(a.created_at)) === isoDe(new Date(b.created_at));
+        box.innerHTML = lista.map((m, idx) => {
             const mine = m.sender_id === eu;
+            const comAnt = juntos(lista[idx - 1], m), comProx = juntos(m, lista[idx + 1]);
+            const grupo = comAnt && comProx ? ' g-meio' : comAnt ? ' g-fim' : comProx ? ' g-ini' : '';
+            const hora = !comProx && m.created_at ? `<span class="cmsg-hora">${new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
             // separador de dia
             let sep = '';
             if (m.created_at) {
@@ -4647,9 +4654,10 @@ function paintChatMessages() {
             }
             const r = reac[m.id] || [];
             const reacHTML = r.length ? `<span class="cmsg-reac">${[...new Set(r.map(x => x.emoji))].join('')}${r.length > 1 ? `<small>${r.length}</small>` : ''}</span>` : '';
-            return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${r.length ? ' com-reac' : ''}" data-mid="${m.id}">
+            return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${grupo}${r.length ? ' com-reac' : ''}" data-mid="${m.id}">
                 ${topo}
                 ${corpo || !ft ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
+                ${hora}
             </div>`;
         }).join('');
         if (digitando) box.appendChild(digitando);
@@ -5476,12 +5484,11 @@ function renderPost(p) {
         badge = cartaoAtividade(p, comQuem);
     } else if (p.kind === 'meal') {
         const slotName = {cafe:'Café da manhã',almoco:'Almoço',jantar:'Jantar',lanche:'Lanche'}[p.meal_slot] || 'Refeição';
-        const scoreTag = p.meal_score != null
-            ? ` · <b style="color:${p.meal_score >= 8 ? 'var(--vital)' : p.meal_score >= 5 ? 'var(--gold)' : 'var(--effort)'}">${br(p.meal_score)}/10</b>`
-            : '';
-        badge = `<div class="atv-linha" style="--c:255,194,75"><span class="atv-ic mini">${SVG_REFEICAO}</span>${slotName}${scoreTag}</div>`;
+        const corNota = p.meal_score >= 8 ? '53,225,155' : p.meal_score >= 5 ? '255,194,75' : '255,122,77';
+        const scoreTag = p.meal_score != null ? `<span class="nota-pill" style="--n:${corNota}">${br(p.meal_score)}</span>` : '';
+        badge = `<div class="atv-linha" style="--c:255,194,75"><span class="atv-ic mini">${SVG_REFEICAO}</span><span class="al-txt"><b>${slotName}</b></span>${scoreTag}</div>`;
         if (p.meal_analysis) {
-            body += `<div class="post-ai-note"><span class="pan-emo">🤖</span>${escapeHTML(p.meal_analysis)}</div>`;
+            badge += `<p class="ia-nota" data-act="ia-nota">${SVG_BRILHO}<span>${escapeHTML(p.meal_analysis)}</span></p>`;
         }
     } else if (p.kind === 'weight') {
         badge = `<div class="post-badge">Pesagem · <b>${p.weight_kg} kg</b></div>`;
@@ -11538,6 +11545,7 @@ document.addEventListener('click', async e => {
     if (!btn) return;
     const act = btn.dataset.act, id = btn.dataset.id;
 
+    if (act === 'ia-nota') { btn.classList.toggle('aberta'); return; }
     if (act === 'react') {
         vibrar(8);
         const on = btn.classList.contains('on');
@@ -12394,7 +12402,7 @@ document.addEventListener('click', async e => {
         hidePostMenu();
         switchView('rules');
     } else if (act === 'novo-post') {
-        $('#feedPostBtn').click();
+        abrirPostDireto();
     } else if (act === 'set-account-privacy') {
         const privado = btn.dataset.private === '1';
         if (privado === !!state.profile.is_private) return;
@@ -14762,10 +14770,29 @@ $('#postFab').addEventListener('click', () => {
     dicaDoMais();
 });
 // + do feed: vai direto pro post livre
-$('#feedPostBtn').addEventListener('click', () => {
-    limparComposer();
-    setComposerKind('post');
-    abrirComposer();
+// + do topo (feed e perfil): menuzinho Post / Story, igual Instagram
+function abrirPostDireto() { limparComposer(); setComposerKind('post'); abrirComposer(); }
+$('#feedPostBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const velho = document.getElementById('novoMenu'); if (velho) { velho.remove(); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const m = document.createElement('div');
+    m.id = 'novoMenu';
+    m.className = 'novo-menu';
+    m.style.top = (r.bottom + 8) + 'px';
+    m.style.left = Math.max(10, r.left) + 'px';
+    m.innerHTML = `<button type="button" data-novo="post"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/></svg><span><b>Post</b><small>Foto pro feed</small></span></button>
+        <button type="button" data-novo="story"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/><path d="M12 8.5v7M8.5 12h7"/></svg><span><b>Story</b><small>Some em 24 horas</small></span></button>`;
+    document.body.appendChild(m);
+    requestAnimationFrame(() => m.classList.add('on'));
+    const fechar = () => { m.remove(); document.removeEventListener('click', foraFecha, true); };
+    const foraFecha = ev => { if (!m.contains(ev.target)) { ev.stopPropagation(); ev.preventDefault(); fechar(); } };
+    setTimeout(() => document.addEventListener('click', foraFecha, true), 0);
+    m.addEventListener('click', ev => {
+        const b = ev.target.closest('[data-novo]'); if (!b) return;
+        fechar();
+        if (b.dataset.novo === 'story') openStoryCreator(); else abrirPostDireto();
+    });
 });
 $('#composerBack').addEventListener('click', () => {
     limparComposer();
@@ -14842,6 +14869,7 @@ $$('.kind-tile').forEach(b => b.addEventListener('click', e => {
     if (kind === 'story') { closeComposer(); openStoryCreator(); return; }
     if (kind === 'challenge') { closeComposer(); openNewChallengeSheet(); return; }
     setComposerKind(kind);
+    if (kind === 'post') $('#composerBack').classList.remove('hidden'); // veio do Registrar: dá pra voltar
 }));
 
 function setComposerKind(kind) {
