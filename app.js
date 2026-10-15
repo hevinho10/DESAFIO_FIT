@@ -1573,6 +1573,9 @@ async function abrirExtratoDia() {
 // ---- Voltar do celular (botão do Android e gesto da borda): fecha o que está aberto ou volta uma tela ----
 function fecharTopo() {
     const arco = document.querySelector('.fab-arco'); if (arco) { arco.click(); return true; }
+    const npT = document.getElementById('novoPostTela'); if (npT) { npT.remove(); document.body.style.overflow = ''; return true; }
+    const ndT = document.getElementById('newChallengeSheet'); if (ndT) { ndT.remove(); document.body.style.overflow = ''; return true; }
+    if (document.getElementById('criarTela')) { fecharCriar(); return true; }
     if (document.getElementById('floatingPostMenu')) { hidePostMenu(); return true; }
     const conf = document.getElementById('confirmarSheet'); if (conf) { const c = conf.querySelector('[data-r="0"]'); if (c) c.click(); else conf.remove(); return true; }
     const conq = document.getElementById('conqSheet'); if (conq) { conq.remove(); return true; }
@@ -3296,13 +3299,15 @@ async function renderNotifications() {
             <div id="notifList"><div class="spinner"></div></div>
         </div>
     `;
-    const [{ data: base, error }, { data: pedidos }, { data: extras }, { data: meusSeguidos }] = await Promise.all([
+    const [{ data: base, error }, { data: pedidos }, { data: extras }, { data: meusSeguidos }, { data: meusPedidos }] = await Promise.all([
         sb.rpc('list_notifications'),
         sb.rpc('list_follow_requests'),
         sb.rpc('list_app_notifications'),
         sb.from('follows').select('following_id').eq('follower_id', state.session.user.id).limit(2000),
+        sb.from('follow_requests').select('target_id').eq('requester_id', state.session.user.id).limit(500),
     ]);
     const jaSigo = new Set((meusSeguidos || []).map(x => x.following_id));
+    const jaPedi = new Set((meusPedidos || []).map(x => x.target_id));
     const tudo = [...(base || []), ...(extras || [])]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     // agrupa curtidas e comentários do mesmo post: "Maria e mais 4 pessoas curtiram"
@@ -3368,7 +3373,9 @@ async function renderNotifications() {
             act = ` data-act="view-post" data-id="${n.post_id}"`;
         } else if (n.kind === 'follow') {
             emo = '👤'; texto = `<b>${quem}</b> começou a te seguir`
-                + (n.actor_id && !jaSigo.has(n.actor_id) ? `<span class="nt-acoes"><button class="btn-mini" data-act="seguir-de-volta" data-uid="${n.actor_id}">Seguir de volta</button></span>` : '');
+                + (n.actor_id && !jaSigo.has(n.actor_id) ? `<span class="nt-acoes">${jaPedi.has(n.actor_id)
+                    ? `<button class="btn-mini feito" data-act="cancelar-pedido-notif" data-uid="${n.actor_id}" data-nome="${escapeHTML(n.actor_name || '')}">Solicitado</button>`
+                    : `<button class="btn-mini" data-act="seguir-de-volta" data-uid="${n.actor_id}">Seguir de volta</button>`}</span>` : '');
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
         } else if (n.kind === 'follow_aceito') {
             emo = '✅'; texto = `<b>${quem}</b> aceitou seu pedido pra seguir`;
@@ -5517,9 +5524,13 @@ function renderPost(p) {
         }
     }
 
+    // Com foto: legenda vai embaixo, depois das ações (igual Instagram). Sem foto: o texto é o post.
+    let legendaBaixo = '';
     if (p.caption) {
         const longa = p.caption.length > 160 || (p.caption.match(/\n/g) || []).length > 2;
-        body += `<p class="post-caption${longa ? ' longa' : ''}">${escapeHTML(p.caption)}</p>${longa ? '<button class="caption-mais" data-act="caption-mais">mais</button>' : ''}`;
+        const mais = longa ? '<button class="caption-mais" data-act="caption-mais">mais</button>' : '';
+        if (p.image_url) legendaBaixo = `<p class="post-caption leg-baixo${longa ? ' longa' : ''}"><b data-act="view-user" data-uid="${p.user_id}">${escapeHTML(user.username || '')}</b> ${escapeHTML(p.caption)}</p>${mais}`;
+        else body += `<p class="post-caption${longa ? ' longa' : ''}">${escapeHTML(p.caption)}</p>${mais}`;
     }
     if (p.image_url) body += `<img class="post-photo" src="${p.image_url}" loading="lazy" decoding="async">`;
 
@@ -5560,6 +5571,7 @@ function renderPost(p) {
                     <svg viewBox="0 0 24 24" fill="${state.salvos && state.salvos.has(p.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>
                 </button>
             </div>
+            ${legendaBaixo}
         </article>
     `;
 }
@@ -6831,8 +6843,8 @@ async function renderChallenges() {
                 ${botaoEntrarDesafio(ch, pedidosCh[ch.id])}
             </div>` : ''}
             <div class="ch-meta">
-                <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
-                <span>👥 ${ch.members}</span>
+                <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
+                <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg>${ch.members}</span>
                 ${ch.im_member ? '<span class="ch-in">Você participa</span>' : ''}
                 ${!ch.is_open ? '<span>privado</span>' : ''}
                 ${ch.pedidos > 0 ? `<span class="ch-pedidos">${plural(ch.pedidos, 'pedido', 'pedidos')}</span>` : ''}
@@ -7093,8 +7105,8 @@ async function renderChallengeDetail(cid) {
                 <h1 class="ch-hero-name">${escapeHTML(ch.name)}</h1>
                 ${ch.description ? `<p class="ch-hero-desc">${escapeHTML(ch.description)}</p>` : ''}
                 <div class="ch-hero-meta">
-                    <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
-                    <span>👥 ${ch.members} participantes</span>
+                    <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
+                    <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg>${ch.members} participantes</span>
                 </div>
                 <div class="ch-actions">
                     ${podeEntrar ? `<button class="btn-primary-sm" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
@@ -9736,8 +9748,8 @@ async function renderChallengeVitrine(ch) {
                 <h1 class="ch-hero-name">${escapeHTML(ch.name)}</h1>
                 ${ch.description ? `<p class="ch-hero-desc">${escapeHTML(ch.description)}</p>` : ''}
                 <div class="ch-hero-meta">
-                    <span>📅 ${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
-                    <span>👥 ${plural(ch.members, 'participante', 'participantes')}</span>
+                    <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
+                    <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg>${plural(ch.members, 'participante', 'participantes')}</span>
                 </div>
                 ${convidado && aberto ? `<div class="ch-convite">
                     <span><b>${escapeHTML(convidado.inviter_name || 'Alguém')}</b> te convidou pra esse desafio</span>
@@ -9768,91 +9780,125 @@ async function renderChallengeVitrine(ch) {
 function openNewChallengeSheet() {
     const old = document.getElementById('newChallengeSheet');
     if (old) old.remove();
-    const hoje = new Date().toISOString().split('T')[0];
-    const em30 = new Date(Date.now() + 30*86400000).toISOString().split('T')[0];
-
+    const iso = d => d.toISOString().split('T')[0];
+    const hoje = new Date();
+    const ic = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
     const sheet = document.createElement('div');
     sheet.id = 'newChallengeSheet';
-    sheet.className = 'sheet on';
-    sheet.innerHTML = `<div class="sheet-card">
-        <div class="sheet-handle"></div>
-        <h3 class="sheet-title">Criar desafio</h3>
-        <p class="sheet-sub">O ranking usa os pontos que cada um ganhar no período.</p>
-        <div class="field"><label>Nome</label><input type="text" id="ncName" maxlength="60" placeholder="ex: Setembro Ativo"></div>
-        <div class="field"><label>Descrição (opcional)</label><textarea id="ncDesc" maxlength="200" placeholder="Qual é o objetivo do desafio?"></textarea></div>
-        <div class="field"><label>Regras do desafio (opcional)</label><textarea id="ncRegras" maxlength="600" placeholder="ex: vale só treino com foto; prêmio pro primeiro lugar; quem sumir 7 dias sai"></textarea></div>
-        <div class="field"><label>Formato</label>
-            <div class="nc-formato">
-                <button type="button" class="on" data-formato="individual">Individual</button>
-                <button type="button" data-formato="times">Em times</button>
+    sheet.className = 'nd-tela';
+    sheet.innerHTML = `
+        <div class="nd-topo">
+            <button type="button" class="np-x" id="ncCancel" aria-label="Fechar">${ic('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
+            <b>Novo desafio</b><span style="width:38px"></span>
+        </div>
+        <div class="nd-corpo">
+            <input type="text" id="ncName" class="nd-nome" maxlength="60" placeholder="Nome do desafio">
+            <textarea id="ncDesc" class="nd-desc" maxlength="200" rows="1" placeholder="Descrição (opcional)"></textarea>
+
+            <div class="nd-rot">Formato</div>
+            <div class="nd-cartoes">
+                <button type="button" class="on" data-formato="individual" style="--c:53,225,155"><span class="atv-ic">${ic('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>')}</span><b>Individual</b><small>Cada um por si</small></button>
+                <button type="button" data-formato="times" style="--c:95,176,255"><span class="atv-ic">${ic('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>')}</span><b>Em times</b><small>2 a 4 times</small></button>
             </div>
-            <div class="nc-times hidden" id="ncTimes">
-                <span class="field-hint">Quantos times?</span>
-                <div class="nc-qtd">${[2, 3, 4].map(n => `<button type="button" class="${n === 2 ? 'on' : ''}" data-qtd="${n}">${n}</button>`).join('')}</div>
-                <p class="field-hint">O app divide as pessoas automaticamente, equilibrando quem é mais e menos ativo. O placar de cada time é a soma dos pontos de quem está nele.</p>
+            <div class="nd-times hidden" id="ncTimes">
+                <span>Quantos times?</span>
+                <div class="nd-chips">${[2, 3, 4].map(n => `<button type="button" class="${n === 2 ? 'on' : ''}" data-qtd="${n}">${n} times</button>`).join('')}</div>
+                <p class="nd-dica">O app divide as pessoas equilibrando quem é mais e menos ativo.</p>
             </div>
-        </div>
-        <div class="field"><label>Meta coletiva (opcional)</label>
-            <div class="nc-meta">
-                <input type="number" id="ncMetaValor" min="1" max="100000" inputmode="numeric" placeholder="ex: 500">
-                <select id="ncMetaTipo"><option value="">sem meta</option><option value="km">km juntos</option><option value="treinos">treinos juntos</option><option value="horas">horas juntos</option></select>
+
+            <div class="nd-rot">Duração</div>
+            <div class="nd-chips" id="ncDur">${[7, 15, 30].map(n => `<button type="button" class="${n === 30 ? 'on' : ''}" data-dias="${n}">${n} dias</button>`).join('')}<button type="button" data-dias="outra">Outra</button></div>
+            <div class="nd-periodo" id="ncPeriodo"></div>
+            <div class="nd-datas hidden" id="ncDatas">
+                <label><span>Começa</span><input type="date" id="ncStart" value="${iso(hoje)}"></label>
+                <label><span>Termina</span><input type="date" id="ncEnd" value="${iso(new Date(Date.now() + 29 * 86400000))}"></label>
             </div>
-            <p class="field-hint">Um número que o grupo todo persegue junto, além da competição.</p>
+
+            <div class="nd-rot">Quem pode entrar</div>
+            <div class="nd-cartoes">
+                <button type="button" class="on" data-aberto="1" style="--c:53,225,155"><span class="atv-ic">${ic('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>')}</span><b>Público</b><small>Entra na hora</small></button>
+                <button type="button" data-aberto="0" style="--c:241,244,241"><span class="atv-ic">${ic('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>')}</span><b>Privado</b><small>Convite ou aprovação</small></button>
+            </div>
+
+            <div class="nd-rot">Extras</div>
+            <div class="nd-extras">
+                <button type="button" class="nd-extra" data-extra="meta">${ic('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>')}<span>Meta do grupo</span><small>ex: 500 km juntos</small></button>
+                <div class="nd-extra-corpo hidden" id="ncMetaBox">
+                    <div class="nc-meta">
+                        <input type="number" id="ncMetaValor" min="1" max="100000" inputmode="numeric" placeholder="ex: 500">
+                        <select id="ncMetaTipo"><option value="">escolha</option><option value="km">km juntos</option><option value="treinos">treinos juntos</option><option value="horas">horas juntos</option></select>
+                    </div>
+                    <p class="nd-dica">Um número que o grupo todo persegue junto, além da competição.</p>
+                </div>
+                <button type="button" class="nd-extra" data-extra="regras">${ic('<path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h5"/>')}<span>Regras e prêmio</span><small>opcional</small></button>
+                <div class="nd-extra-corpo hidden" id="ncRegrasBox">
+                    <textarea id="ncRegras" maxlength="600" rows="3" placeholder="ex: vale só treino com foto; prêmio pro primeiro lugar; quem sumir 7 dias sai"></textarea>
+                </div>
+            </div>
+            <p class="nd-dica nd-rodape">O ranking usa os pontos que cada um ganhar no período.</p>
         </div>
-        <div class="field-row">
-            <div class="field"><label>Começa</label><input type="date" id="ncStart" value="${hoje}"></div>
-            <div class="field"><label>Termina</label><input type="date" id="ncEnd" value="${em30}"></div>
-        </div>
-        <div class="field">
-            <label>Quem pode entrar</label>
-            <select id="ncOpen">
-                <option value="1">Público: qualquer pessoa entra na hora</option>
-                <option value="0">Privado: entra por convite ou pedido aprovado</option>
-            </select>
-        </div>
-        <div class="sheet-footer">
-            <button class="btn-ghost" id="ncCancel">Cancelar</button>
-            <button class="btn-primary" id="ncSave">Criar desafio</button>
-        </div>
-    </div>`;
+        <div class="nd-base"><button class="btn-primary" id="ncSave">Criar desafio</button></div>`;
     document.body.appendChild(sheet);
     document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => sheet.classList.add('on'));
     const close = () => { sheet.remove(); document.body.style.overflow = ''; };
-    sheet.onclick = e => { if (e.target === sheet) close(); };
     document.getElementById('ncCancel').onclick = close;
-    sheet.querySelectorAll('[data-formato]').forEach(b => b.onclick = () => {
-        sheet.querySelectorAll('[data-formato]').forEach(x => x.classList.toggle('on', x === b));
-        sheet.querySelector('#ncTimes').classList.toggle('hidden', b.dataset.formato !== 'times');
-    });
-    sheet.querySelectorAll('[data-qtd]').forEach(b => b.onclick = () => sheet.querySelectorAll('[data-qtd]').forEach(x => x.classList.toggle('on', x === b)));
+    const grupo = (sel, attr) => sheet.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => {
+        sheet.querySelectorAll(sel).forEach(x => x.classList.toggle('on', x === b)); vibrar(6);
+    }));
+    grupo('[data-formato]'); grupo('[data-qtd]'); grupo('[data-aberto]'); grupo('[data-dias]');
+    sheet.querySelectorAll('[data-formato]').forEach(b => b.addEventListener('click', () => sheet.querySelector('#ncTimes').classList.toggle('hidden', b.dataset.formato !== 'times')));
+    const dmes = d => d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+    const pintarPeriodo = () => {
+        const ini = new Date($('#ncStart').value + 'T12:00:00'), fim = new Date($('#ncEnd').value + 'T12:00:00');
+        $('#ncPeriodo').innerHTML = `${ic('<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/>')} De <b>${dmes(ini)}</b> até <b>${dmes(fim)}</b>`;
+    };
+    sheet.querySelectorAll('[data-dias]').forEach(b => b.addEventListener('click', () => {
+        const outra = b.dataset.dias === 'outra';
+        $('#ncDatas').classList.toggle('hidden', !outra);
+        if (!outra) {
+            const ini = new Date($('#ncStart').value + 'T12:00:00');
+            $('#ncEnd').value = iso(new Date(ini.getTime() + (Number(b.dataset.dias) - 1) * 86400000));
+        }
+        pintarPeriodo();
+    }));
+    ['#ncStart', '#ncEnd'].forEach(id => $(id).addEventListener('change', pintarPeriodo));
+    pintarPeriodo();
+    sheet.querySelectorAll('[data-extra]').forEach(b => b.addEventListener('click', () => {
+        const box = sheet.querySelector(b.dataset.extra === 'meta' ? '#ncMetaBox' : '#ncRegrasBox');
+        box.classList.toggle('hidden'); b.classList.toggle('aberto', !box.classList.contains('hidden'));
+    }));
+    const desc = $('#ncDesc');
+    desc.addEventListener('input', () => { desc.style.height = 'auto'; desc.style.height = Math.min(120, desc.scrollHeight) + 'px'; });
 
     document.getElementById('ncSave').onclick = async () => {
         const btn = document.getElementById('ncSave');
         const nome = document.getElementById('ncName').value.trim();
         const ini = document.getElementById('ncStart').value;
         const fim = document.getElementById('ncEnd').value;
-        if (!nome) { toast('Dê um nome ao desafio', 'err'); return; }
-        if (!ini || !fim || new Date(fim) <= new Date(ini)) { toast('A data final precisa ser depois da inicial', 'err'); return; }
-
+        if (!nome) { toast('Dê um nome ao desafio', 'err'); document.getElementById('ncName').focus(); return; }
+        if (!ini || !fim || new Date(fim) < new Date(ini)) { toast('A data final precisa ser depois da inicial', 'err'); return; }
+        const times = !!sheet.querySelector('[data-formato="times"].on');
+        const metaT = document.getElementById('ncMetaTipo').value, metaV = Number(document.getElementById('ncMetaValor').value);
         btn.disabled = true; btn.textContent = 'Criando...';
         const { data, error } = await sb.from('challenges').insert({
             name: nome,
             description: document.getElementById('ncDesc').value.trim() || null,
             rules: document.getElementById('ncRegras').value.trim() || null,
-            team_mode: !!sheet.querySelector('[data-formato="times"].on'),
-            team_count: sheet.querySelector('[data-formato="times"].on') ? Number((sheet.querySelector('[data-qtd].on') || {}).dataset?.qtd || 2) : null,
-            group_goal_type: (document.getElementById('ncMetaTipo').value && Number(document.getElementById('ncMetaValor').value) > 0) ? document.getElementById('ncMetaTipo').value : null,
-            group_goal_value: (document.getElementById('ncMetaTipo').value && Number(document.getElementById('ncMetaValor').value) > 0) ? Number(document.getElementById('ncMetaValor').value) : null,
+            team_mode: times,
+            team_count: times ? Number((sheet.querySelector('[data-qtd].on') || {}).dataset?.qtd || 2) : null,
+            group_goal_type: metaT && metaV > 0 ? metaT : null,
+            group_goal_value: metaT && metaV > 0 ? metaV : null,
             starts_at: new Date(ini + 'T00:00:00').toISOString(),
             ends_at: new Date(fim + 'T23:59:59').toISOString(),
             created_by: state.session.user.id,
-            is_open: document.getElementById('ncOpen').value === '1',
+            is_open: (sheet.querySelector('[data-aberto].on') || {}).dataset?.aberto !== '0',
         }).select().single();
         btn.disabled = false; btn.textContent = 'Criar desafio';
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
-
         await sb.from('challenge_members').insert({ challenge_id: data.id, user_id: state.session.user.id });
         close();
+        vibrar([10, 40, 14]);
         toast('Desafio criado!', 'ok');
         switchView('challenge', { id: data.id });
     };
@@ -11671,9 +11717,18 @@ document.addEventListener('click', async e => {
     } else if (act === 'seguir-de-volta') {
         e.stopPropagation();
         btn.disabled = true;
-        const { error } = await sb.rpc('follow_user', { target_id: btn.dataset.uid });
+        const { data: res, error } = await sb.rpc('follow_user', { target_id: btn.dataset.uid });
         if (error) { btn.disabled = false; toast('Não consegui seguir agora.', 'err'); return; }
-        btn.textContent = 'Seguindo'; btn.classList.add('feito');
+        btn.classList.add('feito');
+        if (res === 'requested') { btn.textContent = 'Solicitado'; btn.dataset.act = 'cancelar-pedido-notif'; btn.disabled = false; }
+        else btn.textContent = 'Seguindo';
+    } else if (act === 'cancelar-pedido-notif') {
+        e.stopPropagation();
+        if (!(await confirmar(`Cancelar o pedido pra seguir ${btn.dataset.nome || 'essa pessoa'}?`, 'Cancelar pedido', true))) return;
+        btn.disabled = true;
+        await sb.rpc('unfollow_user', { target_id: btn.dataset.uid });
+        btn.disabled = false; btn.classList.remove('feito');
+        btn.textContent = 'Seguir de volta'; btn.dataset.act = 'seguir-de-volta';
     } else if (act === 'perfil-seguindo-menu') {
         const privado = btn.dataset.private === '1';
         if (!(await confirmar(`Deixar de seguir ${btn.dataset.name || 'essa pessoa'}?${privado ? ' A conta é privada, pra ver de novo vai precisar pedir.' : ''}`, 'Deixar de seguir', true))) return;
@@ -14747,6 +14802,7 @@ async function preencherStatusRegistro() {
     } catch (_) {}
 }
 function limparComposer() {
+    delete $('#mSlot').dataset.tocado;
     $('#pCaption').value = '';
     $('#pPhotoCam').value = '';
     $('#pPhotoGal').value = '';
@@ -14770,30 +14826,197 @@ $('#postFab').addEventListener('click', () => {
     dicaDoMais();
 });
 // + do feed: vai direto pro post livre
-// + do topo (feed e perfil): menuzinho Post / Story, igual Instagram
-function abrirPostDireto() { limparComposer(); setComposerKind('post'); abrirComposer(); }
-$('#feedPostBtn').addEventListener('click', e => {
-    e.stopPropagation();
-    const velho = document.getElementById('novoMenu'); if (velho) { velho.remove(); return; }
-    const r = e.currentTarget.getBoundingClientRect();
-    const m = document.createElement('div');
-    m.id = 'novoMenu';
-    m.className = 'novo-menu';
-    m.style.top = (r.bottom + 8) + 'px';
-    m.style.left = Math.max(10, r.left) + 'px';
-    m.innerHTML = `<button type="button" data-novo="post"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/></svg><span><b>Post</b><small>Foto pro feed</small></span></button>
-        <button type="button" data-novo="story"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/><path d="M12 8.5v7M8.5 12h7"/></svg><span><b>Story</b><small>Some em 24 horas</small></span></button>`;
-    document.body.appendChild(m);
-    requestAnimationFrame(() => m.classList.add('on'));
-    const fechar = () => { m.remove(); document.removeEventListener('click', foraFecha, true); };
-    const foraFecha = ev => { if (!m.contains(ev.target)) { ev.stopPropagation(); ev.preventDefault(); fechar(); } };
-    setTimeout(() => document.addEventListener('click', foraFecha, true), 0);
-    m.addEventListener('click', ev => {
-        const b = ev.target.closest('[data-novo]'); if (!b) return;
-        fechar();
-        if (b.dataset.novo === 'story') openStoryCreator(); else abrirPostDireto();
+// ============================================================
+// CRIAR (+ do topo): câmera em tela cheia com POST / STORY, igual Instagram
+// ============================================================
+function abrirPostDireto() { abrirCriar('post'); }
+const SVG_C = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+async function abrirCriar(modo = 'post') {
+    fecharCriar();
+    const tela = document.createElement('div');
+    tela.id = 'criarTela';
+    tela.className = 'criar-tela modo-' + modo;
+    tela.innerHTML = `
+        <div class="cr-cam"><video id="crVideo" playsinline autoplay muted></video><div class="cr-sem-cam"><span>${SVG_C('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}</span><p>Toque no botão pra tirar a foto<br>ou escolha da galeria</p></div></div>
+        <div class="cr-topo">
+            <button type="button" class="cr-x" data-cr="fechar" aria-label="Fechar">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
+            <span class="cr-titulo">Novo post</span>
+            <span style="width:40px"></span>
+        </div>
+        <div class="cr-lado">
+            <button type="button" data-cr="texto"><b>Aa</b><small>Texto</small></button>
+            <button type="button" data-cr="treino">${SVG_C('<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>')}<small>Último treino</small></button>
+        </div>
+        <div class="cr-base">
+            <label class="cr-gal" aria-label="Galeria"><span id="crGalThumb">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}</span><input type="file" accept="image/*" id="crGal" hidden></label>
+            <button type="button" class="cr-shot" data-cr="foto" aria-label="Tirar foto"><i></i></button>
+            <button type="button" class="cr-flip" data-cr="virar" aria-label="Virar câmera">${SVG_C('<path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3M18 3v4h-4M6 21v-4h4"/>')}</button>
+            <input type="file" accept="image/*" capture="environment" id="crCamNativa" hidden>
+        </div>
+        <div class="cr-modos"><button type="button" data-cr="modo" data-m="post">POST</button><button type="button" data-cr="modo" data-m="story">STORY</button></div>`;
+    document.body.appendChild(tela);
+    document.body.style.overflow = 'hidden';
+    state.criar = { modo, frente: false, stream: null };
+    requestAnimationFrame(() => tela.classList.add('on'));
+    const setModo = m => {
+        state.criar.modo = m;
+        tela.classList.toggle('modo-post', m === 'post'); tela.classList.toggle('modo-story', m === 'story');
+        tela.querySelector('.cr-titulo').textContent = m === 'post' ? 'Novo post' : '';
+        vibrar(6);
+    };
+    setModo(modo);
+    const usarArquivo = file => {
+        if (!file) return;
+        const m = state.criar.modo;
+        fecharCriar();
+        if (m === 'story') { openStoryCreator(); entrarModoFoto(file); }
+        else abrirNovoPost(file);
+    };
+    tela.querySelector('#crGal').addEventListener('change', e => usarArquivo(e.target.files && e.target.files[0]));
+    tela.querySelector('#crCamNativa').addEventListener('change', e => usarArquivo(e.target.files && e.target.files[0]));
+    tela.addEventListener('click', async e => {
+        const b = e.target.closest('[data-cr]'); if (!b) return;
+        const a = b.dataset.cr;
+        if (a === 'fechar') fecharCriar();
+        else if (a === 'modo') setModo(b.dataset.m);
+        else if (a === 'virar') { state.criar.frente = !state.criar.frente; ligarCameraCriar(); }
+        else if (a === 'texto') { fecharCriar(); openStoryCreator(); entrarModoTexto(); }
+        else if (a === 'treino') {
+            const { data: ult } = await sb.from('posts').select('*').eq('user_id', state.session.user.id).eq('kind', 'workout').order('created_at', { ascending: false }).limit(1);
+            if (!ult || !ult.length) { toast('Registre um treino primeiro pra virar story.', 'err'); return; }
+            fecharCriar(); publicarStoryTreino(ult[0]);
+        } else if (a === 'foto') {
+            const v = tela.querySelector('#crVideo');
+            if (!state.criar.stream || !v.videoWidth) { tela.querySelector('#crCamNativa').click(); return; }
+            vibrar(12);
+            tela.classList.add('flash'); setTimeout(() => tela.classList.remove('flash'), 180);
+            const cv = document.createElement('canvas');
+            cv.width = v.videoWidth; cv.height = v.videoHeight;
+            const ctx = cv.getContext('2d');
+            if (state.criar.frente) { ctx.translate(cv.width, 0); ctx.scale(-1, 1); }
+            ctx.drawImage(v, 0, 0);
+            cv.toBlob(bl => { if (bl) usarArquivo(new File([bl], `foto-${Date.now()}.jpg`, { type: 'image/jpeg' })); }, 'image/jpeg', 0.9);
+        }
     });
-});
+    // deslizar pro lado troca POST / STORY
+    let x0 = null;
+    tela.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+    tela.addEventListener('touchend', e => {
+        if (x0 == null) return;
+        const dx = e.changedTouches[0].clientX - x0; x0 = null;
+        if (Math.abs(dx) > 60) setModo(dx < 0 ? 'story' : 'post');
+    });
+    ligarCameraCriar();
+}
+async function ligarCameraCriar() {
+    const tela = document.getElementById('criarTela'); if (!tela || !state.criar) return;
+    if (state.criar.stream) { state.criar.stream.getTracks().forEach(t => t.stop()); state.criar.stream = null; }
+    const v = tela.querySelector('#crVideo');
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('sem camera');
+        const st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: state.criar.frente ? 'user' : 'environment', width: { ideal: 1920 }, height: { ideal: 1920 } }, audio: false });
+        if (!document.getElementById('criarTela')) { st.getTracks().forEach(t => t.stop()); return; }
+        state.criar.stream = st;
+        v.srcObject = st;
+        v.classList.toggle('espelho', !!state.criar.frente);
+        tela.classList.add('com-cam');
+    } catch (_) {
+        tela.classList.remove('com-cam');
+    }
+}
+function fecharCriar() {
+    const t = document.getElementById('criarTela');
+    if (state.criar && state.criar.stream) state.criar.stream.getTracks().forEach(x => x.stop());
+    if (state.criar) state.criar.stream = null;
+    if (t) t.remove();
+    document.body.style.overflow = '';
+}
+$('#feedPostBtn').addEventListener('click', e => { e.stopPropagation(); abrirCriar('post'); });
+
+// ---- Tela "Novo post" (foto + legenda + quem vê) ----
+const VIS_NOME = { public: 'Público', followers: 'Seguidores', private: 'Só eu' };
+function abrirNovoPost(file) {
+    const old = document.getElementById('novoPostTela'); if (old) old.remove();
+    const url = URL.createObjectURL(file);
+    state.novoPost = { file, url, vis: state.defaultPrivacy || 'public' };
+    const tela = document.createElement('div');
+    tela.id = 'novoPostTela';
+    tela.className = 'np-tela';
+    const p = state.profile || {};
+    tela.innerHTML = `
+        <div class="np-topo">
+            <button type="button" class="np-x" data-np="fechar" aria-label="Fechar">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
+            <b>Novo post</b>
+            <button type="button" class="np-pub" data-np="publicar">Publicar</button>
+        </div>
+        <div class="np-corpo">
+            <div class="np-foto"><img src="${url}" alt=""><label class="np-trocar">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}Trocar<input type="file" accept="image/*" id="npTrocar" hidden></label></div>
+            <div class="np-leg">${avatarHTML(p, 'sm')}<textarea id="npLegenda" rows="2" maxlength="2200" placeholder="Escreva uma legenda..."></textarea></div>
+            <button type="button" class="np-linha" data-np="vis">${SVG_C('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>')}<span>Quem vê</span><span class="np-val" id="npVis">${VIS_NOME[state.novoPost.vis]}</span>${SVG_C('<path d="M9 6l6 6-6 6"/>')}</button>
+        </div>`;
+    document.body.appendChild(tela);
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => tela.classList.add('on'));
+    const ta = tela.querySelector('#npLegenda');
+    ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(160, ta.scrollHeight) + 'px'; });
+    tela.querySelector('#npTrocar').addEventListener('change', e => {
+        const f = e.target.files && e.target.files[0]; if (!f) return;
+        URL.revokeObjectURL(state.novoPost.url);
+        state.novoPost.file = f; state.novoPost.url = URL.createObjectURL(f);
+        tela.querySelector('.np-foto img').src = state.novoPost.url;
+    });
+    tela.addEventListener('click', async e => {
+        const b = e.target.closest('[data-np]'); if (!b) return;
+        const a = b.dataset.np;
+        if (a === 'fechar') { tela.remove(); document.body.style.overflow = ''; }
+        else if (a === 'vis') {
+            const ordem = ['public', 'followers', 'private'];
+            state.novoPost.vis = ordem[(ordem.indexOf(state.novoPost.vis) + 1) % 3];
+            tela.querySelector('#npVis').textContent = VIS_NOME[state.novoPost.vis];
+            vibrar(6);
+        } else if (a === 'publicar') publicarNovoPost(b);
+    });
+}
+async function publicarNovoPost(btn) {
+    const np = state.novoPost; if (!np || btn.disabled) return;
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try {
+        const [imageUrl, thumbUrl] = await Promise.all([uploadImage('post-images', np.file), uploadMiniatura(np.file)]);
+        const legenda = (document.getElementById('npLegenda').value || '').trim();
+        const { data: criado, error } = await sb.from('posts').insert({
+            user_id: state.session.user.id, kind: 'text', caption: legenda || null,
+            image_url: imageUrl, thumb_url: thumbUrl, visibility: np.vis, is_public: np.vis === 'public', in_feed: true,
+        }).select('id').single();
+        if (error) {
+            const t = String(error.message || '');
+            if (t.includes('limite_por_hora')) { toast('Você postou bastante na última hora. Dá um tempinho e volte.', 'err'); return; }
+            throw error;
+        }
+        const tela = document.getElementById('novoPostTela'); if (tela) tela.remove();
+        document.body.style.overflow = '';
+        vibrar([10, 40, 14]);
+        toast('Publicado no feed', 'ok');
+        if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile();
+        if (criado) checarFotoDepois(criado.id, imageUrl);
+    } catch (e) {
+        toast(msgErro(e), 'err');
+    } finally {
+        btn.disabled = false; btn.textContent = 'Publicar';
+    }
+}
+// Checagem da foto por trás: a pessoa não espera. Se for imprópria, o post sai do ar e o admin é avisado.
+async function checarFotoDepois(postId, imageUrl) {
+    try {
+        const { data: mod } = await sb.functions.invoke('vision-tools', { body: { task: 'moderate', imageUrl } });
+        if (mod && mod.safe === false) {
+            await sb.from('posts').update({ archived: true }).eq('id', postId).eq('user_id', state.session.user.id);
+            sb.from('reports').insert({ reporter_id: state.session.user.id, target_user: state.session.user.id, post_id: postId, reason: 'Checagem automática: ' + (mod.reason || 'foto imprópria') }).then(() => {});
+            toast('Sua foto foi ocultada: ' + (mod.reason || 'ela não pode ir pro feed.'), 'err');
+            if (state.view === 'feed') renderFeed();
+        }
+    } catch (_) {}
+}
+
 $('#composerBack').addEventListener('click', () => {
     limparComposer();
     mostrarEscolhaDeTipo();
@@ -14866,10 +15089,10 @@ $('#iaTexto').addEventListener('keydown', e => { if (e.key === 'Enter') { e.prev
 
 $$('.kind-tile').forEach(b => b.addEventListener('click', e => {
     const kind = e.currentTarget.dataset.kind;
-    if (kind === 'story') { closeComposer(); openStoryCreator(); return; }
+    if (kind === 'story') { closeComposer(); abrirCriar('story'); return; }
+    if (kind === 'post') { closeComposer(); abrirCriar('post'); return; }
     if (kind === 'challenge') { closeComposer(); openNewChallengeSheet(); return; }
     setComposerKind(kind);
-    if (kind === 'post') $('#composerBack').classList.remove('hidden'); // veio do Registrar: dá pra voltar
 }));
 
 function setComposerKind(kind) {
@@ -15154,15 +15377,50 @@ $$('#composerSheet .contador [data-c]').forEach(b => b.addEventListener('click',
 }));
 
 // ---- Refeição: tipo em chips e foto do prato em destaque ----
+// Refeição do horário: 0–11 café · 11–15 almoço · 15–18 lanche · 18–24 jantar
+const ORDEM_SLOTS = ['cafe', 'almoco', 'lanche', 'jantar'];
 function horaParaSlot() {
     const h = new Date().getHours();
-    return h < 10 ? 'cafe' : h < 15 ? 'almoco' : h < 18 ? 'lanche' : 'jantar';
+    return h < 11 ? 'cafe' : h < 15 ? 'almoco' : h < 18 ? 'lanche' : 'jantar';
+}
+// Se a do horário já foi feita hoje, sugere a próxima que ainda falta
+function slotSugerido(feitos) {
+    const agora = horaParaSlot();
+    if (!feitos.has(agora)) return agora;
+    const i = ORDEM_SLOTS.indexOf(agora);
+    const prox = ORDEM_SLOTS.slice(i + 1).find(x => !feitos.has(x));
+    return prox || agora;
+}
+function pintarSlots() {
+    const sel = $('#mSlot'), feitos = state.slotsFeitos || new Set(), agora = horaParaSlot();
+    $$('#mSlotChips [data-slot]').forEach(b => {
+        const k = b.dataset.slot;
+        b.classList.toggle('on', k === sel.value);
+        b.classList.toggle('feito', feitos.has(k));
+        const sm = b.querySelector('small');
+        if (sm) sm.textContent = feitos.has(k) ? '✓ feito' : k === agora ? 'agora' : sm.dataset.hora;
+    });
+    const btn = $('#composerSubmit');
+    if (btn && state.composerKind === 'meal' && !btn.disabled && state.composerDest !== 'feed') {
+        btn.innerHTML = `Registrar ${({ cafe: 'café', almoco: 'almoço', lanche: 'lanche', jantar: 'jantar' })[sel.value] || 'refeição'}${state.composerPhoto ? '<span class="btn-pts">· +1 pt</span>' : ''}`;
+    }
 }
 function marcarSlotRefeicao(slot) {
     const sel = $('#mSlot');
     if (slot) sel.value = slot;
-    else if (!sel.dataset.tocado) sel.value = horaParaSlot();
-    $$('#mSlotChips [data-slot]').forEach(b => b.classList.toggle('on', b.dataset.slot === sel.value));
+    else if (!sel.dataset.tocado) sel.value = slotSugerido(state.slotsFeitos || new Set());
+    pintarSlots();
+    if (!slot && !sel.dataset.tocado) carregarSlotsFeitos();
+}
+async function carregarSlotsFeitos() {
+    try {
+        const ini = new Date(); ini.setHours(0, 0, 0, 0);
+        const { data } = await sb.from('posts').select('meal_slot').eq('user_id', state.session.user.id).eq('kind', 'meal').gte('created_at', ini.toISOString()).limit(20);
+        state.slotsFeitos = new Set((data || []).map(x => x.meal_slot).filter(Boolean));
+        const sel = $('#mSlot');
+        if (!sel.dataset.tocado) sel.value = slotSugerido(state.slotsFeitos);
+        pintarSlots();
+    } catch (_) {}
 }
 $('#mSlotChips').addEventListener('click', e => {
     const b = e.target.closest('[data-slot]');
@@ -15178,6 +15436,11 @@ function atualizarFotoRefeicao() {
     box.classList.toggle('com-foto', !!tem);
     if (tem) $('#refFotoImg').src = prev.src; else $('#refFotoImg').removeAttribute('src');
 }
+['#pPhotoMealCam', '#pPhotoMealTroca'].forEach(id => $(id).addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    try { const dt = new DataTransfer(); dt.items.add(f); $('#pPhotoMeal').files = dt.files; $('#pPhotoMeal').dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+    e.target.value = '';
+}));
 $('#pPhotoMeal').addEventListener('change', e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
@@ -15255,7 +15518,7 @@ function updateDestUI() {
 
     const btn = $('#composerSubmit');
     if (btn && !btn.disabled && kind === 'meal') {
-        btn.innerHTML = state.composerDest === 'feed' ? 'Publicar refeição' : `Registrar refeição${state.composerPhoto ? '<span class="btn-pts">· +1 pt</span>' : ''}`;
+        btn.innerHTML = state.composerDest === 'feed' ? 'Publicar refeição' : `Registrar ${({ cafe: 'café', almoco: 'almoço', lanche: 'lanche', jantar: 'jantar' })[$('#mSlot').value] || 'refeição'}${state.composerPhoto ? '<span class="btn-pts">· +1 pt</span>' : ''}`;
     } else if (btn && !btn.disabled && kind === 'workout') {
         const pts = estimarPontosTreino();
         btn.innerHTML = `${state.composerDest === 'feed' ? 'Publicar' : 'Registrar'}<span class="btn-pts">· +${pts} pts</span>`;
@@ -15358,8 +15621,8 @@ $('#composerSubmit').addEventListener('click', async () => {
                 ]);
             }
 
-            // Foto que vai pro feed passa por uma checagem rápida
-            if (state.composerDest === 'feed' || state.composerKind === 'story' || state.composerKind === 'post') {
+            // Story ainda checa antes; post e registros no feed checam por trás (sem esperar)
+            if (state.composerKind === 'story') {
                 btn.textContent = 'Verificando a foto...';
                 try {
                     const { data: mod } = await sb.functions.invoke('vision-tools', {
@@ -15649,6 +15912,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         setTimeout(() => checarConquistas(false), 1200);
         if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
         if (created) setTimeout(efeitoNoDesafio, 3200);
+        if (created && imageUrl && state.composerDest === 'feed') checarFotoDepois(created.id, imageUrl);
         // melhor hora pra pedir as notificações: logo depois de registrar algo
         if (created) setTimeout(talvezConvidarLembretes, eraTreino ? 7000 : 3500);
 

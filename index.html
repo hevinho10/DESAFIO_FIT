@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261202">
+<link rel="stylesheet" href="styles.css?v=20261203">
 </head>
 <body>
 
@@ -268,22 +268,26 @@
 
         <div id="mealFields" class="hidden">
             <div class="ref-slots" id="mSlotChips">
-                <button type="button" data-slot="cafe">Café da manhã</button>
-                <button type="button" data-slot="almoco">Almoço</button>
-                <button type="button" data-slot="jantar">Jantar</button>
-                <button type="button" data-slot="lanche">Lanche</button>
+                <button type="button" data-slot="cafe">Café<small data-hora="até 11h"></small></button>
+                <button type="button" data-slot="almoco">Almoço<small data-hora="11h–15h"></small></button>
+                <button type="button" data-slot="lanche">Lanche<small data-hora="15h–18h"></small></button>
+                <button type="button" data-slot="jantar">Jantar<small data-hora="18h–24h"></small></button>
             </div>
-            <label class="ref-foto" id="refFoto">
-                <span class="ref-foto-vazio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><b>Foto do prato</b><small>A IA analisa e dá a nota da refeição</small></span>
-                <img id="refFotoImg" alt="">
-                <input type="file" id="pPhotoMeal" accept="image/*" hidden>
-            </label>
+            <div class="ref-foto" id="refFoto">
+                <span class="ref-foto-vazio">
+                    <span class="rf-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+                    <b>Foto do prato</b><small>A IA dá a nota e a refeição vale ponto</small>
+                    <span class="rf-botoes">
+                        <label class="rf-btn primario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>Câmera<input type="file" id="pPhotoMealCam" accept="image/*" capture="environment" hidden></label>
+                        <label class="rf-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/></svg>Galeria<input type="file" id="pPhotoMeal" accept="image/*" hidden></label>
+                    </span>
+                </span>
+                <label class="rf-troca"><img id="refFotoImg" alt=""><span class="rf-trocar">Trocar foto</span><input type="file" id="pPhotoMealTroca" accept="image/*" hidden></label>
+            </div>
             <div class="ia-ajuda-ref">
-                <small>Ainda não comeu?</small>
-                <div class="iar-botoes">
-                    <label class="iar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>Escolher no cardápio<input type="file" accept="image/*" hidden data-ia-foto="cardapio"></label>
-                    <label class="iar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M5 10h14M8.5 6v1.5M8.5 13v3"/></svg>O que fazer com o que tenho<input type="file" accept="image/*" hidden data-ia-foto="geladeira"></label>
-                </div>
+                <small>Sem ideia do que comer?</small>
+                <label class="iar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>Ver cardápio<input type="file" accept="image/*" hidden data-ia-foto="cardapio"></label>
+                <label class="iar-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><path d="M5 10h14M8.5 6v1.5M8.5 13v3"/></svg>O que tenho em casa<input type="file" accept="image/*" hidden data-ia-foto="geladeira"></label>
             </div>
             <div class="field ref-antigo">
                 <label>Refeição</label>
@@ -550,6 +554,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js?v=20261202"></script>
+<script src="app.js?v=20261203"></script>
 </body>
 </html>
