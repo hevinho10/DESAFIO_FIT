@@ -156,6 +156,42 @@ function formatarPace(min, km) {
     const seg = Math.round((min * 60) / km);
     return `${Math.floor(seg / 60)}'${String(seg % 60).padStart(2, '0')}"/km`;
 }
+// Cor e ícone de cada atividade (usado no feed, perfil e calendário)
+const COR_ATIVIDADE = {
+    'Musculação': '53,225,155', 'Corrida': '255,122,77', 'Caminhada': '255,166,92', 'Ciclismo': '255,194,75',
+    'Natação': '64,200,230', 'Yoga': '167,139,250', 'Pilates': '214,136,232', 'Dança': '240,110,160',
+    'Alongamento': '120,214,200', 'Futebol': '95,176,255', 'HIIT': '255,96,96', 'Outro': '150,162,155',
+};
+const corAtividade = t => COR_ATIVIDADE[t] || COR_ATIVIDADE.Outro;
+function svgAtividade(t) {
+    const p = (typeof ICONES_ATIVIDADE !== 'undefined' && (ICONES_ATIVIDADE[t] || ICONES_ATIVIDADE.Outro))
+        || (t === 'HIIT' ? '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>' : '<circle cx="12" cy="12" r="9"/>');
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${t === 'HIIT' ? '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>' : p}</svg>`;
+}
+const SVG_REFEICAO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M17 3c-2 2-2 6 0 8v10"/></svg>';
+function cartaoAtividade(p, comQuem = '') {
+    const km = Number(p.distance_km || 0);
+    const n = (v, u) => `<span><b>${v}</b><small>${u}</small></span>`;
+    let nums = n(p.duration_min || 0, 'min');
+    if (km > 0) {
+        nums = n(br(km), 'km') + nums;
+        if (p.activity_type === 'Corrida' || p.activity_type === 'Caminhada') {
+            const pace = formatarPace(p.duration_min, km);
+            if (pace) nums += n(pace.replace('/km', ''), '/km');
+        }
+    }
+    const grupos = Array.isArray(p.muscle_groups) && p.muscle_groups.length
+        ? `<div class="atv-chips">${p.muscle_groups.map(g => `<span>${escapeHTML(g)}</span>`).join('')}</div>` : '';
+    return `<div class="atv-card" style="--c:${corAtividade(p.activity_type)}">
+        <span class="atv-ic">${svgAtividade(p.activity_type)}</span>
+        <div class="atv-txt">
+            <div class="atv-nome">${escapeHTML(p.activity_type || 'Treino')}${comQuem}</div>
+            <div class="atv-nums">${nums}</div>
+            ${grupos}
+        </div>
+    </div>`;
+}
+
 function detalheTreino(p) {
     let t = '';
     const km = Number(p.distance_km || 0);
@@ -1910,6 +1946,69 @@ async function enviarFotoAoCoach(file) {
     ]);
 }
 
+// ---- Toque com vibração leve (Android; no iPhone o navegador ignora) ----
+function vibrar(p) { try { if (navigator.vibrate) navigator.vibrate(p); } catch (_) {} }
+
+// ---- Puxar pra baixo pra atualizar (feed, notificações, mensagens, evolução) ----
+(function puxarPraAtualizar() {
+    const TELAS = { feed: () => renderFeed(), notifications: () => renderNotifications(), messages: () => renderMessages(), progress: () => renderProgress(), profile: () => renderProfile() };
+    let y0 = null, puxou = 0, ind = null, ativo = false;
+    const indicador = () => {
+        if (ind) return ind;
+        ind = document.createElement('div');
+        ind.className = 'ptr';
+        ind.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>';
+        document.body.appendChild(ind);
+        return ind;
+    };
+    document.addEventListener('touchstart', e => {
+        if (!TELAS[state.view] || window.scrollY > 0 || document.querySelector('.sheet.on, .fab-arco, #storyViewer.on')) { y0 = null; return; }
+        y0 = e.touches[0].clientY; puxou = 0; ativo = false;
+    }, { passive: true });
+    document.addEventListener('touchmove', e => {
+        if (y0 == null) return;
+        const dy = e.touches[0].clientY - y0;
+        if (dy <= 0 || window.scrollY > 0) { if (ativo) { indicador().style.opacity = 0; } return; }
+        ativo = true;
+        puxou = Math.min(110, dy * 0.5);
+        const el = indicador();
+        el.style.opacity = Math.min(1, puxou / 60);
+        el.style.transform = `translate(-50%, ${puxou}px) rotate(${puxou * 3}deg)`;
+        el.classList.toggle('pronto', puxou >= 64);
+    }, { passive: true });
+    document.addEventListener('touchend', async () => {
+        if (y0 == null || !ativo) { y0 = null; return; }
+        y0 = null;
+        const el = indicador();
+        if (puxou >= 64 && TELAS[state.view]) {
+            vibrar(10);
+            el.classList.add('girando');
+            el.style.transform = 'translate(-50%, 64px)';
+            try { await TELAS[state.view](); updateNotifBadge(); updateUnreadBadge(); } catch (_) {}
+            el.classList.remove('girando');
+        }
+        el.style.opacity = 0; el.style.transform = 'translate(-50%, 0)';
+    });
+})();
+
+// ---- Topo de cada tela ----
+// feed: logo + sino + chat · abas: título grande · perfil: + @user sino chat menu · internas: só o cabeçalho da própria tela
+const TITULO_ABA = { progress: 'Evolução', desafio: 'Desafios', messages: 'Mensagens' };
+const TELAS_INTERNAS = ['notifications', 'search', 'user-profile', 'challenge', 'challenges', 'compare', 'activity-log', 'health', 'edit-profile', 'admin', 'coach', 'chat'];
+function aplicarModoTopo(v) {
+    const modo = v === 'feed' ? 'feed' : v === 'profile' ? 'perfil' : TITULO_ABA[v] ? 'aba' : TELAS_INTERNAS.includes(v) ? 'interna' : 'feed';
+    const html = document.documentElement;
+    ['feed', 'aba', 'perfil', 'interna'].forEach(m => html.classList.toggle('topo-' + m, m === modo));
+    html.classList.toggle('topo-busca', v === 'desafio');
+    html.classList.toggle('topo-sem-msg', v === 'messages');
+    const t = document.getElementById('topbarTitulo');
+    if (t) { t.textContent = TITULO_ABA[v] || ''; t.classList.toggle('hidden', modo !== 'aba'); }
+    const brand = document.querySelector('.topbar-brand');
+    if (brand) brand.classList.toggle('hidden', modo !== 'feed');
+    const novo = document.getElementById('feedPostBtn');
+    if (novo) novo.classList.toggle('hidden', modo !== 'perfil');
+}
+
 // ---- Abrir no que a pessoa mais usa ----
 const ABAS_INICIO = ['feed', 'progress', 'desafio', 'messages'];
 function contarUsoAba(v) {
@@ -3239,7 +3338,7 @@ async function renderNotifications() {
         return;
     }
     if (!data || data.length === 0) {
-        box.innerHTML = `<div class="feed-empty"><span class="emo">🔔</span><h3>Nenhum aviso por enquanto</h3><p>Quando alguém curtir, comentar, seguir você ou te chamar pra um desafio, aparece aqui.</p><button class="btn-mini" data-act="m-go" data-view="search">Encontrar pessoas</button></div>`;
+        box.innerHTML = vazioAcao('sino', 'Nenhum aviso por enquanto', 'Quando alguém curtir, comentar, seguir você ou te chamar pra um desafio, aparece aqui.', 'Encontrar pessoas', 'data-act="m-go" data-view="search"');
         await sb.rpc('mark_notifications_read');
         updateNotifBadge();
         return;
@@ -3345,7 +3444,7 @@ async function renderNotifications() {
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         }
         return `${cabNot}<div class="notif-row${n.read_at ? '' : ' nova'}"${act}>
-            <span class="notif-av">${avatarHTML(autor, 'sm')}<span class="notif-mark">${emo}</span></span>
+            <span class="notif-av">${avatarHTML(autor, 'sm')}${marcaNotif(emo)}</span>
             <div class="notif-body">
                 <div class="notif-text">${texto}</div>
                 ${extra}
@@ -3356,6 +3455,25 @@ async function renderNotifications() {
 
     await Promise.all([sb.rpc('mark_notifications_read'), sb.rpc('mark_app_notifications_read')]);
     updateNotifBadge();
+}
+
+// Selinho da notificação: ícone de linha colorido no lugar do emoji
+const MARCAS_NOTIF = {
+    coment: ['95,176,255', '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'],
+    curtida: ['255,90,122', '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'],
+    pessoa: ['53,225,155', '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'],
+    ok: ['53,225,155', '<path d="M5 12l5 5 9-10"/>'],
+    ponto: ['255,194,75', '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'],
+    arroba: ['167,139,250', '<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>'],
+    trofeu: ['255,194,75', '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'],
+    estrela: ['53,225,155', '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'],
+    grupo: ['95,176,255', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>'],
+};
+const EMO_MARCA = { '💬': 'coment', '↩️': 'coment', '❤️': 'curtida', '👤': 'pessoa', '✅': 'ok', '🎁': 'ponto', '@': 'arroba', '📣': 'arroba',
+    '🎉': 'estrela', '🆕': 'pessoa', '✍️': 'coment', '✨': 'estrela', '🛠️': 'ok', '🤝': 'grupo', '💪': 'ponto', '🙋': 'pessoa' };
+function marcaNotif(emo) {
+    const [cor, d] = MARCAS_NOTIF[EMO_MARCA[emo] || 'trofeu'];
+    return `<span class="notif-mark" style="--c:${cor}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
 }
 
 // ---- Como funcionam os pontos ----
@@ -3994,73 +4112,120 @@ const WORKOUT_EMOJI = {
     'Yoga':'🧘', 'Pilates':'🧘', 'Dança':'💃', 'HIIT':'⚡', 'Alongamento':'🤸', 'Futebol':'⚽', 'Outro':'💪'
 };
 
-async function renderWorkoutHistory(uid) {
+async function renderWorkoutHistory(uid, ano, mes) {
     const body = $('#profileTabBody');
     if (!body) return;
-    body.innerHTML = '<div class="spinner"></div>';
-
-    const iniMes = new Date(); iniMes.setDate(1); iniMes.setHours(0, 0, 0, 0);
-    const { data: ofensiva } = await sb.from('daily_streaks').select('current_streak, longest_streak').eq('user_id', uid).maybeSingle();
+    const hoje = new Date();
+    if (ano == null) { ano = hoje.getFullYear(); mes = hoje.getMonth(); }
+    state.calTreino = { uid, ano, mes };
+    if (!body.querySelector('.calt')) body.innerHTML = '<div class="spinner"></div>';
     const ehMeuPerfil = uid === state.session.user.id;
-    let qTr = sb.from('posts')
-        .select('id, activity_type, duration_min, distance_km, caption, created_at, image_url, in_feed, muscle_groups, meta, user_id')
-        .eq('user_id', uid).eq('kind', 'workout');
-    if (!ehMeuPerfil) qTr = qTr.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
-    const { data, error } = await qTr.order('created_at', { ascending: false }).limit(60);
-
-    if (!$('#profileTabBody')) return;
+    const ini = new Date(ano, mes, 1), fim = new Date(ano, mes + 1, 1);
+    const filtro = q => ehMeuPerfil ? q : q.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
+    const campos = 'id, activity_type, duration_min, distance_km, caption, created_at, image_url, thumb_url, in_feed, muscle_groups, meta, user_id';
+    const [{ data, error }, { data: comFoto }] = await Promise.all([
+        filtro(sb.from('posts').select(campos).eq('user_id', uid).eq('kind', 'workout'))
+            .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()).order('created_at', { ascending: true }).limit(200),
+        sb.from('posts').select('id, image_url, thumb_url, activity_type, duration_min, distance_km').eq('user_id', uid).eq('kind', 'workout')
+            .eq('in_feed', true).not('image_url', 'is', null).eq('archived', false).order('created_at', { ascending: false }).limit(30),
+    ]);
+    if (!$('#profileTabBody') || !state.calTreino || state.calTreino.mes !== mes || state.calTreino.ano !== ano) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
-    if (!data || data.length === 0) { body.innerHTML = ehMeuPerfil ? vazioAcao('grafico', 'Nenhum treino ainda', 'Vale até 15 pontos por treino, com ou sem foto.', 'Registrar treino', 'data-act="quick-kind" data-kind="workout"') : '<div class="grid-empty">Nenhum treino publicado ainda.</div>'; return; }
-
-    const totalMin = data.reduce((s, w) => s + (w.duration_min || 0), 0);
-    const horas = Math.floor(totalMin / 60), mins = totalMin % 60;
-
+    const lista = data || [];
     state.wkDados = state.wkDados || {};
-    data.forEach(w => { state.wkDados[w.id] = w; });
-    // grupos: Esta semana, Semana passada, depois por mês
-    const seg = segundaDe(); seg.setHours(0, 0, 0, 0);
-    const segPassada = new Date(seg); segPassada.setDate(seg.getDate() - 7);
-    const grupoDe = d => d >= seg ? 'Esta semana' : d >= segPassada ? 'Semana passada'
-        : (n => n.charAt(0).toUpperCase() + n.slice(1))(d.toLocaleDateString('pt-BR', { month: 'long' }) + (d.getFullYear() !== new Date().getFullYear() ? ' de ' + d.getFullYear() : ''));
-    let grupoAtual = null;
-    const rows = data.map(w => {
-        const d = new Date(w.created_at);
-        const dia = d.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
-        const tipo = w.activity_type || 'Treino';
-        const act = ehMeuPerfil ? ` data-act="wk-detalhe" data-id="${w.id}"` : (w.in_feed ? ` data-act="view-post" data-id="${w.id}"` : '');
-        const km = w.distance_km ? ` · ${br(w.distance_km)} km` : '';
-        // detalhe sem repetir o nome da atividade; sem detalhe, o que treinou ou a hora
-        let sub = String(w.caption || '').trim();
-        const prefixo = new RegExp('^' + tipo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[:\\-–·,]?\\s*', 'i');
-        sub = sub.replace(prefixo, '').trim();
-        if (sub) sub = sub.charAt(0).toUpperCase() + sub.slice(1);
-        if (!sub && (w.muscle_groups || []).length) sub = w.muscle_groups.join(', ');
-        if (!sub) sub = 'às ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(':00', 'h');
-        const g = grupoDe(d);
-        const titulo = g !== grupoAtual ? `<div class="wk-grupo">${g}</div>` : '';
-        grupoAtual = g;
-        const ic = (typeof ICONES_ATIVIDADE !== 'undefined' && (ICONES_ATIVIDADE[tipo] || ICONES_ATIVIDADE.Outro)) || '';
-        return `${titulo}<div class="wk-row tappable"${act}>
-            <span class="wk-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ic}</svg></span>
-            <div class="wk-body">
-                <div class="wk-title">${escapeHTML(tipo)} <b>${w.duration_min || 0} min</b><span class="wk-km">${km}</span>${ehMeuPerfil && w.in_feed ? ' <svg class="wk-feed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="Publicado no feed"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 9h17"/></svg>' : ''}</div>
-                <div class="wk-sub">${escapeHTML(sub.slice(0, 70))}</div>
-            </div>
-            <span class="wk-date">${dia}</span>
-            ${ehMeuPerfil ? `<button class="wk-mais" data-act="wk-menu" data-id="${w.id}" data-tipo="treino" aria-label="Opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>` : ''}
-        </div>`;
-    }).join('');
+    lista.forEach(w => { state.wkDados[w.id] = w; });
 
-    const noMes = data.filter(w => new Date(w.created_at) >= iniMes).length;
-    const kmTotal = data.reduce((t, w) => t + Number(w.distance_km || 0), 0);
-    const partes = [
-        `<b>${noMes}</b> ${noMes === 1 ? 'treino' : 'treinos'} no mês`,
-        `<b>${horas}h${mins ? String(mins).padStart(2,'0') : ''}</b>`,
-    ];
-    if (kmTotal) partes.push(`<b>${String(Math.round(kmTotal * 10) / 10).replace('.', ',')}</b> km`);
-    if (ofensiva && ofensiva.current_streak) partes.push(`🔥 <b>${ofensiva.current_streak}</b>`);
-    body.innerHTML = `<div class="wk-summary wk-summary-1">${partes.join(' · ')}</div>
-        <div class="wk-list">${rows}</div>`;
+    // agrupa por dia (horário de Brasília)
+    const porDia = {};
+    lista.forEach(w => { const d = new Date(w.created_at).getDate(); (porDia[d] = porDia[d] || []).push(w); });
+    state.calPorDia = porDia;
+
+    const totalMin = lista.reduce((t, w) => t + (w.duration_min || 0), 0);
+    const kmTotal = lista.reduce((t, w) => t + Number(w.distance_km || 0), 0);
+    const h = Math.floor(totalMin / 60), m = totalMin % 60;
+    const tempo = h ? `${h}h${m ? String(m).padStart(2, '0') : ''}` : `${m} min`;
+    const nomeMes = (NOME_MES[mes] || '').replace(/^./, x => x.toUpperCase());
+    const ehMesAtual = ano === hoje.getFullYear() && mes === hoje.getMonth();
+
+    const offset = (ini.getDay() + 6) % 7; // semana começa na segunda
+    const nDias = new Date(ano, mes + 1, 0).getDate();
+    let cel = '<span class="cd vazio"></span>'.repeat(offset);
+    for (let d = 1; d <= nDias; d++) {
+        const ws = porDia[d] || [];
+        const futuro = ehMesAtual && d > hoje.getDate();
+        const ehHoje = ehMesAtual && d === hoje.getDate();
+        let cls = 'cd', st = '', dentro = `<span class="cd-n">${d}</span>`;
+        if (ws.length) {
+            const principal = [...ws].sort((a, b) => (b.duration_min || 0) - (a.duration_min || 0))[0];
+            const tipos = [...new Set(ws.map(w => w.activity_type || 'Outro'))];
+            cls += ' tem';
+            st = ` style="--c:${corAtividade(principal.activity_type)}"`;
+            dentro = `${svgAtividade(principal.activity_type)}<span class="cd-n">${d}</span>`
+                + (ws.length > 1 ? `<span class="cd-pts">${tipos.slice(0, 3).map(t => `<i style="background:rgb(${corAtividade(t)})"></i>`).join('')}${tipos.length === 1 ? `<i style="background:rgb(${corAtividade(tipos[0])})"></i>` : ''}</span>` : '');
+        }
+        if (ehHoje) cls += ' hoje';
+        if (futuro) cls += ' futuro';
+        cel += ws.length ? `<button type="button" class="${cls}"${st} data-act="cal-dia" data-dia="${d}">${dentro}</button>` : `<span class="${cls}">${dentro}</span>`;
+    }
+    const tiposMes = [...new Set(lista.map(w => w.activity_type || 'Outro'))];
+    const legenda = tiposMes.length ? `<div class="calt-leg">${tiposMes.map(t => `<span><i style="background:rgb(${corAtividade(t)})"></i>${escapeHTML(t)}</span>`).join('')}</div>` : '';
+    const vazioMes = !lista.length ? `<p class="calt-vazio">${ehMeuPerfil
+        ? (ehMesAtual ? 'Nenhum treino esse mês ainda. Cada um vale até 15 pontos.' : `Nenhum treino em ${NOME_MES[mes]}.`)
+        : `Nenhum treino publicado em ${NOME_MES[mes]}.`}</p>${ehMeuPerfil && ehMesAtual ? '<button class="btn-mini calt-cta" data-act="quick-kind" data-kind="workout">Registrar treino</button>' : ''}` : '';
+
+    const fotos = (comFoto || []);
+    const gradeFotos = fotos.length ? `<div class="calt-sub"><span>Treinos com foto</span><span>${fotos.length}</span></div>
+        <div class="ig-grid">${fotos.map(p => `<div class="grid-item" data-act="view-post" data-id="${p.id}"><img src="${p.thumb_url || p.image_url}" loading="lazy" decoding="async"><span class="gi-leg">${escapeHTML(p.activity_type || 'Treino')} · ${p.distance_km ? br(p.distance_km) + ' km' : (p.duration_min || 0) + ' min'}</span></div>`).join('')}</div>` : '';
+
+    body.innerHTML = `<div class="calt">
+        <div class="calt-topo">
+            <b>${nomeMes} ${ano !== hoje.getFullYear() ? ano : ''}</b>
+            <div class="calt-nav">
+                <button type="button" data-act="cal-mes" data-d="-1" aria-label="Mês anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+                <button type="button" data-act="cal-mes" data-d="1" aria-label="Próximo mês"${ehMesAtual ? ' disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+            </div>
+        </div>
+        <div class="calt-resumo"><span><b>${lista.length}</b>${lista.length === 1 ? 'treino' : 'treinos'}</span><span><b>${tempo}</b>ativo</span>${kmTotal ? `<span><b>${br(Math.round(kmTotal * 10) / 10)}</b>km</span>` : ''}</div>
+        <div class="calt-sem">${'STQQSSD'.split('').map(x => `<span>${x}</span>`).join('')}</div>
+        <div class="calt-dias">${cel}</div>
+        ${legenda}${vazioMes}
+    </div>${gradeFotos}`;
+}
+
+function abrirDiaTreino(d) {
+    const ws = (state.calPorDia || {})[d] || [];
+    if (!ws.length) return;
+    const ehMeu = state.calTreino && state.calTreino.uid === state.session.user.id;
+    const data = new Date(ws[0].created_at);
+    let titulo = data.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+    titulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);
+    const min = ws.reduce((t, w) => t + (w.duration_min || 0), 0);
+    const h = Math.floor(min / 60), m = min % 60;
+    const old = document.getElementById('diaTreinoSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'diaTreinoSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">${titulo}</h3>
+        <p class="sheet-sub">${ws.length} ${ws.length === 1 ? 'treino' : 'treinos'} · ${h ? h + 'h' + (m ? String(m).padStart(2, '0') : '') : m + ' min'} ativo</p>
+        <div class="dia-lista">${ws.map(w => {
+            const km = Number(w.distance_km || 0);
+            const pace = km && (w.activity_type === 'Corrida' || w.activity_type === 'Caminhada') ? formatarPace(w.duration_min, km) : '';
+            const det = [km ? br(km) + ' km' : '', pace, (w.muscle_groups || []).join(', '), new Date(w.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · ');
+            const act = ehMeu ? `data-act="wk-detalhe" data-id="${w.id}"` : `data-act="view-post" data-id="${w.id}"`;
+            return `<button type="button" class="dia-item" ${act} style="--c:${corAtividade(w.activity_type)}">
+                <span class="atv-ic">${svgAtividade(w.activity_type)}</span>
+                <span class="dia-txt"><b>${escapeHTML(w.activity_type || 'Treino')} · ${w.duration_min || 0} min</b><small>${escapeHTML(det)}</small></span>
+                <span class="dia-ver">Ver<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+            </button>`;
+        }).join('')}</div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => {
+        if (e.target === sheet) { sheet.remove(); return; }
+        if (e.target.closest('[data-act]')) setTimeout(() => sheet.remove(), 0);
+    });
 }
 
 // ============================================================
@@ -4070,17 +4235,15 @@ function gridThumb(p) {
     if (p.image_url) {
         return `<div class="grid-item${p.pinned_at ? ' fixado' : ''}" data-act="view-post" data-id="${p.id}"><img src="${p.thumb_url || p.image_url}" loading="lazy" decoding="async"></div>`;
     }
-    let emo = '📝', line = '';
+    const fix = p.pinned_at ? ' fixado' : '';
     if (p.kind === 'workout') {
-        emo = '💪';
-        line = `${escapeHTML(p.activity_type || 'Treino')}<br><b>${p.duration_min || 0} min</b>`;
-    } else if (p.kind === 'meal') {
-        emo = '🍽️';
-        line = { cafe:'Café da manhã', almoco:'Almoço', jantar:'Jantar', lanche:'Lanche' }[p.meal_slot] || 'Refeição';
-    } else {
-        line = escapeHTML((p.caption || '').slice(0, 50));
+        const km = Number(p.distance_km || 0);
+        return `<div class="grid-item${fix}" data-act="view-post" data-id="${p.id}"><div class="gt-atv" style="--c:${corAtividade(p.activity_type)}">${svgAtividade(p.activity_type)}<div><b>${km ? br(km) : (p.duration_min || 0)}<small>${km ? 'km' : 'min'}</small></b><em>${escapeHTML(p.activity_type || 'Treino')}</em></div></div></div>`;
     }
-    return `<div class="grid-item${p.pinned_at ? ' fixado' : ''}" data-act="view-post" data-id="${p.id}"><div class="grid-text-thumb"><span class="gt-emo">${emo}</span><span class="gt-line">${line}</span></div></div>`;
+    if (p.kind === 'meal') {
+        return `<div class="grid-item${fix}" data-act="view-post" data-id="${p.id}"><div class="gt-atv" style="--c:255,194,75">${SVG_REFEICAO}<div><b style="font-size:17px">${MEAL_SLOT_NAME[p.meal_slot] || 'Refeição'}</b>${p.meal_score != null ? `<em>Nota ${br(p.meal_score)}</em>` : ''}</div></div></div>`;
+    }
+    return `<div class="grid-item${fix}" data-act="view-post" data-id="${p.id}"><div class="gt-texto">${escapeHTML((p.caption || '').slice(0, 90))}</div></div>`;
 }
 
 function closeDynamicSheets() {
@@ -5310,13 +5473,13 @@ function renderPost(p) {
     if (p.kind === 'workout') {
         const comQuem = (p.meta && Array.isArray(p.meta.com) && p.meta.com.length)
             ? ` <span class="post-com">com ${p.meta.com.map(u => `<a data-act="view-user" data-uid="${u.id}">@${escapeHTML(u.username || '')}</a>`).join(', ')}</span>` : '';
-        badge = `<div class="post-badge"><span class="emo">💪</span>${escapeHTML(p.activity_type||'Treino')} · <b>${p.duration_min||0} min</b>${detalheTreino(p)}${comQuem}</div>`;
+        badge = cartaoAtividade(p, comQuem);
     } else if (p.kind === 'meal') {
         const slotName = {cafe:'Café da manhã',almoco:'Almoço',jantar:'Jantar',lanche:'Lanche'}[p.meal_slot] || 'Refeição';
         const scoreTag = p.meal_score != null
             ? ` · <b style="color:${p.meal_score >= 8 ? 'var(--vital)' : p.meal_score >= 5 ? 'var(--gold)' : 'var(--effort)'}">${br(p.meal_score)}/10</b>`
             : '';
-        badge = `<div class="post-badge"><span class="emo">🍽️</span>${slotName}${scoreTag}</div>`;
+        badge = `<div class="atv-linha" style="--c:255,194,75"><span class="atv-ic mini">${SVG_REFEICAO}</span>${slotName}${scoreTag}</div>`;
         if (p.meal_analysis) {
             body += `<div class="post-ai-note"><span class="pan-emo">🤖</span>${escapeHTML(p.meal_analysis)}</div>`;
         }
@@ -5970,6 +6133,21 @@ Formato do JSON: {"mensagem": "2 frases no máximo", "passo": "o passo pequeno, 
     return a;
 }
 
+// ---------- Faixa da semana (S T Q Q S S D) na aba Hoje ----------
+function semanaStripHTML() {
+    const d = state.semanaStrip;
+    if (!d) return '';
+    const letras = 'STQQSSD';
+    const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
+    return `<div class="chart-card sem-strip" data-act="evo-aba" data-aba="resumo">
+        <div class="ss-topo"><span class="ss-rot">Sua semana</span><span class="ss-n"><b>${d.feitos}</b> de ${d.meta} treinos</span></div>
+        <div class="ss-dias">${letras.split('').map((l, i) => {
+            const cls = d.dias[i] ? 'ok' : i === d.hoje ? 'hoje' : i > d.hoje ? 'depois' : '';
+            return `<span class="ss-d ${cls}"><i>${d.dias[i] ? ok : ''}</i>${l}</span>`;
+        }).join('')}</div>
+    </div>`;
+}
+
 // ---------- Monta tudo na aba Resumo ----------
 async function hydrateIAEvolucao() {
     const slot = document.getElementById('iaSlot');
@@ -5977,7 +6155,7 @@ async function hydrateIAEvolucao() {
     const p = state.profile;
     const semPrefs = !(p.train_likes && p.train_likes.length);
     if (semPrefs) {
-        slot.innerHTML = `<div class="chart-card ia-card ia-convite">
+        slot.innerHTML = semanaStripHTML() + `<div class="chart-card ia-card ia-convite">
             <div class="chart-head"><span class="chart-title">Seu treino de hoje</span></div>
             <p class="ia-porque">Me conta o que você gosta de fazer, quanto tempo tem e onde treina, que eu monto seu treino do dia e o plano da semana.</p>
             <button class="btn-primary-sm" data-act="m-go" data-view="jeito-treino">Contar pro coach</button>
@@ -6011,6 +6189,7 @@ async function hydrateIAEvolucao() {
         slot.innerHTML = [
             alerta && alerta.mensagem ? `<div class="chart-card ia-card ia-alerta"><div class="chart-head"><span class="chart-title">Tudo bem por aí?</span></div><p>${escapeHTML(alerta.mensagem || '')}</p>${alerta.passo ? `<p class="ia-passo">${escapeHTML(alerta.passo)}</p>` : ''}</div>` : '',
             prontidaoHTML(prontidaoDoDia(l), l.treinouHoje),
+            semanaStripHTML(),
             treinoDoDiaHTML(treino, l.treinouHoje),
             planoSemanaHTML(plano, diasFeitos),
             cartaHTML(carta, anteriores),
@@ -6456,6 +6635,12 @@ async function renderProgress() {
         sb.from('points_ledger').select('amount, earned_at').eq('user_id', uid).order('earned_at', { ascending: true }).limit(5000),
     ]);
     const aguaHoje = await aguaDeHoje();
+    {
+        const seg = segundaDe(); seg.setHours(0, 0, 0, 0);
+        const dias = [0, 0, 0, 0, 0, 0, 0];
+        (meusPosts || []).forEach(p => { if (p.kind === 'workout') { const t = new Date(p.created_at); if (t >= seg) dias[(t.getDay() + 6) % 7] = 1; } });
+        state.semanaStrip = { dias, hoje: (new Date().getDay() + 6) % 7, feitos: dias.reduce((a, b) => a + b, 0), meta: state.profile.weekly_goal || 3 };
+    }
 
 
     const goal = goalData?.[0] || {};
@@ -6537,7 +6722,7 @@ async function renderProgress() {
             <div class="page-head"><h1 class="screen-title">Evolução</h1><span class="page-sub">progresso ao longo do tempo</span></div>
 
             <div class="evo-abas">
-                ${[['coach', 'Coach'], ['resumo', 'Resumo'], ['treinos', 'Treinos'], ['habitos', 'Hábitos']].map(([k, n]) =>
+                ${[['coach', 'Hoje'], ['resumo', 'Resumo'], ['treinos', 'Treinos'], ['habitos', 'Hábitos']].map(([k, n]) =>
                     `<button class="evo-aba${aba === k ? ' on' : ''}" data-act="evo-aba" data-aba="${k}">${n}</button>`).join('')}
             </div>
             <div id="evoPeriodos" class="${aba === 'coach' ? 'hidden' : ''}">${ev.periodosHTML}</div>
@@ -6646,8 +6831,20 @@ async function renderChallenges() {
                 ${ch.pedidos > 0 ? `<span class="ch-pedidos">${plural(ch.pedidos, 'pedido', 'pedidos')}</span>` : ''}
             </div>
         </div>`;
-    }).join('') || (podeCriarDesafio() ? vazioAcao('medalha', 'Nenhum desafio ainda', 'Crie um e chame o pessoal.', 'Criar desafio', 'data-act="new-challenge"')
-        : vazioAcao('medalha', 'Nenhum desafio ainda', 'Quando abrir um, ele aparece aqui. Enquanto isso, chame quem treina com você.', 'Convidar amigos', 'data-act="convidar-amigo"'));
+    }).join('');
+    const icTipo = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+    const heroVazio = `<div class="ch-hero">
+            <span class="ch-hero-ic">${icTipo('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>')}</span>
+            <h3>Treinar junto motiva mais</h3>
+            <p>${podeCriarDesafio() ? 'Crie um desafio com amigos, família ou a turma da academia e acompanhe quem está mais firme.' : 'Quando abrir um desafio, ele aparece aqui. Enquanto isso, chame quem treina com você.'}</p>
+            ${podeCriarDesafio() ? '<button class="btn-primary" data-act="new-challenge">Criar desafio</button>' : ''}
+            <button class="btn-ghost ch-hero-sec" data-act="convidar-amigo">Convidar amigos pro Pulso</button>
+        </div>
+        <div class="chart-card ch-tipos">
+            <div class="ch-tipo"><span class="atv-ic" style="--c:53,225,155">${icTipo('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>')}</span><div><b>Por pontos</b><small>Quem registrar mais, ganha</small></div></div>
+            <div class="ch-tipo"><span class="atv-ic" style="--c:95,176,255">${icTipo('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>')}</span><div><b>Por times</b><small>Até 4 times, placar ao vivo</small></div></div>
+            <div class="ch-tipo"><span class="atv-ic" style="--c:255,122,77">${icTipo('<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>')}</span><div><b>Meta do grupo</b><small>Todo mundo junto por um número</small></div></div>
+        </div>`;
 
     const fx = mine ? faixaRanking(mine.rank, mine.total) : null;
     // Compara com a faixa da semana passada (guardada no aparelho)
@@ -6668,28 +6865,26 @@ async function renderChallenges() {
                 <div class="topbar-title">Desafios</div>
                 <div style="width:28px"></div>
             </div>
-            <div class="ch-title-row">
-                <span class="page-sub">compare seu progresso com um grupo</span>
+            ${cards ? `<div class="ch-title-row"><span class="page-sub">compare seu progresso com um grupo</span></div>` : ''}
 
-            </div>
-
-            ${podeCriarDesafio() ? `<button class="ch-criar" data-act="new-challenge">
+            ${!cards ? heroVazio : ''}
+            ${cards && podeCriarDesafio() ? `<button class="ch-criar" data-act="new-challenge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                 <span><b>Criar desafio</b><small>Defina período, regras e convide quem quiser</small></span>
             </button>` : ''}
             <div class="ch-list">${cards}</div>
 
-            <h3 class="edit-section-title" style="margin-top:24px">Comunidade essa semana</h3>
+            ${(s.usuarios_ativos || 0) > 0 ? `<h3 class="edit-section-title" style="margin-top:24px">Comunidade essa semana</h3>
             <div class="stat-grid">
                 <div class="stat-card"><div class="num">${s.usuarios_ativos||0}</div><div class="lbl">Pessoas ativas</div></div>
                 <div class="stat-card"><div class="num">${s.total_treinos||0}</div><div class="lbl">Treinos</div></div>
-            </div>
-            <div class="chart-card faixa-card" style="margin-top:12px">
+            </div>` : ''}
+            ${fx ? `<div class="chart-card faixa-card" style="margin-top:12px">
                 <div class="chart-head"><span class="chart-title">Sua faixa na semana</span></div>
                 ${fx ? `<div class="faixa-selo">${fx.curto}</div><p class="faixa-txt">${fx.longo}</p>${subiu ? `<p class="faixa-subiu">${subiu}</p>` : ''}`
                     : '<p class="faixa-txt">Você ainda não pontuou essa semana. Registre um treino pra aparecer aqui.</p>'}
                 <p class="faixa-nota">Fora dos desafios, ninguém vê a posição nem os pontos de ninguém. Pra competir de verdade, entre num desafio.</p>
-            </div>
+            </div>` : ''}
         </div>
     `;
 }
@@ -6984,7 +7179,6 @@ async function renderMenu() {
                 <svg class="cfg-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
             </button>
 
-            <div class="menu-atalhos">${atalhosDoMenu()}</div>
 
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Suas metas</div>
@@ -7964,13 +8158,13 @@ const seloHTML = p => p && p.fundador ? `<button class="selo-fundador" data-act=
             { k: 'workout', emo: ic('workout'), txt: 'Treino' },
             { k: 'meal', emo: ic('meal'), txt: 'Refeição' },
         ];
-        const angulos = [160, 117, 63, 20];
+        const angulos = [152, 113, 67, 28];
         const r = fab.getBoundingClientRect();
-        const cx = r.left + r.width / 2, cy = r.top + r.height / 2, raio = 122;
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2, raio = 140;
         const arco = document.createElement('div');
         arco.className = 'fab-arco';
         arco.innerHTML = itens.map((it, k) => {
-            const x = cx + raio * Math.cos(angulos[k] * Math.PI / 180), y = cy - raio * Math.sin(angulos[k] * Math.PI / 180);
+            const x = cx + raio * Math.cos(angulos[k] * Math.PI / 180), y = cy - 14 - raio * Math.sin(angulos[k] * Math.PI / 180);
             return `<button type="button" class="fab-bola" data-k="${it.k}" style="left:${x}px;top:${y}px;transition-delay:${k * 25}ms"><span>${it.emo}</span><small>${it.txt}</small></button>`;
         }).join('') + `<button type="button" class="fab-fechar" style="left:${cx}px;top:${cy}px" aria-label="Fechar">×</button>`;
         document.body.appendChild(arco);
@@ -8687,6 +8881,7 @@ async function renderPainelDesafio(cidEscolhido) {
     const c = $('#viewContainer');
     c.innerHTML = esqueleto('painel');
     const meus = await meusDesafiosAtivos();
+    state.semDesafioAtivo = !meus.length;
     if (!meus.length) {
         await renderChallenges();
         // é aba principal: sem seta de voltar
@@ -9832,7 +10027,7 @@ async function renderProfile() {
                     <div class="weekly-pill">
                         <button class="wp-anel" data-act="go-progress" aria-label="Sua semana"><svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
                         <span id="wpDays">${diasSemana}/${metaSemana}</span></button>
-                        <button class="wp-flame" data-act="ver-ofensiva" aria-label="Sua ofensiva">🔥<b id="wpStreak">${streak?.current_streak || 0}</b></button>
+                        <button class="wp-flame" data-act="ver-ofensiva" aria-label="Sua ofensiva"><svg class="wp-fogo" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-3.3-2.2-5.6-4-7.4.1 2-1 3.4-2.3 3.4C11 11.4 12.5 7 10 3 9 7 5 9 5 15.4 5 19.3 8 22 12 22z"/></svg><b id="wpStreak">${streak?.current_streak || 0}</b></button>
                     </div>
                     <button class="topbar-score" data-act="go-rules" aria-label="Como ganhar pontos">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
@@ -11221,14 +11416,9 @@ async function switchView(v, params = {}) {
     if (topoUser) {
         const noPerfil = v === 'profile' && state.profile;
         topoUser.classList.toggle('hidden', !noPerfil);
-        document.querySelector('.topbar-brand').classList.toggle('hidden', !!noPerfil);
         if (noPerfil) topoUser.innerHTML = `${state.profile.is_private ? '<svg class="tu-cadeado" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>' : ''}<span>${escapeHTML(state.profile.username)}</span>`;
     }
-    const feedPostBtn = document.getElementById('feedPostBtn');
-    if (feedPostBtn) feedPostBtn.classList.toggle('hidden', v !== 'feed' && v !== 'profile');
-    // No perfil o @usuário fica no centro do topo: a busca sai pra não apertar
-    const buscaBtn = document.querySelector('.topbar [data-act="go-search"]');
-    if (buscaBtn) buscaBtn.classList.remove('hidden');
+    aplicarModoTopo(v);
     // Telas de configuração ocupam a tela toda, sem topo nem menu do app
     const telaCheia = ehTelaCheia(v);
     if ((v === 'objetivos' || v === 'jeito-treino') && viewAnterior && viewAnterior !== 'objetivos' && viewAnterior !== 'jeito-treino') {
@@ -11249,6 +11439,10 @@ async function switchView(v, params = {}) {
     document.documentElement.classList.toggle('tela-cheia', telaCheia);
     document.documentElement.classList.remove('nav-compacta');
     $$('.nav-btn').forEach(b => b.classList.toggle('on', b.dataset.view === navView));
+    if (viewAnterior !== v) {
+        const vcF = document.getElementById('viewContainer');
+        if (vcF) { vcF.classList.remove('troca'); void vcF.offsetWidth; vcF.classList.add('troca'); }
+    }
     if (v === 'feed') await renderFeed();
     else if (v === 'progress') await renderProgress();
     else if (v === 'challenges') renderChallenges();
@@ -11277,7 +11471,7 @@ async function switchView(v, params = {}) {
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
     else if (v === 'challenge') await renderChallengeDetail(params.id);
-    else if (v === 'desafio') { await renderPainelDesafio(params.id); avisoPesoDesafio(); }
+    else if (v === 'desafio') { await renderPainelDesafio(params.id); if (!state.semDesafioAtivo) avisoPesoDesafio(); }
     else if (v === 'install') renderInstall();
     else if (v === 'search') renderSearch();
     else if (v === 'notifications') await renderNotifications();
@@ -11345,6 +11539,7 @@ document.addEventListener('click', async e => {
     const act = btn.dataset.act, id = btn.dataset.id;
 
     if (act === 'react') {
+        vibrar(8);
         const on = btn.classList.contains('on');
         btn.classList.toggle('on');  // otimista
         const span = btn.querySelector('span');
@@ -11772,6 +11967,12 @@ document.addEventListener('click', async e => {
     } else if (act === 'wk-menu') {
         e.stopPropagation();
         menuRegistro(btn);
+    } else if (act === 'cal-dia') {
+        abrirDiaTreino(Number(btn.dataset.dia));
+    } else if (act === 'cal-mes') {
+        const c = state.calTreino; if (!c) return;
+        const d = new Date(c.ano, c.mes + Number(btn.dataset.d), 1);
+        renderWorkoutHistory(c.uid, d.getFullYear(), d.getMonth());
     } else if (act === 'wk-detalhe') {
         if (e.target.closest('.wk-mais')) return;
         abrirDetalheTreino(btn.dataset.id);
@@ -11852,7 +12053,7 @@ document.addEventListener('click', async e => {
         switchView('challenges');
     } else if (act === 'evo-aba') {
         state.abaEvolucao = btn.dataset.aba;
-        $$('.evo-aba').forEach(b => b.classList.toggle('on', b === btn));
+        $$('.evo-aba').forEach(b => b.classList.toggle('on', b.dataset.aba === state.abaEvolucao));
         $$('.evo-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== state.abaEvolucao));
         const per = document.getElementById('evoPeriodos');
         if (per) per.classList.toggle('hidden', state.abaEvolucao === 'coach');
@@ -14501,6 +14702,41 @@ function abrirComposer() {
 function mostrarEscolhaDeTipo() {
     $('#composerPick').classList.remove('hidden');
     $('#composerForm').classList.add('hidden');
+    preencherStatusRegistro();
+}
+// Cada opção do Registrar mostra como está o dia (e o que falta ganha destaque)
+async function preencherStatusRegistro() {
+    if (!state.session) return;
+    const uid = state.session.user.id;
+    const set = (k, txt, destaque = false, extra = '') => {
+        const el = document.getElementById('ktSub-' + k); if (!el) return;
+        el.innerHTML = escapeHTML(txt) + extra;
+        const tile = el.closest('.kind-tile'); if (tile) tile.classList.toggle('pendente', destaque);
+    };
+    try {
+        const ini = new Date(); ini.setHours(0, 0, 0, 0);
+        const ontem = isoDe(new Date(Date.now() - 86400000));
+        const [w, { data: posts }, { data: pts }, { data: sono }] = await Promise.all([
+            aguaDeHoje(),
+            sb.from('posts').select('kind, meal_slot, created_at').eq('user_id', uid).in('kind', ['workout', 'meal']).gte('created_at', ini.toISOString()).limit(20),
+            sb.from('points_ledger').select('amount').eq('user_id', uid).gte('earned_at', ini.toISOString()).limit(200),
+            sb.from('sleep_logs').select('hours').eq('user_id', uid).eq('slept_on', ontem).limit(1),
+        ]);
+        const total = (pts || []).reduce((t, r) => t + Number(r.amount || 0), 0);
+        const sub = document.getElementById('regSub');
+        if (sub) sub.innerHTML = total > 0 ? `Hoje você já fez <b>+${Math.round(total)} pts</b>. Tudo vale ponto.` : 'Tudo vale ponto.';
+        const treinos = (posts || []).filter(p => p.kind === 'workout').length;
+        set('workout', treinos ? (treinos === 1 ? 'Feito hoje ✓' : `${treinos} hoje ✓`) : 'Até 15 pts');
+        const refs = (posts || []).filter(p => p.kind === 'meal');
+        const ult = refs.length ? refs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] : null;
+        set('meal', ult ? `${MEAL_SLOT_NAME[ult.meal_slot] || 'Refeição'} registrado` : 'Com foto vale ponto');
+        const pct = Math.min(100, Math.round(((w.total_ml || 0) / (w.goal_ml || 2000)) * 100));
+        set('water', (w.total_ml || 0) > 0 ? `${formatLitros(w.total_ml)} de ${formatLitros(w.goal_ml || 2000)}` : `Meta de ${formatLitros(w.goal_ml || 2000)}`, false, `<span class="kt-barra"><i style="width:${pct}%"></i></span>`);
+        const temSono = sono && sono.length;
+        if (temSono) state.sonoRegistrado = ontem;
+        const hora = new Date().getHours();
+        set('sleep', temSono ? `${br(Number(sono[0].hours))} h essa noite` : 'Falta registrar a noite', !temSono && hora >= 5 && hora < 15);
+    } catch (_) {}
 }
 function limparComposer() {
     $('#pCaption').value = '';
@@ -15388,6 +15624,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         // melhor hora pra pedir as notificações: logo depois de registrar algo
         if (created) setTimeout(talvezConvidarLembretes, eraTreino ? 7000 : 3500);
 
+        vibrar([10, 40, 14]);
         const oQue = post.kind === 'workout' ? `${post.activity_type || 'Treino'}${post.duration_min ? ' de ' + post.duration_min + ' min' : ''}`
             : post.kind === 'meal' ? (MEAL_SLOT_NAME[post.meal_slot] || 'Refeição') : '';
         let msg = `+${ptsToCredit} pts${oQue ? ' · ' + oQue : ''}`;
