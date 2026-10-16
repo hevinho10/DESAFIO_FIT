@@ -3634,6 +3634,18 @@ async function renderNotifications() {
         } else if (n.kind === 'desafio_ultrapassado') {
             emo = '🏁'; texto = `<b>${quem}</b> te passou no desafio <b>${escapeHTML(n.challenge_name || '')}</b>. Bora retomar?`;
             act = ` data-act="open-painel-desafio" data-id="${n.challenge_id}"`;
+        } else if (n.kind && n.kind.startsWith('x1_')) {
+            const m = n.meta || {};
+            emo = '⚡';
+            act = ` data-act="x1-abrir" data-id="${m.x1 || ''}"`;
+            const ate = m.ate ? new Date(m.ate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long' }).split('-')[0] : '';
+            texto = n.kind === 'x1_convite' ? `<b>${quem}</b> te desafiou pro X1`
+                : n.kind === 'x1_aceito' ? `<b>${quem}</b> aceitou seu X1. Valendo${ate ? ' até ' + escapeHTML(ate) : ''}!`
+                : n.kind === 'x1_passou' ? `<b>${quem}</b> te passou no X1${m.placar ? '. ' + escapeHTML(m.placar) : ''}`
+                : m.empate ? `Seu X1 com <b>${quem}</b> acabou empatado${m.placar ? ': ' + escapeHTML(m.placar) : ''}`
+                : m.venceu ? `Você venceu o X1 contra <b>${quem}</b>${m.desistiu ? ' (desistiu)' : m.placar ? ': ' + escapeHTML(m.placar) : ''} 🏆`
+                : `<b>${quem}</b> venceu o X1${m.placar ? ': ' + escapeHTML(m.placar) : ''}. Revanche?`;
+            texto += `<span class="nt-acoes"><button class="btn-mini${n.kind === 'x1_convite' ? ' x1-nt-ver' : ''}" data-act="x1-abrir" data-id="${m.x1 || ''}">${n.kind === 'x1_convite' ? 'Ver convite' : 'Ver placar'}</button></span>`;
         } else if (n.kind === 'desafio_convite') {
             emo = '🏆'; texto = `<b>${quem}</b> te convidou pro desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
@@ -3666,6 +3678,7 @@ async function renderNotifications() {
 
 // Selinho da notificação: ícone de linha colorido no lugar do emoji
 const MARCAS_NOTIF = {
+    raio: ['255,194,75', '<path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12z"/>'],
     coment: ['95,176,255', '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'],
     curtida: ['255,90,122', '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>'],
     pessoa: ['53,225,155', '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'],
@@ -3677,7 +3690,7 @@ const MARCAS_NOTIF = {
     grupo: ['95,176,255', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>'],
 };
 const EMO_MARCA = { '💬': 'coment', '↩️': 'coment', '❤️': 'curtida', '👤': 'pessoa', '✅': 'ok', '🎁': 'ponto', '@': 'arroba', '📣': 'arroba',
-    '🎉': 'estrela', '🆕': 'pessoa', '✍️': 'coment', '✨': 'estrela', '🛠️': 'ok', '🤝': 'grupo', '💪': 'ponto', '🙋': 'pessoa' };
+    '⚡': 'raio', '🎉': 'estrela', '🆕': 'pessoa', '✍️': 'coment', '✨': 'estrela', '🛠️': 'ok', '🤝': 'grupo', '💪': 'ponto', '🙋': 'pessoa' };
 function marcaNotif(emo) {
     const [cor, d] = MARCAS_NOTIF[EMO_MARCA[emo] || 'trofeu'];
     return `<span class="notif-mark" style="--c:${cor}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
@@ -9167,8 +9180,13 @@ async function meusDesafiosAtivos() {
 async function renderPainelDesafio(cidEscolhido) {
     const c = $('#viewContainer');
     c.innerHTML = esqueleto('painel');
-    const meus = await meusDesafiosAtivos();
+    const [meus, x1Res] = await Promise.all([meusDesafiosAtivos(), sb.rpc('x1_lista').then(r => r, () => ({ data: [] }))]);
+    const x1s = (x1Res && x1Res.data) || [];
+    state.x1Lista = x1s;
+    const x1Vivos = x1s.filter(x => x.status === 'ativo' || x.status === 'pendente');
     state.semDesafioAtivo = !meus.length;
+    // Tem X1 rolando: mostra os cards (X1 primeiro, depois os em grupo)
+    if (!cidEscolhido && x1Vivos.length && meus.length) { await renderListaMeusDesafios(meus, x1s); return; }
     if (!meus.length) {
         await renderChallenges();
         // é aba principal: sem seta de voltar
@@ -9367,7 +9385,7 @@ function timesHTML(ch, times, meuTime, ranking, membrosTime, futuro) {
 }
 
 // Lista "Seus desafios" (quando a pessoa está em mais de um)
-async function renderListaMeusDesafios(meus) {
+async function renderListaMeusDesafios(meus, x1s = null) {
     const c = $('#viewContainer');
     const uid = state.session.user.id;
     const extras = await Promise.all(meus.map(async ch => {
@@ -9388,7 +9406,8 @@ async function renderListaMeusDesafios(meus) {
     if (!document.getElementById('viewContainer')) return;
     const agora = Date.now();
     c.innerHTML = `<div class="view painel-desafio">
-        <h1 class="pd-nome pd-lista-titulo">Seus desafios</h1>
+        <h1 class="pd-nome pd-lista-titulo">${x1s ? 'Desafios' : 'Seus desafios'}</h1>
+        ${x1s ? '<div id="x1Slot"></div><div class="x1-sec x1-sec-cab pd-sec-grupo">EM GRUPO</div>' : ''}
         ${extras.map(({ ch, pos, total, time, cfg, mudou }) => {
             const ini = new Date(ch.starts_at), fim = new Date(ch.ends_at);
             const futuro = ch.status === 'futuro';
@@ -9404,6 +9423,7 @@ async function renderListaMeusDesafios(meus) {
         }).join('')}
         <button class="pd-descobrir" data-act="go-challenges-lista">Descobrir desafios <span>›</span></button>
     </div>`;
+    if (x1s) hydrateX1Lista(x1s, true);
 }
 
 // Quem criou ajusta os times antes de começar
@@ -16575,13 +16595,14 @@ function x1Folha(html, id = 'x1Folha') {
 }
 
 // ---------- Regras ----------
-function regrasX1HTML(tipo) {
+function regrasX1HTML(tipo, duracao = null) {
+    const durTxt = duracao === '3' ? 'os 3 dias' : duracao === '7' ? 'os 7 dias' : duracao === 'domingo' ? 'o desafio, até domingo' : 'o desafio';
     const linha = (a, b) => `<div class="x1-rg"><span>${a}</span><b>${b}</b></div>`;
     let tabela = '', exemplo = '';
     if (tipo === 'perfeito') {
-        tabela = linha('Treino de 30 min ou mais (1 por dia)', '+3') + linha('Cada refeição com foto (até 4 por dia)', '+1') +
+        tabela = linha('Treino de 30 min ou mais', '+3') + linha('Cada refeição com foto', '+1') +
             linha('Água: metade da meta / meta completa', '+1 / +2') + linha('Sono: 6 h / 7 h ou mais', '+1 / +2') +
-            linha('<b>Bônus dia perfeito</b> (tudo no máximo)', '+3') + linha('Máximo por dia', '14');
+            linha('<b>Bônus dia perfeito</b> (fez tudo)', '+3');
         exemplo = 'Treino + 2 refeições + meta de água = 3 + 2 + 2 = <b>7 pontos</b> no dia.';
     } else if (tipo === 'treinos') {
         tabela = linha('Dia com treino de 30 min ou mais', '+1') + linha('Máximo por dia', '1');
@@ -16593,25 +16614,31 @@ function regrasX1HTML(tipo) {
         tabela = linha('Cada km de corrida, caminhada ou bike', '+1') + linha('Máximo por dia', '100 km');
         exemplo = 'Correu 5,2 km e pedalou 12 km = <b>17,2</b>.';
     } else {
-        tabela = linha('Todo ponto que você ganha no Pulso', 'igual') + linha('Treino, refeição, água, sono, story...', 'soma');
-        exemplo = 'Fez 46 pontos na semana = <b>46</b>.';
+        tabela = linha('💪 Treino', 'até 15') + linha('🍽️ Refeição com foto', '1 cada') + linha('🔥 Bônus de ofensiva', 'até 20') + linha('⚖️ Pesagem da semana', '3');
+        exemplo = 'Exemplo de um dia: treino de 50 min + 2 refeições com foto = <b>cerca de 10 pontos</b>.';
     }
     const t = X1_TIPOS[tipo] || X1_TIPOS.perfeito;
-    return `<div class="x1-rg-topo"><span class="x1-tipo-ic" style="--c:${t.c}">${SVG_X(t.ic)}</span><div><h3>Como conta</h3><small>${t.nome}</small></div></div>
+    const intro = {
+        perfeito: `Cada coisa que você faz no dia vale ponto. Ganha quem somar mais durante ${durTxt}.`,
+        treinos: `Ganha quem treinar em mais dias durante ${durTxt}.`,
+        minutos: `Ganha quem somar mais minutos de treino durante ${durTxt}.`,
+        km: `Ganha quem somar mais quilômetros durante ${durTxt}.`,
+        pontos: `Ganha quem somar <b>mais pontos no Pulso</b> durante ${durTxt}. Vale tudo que já pontua no app:`,
+    }[tipo] || '';
+    return `<div class="x1-rg-topo"><span class="x1-tipo-ic" style="--c:${t.c}">${SVG_X(t.ic)}</span><div><h3>Como conta</h3><small>${t.nome}${duracao ? ' · ' + X1_DUR[duracao] : ''}</small></div></div>
+        <p class="x1-rg-intro">${intro}</p>
         <div class="x1-rg-tab">${tabela}</div>
         <p class="x1-rg-ex">${SVG_X(IC_X1.estrela)}<span>${exemplo}</span></p>
         <div class="x1-rg-ger">
             <b>Regras de todo X1</b>
-            <span>O placar é a soma dos pontos de todos os dias.</span>
             <span>Só conta o que for registrado durante o desafio.</span>
             ${tipo === 'perfeito' ? '<span>O sono vale no dia em que você acorda, se registrado até as 14 h.</span>' : ''}
             <span>Empate: vence quem chegou primeiro à pontuação final.</span>
             <span>Desistir dá a vitória pro outro.</span>
-            <span>Até 5 X1 ao mesmo tempo, 1 por pessoa. Convite vale 48 h.</span>
         </div>
         <button class="btn x1-btn" data-x1f="fechar">Entendi</button>`;
 }
-function abrirRegrasX1(tipo) { x1Folha(regrasX1HTML(tipo), 'x1Regras'); }
+function abrirRegrasX1(tipo, duracao = null) { x1Folha(regrasX1HTML(tipo, duracao), 'x1Regras'); }
 
 // ---------- Criar ----------
 async function abrirCriarX1(alvo, base = {}) {
@@ -16641,7 +16668,7 @@ async function abrirCriarX1(alvo, base = {}) {
         const b = e.target.closest('[data-x1]'); if (!b) return;
         const a = b.dataset.x1;
         if (a === 'fechar') x1FecharTela('x1Criar');
-        else if (a === 'regras') { e.stopPropagation(); abrirRegrasX1(b.dataset.t); }
+        else if (a === 'regras') { e.stopPropagation(); abrirRegrasX1(b.dataset.t, dur); }
         else if (a === 'tipo') { tipo = b.dataset.t; t.querySelectorAll('.x1-mod').forEach(m => m.classList.toggle('on', m === b)); vibrar(6); }
         else if (a === 'dur') { dur = b.dataset.d; t.querySelectorAll('.x1-chip').forEach(m => m.classList.toggle('on', m === b)); vibrar(6); }
         else if (a === 'mostrar') { mostrar = !mostrar; t.querySelector('#x1Tg').classList.toggle('on', mostrar); vibrar(6); }
@@ -16660,11 +16687,14 @@ async function abrirCriarX1(alvo, base = {}) {
 }
 
 // ---------- Lista "Seus X1" (topo da aba Desafios) ----------
-async function hydrateX1Lista() {
+async function hydrateX1Lista(pronta = null, hub = false) {
     const slot = document.getElementById('x1Slot'); if (!slot) return;
-    const { data, error } = await sb.rpc('x1_lista');
-    if (error || !document.getElementById('x1Slot')) { if (slot) slot.innerHTML = ''; return; }
-    const lista = data || [];
+    let lista = pronta;
+    if (!lista) {
+        const { data, error } = await sb.rpc('x1_lista');
+        if (error || !document.getElementById('x1Slot')) { if (slot) slot.innerHTML = ''; return; }
+        lista = data || [];
+    }
     state.x1Lista = lista;
     const ativos = lista.filter(x => x.status === 'ativo');
     const convites = lista.filter(x => x.status === 'pendente' && !x.sou_criador);
@@ -16684,14 +16714,15 @@ async function hydrateX1Lista() {
         </button>`;
     };
     const vazio = !ativos.length && !convites.length && !enviados.length && !fim.length;
-    slot.innerHTML = `<div class="x1-lista">
-        <div class="x1-cab"><h2>Seus X1</h2><span class="x1-cont">${ativos.length} de 5 ativos</span></div>
+    slot.innerHTML = `<div class="x1-lista${hub ? ' hub' : ''}">
+        <div class="x1-cab">${hub ? '<span class="x1-sec x1-sec-cab">X1</span>' : '<h2>Seus X1</h2>'}${ativos.length >= 2 ? `<span class="x1-cont">${ativos.length} de 5 ativos</span>` : ''}</div>
         ${convites.map(x => { const { ele } = x1Lados(x); const tp = X1_TIPOS[x.tipo]; return `<button class="x1-card x1-convite" data-x1l="abrir" data-id="${x.id}">
             ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>${escapeHTML(ele.nome)} te desafiou</b><small>${tp.nome} · ${X1_DUR[x.duracao]}</small></span><span class="x1-pill">Ver</span></button>`; }).join('')}
         ${ativos.map(card).join('')}
         ${enviados.map(x => { const { ele } = x1Lados(x); return `<button class="x1-card x1-enviado" data-x1l="abrir" data-id="${x.id}">
             ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>Esperando aceitar · ${X1_TIPOS[x.tipo].nome}</small></span></button>`; }).join('')}
-        ${vazio ? `<div class="x1-vazio"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X(IC_X1.raio)}</span><div><b>Desafie um amigo</b><small>No perfil de quem você segue, toque no ⚡. Vale treino, km, minutos ou o dia perfeito.</small></div></div>` : ''}
+        ${!vazio ? '<button class="x1-desafiar" data-act="x1-escolher">⚡ Desafiar alguém</button>' : ''}
+        ${vazio ? `<div class="x1-vazio" data-act="x1-escolher"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X(IC_X1.raio)}</span><div><b>Desafie um amigo</b><small>Toque aqui e escolha alguém que você segue. Vale treino, km, minutos, pontos ou o dia perfeito.</small></div></div>` : ''}
         ${fim.length ? `<div class="x1-sec x1-sec-l">TERMINADOS</div>${fim.map(x => { const { ele, euPts, elePts } = x1Lados(x); const ganhei = x.vencedor === (x.sou_criador ? x.criador.id : x.rival.id); const emp = !x.vencedor;
             return `<button class="x1-card x1-fim" data-x1l="abrir" data-id="${x.id}"><span class="x1-res ${ganhei ? 'v' : emp ? 'e' : 'd'}">${ganhei ? 'Venceu' : emp ? 'Empate' : 'Perdeu'}</span>
             <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span><span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span></button>`; }).join('')}` : ''}
@@ -16703,6 +16734,39 @@ function pintarBolinhaX1(n) {
 }
 async function checarConvitesX1() {
     try { const { data } = await sb.rpc('x1_convites'); pintarBolinhaX1(Number(data || 0)); } catch (_) {}
+}
+
+// ---------- Escolher quem desafiar ----------
+async function escolherRivalX1() {
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Desafiar alguém</h3>
+        <input class="x1-campo" id="x1Busca" placeholder="Buscar quem você segue" autocomplete="off">
+        <div class="tr-lista" id="x1Pessoas"><div class="spinner"></div></div>`, 'x1Rival');
+    const uid = state.session.user.id;
+    const [{ data: sigo }, { data: meSeguem }] = await Promise.all([
+        sb.from('follows').select('following_id').eq('follower_id', uid).limit(1000),
+        sb.from('follows').select('follower_id').eq('following_id', uid).limit(1000),
+    ]);
+    const ids = [...new Set([...(sigo || []).map(x => x.following_id), ...(meSeguem || []).map(x => x.follower_id)])].filter(x => x !== uid).slice(0, 900);
+    let pessoas = [];
+    if (ids.length) { const { data } = await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', ids); pessoas = data || []; }
+    const emX1 = new Set((state.x1Lista || []).filter(x => ['ativo', 'pendente'].includes(x.status)).map(x => (x.sou_criador ? x.rival : x.criador).id));
+    const box = f.querySelector('#x1Pessoas'), busca = f.querySelector('#x1Busca');
+    const pintar = () => {
+        const q = busca.value.trim().toLowerCase();
+        const l = pessoas.filter(p => !q || (p.display_name || '').toLowerCase().includes(q) || (p.username || '').toLowerCase().includes(q))
+            .sort((a, b) => String(a.display_name).localeCompare(String(b.display_name))).slice(0, 60);
+        box.innerHTML = l.length ? l.map(p => `<button class="tr-li x1-pessoa" data-uid="${p.id}"${emX1.has(p.id) ? ' disabled' : ''}>
+            <span class="x1-pessoa-l">${x1Av({ id: p.id, nome: p.display_name, username: p.username, avatar: p.avatar_url })}<span><b>${escapeHTML(p.display_name || '')}</b><small>@${escapeHTML(p.username || '')}</small></span></span>
+            <small>${emX1.has(p.id) ? 'já tem X1' : '⚡'}</small></button>`).join('')
+            : `<p class="tr-dica" style="text-align:center">${pessoas.length ? 'Ninguém com esse nome.' : 'Siga alguém pra poder desafiar.'}</p>`;
+    };
+    pintar();
+    busca.addEventListener('input', pintar);
+    box.addEventListener('click', e => {
+        const b = e.target.closest('[data-uid]'); if (!b || b.disabled) return;
+        const p = pessoas.find(x => x.id === b.dataset.uid); if (!p) return;
+        fechar(); setTimeout(() => abrirCriarX1(p), 200);
+    });
 }
 
 // ---------- Abrir um X1 (convite, esperando, ao vivo ou terminado) ----------
@@ -16731,7 +16795,7 @@ function abrirConviteX1(x) {
     f.addEventListener('click', async e => {
         const b = e.target.closest('[data-x1c]'); if (!b) return;
         const a = b.dataset.x1c;
-        if (a === 'regras') abrirRegrasX1(x.tipo);
+        if (a === 'regras') abrirRegrasX1(x.tipo, x.duracao);
         else if (a === 'mostrar') { mostrar = !mostrar; f.querySelector('#x1CvTg').classList.toggle('on', mostrar); vibrar(6); }
         else if (a === 'recusar' || a === 'aceitar') {
             if (b.disabled) return; b.disabled = true;
@@ -16795,17 +16859,7 @@ function abrirPlacarX1(x) {
     };
     const evQuando = q => { const d = new Date(q); const hoje = isoDe(new Date()) === isoDe(d); return hoje ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : isoDe(new Date(Date.now() - 86400000)) === isoDe(d) ? 'ontem' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); };
     const evIc = k => k === 'workout' ? IC_X1.halter : k === 'meal' ? IC_X1.prato : IC_X1.gota;
-    // próximo passo (botão de baixo)
-    let cta = '';
-    if (!fim && !pendente) {
-        const meu = diaHoje && diaHoje[meuLado];
-        if (!meu || !meu.treino) cta = `<button class="btn x1-btn" data-x1p="treino">${SVG_X(IC_X1.halter)}Começar treino</button>`;
-        else if (x.tipo === 'perfeito') {
-            const slot = horaParaSlot();
-            if (!(meu.refeicoes || []).includes(slot)) cta = `<button class="btn x1-btn ouro" data-x1p="refeicao">${SVG_X(IC_X1.prato)}Registrar ${(MEAL_SLOT_NAME[slot] || 'refeição').toLowerCase()}</button>`;
-            else if ((meu.agua || 0) < (meu.agua_meta || 2000)) cta = `<button class="btn x1-btn azul" data-x1p="agua">${SVG_X(IC_X1.gota)}Registrar água</button>`;
-        }
-    }
+    const cta = '';
     const t = x1Tela('x1Placar', `
         <div class="x1-topo"><button class="x1-ib" data-x1p="voltar" aria-label="Voltar">${SVG_X(IC_X1.voltar)}</button><h1>Desafio X1</h1>
             <span class="x1-topo-d"><button class="x1-ib" data-x1p="regras" aria-label="Regras">${SVG_X(IC_X1.info)}</button>${!fim ? `<button class="x1-ib" data-x1p="menu" aria-label="Mais">${SVG_X(IC_X1.mais)}</button>` : ''}</span></div>
@@ -16829,13 +16883,16 @@ function abrirPlacarX1(x) {
             </div>
             ${x.prenda ? `<div class="x1-prenda">${escapeHTML(x.prenda)}</div>` : ''}`}
 
-            ${!pendente && diaHoje && !fim ? (x.tipo === 'perfeito' ? `<div class="x1-sec">HOJE</div>${x1HojeLinhaHTML(eu, diaHoje[meuLado], 'var(--vital)')}${x1HojeLinhaHTML(ele, diaHoje[ladoDele], '#5FB0FF')}`
-                : `<div class="x1-sec">HOJE</div><div class="x1-hoje2"><div><small>Você</small><b>${x1Num(diaHoje[meuLado] && diaHoje[meuLado].pts)}</b><span>${tp.un}</span></div><div><small>${escapeHTML(ele.nome)}</small><b class="az">${x1Num(diaHoje[ladoDele] && diaHoje[ladoDele].pts)}</b><span>${tp.un}</span></div></div>`) : ''}
+            ${!pendente && diaHoje && !fim && x.tipo === 'perfeito' ? `<div class="x1-sec">HOJE</div>${x1HojeLinhaHTML(eu, diaHoje[meuLado], 'var(--vital)')}${x1HojeLinhaHTML(ele, diaHoje[ladoDele], '#5FB0FF')}` : ''}
 
-            ${nDias ? `<div class="x1-sec">DIA A DIA</div><div class="x1-dias" style="--n:${nDias}">
-                <span></span>${pl.dias.map(d => `<span class="x1-dl${d.dia === hojeISO ? ' hj' : ''}">${SEM[new Date(d.dia + 'T12:00:00').getDay()]}</span>`).join('')}
-                <span class="x1-who">${x1Av(eu, 'p')}Você</span>${pl.dias.map(d => quad(d, meuLado, 'v')).join('')}
-                <span class="x1-who">${x1Av(ele, 'p')}${escapeHTML(ele.nome)}</span>${pl.dias.map(d => quad(d, ladoDele, 'b')).join('')}
+            ${nDias ? `<div class="x1-sec">DIA A DIA</div><div class="x1-tab">
+                <div class="x1-tr x1-th"><span>DIA</span><span>VOCÊ</span><span>${escapeHTML(ele.nome.toUpperCase())}</span></div>
+                ${pl.dias.map(d => {
+                    const dt = new Date(d.dia + 'T12:00:00');
+                    const cel = (lado, cls) => { if (!d[lado]) return '<span class="x1-cel"><u></u><b>–</b></span>'; const v = Number(d[lado].pts || 0); return `<span class="x1-cel ${cls}"><u><i style="width:${Math.round(Math.min(1, v / maxDia) * 100)}%"></i></u><b>${x1Num(v)}${d[lado].perfeito ? '<em>★</em>' : ''}</b></span>`; };
+                    return `<div class="x1-tr${d.dia === hojeISO ? ' hj' : ''}${!d.a ? ' fut' : ''}"><span class="x1-td-d"><b>${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dt.getDay()]}</b><small>${d.dia === hojeISO ? 'hoje' : dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></span>${cel(meuLado, 'v')}${cel(ladoDele, 'b')}</div>`;
+                }).join('')}
+                <div class="x1-tr x1-tot"><span>Total</span><span class="v">${x1Num(euPts)}</span><span class="b">${x1Num(elePts)}</span></div>
             </div>` : ''}
 
             ${(x.eventos || []).length ? `<div class="x1-sec">ÚLTIMAS</div><div class="x1-evs">${x.eventos.slice(0, 6).map(ev => `<div class="x1-ev"><span class="x1-ev-ic ${ev.uid === eu.id ? 'v' : 'b'}">${SVG_X(evIc(ev.kind))}</span><span>${evTxt(ev)}</span><time>${evQuando(ev.quando)}</time></div>`).join('')}</div>` : ''}
@@ -16844,12 +16901,12 @@ function abrirPlacarX1(x) {
         ${cta ? `<div class="x1-rodape">${cta}</div>` : ''}`);
     if (cta) t.classList.add('com-rodape');
     // primeira vez: as regras abrem sozinhas
-    if (!fim && !pendente && !lsGet('pulso-x1-regras')) { lsSet('pulso-x1-regras', '1'); setTimeout(() => abrirRegrasX1(x.tipo), 450); }
+    if (!fim && !pendente && !lsGet('pulso-x1-regras')) { lsSet('pulso-x1-regras', '1'); setTimeout(() => abrirRegrasX1(x.tipo, x.duracao), 450); }
     t.addEventListener('click', async e => {
         const b = e.target.closest('[data-x1p]'); if (!b) return;
         const a = b.dataset.x1p;
         if (a === 'voltar') { x1FecharTela('x1Placar'); if (state.view === 'desafio') hydrateX1Lista(); }
-        else if (a === 'regras') abrirRegrasX1(x.tipo);
+        else if (a === 'regras') abrirRegrasX1(x.tipo, x.duracao);
         else if (a === 'menu') {
             const { f, fechar } = x1Folha(`<button class="x1-op perigo" data-x1m="desistir">Desistir do X1</button><button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'x1Menu');
             f.querySelector('[data-x1m]').onclick = async () => {
@@ -16882,8 +16939,10 @@ function abrirPlacarX1(x) {
 
 // Ações do X1 que vêm de fora da tela (perfil, lista, feed)
 document.addEventListener('click', async e => {
-    const b = e.target.closest('[data-x1l], [data-act="x1-novo"], [data-act="x1-feed"]');
+    const b = e.target.closest('[data-x1l], [data-act="x1-novo"], [data-act="x1-feed"], [data-act="x1-abrir"], [data-act="x1-escolher"]');
     if (!b) return;
+    if (b.dataset.act === 'x1-abrir') { e.stopPropagation(); if (b.dataset.id) abrirX1(b.dataset.id); return; }
+    if (b.dataset.act === 'x1-escolher') { e.stopPropagation(); escolherRivalX1(); return; }
     if (b.dataset.act === 'x1-novo') {
         e.stopPropagation();
         const { data: p } = await sb.from('profiles').select('id, username, display_name, avatar_url').eq('id', b.dataset.uid).maybeSingle();
@@ -16934,6 +16993,8 @@ const trGet = () => { try { return JSON.parse(lsGet(CHAVE_TREINO()) || 'null'); 
 const trSet = t => { try { if (t) lsSet(CHAVE_TREINO(), JSON.stringify(t)); else localStorage.removeItem(CHAVE_TREINO()); } catch (_) {} };
 const trTempo = ms => { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(ss).padStart(2, '0'); };
 let trRelogio = null, trAudio = null;
+// tempo de treino sem contar as pausas
+const trDecorrido = s => Date.now() - s.inicio - (s.pausaTotal || 0) - (s.pausadoEm ? Date.now() - s.pausadoEm : 0);
 function trBip() {
     try {
         trAudio = trAudio || new (window.AudioContext || window.webkitAudioContext)();
@@ -17035,7 +17096,7 @@ async function abrirTreinoVivo() {
     const recordeDe = ex => { const h = hist[ex.nome]; return h && h.recorde != null ? Number(h.recorde) : null; };
     const num = v => parseFloat(String(v || '').replace(',', '.'));
     const pintarRelogios = () => {
-        const tt = tela.querySelector('#trTempo'); if (tt) tt.textContent = trTempo(Date.now() - s.inicio);
+        const tt = tela.querySelector('#trTempo'); if (tt) tt.textContent = trTempo(trDecorrido(s));
         const bar = tela.querySelector('#trDesc');
         if (!bar) return;
         if (s.descansoAte && s.descansoAte > Date.now()) {
@@ -17052,7 +17113,8 @@ async function abrirTreinoVivo() {
         const feitas = s.exercicios.reduce((t, ex) => t + ex.series.filter(x => x.ok).length, 0);
         tela.innerHTML = `
         <div class="x1-topo tr-topo"><button class="x1-ib" data-tv="min" aria-label="Minimizar">${SVG_X('<path d="M6 9l6 6 6-6"/>')}</button>
-            <div class="tr-tit"><b>${escapeHTML(s.doCoach || (musc && s.grupos.length ? s.grupos.join(' e ') : s.ativ))}</b><small><span id="trTempo">${trTempo(Date.now() - s.inicio)}</span>${musc ? ` · ${feitas} ${feitas === 1 ? 'série' : 'séries'}` : ''}</small></div>
+            <div class="tr-tit"><b>${escapeHTML(s.doCoach || (musc && s.grupos.length ? s.grupos.join(' e ') : s.ativ))}</b><small class="${s.pausadoEm ? 'pausado' : ''}">${s.pausadoEm ? 'Pausado · ' : ''}<span id="trTempo">${trTempo(trDecorrido(s))}</span>${musc ? ` · ${feitas} ${feitas === 1 ? 'série' : 'séries'}` : ''}</small></div>
+            ${musc ? `<button class="x1-ib tr-pausa${s.pausadoEm ? ' on' : ''}" data-tv="pausa" aria-label="${s.pausadoEm ? 'Continuar' : 'Pausar'}">${s.pausadoEm ? SVG_X('<path d="M8 5v14l11-7z"/>') : SVG_X('<path d="M9 5v14M15 5v14"/>')}</button>` : ''}
             <button class="tr-concluir" data-tv="concluir">Concluir</button></div>
         <div class="x1-corpo">
             ${musc ? s.exercicios.map((ex, i) => {
@@ -17072,8 +17134,12 @@ async function abrirTreinoVivo() {
                     <button class="tr-mais-serie" data-tv="serie" data-i="${i}">+ Série</button>
                 </div>`;
             }).join('') + `<button class="tr-add" data-tv="add">+ Adicionar exercício</button>`
-            : `<div class="tr-cardio"><span class="x1-tipo-ic" style="--c:255,122,77">${SVG_X(ICONES_ATIVIDADE[s.ativ] || IC_X1.corrida)}</span><b class="tr-cron" id="trTempo2">${trTempo(Date.now() - s.inicio)}</b><small>${escapeHTML(s.ativ)} em andamento</small><p>Pode bloquear a tela. Quando voltar, o tempo continua certo.</p></div>`}
-            <button class="tr-descartar" data-tv="descartar">Descartar treino</button>
+            : `<div class="tr-cardio"><span class="x1-tipo-ic" style="--c:255,122,77">${SVG_X(ICONES_ATIVIDADE[s.ativ] || IC_X1.corrida)}</span><b class="tr-cron${s.pausadoEm ? ' pausado' : ''}" id="trTempo2">${trTempo(trDecorrido(s))}</b><small class="${s.pausadoEm ? 'pausado' : ''}">${s.pausadoEm ? 'Treino pausado' : escapeHTML(s.ativ) + ' em andamento'}</small>
+                <div class="tr-ctl"><button data-tv="descartar"><i class="x">${SVG_X('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}</i>Apagar</button>
+                    <button data-tv="pausa"><i class="p">${s.pausadoEm ? SVG_X('<path d="M8 5v14l11-7z"/>') : SVG_X('<path d="M9 5v14M15 5v14"/>')}</i>${s.pausadoEm ? 'Continuar' : 'Pausar'}</button>
+                    <button data-tv="concluir"><i>${SVG_X('<path d="M5 12l5 5 9-10"/>')}</i>Concluir</button></div>
+                <p>${s.pausadoEm ? 'O tempo pausado não conta no treino.' : 'Pode bloquear a tela. Quando voltar, o tempo continua certo.'}</p></div>`}
+            ${musc ? '<button class="tr-descartar" data-tv="descartar">Apagar treino</button>' : ''}
         </div>
         ${musc ? `<div class="tr-desc" id="trDesc"><div class="tr-desc-fill"></div><div class="tr-desc-in"><span><small>Descanso</small><b>0:00</b></span><button data-tv="mais30">+30 s</button><button data-tv="pular">Pular</button></div></div>` : ''}`;
         pintarRelogios();
@@ -17084,7 +17150,7 @@ async function abrirTreinoVivo() {
     trRelogio = setInterval(() => {
         if (!document.getElementById('treinoVivo')) { clearInterval(trRelogio); return; }
         pintarRelogios();
-        const t2 = tela.querySelector('#trTempo2'); if (t2) t2.textContent = trTempo(Date.now() - s.inicio);
+        const t2 = tela.querySelector('#trTempo2'); if (t2) t2.textContent = trTempo(trDecorrido(s));
     }, 500);
     tela.addEventListener('input', e => {
         const i = e.target.dataset.i, j = e.target.dataset.j, k = e.target.dataset.tv;
@@ -17111,6 +17177,11 @@ async function abrirTreinoVivo() {
             salvar(); pintar();
         }
         else if (a === 'serie') { const ex = s.exercicios[i]; const ult = ex.series[ex.series.length - 1] || {}; ex.series.push({ kg: ult.kg || '', reps: ult.reps || '10', ok: false }); salvar(); pintar(); }
+        else if (a === 'pausa') {
+            if (s.pausadoEm) { s.pausaTotal = (s.pausaTotal || 0) + (Date.now() - s.pausadoEm); s.pausadoEm = null; toast('Treino retomado', 'ok'); }
+            else { s.pausadoEm = Date.now(); s.descansoAte = null; }
+            vibrar(8); salvar(); pintar();
+        }
         else if (a === 'mais30') { if (s.descansoAte) { s.descansoAte += 30000; s.descansoTotal += 30000; s.descanso = Math.min(300, s.descanso + 30); salvar(); } }
         else if (a === 'pular') { s.descansoAte = null; salvar(); pintarRelogios(); }
         else if (a === 'ex-menu') {
@@ -17130,7 +17201,7 @@ async function abrirTreinoVivo() {
         }
         else if (a === 'add') escolherExercicio(nome => { s.exercicios.push({ nome, series: [{ kg: '', reps: '10', ok: false }, { kg: '', reps: '10', ok: false }, { kg: '', reps: '10', ok: false }] }); salvar(); carregarHist(); setTimeout(() => { const c = tela.querySelector('.x1-corpo'); if (c) c.scrollTop = c.scrollHeight; }, 60); });
         else if (a === 'descartar') {
-            if (!(await confirmar('Descartar este treino? Nada vai ser salvo.', 'Descartar', true))) return;
+            if (!(await confirmar('Apagar este treino? Nada vai ser salvo.', 'Apagar', true))) return;
             trSet(null); clearInterval(trRelogio); x1FecharTela('treinoVivo'); pintarPilulaTreino();
         }
         else if (a === 'concluir') concluirTreino(s, hist, () => { clearInterval(trRelogio); x1FecharTela('treinoVivo'); pintarPilulaTreino(); });
@@ -17161,7 +17232,7 @@ async function escolherExercicio(aoEscolher) {
 function concluirTreino(s, hist, aoFechar) {
     const musc = s.ativ === 'Musculação';
     const num = v => parseFloat(String(v || '').replace(',', '.'));
-    const min = Math.max(1, Math.round((Date.now() - s.inicio) / 60000));
+    const min = Math.max(1, Math.round(trDecorrido(s) / 60000));
     const feitas = s.exercicios.flatMap(ex => ex.series.filter(x => x.ok).map(x => ({ ex: ex.nome, kg: num(x.kg) || 0, reps: parseInt(x.reps) || 0 })));
     const volume = Math.round(feitas.reduce((t, x) => t + x.kg * x.reps, 0));
     const recordes = s.exercicios.map(ex => { const rec = hist[ex.nome] && hist[ex.nome].recorde != null ? Number(hist[ex.nome].recorde) : null; const m = Math.max(0, ...ex.series.filter(x => x.ok).map(x => num(x.kg) || 0)); return rec != null && m > rec ? { ex: ex.nome, kg: m } : null; }).filter(Boolean);
@@ -17230,7 +17301,7 @@ function pintarPilulaTreino() {
     const pintar = () => {
         const s2 = trGet();
         if (!s2 || !document.getElementById('trPilula')) { clearInterval(p._t); if (!s2 && p) p.remove(); return; }
-        p.innerHTML = `<i></i><span>${escapeHTML(s2.ativ)}</span><b>${trTempo(Date.now() - s2.inicio)}</b>`;
+        p.innerHTML = `<i class="${s2.pausadoEm ? 'pausado' : ''}"></i><span>${escapeHTML(s2.ativ)}${s2.pausadoEm ? ' · pausado' : ''}</span><b>${trTempo(trDecorrido(s2))}</b>`;
     };
     clearInterval(p._t); pintar(); p._t = setInterval(pintar, 1000);
 }

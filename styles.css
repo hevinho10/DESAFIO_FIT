@@ -4080,3 +4080,54 @@ html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer
 :root[data-theme="light"] .mr-macros > div{ background:#F1F4F2; }
 :root[data-theme="light"] .tr-ok.on{ background:var(--vital); color:#fff; }
 :root[data-theme="light"] .tr-in.ok{ background:var(--vital-dim); color:#1E9E6B; }
+
+/* X1: ajustes (hub, tabela dia a dia, regras) */
+.x1-sec-cab{ margin:0 !important; }
+.x1-lista.hub .x1-cab{ margin:6px 2px 9px; }
+.pd-sec-grupo{ margin:22px 2px 9px !important; }
+.x1-desafiar{ display:block; width:100%; padding:13px; margin-top:2px; border-radius:16px; border:1.5px dashed var(--line); background:none; color:var(--ink-dim); font-family:inherit; font-size:14px; font-weight:600; }
+.x1-desafiar:active{ background:var(--bg-elev); }
+.x1-vazio{ cursor:pointer; }
+.x1-pessoa{ align-items:center; }
+.x1-pessoa:disabled{ opacity:.45; }
+.x1-pessoa-l{ display:flex; align-items:center; gap:11px; min-width:0; }
+.x1-pessoa-l b{ display:block; font-size:14.5px; } .x1-pessoa-l small{ display:block; font-size:12px; color:var(--ink-faint); }
+.x1-rg-intro{ font-size:14.5px; line-height:1.5; margin:14px 0 0; color:var(--ink); }
+.x1-rg-intro b{ color:var(--vital); }
+.x1-tab{ border-radius:20px; background:var(--bg-card); border:1px solid var(--line); overflow:hidden; }
+.x1-tr{ display:grid; grid-template-columns:62px 1fr 1fr; align-items:center; gap:12px; padding:11px 14px; border-top:1px solid var(--line); }
+.x1-tr:first-child{ border-top:0; }
+.x1-th{ padding:10px 14px; font-size:11px; font-weight:700; letter-spacing:.06em; color:var(--ink-faint); }
+.x1-th span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.x1-td-d b{ display:block; font-size:13.5px; } .x1-td-d small{ font-size:11px; color:var(--ink-faint); }
+.x1-tr.hj{ background:var(--vital-dim); }
+.x1-tr.hj .x1-td-d small{ color:var(--vital); font-weight:700; }
+.x1-tr.fut{ opacity:.4; }
+.x1-cel{ display:flex; align-items:center; gap:9px; min-width:0; }
+.x1-cel u{ flex:1; height:6px; border-radius:3px; background:var(--bg-elev); overflow:hidden; }
+.x1-cel u i{ display:block; height:100%; border-radius:3px; }
+.x1-cel.v u i{ background:var(--x1-eu); } .x1-cel.b u i{ background:var(--x1-ele); }
+.x1-cel b{ min-width:22px; text-align:right; font-family:var(--ff-display); font-size:15px; font-variant-numeric:tabular-nums; }
+.x1-cel b em{ font-style:normal; color:var(--gold); font-size:11px; margin-left:2px; }
+.x1-tot{ font-weight:800; font-size:15px; }
+.x1-tot .v{ color:var(--x1-eu); font-family:var(--ff-display); font-size:18px; } .x1-tot .b{ color:var(--x1-ele); font-family:var(--ff-display); font-size:18px; }
+:root[data-theme="light"] .x1-tab{ background:#fff; border-color:rgba(16,21,18,.07); }
+:root[data-theme="light"] .x1-cel u{ background:#EEF1EF; }
+
+/* Treino ao vivo: pausa */
+.tr-pausa{ width:36px; height:36px; border-radius:12px; background:var(--bg-elev); margin-right:6px; }
+.tr-pausa svg{ width:17px; height:17px; }
+.tr-pausa.on{ background:var(--gold); color:#1A1206; }
+.tr-tit small.pausado, .tr-cardio small.pausado{ color:var(--gold); font-weight:600; }
+.tr-cron.pausado{ opacity:.5; }
+.tr-ctl{ display:flex; justify-content:center; align-items:flex-start; gap:18px; margin-top:28px; }
+.tr-ctl button{ display:flex; flex-direction:column; align-items:center; gap:7px; border:0; background:none; color:var(--ink-dim); font-family:inherit; font-size:12.5px; font-weight:600; padding:0; }
+.tr-ctl i{ width:58px; height:58px; border-radius:50%; display:grid; place-items:center; background:var(--bg-elev); color:var(--ink); }
+.tr-ctl i svg{ width:22px; height:22px; }
+.tr-ctl i.x{ color:var(--danger); }
+.tr-ctl i.p{ width:76px; height:76px; background:var(--vital); color:#04120B; margin-top:-9px; }
+.tr-ctl i.p svg{ width:28px; height:28px; stroke-width:2.4; }
+.tr-pilula i.pausado{ background:var(--gold); animation:none; }
+:root[data-theme="light"] .tr-ctl i{ background:#EEF1EF; }
+:root[data-theme="light"] .tr-ctl i.p{ background:var(--vital); color:#fff; }
+:root[data-theme="light"] .tr-pausa{ background:#EEF1EF; }
