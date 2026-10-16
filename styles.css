@@ -4192,3 +4192,25 @@ a.cm-mencao{ color:var(--vital); font-weight:600; text-decoration:none; cursor:p
 :root[data-theme="light"] .tr-sug span{ color:#fff; }
 :root[data-theme="light"] .trf-leg textarea{ background:#F6F8F6; }
 :root[data-theme="light"] a.cm-mencao{ color:#1E9E6B; }
+
+/* Montar treino: cada exercício com carga, séries e repetições */
+.trm-ex{ display:block; padding:11px 10px 12px 8px; transition:transform .15s; background:var(--bg-card); }
+.trm-l1{ display:flex; align-items:center; gap:6px; }
+.trm-arr{ width:28px; height:28px; display:grid; place-items:center; color:var(--ink-faint); touch-action:none; cursor:grab; flex:none; }
+.trm-arr svg{ width:16px; height:16px; }
+.trm-l2{ display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; margin:8px 0 0 34px; }
+.trm-campo{ position:relative; display:block; }
+.trm-campo .tr-in{ height:36px; padding-right:34px; font-size:15px; }
+.trm-campo i{ position:absolute; right:10px; top:50%; transform:translateY(-50%); font-style:normal; font-size:11.5px; color:var(--ink-faint); pointer-events:none; }
+.trm-campo.vazio{ height:36px; }
+.trm-l2 .trm-step b{ display:flex; flex-direction:column; align-items:center; line-height:1.05; min-width:34px; }
+.trm-l2 .trm-step b i{ font-style:normal; font-size:9.5px; font-weight:600; color:var(--ink-faint); }
+.trm-ex.arrastando{ position:relative; z-index:2; box-shadow:0 12px 30px rgba(0,0,0,.4); border-radius:14px; transition:none; }
+.trm-dica{ display:flex; align-items:center; gap:8px; margin:-2px 2px 10px !important; }
+.w-sugestao{ display:flex; align-items:center; gap:8px; }
+.w-sugestao span{ flex:1; min-width:0; }
+.w-sug-usar{ flex:none; border:0; border-radius:9px; padding:5px 11px; background:var(--vital-dim); color:var(--vital); font-family:inherit; font-size:12.5px; font-weight:700; }
+#wTypeChips.pede{ animation:pedeTremer .4s; }
+@keyframes pedeTremer{ 25%{ transform:translateX(-6px); } 75%{ transform:translateX(6px); } }
+.destaque{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+:root[data-theme="light"] .trm-ex{ background:#fff; }

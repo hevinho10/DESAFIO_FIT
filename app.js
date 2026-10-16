@@ -3045,7 +3045,8 @@ async function lerPrintDeTreino() {
 
         const sel = $('#wType');
         if ([...sel.options].some(o => o.value === data.activity_type || o.text === data.activity_type)) {
-            sel.value = data.activity_type;
+            sel.value = data.activity_type; state.wEscolhido = true;
+            if (typeof montarFormTreino === 'function') montarFormTreino();
         }
         if (data.duration_min) $('#wDuration').value = data.duration_min;
         if (data.distance_km) {
@@ -12193,9 +12194,10 @@ document.addEventListener('click', async e => {
         if (!t) return;
         limparComposer();
         setComposerKind('workout');
-        $('#wType').value = t.tipo;
+        $('#wType').value = t.tipo; state.wEscolhido = true;
         $('#wDuration').value = t.minutos;
         $('#pCaption').value = t.titulo || '';
+        montarFormTreino();
         atualizarCamposTreino();
         abrirComposer();
     } else if (act === 'ia-treino-trocar') {
@@ -14656,7 +14658,7 @@ function miniStoryHTML(x, marcado) {
 }
 
 // Editor de destaque em dois passos: 1) escolher os stories  2) capa e nome (opcional)
-async function abrirEditorDestaque(hid = null, preSelecionado = null) {
+async function abrirEditorDestaque(hid = null, preSelecionado = null, modo = null) {
     const old = document.getElementById('editorDestaque');
     if (old) old.remove();
     const v = document.createElement('div');
@@ -14801,7 +14803,7 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null) {
             }
         };
     };
-    if (preSelecionado && opcoes.some(o => o.on)) passo2(); else passo1();
+    if ((preSelecionado || modo === 'capa') && opcoes.some(o => o.on)) passo2(); else passo1();
 }
 
 // Abre um destaque (seu ou de outra pessoa) no visualizador de stories
@@ -15127,7 +15129,8 @@ function atualizarCamposTreino() {
     const tipo = $('#wType').value;
     const temKm = ATIVIDADES_COM_KM.includes(tipo);
     $('#wDistField').classList.toggle('hidden', !temKm);
-    $('#wMuscleField').classList.toggle('hidden', tipo !== 'Musculação');
+    $('#wMuscleField').classList.toggle('hidden', tipo !== 'Musculação' || !state.wEscolhido);
+    $('#wDistField').classList.toggle('hidden', !temKm || !state.wEscolhido);
     const km = parseFloat(String($('#wDistance').value).replace(',', '.'));
     const min = parseInt($('#wDuration').value);
     const pace = (tipo === 'Corrida' || tipo === 'Caminhada') ? formatarPace(min, km) : '';
@@ -15197,6 +15200,7 @@ async function preencherStatusRegistro() {
     } catch (_) {}
 }
 function limparComposer() {
+    state.wEscolhido = false;
     delete $('#mSlot').dataset.tocado;
     $('#pCaption').value = '';
     $('#pPhotoCam').value = '';
@@ -15624,7 +15628,7 @@ function montarFormTreino() {
     const todas = [...$('#wType').options].map(o => o.value);
     const ordem = [...todas].sort((a, b) => (uso[b] || 0) - (uso[a] || 0) || todas.indexOf(a) - todas.indexOf(b));
     const atual = $('#wType').value;
-    $('#wTypeChips').innerHTML = ordem.map(t => `<button type="button" class="tr-chip${t === atual ? ' on' : ''}" data-tipo="${t}" role="radio" aria-checked="${t === atual}">
+    $('#wTypeChips').innerHTML = ordem.map(t => `<button type="button" class="tr-chip${state.wEscolhido && t === atual ? ' on' : ''}" data-tipo="${t}" role="radio" aria-checked="${state.wEscolhido && t === atual}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONES_ATIVIDADE[t] || ICONES_ATIVIDADE.Outro}</svg>${NOME_CURTO_ATIV[t] || t}</button>`).join('');
     $('#wTypeChips').scrollLeft = 0;
     sincronizarDuracao();
@@ -15642,16 +15646,18 @@ async function sugerirTreinoDoDia() {
     if (!plano) return;
     const chip = document.querySelector(`#wTypeChips [data-tipo="${plano.a}"]`);
     if (!chip) return;
-    chip.click();
-    chip.scrollIntoView({ inline: 'center', block: 'nearest' });
-    if (plano.a === 'Musculação' && (plano.g || []).length) {
-        $$('#wMuscles .chip').forEach(x => x.classList.toggle('on', plano.g.includes(x.dataset.m)));
-    }
-    // duração da última vez que fez essa atividade
-    const ultima = ((state.semanaHist && state.semanaHist.lista) || []).find(w => w.activity_type === plano.a && w.duration_min);
-    if (ultima) { $('#wDuration').value = ultima.duration_min; sincronizarDuracao(); }
+    // não marca nada sozinho: mostra a dica e só preenche se a pessoa tocar em "usar"
     const dica = document.getElementById('wSugestao');
-    if (dica) dica.textContent = `Hoje é ${NOME_DIA[new Date().getDay()]}: você costuma fazer ${textoItemSemana(plano)}`;
+    if (!dica) return;
+    dica.innerHTML = `<span>Hoje você costuma: ${escapeHTML(textoItemSemana(plano))}</span><button type="button" class="w-sug-usar">usar</button>`;
+    dica.querySelector('.w-sug-usar').onclick = () => {
+        chip.click();
+        chip.scrollIntoView({ inline: 'center', block: 'nearest' });
+        if (plano.a === 'Musculação' && (plano.g || []).length) $$('#wMuscles .chip').forEach(x => x.classList.toggle('on', plano.g.includes(x.dataset.m)));
+        const ultima = ((state.semanaHist && state.semanaHist.lista) || []).find(w => w.activity_type === plano.a && w.duration_min);
+        if (ultima) { $('#wDuration').value = ultima.duration_min; sincronizarDuracao(); }
+        dica.innerHTML = '';
+    };
 }
 function sincronizarDuracao() {
     const v = Number($('#wDuration').value) || 45;
@@ -15677,6 +15683,7 @@ function atualizarFotoLegenda() {
 document.getElementById('wTypeChips').addEventListener('click', e => {
     const b = e.target.closest('[data-tipo]');
     if (!b) return;
+    state.wEscolhido = true;
     $('#wType').value = b.dataset.tipo;
     $('#wType').dispatchEvent(new Event('change', { bubbles: true }));
     $$('#wTypeChips .tr-chip').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
@@ -16028,6 +16035,7 @@ $('#pPhotoGal').addEventListener('change', handlePhotoPick);
 $('#composerSubmit').addEventListener('click', async () => {
     const btn = $('#composerSubmit');
     if (state.publishing) return;
+    if (state.composerKind === 'workout' && !state.wEscolhido) { toast('Escolha o que você treinou', 'err'); const c = document.getElementById('wTypeChips'); if (c) c.classList.add('pede'), setTimeout(() => c.classList.remove('pede'), 900); return; }
     state.publishing = true;
     btn.disabled = true; btn.textContent = 'Publicando...';
 
@@ -17017,9 +17025,29 @@ const descansoEx = n => {
     try { const m = JSON.parse(lsGet('pulso-desc-ex') || '{}'); if (m[n]) return m[n]; } catch (_) {}
     return EX_PESADOS.includes(n) ? 120 : tipoEx(n) !== 'carga' ? 45 : 60;
 };
+// Carga de cada exercício fica lembrada (na conta) até a pessoa mudar
+const cargasEx = () => {
+    if (state.profile && state.profile.cargas_ex && typeof state.profile.cargas_ex === 'object') return state.profile.cargas_ex;
+    try { return JSON.parse(lsGet('pulso-cargas-ex') || '{}'); } catch (_) { return {}; }
+};
+let cargaTimer = null;
+function lembrarCarga(nome, kg, reps) {
+    if (!nome || !state.profile) return;
+    const mapa = { ...cargasEx() };
+    const k = parseFloat(String(kg || '').replace(',', '.')), r = parseInt(reps);
+    const atual = mapa[nome] || {};
+    mapa[nome] = { kg: k > 0 ? k : (kg === '' ? null : atual.kg ?? null), reps: r > 0 ? r : atual.reps ?? null };
+    state.profile.cargas_ex = mapa;
+    try { lsSet('pulso-cargas-ex', JSON.stringify(mapa)); } catch (_) {}
+    clearTimeout(cargaTimer);
+    cargaTimer = setTimeout(() => sb.from('profiles').update({ cargas_ex: mapa }).eq('id', state.session.user.id).then(() => {}, () => {}), 1500);
+}
 const novoExercicio = (nome, series = 3, reps = null, grupo = null) => {
     const t = tipoEx(nome);
-    return { nome, tipo: t, grupo, series: Array.from({ length: series }, () => ({ kg: '', reps: String(reps || (t === 'tempo' ? 30 : 10)), ok: false })) };
+    const mem = cargasEx()[nome] || {};
+    const kg = t !== 'tempo' && mem.kg != null ? String(mem.kg).replace('.', ',') : '';
+    const rp = reps || mem.reps || (t === 'tempo' ? 30 : 10);
+    return { nome, tipo: t, grupo, series: Array.from({ length: series }, () => ({ kg, reps: String(rp), ok: false })) };
 };
 const CHAVE_TREINO = () => 'pulso-treino-vivo-' + (state.session ? state.session.user.id : '');
 const trGet = () => { try { return JSON.parse(lsGet(CHAVE_TREINO()) || 'null'); } catch (_) { return null; } };
@@ -17072,9 +17100,10 @@ async function abrirModoTreino(preset = null, editar = false) {
     if (salvo && salvo.inicio && !editar) return abrirTreinoVivo();
     const t = state.iaTreino;
     const costume = typeof planoDeHoje === 'function' ? planoDeHoje() : null;
+    // abre sem nada marcado: a dica do costume só preenche se a pessoa tocar
     const m = editar && salvo ? JSON.parse(JSON.stringify(salvo)) : {
-        ativ: (preset && preset.a) || (t && t.status !== 'feito' && t.tipo) || (costume && costume.a) || 'Musculação',
-        grupos: (preset && preset.g) || (costume && costume.a === 'Musculação' && costume.g) || [],
+        ativ: (preset && preset.a) || null,
+        grupos: (preset && preset.g) || [],
         exercicios: [], doCoach: null,
     };
     const doCoach = !editar && t && t.status !== 'feito' && t.tipo === 'Musculação' && (t.blocos || []).length;
@@ -17084,23 +17113,26 @@ async function abrirModoTreino(preset = null, editar = false) {
     };
     if (!editar && m.ativ === 'Musculação' && !m.exercicios.length) sugerirDosGrupos();
     // atalhos: modelos salvos e o último treino ao vivo
-    let modelos = [], ultimo = null;
+    let modelos = [], ultimo = null, ultimaOutra = null;
     if (!editar) {
-        const [r1, r2] = await Promise.all([
+        const [r1, r2, r3] = await Promise.all([
             sb.from('treino_modelos').select('id, nome, grupos, exercicios').eq('user_id', state.session.user.id).order('criado_em', { ascending: false }).limit(12).then(r => r, () => ({ data: [] })),
             sb.from('posts').select('id, muscle_groups, created_at, meta').eq('user_id', state.session.user.id).eq('kind', 'workout').eq('activity_type', 'Musculação')
                 .not('meta->exercicios', 'is', null).order('created_at', { ascending: false }).limit(1).then(r => r, () => ({ data: [] })),
+            sb.from('posts').select('activity_type, duration_min, created_at').eq('user_id', state.session.user.id).eq('kind', 'workout').neq('activity_type', 'Musculação')
+                .order('created_at', { ascending: false }).limit(1).then(r => r, () => ({ data: [] })),
         ]);
-        modelos = r1.data || []; ultimo = (r2.data || [])[0] || null;
+        modelos = r1.data || []; ultimo = (r2.data || [])[0] || null; ultimaOutra = (r3.data || [])[0] || null;
     }
     const tela = x1Tela('treinoInicio', '');
     tela.classList.add('tr-tela');
     const musc = () => m.ativ === 'Musculação';
     const pintar = () => {
         const n = m.exercicios.length;
-        const atalhos = musc() && !editar && (doCoach || modelos.length || ultimo) ? `<div class="trm-atalhos">
+        const atalhos = !editar && (doCoach || modelos.length || ultimo || ultimaOutra) ? `<div class="trm-atalhos">
             ${doCoach ? `<button class="trm-at" data-tr="coach"><span class="x1-tipo-ic" style="--c:53,225,155">${SVG_X(IC_X1.estrela)}</span><span><b>Treino do coach</b><small>${escapeHTML(t.titulo || '')}</small></span></button>` : ''}
             ${ultimo ? `<button class="trm-at" data-tr="ultimo"><span class="x1-tipo-ic" style="--c:95,176,255">${SVG_X('<path d="M4 12a8 8 0 1 0 3-6.3M4 4v4h4"/>')}</span><span><b>Repetir último</b><small>${escapeHTML((ultimo.muscle_groups || []).slice(0, 2).join(', ') || 'Musculação')} · ${new Date(ultimo.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></span></button>` : ''}
+            ${ultimaOutra ? `<button class="trm-at" data-tr="outra"><span class="x1-tipo-ic" style="--c:255,122,77">${SVG_X(ICONES_ATIVIDADE[ultimaOutra.activity_type] || IC_X1.corrida)}</span><span><b>Repetir ${escapeHTML(String(ultimaOutra.activity_type || '').toLowerCase())}</b><small>${ultimaOutra.duration_min || ''} min · ${new Date(ultimaOutra.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></span></button>` : ''}
             ${modelos.map(md => `<button class="trm-at" data-tr="modelo" data-id="${md.id}"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X('<path d="M6 3h12v18l-6-4-6 4z"/>')}</span><span><b>${escapeHTML(md.nome)}</b><small>${(md.exercicios || []).length} exercícios</small></span></button>`).join('')}
         </div>` : '';
         tela.innerHTML = `
@@ -17108,32 +17140,80 @@ async function abrirModoTreino(preset = null, editar = false) {
         <div class="x1-corpo">
             ${atalhos}
             ${!editar ? `<div class="x1-sec">O QUE VAI FAZER</div>
+            ${!m.ativ && costume ? `<p class="w-sugestao trm-dica"><span>Hoje você costuma: ${escapeHTML(textoItemSemana(costume))}</span><button type="button" class="w-sug-usar" data-tr="costume">usar</button></p>` : ''}
             <div class="trv-chips">${gostos.map(a => `<button class="x1-chip${a === m.ativ ? ' on' : ''}" data-tr="ativ" data-a="${a}">${a}</button>`).join('')}</div>` : ''}
-            ${musc() ? `${!editar ? `<div class="x1-sec">GRUPOS</div>
+            ${!m.ativ ? '' : musc() ? `${!editar ? `<div class="x1-sec">GRUPOS</div>
             <div class="trv-chips">${GRUPOS_TREINO.map(g => `<button class="x1-chip${m.grupos.includes(g) ? ' on' : ''}" data-tr="grupo" data-g="${g}">${g}</button>`).join('')}</div>` : ''}
-            <div class="x1-sec">EXERCÍCIOS${n ? ` · ${n}` : ''}</div>
+            ${n || editar ? `<div class="x1-sec">EXERCÍCIOS · ${n}</div>
             ${n > 8 ? `<p class="trm-aviso">Treino grande: ${n} exercícios. Pode tirar alguns.</p>` : ''}
-            <div class="trm-lista">${m.exercicios.map((ex, i) => `<div class="trm-ex">
-                <span class="trm-nome"><b>${escapeHTML(ex.nome)}</b><small>${ex.tipo === 'tempo' ? 'por tempo' : ex.tipo === 'corpo' ? 'peso do corpo' : (ex.grupo || '')}</small></span>
-                <span class="trm-step"><button data-tr="menos" data-i="${i}" aria-label="Menos séries">−</button><b>${ex.series.length}</b><button data-tr="mais" data-i="${i}" aria-label="Mais séries">+</button></span>
-                <button class="trm-x" data-tr="tirar" data-i="${i}" aria-label="Tirar">${SVG_X(IC_X1.fechar)}</button>
-            </div>`).join('') || '<p class="tr-dica" style="margin-top:0">Escolha os grupos acima ou adicione exercícios.</p>'}</div>
-            <button class="tr-add" data-tr="add">+ Adicionar exercício</button>`
+            <div class="trm-lista" id="trmLista">${m.exercicios.map((ex, i) => `<div class="trm-ex" data-i="${i}">
+                <div class="trm-l1"><span class="trm-arr" data-arr="${i}" aria-label="Arrastar">${SVG_X('<path d="M5 9h14M5 15h14"/>')}</span>
+                    <span class="trm-nome"><b>${escapeHTML(ex.nome)}</b>${ex.tipo !== 'carga' ? `<small>${ex.tipo === 'tempo' ? 'por tempo' : 'peso do corpo'}</small>` : ''}</span>
+                    <button class="trm-x" data-tr="tirar" data-i="${i}" aria-label="Tirar">${SVG_X(IC_X1.fechar)}</button></div>
+                <div class="trm-l2">
+                    ${ex.tipo === 'carga' ? `<label class="trm-campo"><input class="tr-in" inputmode="decimal" data-trm="kg" data-i="${i}" value="${escapeHTML((ex.series[0] && ex.series[0].kg) || '')}" placeholder="0"><i>kg</i></label>` : '<span class="trm-campo vazio"></span>'}
+                    <span class="trm-step"><button data-tr="menos" data-i="${i}" aria-label="Menos séries">−</button><b>${ex.series.length}<i>séries</i></b><button data-tr="mais" data-i="${i}" aria-label="Mais séries">+</button></span>
+                    <label class="trm-campo"><input class="tr-in" inputmode="numeric" data-trm="reps" data-i="${i}" value="${escapeHTML((ex.series[0] && ex.series[0].reps) || '')}" placeholder="10"><i>${ex.tipo === 'tempo' ? 'seg' : 'reps'}</i></label>
+                </div>
+            </div>`).join('')}</div>
+            <button class="tr-add" data-tr="add">+ Adicionar exercício</button>` : `<p class="tr-dica">Escolha os grupos pra montar a lista de exercícios.</p>`}`
             : `<p class="tr-dica">O cronômetro começa quando você tocar em começar. No fim, você confere o tempo${['Corrida', 'Caminhada', 'Ciclismo', 'Natação'].includes(m.ativ) ? ' e coloca a distância' : ''}.</p>`}
         </div>
-        <div class="x1-rodape"><button class="btn x1-btn" data-tr="comecar"${musc() && !n ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar ${musc() ? `treino · ${n} ${n === 1 ? 'exercício' : 'exercícios'}` : escapeHTML(m.ativ.toLowerCase())}`}</button></div>`;
+        <div class="x1-rodape"><button class="btn x1-btn" data-tr="comecar"${!m.ativ || (musc() && !n) ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar ${musc() ? `treino · ${n} ${n === 1 ? 'exercício' : 'exercícios'}` : escapeHTML(String(m.ativ || 'treino').toLowerCase())}`}</button></div>`;
     };
     pintar();
+    // carga e repetições direto na montagem (ficam lembradas)
+    tela.addEventListener('focusin', e => { if (e.target.dataset && e.target.dataset.trm) setTimeout(() => { try { e.target.select(); } catch (_) {} }, 0); });
+    tela.addEventListener('input', e => {
+        const k = e.target.dataset.trm; if (!k) return;
+        const ex = m.exercicios[Number(e.target.dataset.i)]; if (!ex) return;
+        const v = e.target.value.replace(/[^\d.,]/g, '').slice(0, 6);
+        ex.series.forEach(se => { if (!se.ok) se[k] = v; });
+        lembrarCarga(ex.nome, k === 'kg' ? v : (ex.series[0] || {}).kg, k === 'reps' ? v : (ex.series[0] || {}).reps);
+    });
+    // arrastar pra reordenar
+    tela.addEventListener('pointerdown', e => {
+        const h = e.target.closest('[data-arr]'); if (!h) return;
+        e.preventDefault();
+        const lista = tela.querySelector('#trmLista'); const item = h.closest('.trm-ex'); if (!lista || !item) return;
+        const de = Number(h.dataset.arr), y0 = e.clientY;
+        const itens = [...lista.children]; const alturas = itens.map(x => x.getBoundingClientRect());
+        item.classList.add('arrastando');
+        let para = de;
+        const mover = ev => {
+            const dy = ev.clientY - y0; item.style.transform = `translateY(${dy}px)`;
+            const centro = alturas[de].top + alturas[de].height / 2 + dy;
+            para = alturas.findIndex(r => centro < r.top + r.height / 2); if (para < 0) para = itens.length - 1;
+            itens.forEach((x, k) => { if (x === item) return; const h2 = alturas[de].height + 8; x.style.transform = de < para && k > de && k <= para ? `translateY(-${h2}px)` : de > para && k < de && k >= para ? `translateY(${h2}px)` : ''; });
+        };
+        const soltar = () => {
+            document.removeEventListener('pointermove', mover); document.removeEventListener('pointerup', soltar); document.removeEventListener('pointercancel', soltar);
+            if (para !== de) { const [x] = m.exercicios.splice(de, 1); m.exercicios.splice(para, 0, x); vibrar(8); }
+            pintar();
+        };
+        document.addEventListener('pointermove', mover); document.addEventListener('pointerup', soltar); document.addEventListener('pointercancel', soltar);
+    });
     const carregarDe = async (nomes, contagem = {}) => {
         let hist = {};
         try { const { data } = await sb.rpc('treino_historico', { exs: nomes }); hist = data || {}; } catch (_) {}
-        m.exercicios = nomes.map(nm => novoExercicio(nm, contagem[nm] || (hist[nm] && hist[nm].ultima ? hist[nm].ultima.length : 3), hist[nm] && hist[nm].ultima ? hist[nm].ultima[0].reps : null));
+        m.exercicios = nomes.map(nm => {
+            const ex = novoExercicio(nm, contagem[nm] || (hist[nm] && hist[nm].ultima ? hist[nm].ultima.length : 3), hist[nm] && hist[nm].ultima ? hist[nm].ultima[0].reps : null);
+            const u = hist[nm] && hist[nm].ultima && hist[nm].ultima[0];
+            if (u && u.kg != null && ex.tipo === 'carga' && !ex.series[0].kg) ex.series.forEach(se => { se.kg = String(u.kg).replace('.', ','); });
+            return ex;
+        });
     };
     tela.addEventListener('click', async e => {
         const b = e.target.closest('[data-tr]'); if (!b || b.disabled) return;
         const a = b.dataset.tr, i = Number(b.dataset.i);
         if (a === 'fechar') { x1FecharTela('treinoInicio'); if (editar) setTimeout(abrirTreinoVivo, 190); }
-        else if (a === 'ativ') { m.ativ = b.dataset.a; vibrar(6); pintar(); }
+        else if (a === 'ativ') { m.ativ = m.ativ === b.dataset.a ? null : b.dataset.a; if (!musc()) { m.grupos = []; m.exercicios = []; } vibrar(6); pintar(); }
+        else if (a === 'costume' && costume) {
+            m.ativ = costume.a; m.grupos = costume.a === 'Musculação' ? (costume.g || []).slice() : []; m.exercicios = [];
+            if (musc()) sugerirDosGrupos();
+            vibrar(6); pintar();
+        }
+        else if (a === 'outra' && ultimaOutra) { m.ativ = ultimaOutra.activity_type; m.grupos = []; m.exercicios = []; vibrar(6); pintar(); }
         else if (a === 'grupo') {
             const g = b.dataset.g;
             if (m.grupos.includes(g)) { m.grupos = m.grupos.filter(x => x !== g); m.exercicios = m.exercicios.filter(ex => ex.grupo !== g); }
@@ -17145,6 +17225,7 @@ async function abrirModoTreino(preset = null, editar = false) {
         else if (a === 'tirar') { m.exercicios.splice(i, 1); vibrar(6); pintar(); }
         else if (a === 'add') escolherExercicio(nome => { m.exercicios.push(novoExercicio(nome)); pintar(); const c = tela.querySelector('.x1-corpo'); if (c) c.scrollTop = c.scrollHeight; });
         else if (a === 'coach') {
+            m.ativ = 'Musculação';
             const exs = []; (t.blocos || []).forEach(bl => (bl.itens || []).forEach(it => { const x = lerExercicioTexto(it); if (x && !exs.some(e2 => e2.nome === x.nome)) exs.push(x); }));
             m.exercicios = exs.slice(0, 8).map(x => novoExercicio(x.nome, x.series, x.reps)); m.doCoach = t.titulo || null; vibrar(6); pintar();
         }
@@ -17152,11 +17233,11 @@ async function abrirModoTreino(preset = null, editar = false) {
             const nomes = (ultimo.meta.exercicios || []).slice(0, 12);
             let contagem = {};
             try { const { data } = await sb.from('treino_series').select('exercicio').eq('post_id', ultimo.id); (data || []).forEach(r => { contagem[r.exercicio] = (contagem[r.exercicio] || 0) + 1; }); } catch (_) {}
-            await carregarDe(nomes, contagem); m.grupos = (ultimo.muscle_groups || []).slice(); m.doCoach = null; vibrar(6); pintar();
+            await carregarDe(nomes, contagem); m.ativ = 'Musculação'; m.grupos = (ultimo.muscle_groups || []).slice(); m.doCoach = null; vibrar(6); pintar();
         }
         else if (a === 'modelo') {
             const md = modelos.find(x => x.id === b.dataset.id); if (!md) return;
-            m.exercicios = (md.exercicios || []).map(x => novoExercicio(x.nome, x.series || 3, x.reps || null)); m.grupos = (md.grupos || []).slice(); m.doCoach = md.nome; vibrar(6); pintar();
+            m.exercicios = (md.exercicios || []).map(x => novoExercicio(x.nome, x.series || 3, x.reps || null)); m.ativ = 'Musculação'; m.grupos = (md.grupos || []).slice(); m.doCoach = md.nome; vibrar(6); pintar();
         }
         else if (a === 'comecar') {
             if (editar) {
@@ -17278,6 +17359,8 @@ async function abrirTreinoVivo() {
         const i = e.target.dataset.i, j = e.target.dataset.j, k = e.target.dataset.tv;
         if (i == null || !['kg', 'reps'].includes(k)) return;
         s.exercicios[i].series[j][k] = e.target.value.replace(/[^\d.,]/g, '').slice(0, 6);
+        const se = s.exercicios[i].series[j];
+        lembrarCarga(s.exercicios[i].nome, se.kg, se.reps);
         salvar();
     });
     tela.addEventListener('click', async e => {
@@ -17302,6 +17385,7 @@ async function abrirTreinoVivo() {
             se.ok = !se.ok;
             if (se.ok) {
                 if (!se.reps) se.reps = ex.tipo === 'tempo' ? '30' : '10';
+                lembrarCarga(ex.nome, se.kg, se.reps);
                 const prox = ex.series[j + 1]; if (prox && !prox.kg && se.kg) prox.kg = se.kg;
                 iniciarDescanso(ex);
                 vibrar(10);
@@ -17310,7 +17394,7 @@ async function abrirTreinoVivo() {
         }
         else if (a === 'sug') {
             const ex = s.exercicios[i]; const kg = String(b.dataset.kg).replace('.', ',');
-            ex.series.forEach(x => { if (!x.ok) x.kg = kg; }); vibrar(6); salvar(); pintar();
+            ex.series.forEach(x => { if (!x.ok) x.kg = kg; }); lembrarCarga(ex.nome, kg, (ex.series[0] || {}).reps); vibrar(6); salvar(); pintar();
         }
         else if (a === 'serie') { const ex = s.exercicios[i]; const ult = ex.series[ex.series.length - 1] || {}; ex.series.push({ kg: ult.kg || '', reps: ult.reps || '10', ok: false }); salvar(); pintar(); }
         else if (a === 'pausa') {
@@ -17631,6 +17715,39 @@ async function hydrateProteina() {
 
 // @ com sugestões na legenda do registro
 setTimeout(() => ligarMencoes(document.getElementById('pCaption'), document.getElementById('pCapSug')), 0);
+
+// Segurar o dedo num destaque seu: trocar capa, editar, renomear, excluir
+(function menuDoDestaque() {
+    let timer = null, ignorar = false, alvo = null;
+    document.addEventListener('pointerdown', e => {
+        const d = e.target.closest('.destaque[data-act="abrir-destaque"]');
+        if (!d || !state.session || d.dataset.uid !== state.session.user.id) return;
+        alvo = d; ignorar = false; clearTimeout(timer);
+        timer = setTimeout(() => {
+            ignorar = true; vibrar(12);
+            const id = alvo.dataset.id, nome = (alvo.querySelector('.destaque-nome') || {}).textContent || 'Destaque';
+            const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(nome)}</h3>
+                <button class="x1-op" data-dm="capa">Trocar capa</button>
+                <button class="x1-op" data-dm="capa">Renomear</button>
+                <button class="x1-op" data-dm="stories">Editar stories</button>
+                <button class="x1-op perigo" data-dm="excluir">Excluir destaque</button>
+                <button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'destMenu');
+            f.addEventListener('click', async ev => {
+                const b = ev.target.closest('[data-dm]'); if (!b) return;
+                fechar();
+                if (b.dataset.dm === 'excluir') {
+                    if (!(await confirmar('Excluir este destaque? Os stories originais não são apagados.', 'Excluir', true))) return;
+                    const { error } = await sb.from('story_highlights').delete().eq('id', id);
+                    if (error) { toast(msgErro(error), 'err'); return; }
+                    toast('Destaque excluído', 'ok'); if (state.view === 'profile') renderProfile();
+                } else abrirEditorDestaque(id, null, b.dataset.dm === 'capa' ? 'capa' : null);
+            });
+        }, 550);
+    });
+    ['pointerup', 'pointercancel', 'pointermove'].forEach(ev => document.addEventListener(ev, e => { if (ev === 'pointermove' && Math.abs(e.movementY || 0) + Math.abs(e.movementX || 0) < 4) return; clearTimeout(timer); }));
+    document.addEventListener('click', e => { if (ignorar && e.target.closest('.destaque')) { e.stopPropagation(); e.preventDefault(); ignorar = false; } }, true);
+    document.addEventListener('contextmenu', e => { if (e.target.closest('.destaque')) e.preventDefault(); });
+})();
 
 // Começar treino ao vivo (de qualquer lugar)
 document.addEventListener('click', e => {
