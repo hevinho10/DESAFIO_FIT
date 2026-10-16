@@ -14497,7 +14497,7 @@ function showCurrentStory() {
     document.getElementById('svMais').classList.toggle('hidden', !souDonoDoStory);
     destBtn.onclick = ev => {
         ev.stopPropagation();
-        if (ehDestaque) { closeStoryViewer(); abrirEditorDestaque(group.destaque); }
+        if (ehDestaque) { closeStoryViewer(); abrirMenuDestaque(null, group.destaque, group.titulo); }
         else abrirEscolhaDestaque(item);
     };
     if (souDonoDoStory) {
@@ -14629,10 +14629,6 @@ function destaquesHTML(lista, uid) {
             <span class="destaque-capa destaque-novo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></span>
             <span class="destaque-nome">Novo</span>
         </button>` : '';
-    const editarBtn = meu && (lista || []).length ? `<button class="destaque" data-act="destaques-editar">
-            <span class="destaque-capa destaque-novo destaque-lapis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
-            <span class="destaque-nome">Editar</span>
-        </button>` : '';
     return `<div class="destaques">${(lista || []).map(h => {
         const itens = [...h.story_highlight_items].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         const corCapa = h.cover_url && h.cover_url.startsWith('cor:') ? h.cover_url.slice(4) : null;
@@ -14644,7 +14640,7 @@ function destaquesHTML(lista, uid) {
             <span class="destaque-capa" style="background:${cor}">${img}</span>
             <span class="destaque-nome">${escapeHTML(h.title)}</span>
         </button>`;
-    }).join('')}${novo}${editarBtn}</div>`;
+    }).join('')}${novo}</div>`;
 }
 function capaFalhou(img) {
     const resto = (img.dataset.alt || '').split('|').filter(Boolean);
@@ -14821,7 +14817,7 @@ async function abrirDestaque(hid, uid) {
         sb.from('profiles').select('id, username, display_name, avatar_url').eq('id', uid).maybeSingle(),
     ]);
     if (!h || !itens || !itens.length) { toast('Esse destaque está vazio.', 'err'); return; }
-    state.storiesData = [{ user: autor || { id: uid }, items: itens, destaque: hid }];
+    state.storiesData = [{ user: autor || { id: uid }, items: itens, destaque: hid, titulo: h.title }];
     openStoryViewer(0);
 }
 async function abrirEscolhaDestaque(item) {
@@ -17800,8 +17796,8 @@ async function hydrateProteina() {
 setTimeout(() => ligarMencoes(document.getElementById('pCaption'), document.getElementById('pCapSug')), 0);
 
 // Menu do destaque: trocar capa, renomear, editar stories, excluir
-function abrirMenuDestaque(d) {
-    const id = d.dataset.id, nome = (d.querySelector('.destaque-nome') || {}).textContent || 'Destaque';
+function abrirMenuDestaque(d, idDireto, nomeDireto) {
+    const id = idDireto || d.dataset.id, nome = nomeDireto || (d && (d.querySelector('.destaque-nome') || {}).textContent) || 'Destaque';
     const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(nome)}</h3>
         <button class="x1-op" data-dm="capa">Trocar capa</button>
         <button class="x1-op" data-dm="capa">Renomear</button>
@@ -17821,18 +17817,8 @@ function abrirMenuDestaque(d) {
 }
 (function menuDoDestaque() {
     let timer = null, ignorar = false, alvo = null;
-    // "Editar" no fim da fileira: cada destaque ganha um lápis e o toque abre o menu
+    // segurar um destaque seu abre o menu (trocar capa, renomear, stories, excluir)
     document.addEventListener('click', e => {
-        const ed = e.target.closest('[data-act="destaques-editar"]');
-        if (ed) {
-            e.stopPropagation(); e.preventDefault();
-            const fila = ed.closest('.destaques'); const on = !fila.classList.contains('editando');
-            fila.classList.toggle('editando', on);
-            ed.querySelector('.destaque-nome').textContent = on ? 'Pronto' : 'Editar';
-            vibrar(6); return;
-        }
-        const d = e.target.closest('.destaques.editando .destaque[data-act="abrir-destaque"]');
-        if (d) { e.stopPropagation(); e.preventDefault(); abrirMenuDestaque(d); return; }
         if (ignorar && e.target.closest('.destaque')) { e.stopPropagation(); e.preventDefault(); ignorar = false; }
     }, true);
     document.addEventListener('pointerdown', e => {
