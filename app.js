@@ -16614,7 +16614,7 @@ function regrasX1HTML(tipo, duracao = null) {
         tabela = linha('Cada km de corrida, caminhada ou bike', '+1') + linha('Máximo por dia', '100 km');
         exemplo = 'Correu 5,2 km e pedalou 12 km = <b>17,2</b>.';
     } else {
-        tabela = linha('💪 Treino', 'até 15') + linha('🍽️ Refeição com foto', '1 cada') + linha('🔥 Bônus de ofensiva', 'até 20') + linha('⚖️ Pesagem da semana', '3');
+        tabela = linha('💪 Treino', 'até 15') + linha('🍽️ Refeição com foto', '1 cada') + linha('🔥 Ofensiva no X1: 3 dias seguidos / 7 dias', '+2 / +5') + linha('⚖️ Pesagem da semana', '3');
         exemplo = 'Exemplo de um dia: treino de 50 min + 2 refeições com foto = <b>cerca de 10 pontos</b>.';
     }
     const t = X1_TIPOS[tipo] || X1_TIPOS.perfeito;
@@ -17114,6 +17114,7 @@ async function abrirTreinoVivo() {
         tela.innerHTML = `
         <div class="x1-topo tr-topo"><button class="x1-ib" data-tv="min" aria-label="Minimizar">${SVG_X('<path d="M6 9l6 6 6-6"/>')}</button>
             <div class="tr-tit"><b>${escapeHTML(s.doCoach || (musc && s.grupos.length ? s.grupos.join(' e ') : s.ativ))}</b><small class="${s.pausadoEm ? 'pausado' : ''}">${s.pausadoEm ? 'Pausado · ' : ''}<span id="trTempo">${trTempo(trDecorrido(s))}</span>${musc ? ` · ${feitas} ${feitas === 1 ? 'série' : 'séries'}` : ''}</small></div>
+            ${musc && !s.pausadoEm ? `<button class="x1-ib tr-pausa tr-desc-btn" data-tv="descanso" aria-label="Descanso">${SVG_X('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/>')}</button>` : ''}
             ${musc ? `<button class="x1-ib tr-pausa${s.pausadoEm ? ' on' : ''}" data-tv="pausa" aria-label="${s.pausadoEm ? 'Continuar' : 'Pausar'}">${s.pausadoEm ? SVG_X('<path d="M8 5v14l11-7z"/>') : SVG_X('<path d="M9 5v14M15 5v14"/>')}</button>` : ''}
             <button class="tr-concluir" data-tv="concluir">Concluir</button></div>
         <div class="x1-corpo">
@@ -17152,6 +17153,8 @@ async function abrirTreinoVivo() {
         pintarRelogios();
         const t2 = tela.querySelector('#trTempo2'); if (t2) t2.textContent = trTempo(trDecorrido(s));
     }, 500);
+    // tocar no campo seleciona o número: o que digitar substitui (não junta "10" com "20")
+    tela.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('tr-in')) setTimeout(() => { try { e.target.select(); e.target.setSelectionRange(0, 99); } catch (_) {} }, 0); });
     tela.addEventListener('input', e => {
         const i = e.target.dataset.i, j = e.target.dataset.j, k = e.target.dataset.tv;
         if (i == null || !['kg', 'reps'].includes(k)) return;
@@ -17184,6 +17187,11 @@ async function abrirTreinoVivo() {
         }
         else if (a === 'mais30') { if (s.descansoAte) { s.descansoAte += 30000; s.descansoTotal += 30000; s.descanso = Math.min(300, s.descanso + 30); salvar(); } }
         else if (a === 'pular') { s.descansoAte = null; salvar(); pintarRelogios(); }
+        else if (a === 'descanso') {
+            if (s.descansoAte && s.descansoAte > Date.now()) { s.descansoAte = null; }
+            else { s.descansoTotal = s.descanso * 1000; s.descansoAte = Date.now() + s.descansoTotal; try { trAudio = trAudio || new (window.AudioContext || window.webkitAudioContext)(); trAudio.resume && trAudio.resume(); } catch (_) {} }
+            vibrar(8); salvar(); pintarRelogios();
+        }
         else if (a === 'ex-menu') {
             const ex = s.exercicios[i];
             const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(ex.nome)}</h3>
@@ -17246,10 +17254,17 @@ function concluirTreino(s, hist, aoFechar) {
         </div>
         ${recordes.length ? `<div class="tr-pr">🏆 ${recordes.length === 1 ? `Novo recorde no ${escapeHTML(recordes[0].ex.toLowerCase())}: ${br(recordes[0].kg, Number.isInteger(recordes[0].kg) ? 0 : 1)} kg` : `${recordes.length} recordes novos hoje`}</div>` : ''}
         ${musc && !feitas.length ? '<p class="tr-dica">Nenhuma série marcada. O treino é salvo só com o tempo.</p>' : ''}
+        <p class="tr-erro" id="trErro" hidden></p>
         <div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Voltar</button><button class="btn x1-btn" id="trSalvar">Salvar treino</button></div>`, 'trFim');
+    const trErro = txt => { const e = f.querySelector('#trErro'); if (!e) return; e.textContent = txt || ''; e.hidden = !txt; if (txt) vibrar([20, 40, 20]); };
+    f.querySelector('#trMin').addEventListener('focus', e => setTimeout(() => { try { e.target.select(); } catch (_) {} }, 0));
+    f.querySelector('#trMin').addEventListener('input', () => trErro(''));
     f.querySelector('#trSalvar').onclick = async ev => {
-        const b = ev.currentTarget; if (b.disabled) return; b.disabled = true; b.textContent = 'Salvando...';
+        const b = ev.currentTarget; if (b.disabled) return;
         const dur = Math.max(1, Math.min(600, parseInt(f.querySelector('#trMin').value) || min));
+        trErro('');
+        if (dur < 5 && !(await confirmar(`Treino muito curto (${dur} min). Salvar mesmo assim?`, 'Salvar'))) return;
+        b.disabled = true; b.textContent = 'Salvando...';
         const km = f.querySelector('#trKm') ? num(f.querySelector('#trKm').value) : null;
         const post = {
             user_id: state.session.user.id, kind: 'workout', activity_type: s.ativ, duration_min: dur,
@@ -17262,7 +17277,8 @@ function concluirTreino(s, hist, aoFechar) {
         if (error) {
             b.disabled = false; b.textContent = 'Salvar treino';
             const t = String(error.message || '');
-            toast(t.includes('treino_repetido') ? 'Você já registrou um treino igual hoje. Ajuste o tempo e salve de novo.' : t.includes('limite_por_hora') ? 'Você registrou bastante coisa na última hora. Tente daqui a pouco.' : msgErro(error), 'err');
+            trErro(t.includes('treino_repetido') ? `Você já registrou ${s.ativ === 'Corrida' ? 'uma corrida' : 'uma ' + s.ativ.toLowerCase()} de ${dur} min hoje. Ajuste os minutos pra salvar.`
+                : t.includes('limite_por_hora') ? 'Você registrou bastante coisa na última hora. Tente daqui a pouco.' : msgErro(error));
             return;
         }
         if (feitas.length) {

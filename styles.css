@@ -4131,3 +4131,12 @@ html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer
 :root[data-theme="light"] .tr-ctl i{ background:#EEF1EF; }
 :root[data-theme="light"] .tr-ctl i.p{ background:var(--vital); color:#fff; }
 :root[data-theme="light"] .tr-pausa{ background:#EEF1EF; }
+
+/* Avisos e confirmações sempre na frente de tudo (inclusive do treino ao vivo e do X1) */
+.toast{ z-index:700 !important; }
+#confirmarSheet, .confirmar-sheet{ z-index:650 !important; }
+/* Faixa do descanso: totalmente escondida até marcar uma série */
+.tr-desc{ visibility:hidden; transform:translateY(calc(100% + 40px)) !important; }
+.tr-desc.on, .tr-desc.fim{ visibility:visible; transform:none !important; }
+.tr-desc-btn{ margin-right:2px; }
+.tr-erro{ margin:12px 2px 0; padding:10px 12px; border-radius:12px; background:rgba(255,90,90,.12); color:var(--danger); font-size:13px; font-weight:600; line-height:1.4; }
