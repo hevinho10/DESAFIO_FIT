@@ -14627,6 +14627,10 @@ function destaquesHTML(lista, uid) {
             <span class="destaque-capa destaque-novo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></span>
             <span class="destaque-nome">Novo</span>
         </button>` : '';
+    const editarBtn = meu && (lista || []).length ? `<button class="destaque" data-act="destaques-editar">
+            <span class="destaque-capa destaque-novo destaque-lapis"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span>
+            <span class="destaque-nome">Editar</span>
+        </button>` : '';
     return `<div class="destaques">${(lista || []).map(h => {
         const itens = [...h.story_highlight_items].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         const corCapa = h.cover_url && h.cover_url.startsWith('cor:') ? h.cover_url.slice(4) : null;
@@ -14638,7 +14642,7 @@ function destaquesHTML(lista, uid) {
             <span class="destaque-capa" style="background:${cor}">${img}</span>
             <span class="destaque-nome">${escapeHTML(h.title)}</span>
         </button>`;
-    }).join('')}${novo}</div>`;
+    }).join('')}${novo}${editarBtn}</div>`;
 }
 function capaFalhou(img) {
     const resto = (img.dataset.alt || '').split('|').filter(Boolean);
@@ -17116,7 +17120,7 @@ async function abrirModoTreino(preset = null, editar = false) {
     let modelos = [], ultimo = null, ultimaOutra = null;
     if (!editar) {
         const [r1, r2, r3] = await Promise.all([
-            sb.from('treino_modelos').select('id, nome, grupos, exercicios').eq('user_id', state.session.user.id).order('criado_em', { ascending: false }).limit(12).then(r => r, () => ({ data: [] })),
+            sb.from('treino_modelos').select('id, nome, grupos, exercicios, usado_em').eq('user_id', state.session.user.id).order('usado_em', { ascending: false, nullsFirst: false }).order('criado_em', { ascending: false }).limit(20).then(r => r, () => ({ data: [] })),
             sb.from('posts').select('id, muscle_groups, created_at, meta').eq('user_id', state.session.user.id).eq('kind', 'workout').eq('activity_type', 'Musculação')
                 .not('meta->exercicios', 'is', null).order('created_at', { ascending: false }).limit(1).then(r => r, () => ({ data: [] })),
             sb.from('posts').select('activity_type, duration_min, created_at').eq('user_id', state.session.user.id).eq('kind', 'workout').neq('activity_type', 'Musculação')
@@ -17129,18 +17133,23 @@ async function abrirModoTreino(preset = null, editar = false) {
     const musc = () => m.ativ === 'Musculação';
     const pintar = () => {
         const n = m.exercicios.length;
-        const atalhos = !editar && (doCoach || modelos.length || ultimo || ultimaOutra) ? `<div class="trm-atalhos">
-            ${doCoach ? `<button class="trm-at" data-tr="coach"><span class="x1-tipo-ic" style="--c:53,225,155">${SVG_X(IC_X1.estrela)}</span><span><b>Treino do coach</b><small>${escapeHTML(t.titulo || '')}</small></span></button>` : ''}
-            ${ultimo ? `<button class="trm-at" data-tr="ultimo"><span class="x1-tipo-ic" style="--c:95,176,255">${SVG_X('<path d="M4 12a8 8 0 1 0 3-6.3M4 4v4h4"/>')}</span><span><b>Repetir último</b><small>${escapeHTML((ultimo.muscle_groups || []).slice(0, 2).join(', ') || 'Musculação')} · ${new Date(ultimo.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></span></button>` : ''}
-            ${ultimaOutra ? `<button class="trm-at" data-tr="outra"><span class="x1-tipo-ic" style="--c:255,122,77">${SVG_X(ICONES_ATIVIDADE[ultimaOutra.activity_type] || IC_X1.corrida)}</span><span><b>Repetir ${escapeHTML(String(ultimaOutra.activity_type || '').toLowerCase())}</b><small>${ultimaOutra.duration_min || ''} min · ${new Date(ultimaOutra.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></span></button>` : ''}
-            ${modelos.map(md => `<button class="trm-at" data-tr="modelo" data-id="${md.id}"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X('<path d="M6 3h12v18l-6-4-6 4z"/>')}</span><span><b>${escapeHTML(md.nome)}</b><small>${(md.exercicios || []).length} exercícios</small></span></button>`).join('')}
-        </div>` : '';
+        const haDias = d => { if (!d) return 'ainda não feito'; const n = Math.floor((Date.now() - new Date(d)) / 86400000); return n <= 0 ? 'feito hoje' : n === 1 ? 'feito ontem' : `feito há ${n} dias`; };
+        const meus = !editar ? `<div class="x1-sec">MEUS TREINOS</div>
+            ${modelos.length ? `<div class="trm-meus">${modelos.map(md => `<div class="trm-meu${m.modeloId === md.id ? ' on' : ''}" data-tr="modelo" data-id="${md.id}">
+                <span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X('<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>')}</span>
+                <span class="trm-meu-t"><b>${escapeHTML(md.nome)}</b><small>${(md.exercicios || []).length} ${(md.exercicios || []).length === 1 ? 'exercício' : 'exercícios'} · ${haDias(md.usado_em)}</small></span>
+                <button class="x1-ib mini" data-tr="modelo-menu" data-id="${md.id}" aria-label="Opções">${SVG_X(IC_X1.mais)}</button>
+            </div>`).join('')}</div>` : '<p class="trm-vazio">Monte um treino e salve com um nome. Na próxima vez, é um toque.</p>'}
+            ${doCoach || ultimo || ultimaOutra ? `<div class="trm-mini">
+                ${doCoach ? '<button data-tr="coach">✦ Treino do coach</button>' : ''}
+                ${ultimo ? '<button data-tr="ultimo">↻ Repetir último</button>' : ''}
+                ${ultimaOutra ? `<button data-tr="outra">↻ Repetir ${escapeHTML(String(ultimaOutra.activity_type || '').toLowerCase())}</button>` : ''}
+            </div>` : ''}` : '';
         tela.innerHTML = `
         <div class="x1-topo"><button class="x1-ib" data-tr="fechar" aria-label="Fechar">${SVG_X(editar ? IC_X1.voltar : IC_X1.fechar)}</button><h1>${editar ? 'Editar exercícios' : 'Montar treino'}</h1><span class="x1-ib"></span></div>
         <div class="x1-corpo">
-            ${atalhos}
+            ${meus}
             ${!editar ? `<div class="x1-sec">O QUE VAI FAZER</div>
-            ${!m.ativ && costume ? `<p class="w-sugestao trm-dica"><span>Hoje você costuma: ${escapeHTML(textoItemSemana(costume))}</span><button type="button" class="w-sug-usar" data-tr="costume">usar</button></p>` : ''}
             <div class="trv-chips">${gostos.map(a => `<button class="x1-chip${a === m.ativ ? ' on' : ''}" data-tr="ativ" data-a="${a}">${a}</button>`).join('')}</div>` : ''}
             ${!m.ativ ? '' : musc() ? `${!editar ? `<div class="x1-sec">GRUPOS</div>
             <div class="trv-chips">${GRUPOS_TREINO.map(g => `<button class="x1-chip${m.grupos.includes(g) ? ' on' : ''}" data-tr="grupo" data-g="${g}">${g}</button>`).join('')}</div>` : ''}
@@ -17159,7 +17168,7 @@ async function abrirModoTreino(preset = null, editar = false) {
             <button class="tr-add" data-tr="add">+ Adicionar exercício</button>` : `<p class="tr-dica">Escolha os grupos pra montar a lista de exercícios.</p>`}`
             : `<p class="tr-dica">O cronômetro começa quando você tocar em começar. No fim, você confere o tempo${['Corrida', 'Caminhada', 'Ciclismo', 'Natação'].includes(m.ativ) ? ' e coloca a distância' : ''}.</p>`}
         </div>
-        <div class="x1-rodape"><button class="btn x1-btn" data-tr="comecar"${!m.ativ || (musc() && !n) ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar ${musc() ? `treino · ${n} ${n === 1 ? 'exercício' : 'exercícios'}` : escapeHTML(String(m.ativ || 'treino').toLowerCase())}`}</button></div>`;
+        <div class="x1-rodape">${!editar && musc() && n ? `<button class="trm-salvar" data-tr="salvar-meu">${m.modeloId ? (((modelos.find(x => x.id === m.modeloId) || {}).sig === JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length]))) ? `★ ${escapeHTML(m.doCoach || 'Treino')} · salvo` : '☆ Salvar mudanças') : '☆ Salvar como meu treino'}</button>` : ''}<button class="btn x1-btn" data-tr="comecar"${!m.ativ || (musc() && !n) ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar ${musc() ? (m.modeloId ? escapeHTML(m.doCoach || 'treino') : `treino · ${n} ${n === 1 ? 'exercício' : 'exercícios'}`) : escapeHTML(String(m.ativ || 'treino').toLowerCase())}`}</button></div>`;
     };
     pintar();
     // carga e repetições direto na montagem (ficam lembradas)
@@ -17193,6 +17202,12 @@ async function abrirModoTreino(preset = null, editar = false) {
         };
         document.addEventListener('pointermove', mover); document.addEventListener('pointerup', soltar); document.addEventListener('pointercancel', soltar);
     });
+    const carregarModelo = md => {
+        m.exercicios = (md.exercicios || []).map(x => novoExercicio(x.nome, x.series || 3, x.reps || null));
+        m.ativ = 'Musculação'; m.grupos = (md.grupos || []).slice(); m.doCoach = md.nome; m.modeloId = md.id;
+        md.sig = JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length]));
+        pintar();
+    };
     const carregarDe = async (nomes, contagem = {}) => {
         let hist = {};
         try { const { data } = await sb.rpc('treino_historico', { exs: nomes }); hist = data || {}; } catch (_) {}
@@ -17207,6 +17222,7 @@ async function abrirModoTreino(preset = null, editar = false) {
         const b = e.target.closest('[data-tr]'); if (!b || b.disabled) return;
         const a = b.dataset.tr, i = Number(b.dataset.i);
         if (a === 'fechar') { x1FecharTela('treinoInicio'); if (editar) setTimeout(abrirTreinoVivo, 190); }
+        else if (b.closest('[data-tr="modelo-menu"]') && a === 'modelo') return;
         else if (a === 'ativ') { m.ativ = m.ativ === b.dataset.a ? null : b.dataset.a; if (!musc()) { m.grupos = []; m.exercicios = []; } vibrar(6); pintar(); }
         else if (a === 'costume' && costume) {
             m.ativ = costume.a; m.grupos = costume.a === 'Musculação' ? (costume.g || []).slice() : []; m.exercicios = [];
@@ -17235,16 +17251,62 @@ async function abrirModoTreino(preset = null, editar = false) {
             try { const { data } = await sb.from('treino_series').select('exercicio').eq('post_id', ultimo.id); (data || []).forEach(r => { contagem[r.exercicio] = (contagem[r.exercicio] || 0) + 1; }); } catch (_) {}
             await carregarDe(nomes, contagem); m.ativ = 'Musculação'; m.grupos = (ultimo.muscle_groups || []).slice(); m.doCoach = null; vibrar(6); pintar();
         }
+        else if (a === 'modelo-menu') {
+            e.stopPropagation();
+            const md = modelos.find(x => x.id === b.dataset.id); if (!md) return;
+            const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(md.nome)}</h3>
+                <button class="x1-op" data-mm="editar">Editar exercícios</button>
+                <button class="x1-op" data-mm="renomear">Renomear</button>
+                <button class="x1-op perigo" data-mm="apagar">Apagar</button>
+                <button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'trMeuMenu');
+            f.addEventListener('click', async ev => {
+                const op = ev.target.closest('[data-mm]'); if (!op) return;
+                fechar();
+                if (op.dataset.mm === 'editar') { carregarModelo(md); toast('Mude o que quiser e toque em "Salvar mudanças"', 'ok'); }
+                else if (op.dataset.mm === 'renomear') nomearTreino(md.nome, async nome => {
+                    const { error } = await sb.from('treino_modelos').update({ nome }).eq('id', md.id);
+                    if (error) { toast(msgErro(error), 'err'); return; }
+                    md.nome = nome; if (m.modeloId === md.id) m.doCoach = nome; pintar();
+                }, 'Renomear');
+                else if (await confirmar(`Apagar "${md.nome}"?`, 'Apagar', true)) {
+                    await sb.from('treino_modelos').delete().eq('id', md.id);
+                    modelos = modelos.filter(x => x.id !== md.id); if (m.modeloId === md.id) { m.modeloId = null; m.doCoach = null; } pintar();
+                }
+            });
+        }
         else if (a === 'modelo') {
             const md = modelos.find(x => x.id === b.dataset.id); if (!md) return;
-            m.exercicios = (md.exercicios || []).map(x => novoExercicio(x.nome, x.series || 3, x.reps || null)); m.ativ = 'Musculação'; m.grupos = (md.grupos || []).slice(); m.doCoach = md.nome; vibrar(6); pintar();
+            carregarModelo(md); vibrar(6);
+        }
+        else if (a === 'salvar-meu') {
+            const sig = JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length]));
+            if (m.modeloId) {
+                const md = modelos.find(x => x.id === m.modeloId);
+                if (md && md.sig === sig) { toast(`${md.nome} já está salvo assim`, 'ok'); return; }
+                if (!(await confirmar(`Salvar as mudanças no ${md ? md.nome : 'treino'}?`, 'Salvar'))) return;
+                const exs = m.exercicios.map(ex => ({ nome: ex.nome, series: ex.series.length, reps: parseInt(ex.series[0] && ex.series[0].reps) || null }));
+                const { error } = await sb.from('treino_modelos').update({ exercicios: exs, grupos: m.grupos }).eq('id', m.modeloId);
+                if (error) { toast(msgErro(error), 'err'); return; }
+                if (md) { md.exercicios = exs; md.sig = sig; }
+                toast('Mudanças salvas', 'ok'); pintar(); return;
+            }
+            const letra = 'ABCDEFGHIJ'[Math.min(9, modelos.length)];
+            nomearTreino(`Treino ${letra}${m.grupos.length ? ' · ' + m.grupos.slice(0, 2).join(' e ') : ''}`, async nome => {
+                const exs = m.exercicios.map(ex => ({ nome: ex.nome, series: ex.series.length, reps: parseInt(ex.series[0] && ex.series[0].reps) || null }));
+                const { data, error } = await sb.from('treino_modelos').insert({ nome, grupos: m.grupos, exercicios: exs }).select('id, nome, grupos, exercicios, usado_em').single();
+                if (error) { toast(msgErro(error), 'err'); return; }
+                data.sig = sig; modelos.unshift(data); m.modeloId = data.id; m.doCoach = nome;
+                vibrar([10, 40, 14]); toast(`"${nome}" salvo em Meus treinos`, 'ok'); pintar();
+            });
         }
         else if (a === 'comecar') {
             if (editar) {
                 const atual = trGet(); if (atual) { atual.exercicios = m.exercicios; trSet(atual); }
                 x1FecharTela('treinoInicio'); setTimeout(abrirTreinoVivo, 190); return;
             }
-            const sessao = { inicio: Date.now(), ativ: m.ativ, grupos: musc() ? m.grupos : [], doCoach: m.doCoach, exercicios: musc() ? m.exercicios : [], descansoAte: null };
+            const sessao = { inicio: Date.now(), ativ: m.ativ, grupos: musc() ? m.grupos : [], doCoach: m.doCoach, exercicios: musc() ? m.exercicios : [], descansoAte: null,
+                modeloId: m.modeloId || null, modeloSig: m.modeloId ? JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length])) : null };
+            if (m.modeloId) sb.from('treino_modelos').update({ usado_em: new Date().toISOString() }).eq('id', m.modeloId).then(() => {}, () => {});
             trSet(sessao); trSom();
             x1FecharTela('treinoInicio');
             setTimeout(abrirTreinoVivo, 190);
@@ -17461,6 +17523,15 @@ async function escolherExercicio(aoEscolher) {
     lista.addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (!b) return; fechar(); aoEscolher(b.dataset.n); });
 }
 
+// Pede o nome do treino (salvar ou renomear)
+function nomearTreino(sugestao, aoSalvar, titulo = 'Salvar como meu treino') {
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(titulo)}</h3>
+        <input class="x1-campo" id="trNomeTr" maxlength="30" placeholder="Ex: Treino A · Perna" value="${escapeHTML(sugestao || '')}">
+        <div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Cancelar</button><button class="btn x1-btn" id="trNomeOk">Salvar</button></div>`, 'trNome');
+    const campo = f.querySelector('#trNomeTr');
+    setTimeout(() => { try { campo.focus(); campo.select(); } catch (_) {} }, 250);
+    f.querySelector('#trNomeOk').onclick = () => { const nome = campo.value.trim().slice(0, 30); if (!nome) return; fechar(); aoSalvar(nome); };
+}
 // Salvar a lista de exercícios como modelo (Treino A, B, C...)
 function salvarModeloTreino(s) {
     const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Salvar como modelo</h3>
@@ -17576,6 +17647,14 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
             sb.from('treino_series').insert(linhas).then(() => {});
         }
         if (imageUrl && publicar) checarFotoDepois(criado.id, imageUrl);
+        if (s.modeloId && s.modeloSig) {
+            const sigAgora = JSON.stringify(s.exercicios.map(x => [x.nome, x.series.length]));
+            if (sigAgora !== s.modeloSig) setTimeout(async () => {
+                if (!(await confirmar(`Atualizar o ${s.doCoach || 'treino salvo'} com as mudanças de hoje?`, 'Atualizar'))) return;
+                await sb.from('treino_modelos').update({ exercicios: s.exercicios.map(ex => ({ nome: ex.nome, series: ex.series.length, reps: parseInt(ex.series[0] && ex.series[0].reps) || null })) }).eq('id', s.modeloId);
+                toast('Treino atualizado', 'ok');
+            }, 3600);
+        }
         trSet(null);
         fechar(); aoFechar();
         const [{ data: pts }] = await Promise.all([sb.rpc('points_for_reference', { ref: criado.id }), updateStreak(new Date().toISOString().split('T')[0]).catch(() => null)]);
@@ -17716,36 +17795,49 @@ async function hydrateProteina() {
 // @ com sugestões na legenda do registro
 setTimeout(() => ligarMencoes(document.getElementById('pCaption'), document.getElementById('pCapSug')), 0);
 
-// Segurar o dedo num destaque seu: trocar capa, editar, renomear, excluir
+// Menu do destaque: trocar capa, renomear, editar stories, excluir
+function abrirMenuDestaque(d) {
+    const id = d.dataset.id, nome = (d.querySelector('.destaque-nome') || {}).textContent || 'Destaque';
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(nome)}</h3>
+        <button class="x1-op" data-dm="capa">Trocar capa</button>
+        <button class="x1-op" data-dm="capa">Renomear</button>
+        <button class="x1-op" data-dm="stories">Editar stories</button>
+        <button class="x1-op perigo" data-dm="excluir">Excluir destaque</button>
+        <button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'destMenu');
+    f.addEventListener('click', async ev => {
+        const b = ev.target.closest('[data-dm]'); if (!b) return;
+        fechar();
+        if (b.dataset.dm === 'excluir') {
+            if (!(await confirmar('Excluir este destaque? Os stories originais não são apagados.', 'Excluir', true))) return;
+            const { error } = await sb.from('story_highlights').delete().eq('id', id);
+            if (error) { toast(msgErro(error), 'err'); return; }
+            toast('Destaque excluído', 'ok'); if (state.view === 'profile') renderProfile();
+        } else abrirEditorDestaque(id, null, b.dataset.dm === 'capa' ? 'capa' : null);
+    });
+}
 (function menuDoDestaque() {
     let timer = null, ignorar = false, alvo = null;
+    // "Editar" no fim da fileira: cada destaque ganha um lápis e o toque abre o menu
+    document.addEventListener('click', e => {
+        const ed = e.target.closest('[data-act="destaques-editar"]');
+        if (ed) {
+            e.stopPropagation(); e.preventDefault();
+            const fila = ed.closest('.destaques'); const on = !fila.classList.contains('editando');
+            fila.classList.toggle('editando', on);
+            ed.querySelector('.destaque-nome').textContent = on ? 'Pronto' : 'Editar';
+            vibrar(6); return;
+        }
+        const d = e.target.closest('.destaques.editando .destaque[data-act="abrir-destaque"]');
+        if (d) { e.stopPropagation(); e.preventDefault(); abrirMenuDestaque(d); return; }
+        if (ignorar && e.target.closest('.destaque')) { e.stopPropagation(); e.preventDefault(); ignorar = false; }
+    }, true);
     document.addEventListener('pointerdown', e => {
         const d = e.target.closest('.destaque[data-act="abrir-destaque"]');
         if (!d || !state.session || d.dataset.uid !== state.session.user.id) return;
         alvo = d; ignorar = false; clearTimeout(timer);
-        timer = setTimeout(() => {
-            ignorar = true; vibrar(12);
-            const id = alvo.dataset.id, nome = (alvo.querySelector('.destaque-nome') || {}).textContent || 'Destaque';
-            const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(nome)}</h3>
-                <button class="x1-op" data-dm="capa">Trocar capa</button>
-                <button class="x1-op" data-dm="capa">Renomear</button>
-                <button class="x1-op" data-dm="stories">Editar stories</button>
-                <button class="x1-op perigo" data-dm="excluir">Excluir destaque</button>
-                <button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'destMenu');
-            f.addEventListener('click', async ev => {
-                const b = ev.target.closest('[data-dm]'); if (!b) return;
-                fechar();
-                if (b.dataset.dm === 'excluir') {
-                    if (!(await confirmar('Excluir este destaque? Os stories originais não são apagados.', 'Excluir', true))) return;
-                    const { error } = await sb.from('story_highlights').delete().eq('id', id);
-                    if (error) { toast(msgErro(error), 'err'); return; }
-                    toast('Destaque excluído', 'ok'); if (state.view === 'profile') renderProfile();
-                } else abrirEditorDestaque(id, null, b.dataset.dm === 'capa' ? 'capa' : null);
-            });
-        }, 550);
+        timer = setTimeout(() => { ignorar = true; vibrar(12); abrirMenuDestaque(alvo); }, 550);
     });
     ['pointerup', 'pointercancel', 'pointermove'].forEach(ev => document.addEventListener(ev, e => { if (ev === 'pointermove' && Math.abs(e.movementY || 0) + Math.abs(e.movementX || 0) < 4) return; clearTimeout(timer); }));
-    document.addEventListener('click', e => { if (ignorar && e.target.closest('.destaque')) { e.stopPropagation(); e.preventDefault(); ignorar = false; } }, true);
     document.addEventListener('contextmenu', e => { if (e.target.closest('.destaque')) e.preventDefault(); });
 })();
 
