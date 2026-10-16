@@ -251,6 +251,8 @@ function estiloProporcao(meta) {
     return ` style="aspect-ratio:${w} / ${h}"`;
 }
 
+// Venceu um desafio (X1 ou em grupo): anel dourado na foto por 7 dias
+const ehDourado = p => !!(p && p.dourado_ate && new Date(p.dourado_ate) > new Date());
 // @nome vira link pro perfil (texto já escapado)
 const comMencoes = html => String(html).replace(/(^|[\s(])@([a-zA-Z0-9_.]{2,30})/g, '$1<a class="cm-mencao" data-mencao="$2">@$2</a>');
 document.addEventListener('click', async e => {
@@ -5586,7 +5588,7 @@ async function renderFeed() {
     let perfisStory = {};
     if (storyUids.length) {
         const { data: ps } = await sb.from('profiles')
-            .select('id, username, display_name, avatar_url').in('id', storyUids);
+            .select('id, username, display_name, avatar_url, dourado_ate').in('id', storyUids);
         (ps || []).forEach(p => { perfisStory[p.id] = p; });
     }
 
@@ -5615,7 +5617,7 @@ async function renderFeed() {
     let storiesHTML = '<div class="stories-bar">';
     // Meu botão de adicionar story sempre presente
     storiesHTML += `<div class="story-item" data-add-story="1">
-        <div class="story-avatar mine${mine && grupoVisto(mine) ? ' seen' : ''}">
+        <div class="story-avatar mine${mine && grupoVisto(mine) ? ' seen' : ''}${ehDourado(state.profile) ? ' dourado' : ''}">
             <div class="story-avatar-in">${avatarHTML(state.profile, 'md').replace('avatar-md','avatar')}</div>
             <span class="story-plus">+</span>
         </div>
@@ -5624,7 +5626,7 @@ async function renderFeed() {
     storiesOrdered.forEach((group, i) => {
         if (group === mine) return;  // já ficou embutido no botão de cima quando eu tenho meus stories, mostro os outros aqui
         storiesHTML += `<div class="story-item" data-story-idx="${i}">
-            <div class="story-avatar${grupoVisto(group) ? ' seen' : ''}">
+            <div class="story-avatar${grupoVisto(group) ? ' seen' : ''}${ehDourado(group.user) ? ' dourado' : ''}">
                 <div class="story-avatar-in">${avatarHTML(group.user, 'md').replace('avatar-md','avatar')}</div>
             </div>
             <span class="story-name">${escapeHTML(group.user.display_name || group.user.username)}</span>
@@ -10368,7 +10370,7 @@ async function renderProfile() {
     c.innerHTML = `
         <div class="view">
             <div class="ig-profile-head">
-                <button class="ig-avatar-btn${myStoryCount ? ' has-story' : ''}${meuVisto ? ' visto' : ''}" data-act="open-user-stories" data-uid="${state.session.user.id}" data-story-ids="${meusIdsStory.join(',')}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
+                <button class="ig-avatar-btn${myStoryCount ? ' has-story' : ''}${meuVisto ? ' visto' : ''}${ehDourado(p) ? ' dourado' : ''}" data-act="open-user-stories" data-uid="${state.session.user.id}" data-story-ids="${meusIdsStory.join(',')}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
                 <div class="ig-profile-stats">
                     <div class="ig-stat"><span class="v">${postCount || 0}</span><span class="l">Posts</span></div>
                     <div class="ig-stat tappable" data-act="open-follow-list" data-type="followers" data-uid="${state.session.user.id}"><span class="v">${followersCount || 0}</span><span class="l">Seguidores</span></div>
@@ -11494,7 +11496,7 @@ async function renderUserProfile(uid) {
                 <button class="topo-mais" data-act="user-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" aria-label="Mais opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>
             </div>
             <div class="ig-profile-head">
-                <button class="ig-avatar-btn${theirStoryCount ? ' has-story' : ''}${delesVisto ? ' visto' : ''}" data-act="open-user-stories" data-uid="${uid}" data-story-ids="${delesIdsStory.join(',')}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
+                <button class="ig-avatar-btn${theirStoryCount ? ' has-story' : ''}${delesVisto ? ' visto' : ''}${ehDourado(p) ? ' dourado' : ''}" data-act="open-user-stories" data-uid="${uid}" data-story-ids="${delesIdsStory.join(',')}" aria-label="Ver story">${avatarHTML(p, 'lg')}</button>
                 <div class="ig-profile-stats">
                     <div class="ig-stat"><span class="v">${postCount || 0}</span><span class="l">Posts</span></div>
                     <div class="ig-stat tappable" data-act="open-follow-list" data-type="followers" data-uid="${uid}"><span class="v">${followersRes.count || 0}</span><span class="l">Seguidores</span></div>
@@ -15205,6 +15207,7 @@ async function preencherStatusRegistro() {
 }
 function limparComposer() {
     state.wEscolhido = false;
+    if ($('#wDuration')) $('#wDuration').value = 45; // não herda o tempo do último registro
     delete $('#mSlot').dataset.tocado;
     $('#pCaption').value = '';
     $('#pPhotoCam').value = '';
@@ -17165,10 +17168,11 @@ async function abrirModoTreino(preset = null, editar = false) {
                     <label class="trm-campo"><input class="tr-in" inputmode="numeric" data-trm="reps" data-i="${i}" value="${escapeHTML((ex.series[0] && ex.series[0].reps) || '')}" placeholder="10"><i>${ex.tipo === 'tempo' ? 'seg' : 'reps'}</i></label>
                 </div>
             </div>`).join('')}</div>
-            <button class="tr-add" data-tr="add">+ Adicionar exercício</button>` : `<p class="tr-dica">Escolha os grupos pra montar a lista de exercícios.</p>`}`
+            <button class="tr-add" data-tr="add">+ Adicionar exercício</button>
+            ${!editar && n ? `<button class="trm-salvar" data-tr="salvar-meu">${m.modeloId ? (((modelos.find(x => x.id === m.modeloId) || {}).sig === JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length]))) ? `★ ${escapeHTML(m.doCoach || 'Treino')} · salvo` : '☆ Salvar mudanças') : '☆ Salvar como meu treino'}</button>` : ''}` : `<p class="tr-dica">Escolha os grupos pra montar a lista de exercícios.</p>`}`
             : `<p class="tr-dica">O cronômetro começa quando você tocar em começar. No fim, você confere o tempo${['Corrida', 'Caminhada', 'Ciclismo', 'Natação'].includes(m.ativ) ? ' e coloca a distância' : ''}.</p>`}
         </div>
-        <div class="x1-rodape">${!editar && musc() && n ? `<button class="trm-salvar" data-tr="salvar-meu">${m.modeloId ? (((modelos.find(x => x.id === m.modeloId) || {}).sig === JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length]))) ? `★ ${escapeHTML(m.doCoach || 'Treino')} · salvo` : '☆ Salvar mudanças') : '☆ Salvar como meu treino'}</button>` : ''}<button class="btn x1-btn" data-tr="comecar"${!m.ativ || (musc() && !n) ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar ${musc() ? (m.modeloId ? escapeHTML(m.doCoach || 'treino') : `treino · ${n} ${n === 1 ? 'exercício' : 'exercícios'}`) : escapeHTML(String(m.ativ || 'treino').toLowerCase())}`}</button></div>`;
+        <div class="x1-rodape"><button class="btn x1-btn" data-tr="comecar"${!m.ativ || (musc() && !n) ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar ${musc() ? (m.modeloId ? escapeHTML(m.doCoach || 'treino') : `treino · ${n} ${n === 1 ? 'exercício' : 'exercícios'}`) : escapeHTML(String(m.ativ || 'treino').toLowerCase())}`}</button></div>`;
     };
     pintar();
     // carga e repetições direto na montagem (ficam lembradas)

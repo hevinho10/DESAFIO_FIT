@@ -4237,3 +4237,11 @@ a.cm-mencao{ color:var(--vital); font-weight:600; text-decoration:none; cursor:p
 .destaques.editando .destaque{ position:relative; }
 @keyframes destTreme{ from{ transform:rotate(-1.5deg); } to{ transform:rotate(1.5deg); } }
 .destaques.editando [data-act="destaques-editar"] .destaque-capa{ background:var(--vital); color:#04120B; border-color:var(--vital); }
+
+/* Anel dourado de quem venceu um desafio (7 dias) */
+:root{ --ouro-anel: conic-gradient(from 200deg, #FFE7A3, #F5B83D, #C8871A, #FFD36B, #F5B83D, #FFE7A3); }
+.ig-avatar-btn.dourado, .ig-avatar-btn.dourado.has-story, .ig-avatar-btn.dourado.has-story.visto{ padding:3px !important; background:var(--ouro-anel) !important; box-shadow:0 0 18px -4px rgba(245,184,61,.55); }
+.ig-avatar-btn.dourado .avatar-lg{ border:3px solid var(--bg); }
+.story-avatar.dourado, .story-avatar.dourado.seen, .story-avatar.mine.dourado.seen{ background:var(--ouro-anel) !important; padding:2.5px !important; }
+/* "Salvar como meu treino" agora fica no fim da lista (não cobre o "+ Adicionar exercício") */
+.x1-corpo .trm-salvar{ margin:12px 0 4px; }

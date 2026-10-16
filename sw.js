@@ -4,7 +4,7 @@
 // o "Instalar aplicativo" do Chrome no Android e no computador.
 // ============================================================
 
-const CACHE = 'pulso-v12';
+const CACHE = 'pulso-v13';
 const ESTATICOS = [
   './',
   './index.html',
