@@ -4140,3 +4140,55 @@ html.na-conversa.kb-open #chatComposer, html.na-conversa.kb-open .coach-composer
 .tr-desc.on, .tr-desc.fim{ visibility:visible; transform:none !important; }
 .tr-desc-btn{ margin-right:2px; }
 .tr-erro{ margin:12px 2px 0; padding:10px 12px; border-radius:12px; background:rgba(255,90,90,.12); color:var(--danger); font-size:13px; font-weight:600; line-height:1.4; }
+
+/* =====================================================================
+   Treino: montar antes de começar, menu, peso do corpo, sugestão, foto
+   ===================================================================== */
+.trm-atalhos{ display:flex; gap:9px; overflow-x:auto; margin:2px -16px 6px; padding:2px 16px 4px; scrollbar-width:none; }
+.trm-atalhos::-webkit-scrollbar{ display:none; }
+.trm-at{ flex:none; display:flex; align-items:center; gap:10px; max-width:230px; padding:11px 13px 11px 11px; border-radius:16px; background:var(--bg-card); border:1px solid var(--line); color:var(--ink); font-family:inherit; text-align:left; }
+.trm-at > span:last-child{ min-width:0; }
+.trm-at b{ display:block; font-size:13.5px; white-space:nowrap; }
+.trm-at small{ display:block; font-size:11.5px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px; }
+.trm-at:active{ transform:scale(.98); }
+.trm-aviso{ margin:-2px 2px 9px; padding:9px 12px; border-radius:12px; background:rgba(255,194,75,.1); color:var(--gold); font-size:12.8px; font-weight:600; }
+.trm-lista{ border-radius:18px; background:var(--bg-card); border:1px solid var(--line); overflow:hidden; margin-bottom:10px; }
+.trm-lista:empty{ display:none; }
+.trm-ex{ display:flex; align-items:center; gap:10px; padding:11px 10px 11px 14px; border-top:1px solid var(--line); }
+.trm-ex:first-child{ border-top:0; }
+.trm-nome{ flex:1; min-width:0; }
+.trm-nome b{ display:block; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.trm-nome small{ display:block; font-size:11.5px; color:var(--ink-faint); margin-top:1px; }
+.trm-step{ display:flex; align-items:center; gap:2px; background:var(--bg-elev); border-radius:11px; padding:2px; }
+.trm-step button{ width:30px; height:30px; border:0; border-radius:9px; background:none; color:var(--ink); font-size:18px; font-family:inherit; line-height:1; }
+.trm-step button:active{ background:var(--bg-card); }
+.trm-step b{ min-width:20px; text-align:center; font-size:14px; font-variant-numeric:tabular-nums; }
+.trm-x{ width:30px; height:30px; border:0; background:none; color:var(--ink-faint); display:grid; place-items:center; padding:0; }
+.trm-x svg{ width:17px; height:17px; }
+.x1-op small{ display:block; font-size:12px; font-weight:500; color:var(--ink-faint); margin-top:2px; }
+.tr-sug{ display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:6px 6px 6px 11px; border-radius:10px; border:1px solid rgba(53,225,155,.3); background:var(--vital-dim); color:var(--ink-dim); font-family:inherit; font-size:12.8px; }
+.tr-sug b{ color:var(--vital); }
+.tr-sug span{ font-size:11.5px; font-weight:700; color:#04120B; background:var(--vital); padding:3px 8px; border-radius:7px; margin-left:4px; }
+.tr-in::placeholder{ color:var(--ink-faint); font-weight:500; }
+.trf-foto{ margin-top:14px; }
+.trf-add{ display:flex; align-items:center; justify-content:center; gap:9px; padding:13px; border-radius:15px; border:1.5px dashed var(--line); color:var(--ink-dim); font-size:14px; font-weight:600; cursor:pointer; }
+.trf-add svg{ width:20px; height:20px; }
+.trf-add small{ font-size:11.5px; color:var(--vital); font-weight:700; margin-left:4px; }
+.trf-add.hidden, .trf-prev.hidden{ display:none; }
+.trf-prev{ position:relative; width:96px; height:120px; border-radius:14px; overflow:hidden; }
+.trf-prev img{ width:100%; height:100%; object-fit:cover; }
+.trf-prev button{ position:absolute; top:5px; right:5px; width:26px; height:26px; border-radius:50%; border:0; background:rgba(0,0,0,.6); color:#fff; display:grid; place-items:center; padding:0; }
+.trf-prev button svg{ width:14px; height:14px; }
+.trf-leg{ margin-top:10px; }
+.trf-leg textarea{ width:100%; min-height:44px; padding:12px 14px; border-radius:14px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font-family:inherit; font-size:14.5px; resize:none; outline:none; }
+.trf-leg textarea:focus{ border-color:rgba(53,225,155,.5); }
+.trf-pub{ margin-top:10px; }
+.trf-modelo{ display:block; margin:12px auto 0; border:0; background:none; color:var(--ink-dim); font-family:inherit; font-size:13px; font-weight:600; }
+.atv-aovivo{ margin-top:3px; }
+a.cm-mencao{ color:var(--vital); font-weight:600; text-decoration:none; cursor:pointer; }
+.np-sug{ margin:0 16px 8px; }
+:root[data-theme="light"] .trm-lista, :root[data-theme="light"] .trm-at{ background:#fff; border-color:rgba(16,21,18,.07); }
+:root[data-theme="light"] .trm-step{ background:#EEF1EF; }
+:root[data-theme="light"] .tr-sug span{ color:#fff; }
+:root[data-theme="light"] .trf-leg textarea{ background:#F6F8F6; }
+:root[data-theme="light"] a.cm-mencao{ color:#1E9E6B; }
