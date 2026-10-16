@@ -13902,6 +13902,8 @@ function openStoryCreator() {
     txt.value = ''; txt.classList.add('hidden'); txt.style.height = ''; txt.style.left = ''; txt.style.top = '';
     txt.readOnly = false;
     $('#scImg').classList.add('hidden'); $('#scImg').removeAttribute('src');
+    sc.filtro = 'normal'; sc.filtroInt = 1; sc.filtroBase = null; sc.filtroImg = null;
+    { const cv = document.getElementById('scFiltroCanvas'); if (cv) cv.remove(); const fp = document.getElementById('scFiltros'); if (fp) fp.classList.add('hidden'); const fl = document.getElementById('scFiltroLista'); if (fl) { fl.innerHTML = ''; delete fl.dataset.feito; } $('#storyCreator').classList.remove('filtros-on'); }
     $('#scSticker').classList.add('hidden'); $('#scSticker').style.left = ''; $('#scSticker').style.top = '';
     $('#scChoose').classList.remove('hidden');
     $('#scBottom').classList.add('hidden');
@@ -14026,6 +14028,7 @@ function entrarModoFoto(file, url = null) {
     const img = $('#scImg');
     img.src = url || URL.createObjectURL(file);
     img.classList.remove('hidden');
+    prepararFiltrosStory(url ? null : file);
     $('#scBottom').classList.remove('hidden');
     $('#scAddText').classList.remove('hidden');
     $('#scFundoTxt').classList.remove('hidden');
@@ -14206,7 +14209,7 @@ $('#scColAlinhar').addEventListener('click', e => {
     aplicarAlinhamento();
 });
 $('#scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
-$('#scColTreino').addEventListener('click', e => { e.stopPropagation(); $('#scAdesivo').click(); });
+$('#scColTreino').addEventListener('click', e => { e.stopPropagation(); abrirAdesivosStory(); });
 $('#scColTexto').addEventListener('click', e => { e.stopPropagation(); $('#scAddText').click(); });
 $('#scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrirMencionarStory(); });
 $('#scColFechar').addEventListener('click', e => {
@@ -14243,6 +14246,7 @@ $('#scFundoTxt').addEventListener('click', () => {
 });
 // Desenho do adesivo do treino (editor e visualização): vidro escuro, ícone colorido e os números
 function htmlAdesivo(txt) {
+    if (String(txt || '').startsWith('pulso:')) return htmlAdesivoPulso(txt);
     const limpo = String(txt || '').replace(/^[^\p{L}\d]+/u, '').trim(); // tira o emoji antigo do começo
     const partes = limpo.split('·').map(x => x.trim()).filter(Boolean);
     const nome = partes.shift() || 'Treino';
@@ -14250,6 +14254,208 @@ function htmlAdesivo(txt) {
     const cor = COR_ATIVIDADE[ativ] || COR_ATIVIDADE.Outro;
     return `<span class="ad-ic" style="--c:${cor}">${svgAtividade(ativ)}</span><span class="ad-txt"><b>${escapeHTML(nome)}</b>${partes.length ? `<span>${partes.map(escapeHTML).join(' · ')}</span>` : ''}</span><i class="ad-marca">Pulso.</i>`;
 }
+// ================= FILTROS DO STORY (aplicados de verdade na foto antes de enviar) =================
+const FILTROS_STORY = [
+    ['normal', 'Normal', []],
+    ['verao', 'Verão', [['saturate', 1.35], ['contrast', 1.08], ['sepia', 0.2], ['brightness', 1.05]]],
+    ['treino', 'Treino', [['contrast', 1.32], ['saturate', 1.15], ['brightness', 0.95]]],
+    ['pb', 'P&B', [['grayscale', 1], ['contrast', 1.22]]],
+    ['manha', 'Manhã', [['brightness', 1.08], ['saturate', 0.85], ['contrast', 0.94], ['sepia', 0.08]]],
+    ['noite', 'Noite', [['tint', [0.9, 0.97, 1.12]], ['contrast', 1.1], ['saturate', 0.85], ['brightness', 0.95]]],
+    ['vivo', 'Vivo', [['saturate', 1.6], ['contrast', 1.12]]],
+];
+// matriz de cor 3x4 (r,g,b + deslocamento), na mesma conta dos filtros do CSS
+function matrizFiltro(id, t = 1) {
+    const f = FILTROS_STORY.find(x => x[0] === id); if (!f) return null;
+    let M = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]];
+    const mult = (A, B) => A.map((l, i) => [0, 1, 2, 3].map(j => l[0] * B[0][j] + l[1] * B[1][j] + l[2] * B[2][j] + (j === 3 ? l[3] : 0)));
+    const sat = v => [[0.213 + 0.787 * v, 0.715 - 0.715 * v, 0.072 - 0.072 * v, 0], [0.213 - 0.213 * v, 0.715 + 0.285 * v, 0.072 - 0.072 * v, 0], [0.213 - 0.213 * v, 0.715 - 0.715 * v, 0.072 + 0.928 * v, 0]];
+    for (const [op, alvo] of f[2]) {
+        let O;
+        if (op === 'tint') { const v = alvo.map(x => 1 + (x - 1) * t); O = [[v[0], 0, 0, 0], [0, v[1], 0, 0], [0, 0, v[2], 0]]; }
+        else {
+            const neutro = op === 'sepia' || op === 'grayscale' ? 0 : 1;
+            const v = neutro + (alvo - neutro) * t;
+            if (op === 'brightness') O = [[v, 0, 0, 0], [0, v, 0, 0], [0, 0, v, 0]];
+            else if (op === 'contrast') O = [[v, 0, 0, (1 - v) / 2], [0, v, 0, (1 - v) / 2], [0, 0, v, (1 - v) / 2]];
+            else if (op === 'saturate') O = sat(v);
+            else if (op === 'grayscale') O = sat(1 - v);
+            else if (op === 'sepia') { const a = 1 - v; O = [[0.393 + 0.607 * a, 0.769 - 0.769 * a, 0.189 - 0.189 * a, 0], [0.349 - 0.349 * a, 0.686 + 0.314 * a, 0.168 - 0.168 * a, 0], [0.272 - 0.272 * a, 0.534 - 0.534 * a, 0.131 + 0.869 * a, 0]]; }
+        }
+        if (O) M = mult(O, M);
+    }
+    return M;
+}
+function aplicarMatriz(dados, M) {
+    const d = dados.data, k = M.map(l => [l[0], l[1], l[2], l[3] * 255]);
+    for (let i = 0; i < d.length; i += 4) {
+        const r = d[i], g = d[i + 1], b = d[i + 2];
+        d[i] = k[0][0] * r + k[0][1] * g + k[0][2] * b + k[0][3];
+        d[i + 1] = k[1][0] * r + k[1][1] * g + k[1][2] * b + k[1][3];
+        d[i + 2] = k[2][0] * r + k[2][1] * g + k[2][2] * b + k[2][3];
+    }
+    return dados;
+}
+const carregarImagemStory = file => new Promise((ok, erro) => { const im = new Image(); im.onload = () => ok(im); im.onerror = erro; im.src = URL.createObjectURL(file); });
+function canvasDaImagem(im, lado) {
+    const esc = Math.min(1, lado / Math.max(im.naturalWidth, im.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(im.naturalWidth * esc)); c.height = Math.max(1, Math.round(im.naturalHeight * esc));
+    c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    return c;
+}
+async function prepararFiltrosStory(file) {
+    sc.filtro = 'normal'; sc.filtroInt = 1; sc.filtroBase = null; sc.filtroImg = null;
+    const cv = document.getElementById('scFiltroCanvas'); if (cv) cv.remove();
+    if (!file) return;
+    try {
+        const im = await carregarImagemStory(file);
+        if (sc.file !== file) return;
+        sc.filtroImg = im;
+        const c = canvasDaImagem(im, 1280);
+        sc.filtroBase = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+        c.id = 'scFiltroCanvas'; c.className = 'sc-img sc-filtro-canvas';
+        $('#scImg').after(c);
+        $('#scImg').classList.add('hidden');
+    } catch (_) { sc.filtroBase = null; }
+}
+function pintarFiltroStory() {
+    const cv = document.getElementById('scFiltroCanvas'); if (!cv || !sc.filtroBase) return;
+    const dados = new ImageData(new Uint8ClampedArray(sc.filtroBase.data), sc.filtroBase.width, sc.filtroBase.height);
+    if (sc.filtro !== 'normal') aplicarMatriz(dados, matrizFiltro(sc.filtro, sc.filtroInt));
+    cv.getContext('2d').putImageData(dados, 0, 0);
+    document.querySelectorAll('#scFiltroLista .sc-fi').forEach(b => b.classList.toggle('on', b.dataset.f === sc.filtro));
+    const int = document.getElementById('scFiltroInt'); if (int) { int.value = Math.round(sc.filtroInt * 100); int.closest('.sc-fi-int').classList.toggle('off', sc.filtro === 'normal'); }
+}
+function trocarFiltroStory(id, mostrarNome = true) {
+    if (!sc.filtroBase) return;
+    if (id !== sc.filtro) sc.filtroInt = 1;
+    sc.filtro = id; pintarFiltroStory(); vibrar(5);
+    if (!mostrarNome) return;
+    const n = document.getElementById('scFiltroNome'); if (!n) return;
+    const i = FILTROS_STORY.findIndex(f => f[0] === id);
+    n.innerHTML = `<b>${escapeHTML(FILTROS_STORY[i][1])}</b><span>${FILTROS_STORY.map((f, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('')}</span>`;
+    n.classList.remove('on'); void n.offsetWidth; n.classList.add('on');
+    clearTimeout(n._t); n._t = setTimeout(() => n.classList.remove('on'), 1100);
+}
+function abrirPainelFiltros() {
+    const p = document.getElementById('scFiltros'); if (!p) return;
+    if (!sc.filtroBase) { toast('Escolha uma foto pra usar filtros', 'err'); return; }
+    const abrir = p.classList.contains('hidden');
+    p.classList.toggle('hidden', !abrir);
+    $('#storyCreator').classList.toggle('filtros-on', abrir);
+    if (!abrir) return;
+    // miniaturas da própria foto
+    const lista = document.getElementById('scFiltroLista');
+    if (!lista.dataset.feito) {
+        const base = canvasDaImagem(sc.filtroImg, 220);
+        const lado = Math.min(base.width, base.height);
+        lista.innerHTML = FILTROS_STORY.map(f => `<button type="button" class="sc-fi" data-f="${f[0]}"><canvas width="112" height="112"></canvas><span>${escapeHTML(f[1])}</span></button>`).join('');
+        lista.querySelectorAll('.sc-fi').forEach(b => {
+            const c = b.querySelector('canvas'), ctx = c.getContext('2d');
+            ctx.drawImage(base, (base.width - lado) / 2, (base.height - lado) / 2, lado, lado, 0, 0, 112, 112);
+            if (b.dataset.f !== 'normal') ctx.putImageData(aplicarMatriz(ctx.getImageData(0, 0, 112, 112), matrizFiltro(b.dataset.f, 1)), 0, 0);
+        });
+        lista.dataset.feito = '1';
+    }
+    pintarFiltroStory();
+}
+// foto final com o filtro (até 2048 px no lado maior)
+async function arquivoComFiltroStory(file) {
+    if (!file || !sc.filtro || sc.filtro === 'normal' || !sc.filtroImg) return file;
+    const c = canvasDaImagem(sc.filtroImg, 2048), ctx = c.getContext('2d');
+    ctx.putImageData(aplicarMatriz(ctx.getImageData(0, 0, c.width, c.height), matrizFiltro(sc.filtro, sc.filtroInt)), 0, 0);
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.9));
+    return blob ? new File([blob], 'story.jpg', { type: 'image/jpeg' }) : file;
+}
+(function ligarFiltrosStory() {
+    const cr = document.getElementById('storyCreator'); if (!cr) return;
+    cr.insertAdjacentHTML('beforeend', `<div class="sc-fi-nome" id="scFiltroNome"></div>
+        <div class="sc-filtros hidden" id="scFiltros">
+            <div class="sc-fi-int"><input type="range" min="0" max="100" value="100" id="scFiltroInt" aria-label="Intensidade do filtro"></div>
+            <div class="sc-fi-lista" id="scFiltroLista"></div>
+        </div>`);
+    const p = document.getElementById('scFiltros');
+    p.addEventListener('click', e => { e.stopPropagation(); const b = e.target.closest('.sc-fi'); if (b) trocarFiltroStory(b.dataset.f, false); });
+    let raf = 0;
+    document.getElementById('scFiltroInt').addEventListener('input', e => {
+        sc.filtroInt = Number(e.target.value) / 100;
+        cancelAnimationFrame(raf); raf = requestAnimationFrame(pintarFiltroStory);
+    });
+    const col = document.getElementById('scColFiltros');
+    if (col) col.addEventListener('click', e => { e.stopPropagation(); abrirPainelFiltros(); });
+    // deslizar o dedo na foto troca o filtro
+    const stage = document.getElementById('scStage');
+    let ini = null;
+    stage.addEventListener('pointerdown', e => {
+        if (sc.mode !== 'photo' || !sc.filtroBase || e.target.closest('.sc-text, .sc-sticker, .sc-mencao, button')) { ini = null; return; }
+        ini = { x: e.clientX, y: e.clientY, t: Date.now() };
+    });
+    stage.addEventListener('pointerup', e => {
+        if (!ini || sc.doisDedos) { ini = null; return; }
+        const dx = e.clientX - ini.x, dy = e.clientY - ini.y; ini = null;
+        if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        const i = FILTROS_STORY.findIndex(f => f[0] === sc.filtro);
+        const j = (i + (dx < 0 ? 1 : -1) + FILTROS_STORY.length) % FILTROS_STORY.length;
+        trocarFiltroStory(FILTROS_STORY[j][0]);
+    });
+    stage.addEventListener('pointercancel', () => { ini = null; });
+})();
+
+// ================= ADESIVOS DO PULSO (sequência, X1 ao vivo, pontos do dia) =================
+// o adesivo é guardado como texto: "pulso:tipo|dados" (os antigos continuam "Atividade · min")
+function htmlAdesivoPulso(txt) {
+    const [tipo, ...d] = String(txt).slice(6).split('|');
+    const marca = '<i class="ad-marca">Pulso.</i>';
+    if (tipo === 'ofensiva') return `<span class="ad-ic ad-emo" style="--c:255,138,61">🔥</span><span class="ad-txt"><b>${escapeHTML(d[0])} ${Number(d[0]) === 1 ? 'dia' : 'dias'} seguidos</b><span>sem quebrar a sequência</span></span>${marca}`;
+    if (tipo === 'pontos') return `<span class="ad-ic ad-emo" style="--c:53,225,155">⚡</span><span class="ad-txt"><b>+${escapeHTML(d[0])} pts hoje</b><span>${escapeHTML(d[1] || 'no Pulso')}</span></span>${marca}`;
+    if (tipo === 'x1') return `<span class="ad-ic ad-emo" style="--c:255,194,75">⚔️</span><span class="ad-txt"><b>X1 · ${escapeHTML(d[0])} <em class="ad-pl">${escapeHTML(d[1])} x ${escapeHTML(d[2])}</em> ${escapeHTML(d[3])}</b><span>${escapeHTML(d[4] || 'ao vivo')}</span></span>${marca}`;
+    return '';
+}
+function colocarAdesivoStory(txt) {
+    const st = $('#scSticker');
+    sc.adesivo = txt;
+    if (!sc.adesivoPos) sc.adesivoPos = { x: 50, y: sc.mode === 'photo' ? 62 : 72 };
+    st.innerHTML = htmlAdesivo(sc.adesivo);
+    posicionar(st, sc.adesivoPos);
+    transformarItem(st);
+    st.classList.remove('hidden');
+    atualizarBotaoPublicarStory();
+}
+async function abrirAdesivosStory() {
+    const uid = state.session.user.id;
+    const ini = new Date(); ini.setHours(0, 0, 0, 0);
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Adesivos</h3><div class="ad-opcoes"><div class="spinner"></div></div>
+        ${sc.adesivo ? '<button class="x1-op perigo" data-ad="tirar">Tirar adesivo</button>' : ''}<button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'scAdesivos');
+    const [{ data: st }, { data: led }, x1s] = await Promise.all([
+        sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle().then(r => r, () => ({ data: null })),
+        sb.from('points_ledger').select('amount').eq('user_id', uid).gte('earned_at', ini.toISOString()).then(r => r, () => ({ data: [] })),
+        state.x1Lista ? Promise.resolve(state.x1Lista) : sb.rpc('x1_lista').then(r => r.data || [], () => []),
+    ]);
+    const ofensiva = (st && st.current_streak) || 0;
+    const pts = Math.round((led || []).reduce((t, x) => t + Number(x.amount || 0), 0));
+    const ativos = (x1s || []).filter(x => x.status === 'ativo' && !x1NaoComecou(x));
+    const ops = [['treino', '<span class="ad-ic" style="--c:53,225,155">' + SVG_X('<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>') + '</span>', 'Treino de hoje', 'Seu último treino das últimas 24 h']];
+    if (ofensiva > 0) ops.push(['ofensiva', '<span class="ad-ic ad-emo" style="--c:255,138,61">🔥</span>', `${ofensiva} ${ofensiva === 1 ? 'dia' : 'dias'} seguidos`, 'Sua sequência']);
+    if (pts > 0) ops.push(['pontos', '<span class="ad-ic ad-emo" style="--c:53,225,155">⚡</span>', `+${pts} pts hoje`, 'Pontos do dia']);
+    ativos.forEach(x => { const { ele, euPts, elePts } = x1Lados(x); ops.push(['x1:' + x.id, '<span class="ad-ic ad-emo" style="--c:255,194,75">⚔️</span>', `X1 vs ${ele.nome} · ${x1Num(euPts)} x ${x1Num(elePts)}`, 'Placar ao vivo']); });
+    const box = f.querySelector('.ad-opcoes'); if (!box) return;
+    box.innerHTML = ops.map(o => `<button class="ad-op" data-ad="${o[0]}">${o[1]}<span><b>${escapeHTML(o[2])}</b><small>${escapeHTML(o[3])}</small></span></button>`).join('');
+    f.addEventListener('click', ev => {
+        const b = ev.target.closest('[data-ad]'); if (!b) return;
+        const a = b.dataset.ad; fechar();
+        if (a === 'tirar') { sc.adesivo = null; $('#scSticker').classList.add('hidden'); atualizarBotaoPublicarStory(); return; }
+        if (a === 'treino') { sc.adesivo = null; $('#scAdesivo').click(); return; }
+        if (a === 'ofensiva') colocarAdesivoStory(`pulso:ofensiva|${ofensiva}`);
+        else if (a === 'pontos') colocarAdesivoStory(`pulso:pontos|${pts}|${ofensiva > 1 ? `🔥 ${ofensiva} dias seguidos` : 'no Pulso'}`);
+        else if (a.startsWith('x1:')) {
+            const x = ativos.find(i => i.id === a.slice(3)); if (!x) return;
+            const { eu, ele, euPts, elePts } = x1Lados(x);
+            colocarAdesivoStory(`pulso:x1|${(eu && eu.nome) || 'Eu'}|${x1Num(euPts)}|${x1Num(elePts)}|${ele.nome}|${(X1_TIPOS[x.tipo] || X1_TIPOS.perfeito).nome} · ${x1Restante(x.fim).toLowerCase()}`);
+        }
+    });
+}
+
 // Adesivo "Treino de hoje": usa o último treino das últimas 24h
 $('#scAdesivo').addEventListener('click', async () => {
     const st = $('#scSticker');
@@ -14294,7 +14500,7 @@ $('#scPublish').addEventListener('click', async () => {
         if (sc.mode === 'photo' && sc.repostUrl) {
             imageUrl = sc.repostUrl;
         } else if (sc.mode === 'photo') {
-            imageUrl = await uploadImage('post-images', sc.file);
+            imageUrl = await uploadImage('post-images', await arquivoComFiltroStory(sc.file));
             btn.textContent = 'Verificando...';
             try {
                 const { data: mod } = await sb.functions.invoke('vision-tools', { body: { task: 'moderate', imageUrl } });
@@ -16590,6 +16796,16 @@ function x1Lados(x) {
     const elePts = pl ? Number(x.sou_criador ? pl.b : pl.a) : Number(x.sou_criador ? x.b : x.a) || 0;
     return { eu, ele, euPts, elePts };
 }
+// X1 aceito à tarde começa às 00h do dia seguinte
+const x1NaoComecou = x => x.status === 'ativo' && x.inicio && new Date(x.inicio) > new Date();
+function x1ComecaEm(inicio) {
+    const d = new Date(inicio), amanha = isoDe(new Date(Date.now() + 86400000)) === isoDe(d);
+    return amanha ? 'Começa amanhã às 00h' : `Começa ${d.toLocaleDateString('pt-BR', { weekday: 'long' })} às 00h`;
+}
+function x1Expira(q) {
+    const ms = new Date(q) - Date.now(); if (ms <= 0) return 'expirando';
+    const h = Math.floor(ms / 3600000); return h >= 1 ? `expira em ${h} h` : `expira em ${Math.max(1, Math.floor(ms / 60000))} min`;
+}
 function x1Restante(fim) {
     const ms = new Date(fim) - Date.now();
     if (ms <= 0) return 'Acabou';
@@ -16730,33 +16946,36 @@ async function hydrateX1Lista(pronta = null, hub = false) {
     const ativos = lista.filter(x => x.status === 'ativo');
     const convites = lista.filter(x => x.status === 'pendente' && !x.sou_criador);
     const enviados = lista.filter(x => x.status === 'pendente' && x.sou_criador);
-    const fim = lista.filter(x => x.status === 'fim').slice(0, 3);
+    const fim = lista.filter(x => x.status === 'fim'); // só os da última semana (o resto fica no histórico)
     pintarBolinhaX1(convites.length);
     const card = x => {
         const { ele, euPts, elePts } = x1Lados(x);
         const tp = X1_TIPOS[x.tipo] || X1_TIPOS.perfeito;
         const cls = euPts > elePts ? 'g' : euPts < elePts ? 'p' : '';
-        const tot = euPts + elePts;
-        return `<button class="x1-card" data-x1l="abrir" data-id="${x.id}">
+        const tot = euPts + elePts, antes = x1NaoComecou(x);
+        // barra dividida: você em verde, a outra pessoa em azul (o lado zerado ainda aparece um pouquinho)
+        const fa = tot ? Math.max(euPts, tot * 0.06) : 1, fb = tot ? Math.max(elePts, tot * 0.06) : 1;
+        return `<button class="x1-card${antes ? ' x1-antes' : ''}" data-x1l="abrir" data-id="${x.id}">
             <span class="x1-duo">${x1Av(x.sou_criador ? x.criador : x.rival)}${x1Av(ele)}</span>
-            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${tp.nome} · ${x1Restante(x.fim).toLowerCase()}</small></span>
-            <span class="x1-sc ${cls}">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</span>
-            <span class="x1-mb"><i style="flex:${tot ? euPts : 1}"></i><u style="flex:${tot ? elePts : 1}"></u></span>
+            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${tp.nome} · ${antes ? x1ComecaEm(x.inicio).toLowerCase() : x1Restante(x.fim).toLowerCase()}</small></span>
+            ${antes ? '<span class="x1-pill">⏳ 00h</span>' : `<span class="x1-sc ${cls}">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</span>
+            <span class="x1-mb"><i style="flex:${fa}"></i><u style="flex:${fb}"></u></span>`}
         </button>`;
     };
     const vazio = !ativos.length && !convites.length && !enviados.length && !fim.length;
     slot.innerHTML = `<div class="x1-lista${hub ? ' hub' : ''}">
         <div class="x1-cab">${hub ? '<span class="x1-sec x1-sec-cab">X1</span>' : '<h2>Seus X1</h2>'}${ativos.length >= 2 ? `<span class="x1-cont">${ativos.length} de 5 ativos</span>` : ''}</div>
         ${convites.map(x => { const { ele } = x1Lados(x); const tp = X1_TIPOS[x.tipo]; return `<button class="x1-card x1-convite" data-x1l="abrir" data-id="${x.id}">
-            ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>${escapeHTML(ele.nome)} te desafiou</b><small>${tp.nome} · ${X1_DUR[x.duracao]}</small></span><span class="x1-pill">Ver</span></button>`; }).join('')}
+            ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>${escapeHTML(ele.nome)} te desafiou</b><small>${tp.nome} · ${X1_DUR[x.duracao]} · ${x1Expira(x.expira)}</small></span><span class="x1-pill">Ver</span></button>`; }).join('')}
         ${ativos.map(card).join('')}
         ${enviados.map(x => { const { ele } = x1Lados(x); return `<button class="x1-card x1-enviado" data-x1l="abrir" data-id="${x.id}">
-            ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>Esperando aceitar · ${X1_TIPOS[x.tipo].nome}</small></span></button>`; }).join('')}
+            ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>Esperando aceitar · ${x1Expira(x.expira)}</small></span></button>`; }).join('')}
         ${!vazio ? '<button class="x1-desafiar" data-act="x1-escolher">⚡ Desafiar alguém</button>' : ''}
         ${vazio ? `<div class="x1-vazio" data-act="x1-escolher"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X(IC_X1.raio)}</span><div><b>Desafie um amigo</b><small>Toque aqui e escolha alguém que você segue. Vale treino, km, minutos, pontos ou o dia perfeito.</small></div></div>` : ''}
         ${fim.length ? `<div class="x1-sec x1-sec-l">TERMINADOS</div>${fim.map(x => { const { ele, euPts, elePts } = x1Lados(x); const ganhei = x.vencedor === (x.sou_criador ? x.criador.id : x.rival.id); const emp = !x.vencedor;
             return `<button class="x1-card x1-fim" data-x1l="abrir" data-id="${x.id}"><span class="x1-res ${ganhei ? 'v' : emp ? 'e' : 'd'}">${ganhei ? 'Venceu' : emp ? 'Empate' : 'Perdeu'}</span>
             <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span><span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span></button>`; }).join('')}` : ''}
+        ${!vazio ? '<button class="x1-hist-link" data-x1l="historico">Ver histórico de X1</button>' : ''}
     </div>`;
 }
 function pintarBolinhaX1(n) {
@@ -16815,7 +17034,7 @@ function abrirConviteX1(x) {
     const { f, fechar } = x1Folha(`
         <div class="x1-cv-topo">${x1Av(ele, 'g')}<span class="x1-raio">${SVG_X(IC_X1.raio)}</span>${x1Av(eu, 'g')}</div>
         <h2 class="x1-cv-h">${escapeHTML(ele.nome)} te desafiou!</h2>
-        <p class="x1-cv-s">Desafio X1 · começa assim que você aceitar</p>
+        <p class="x1-cv-s">Desafio X1 · ${new Date().getHours() < 12 ? 'começa assim que você aceitar' : 'se aceitar agora, começa amanhã às 00h'}</p>
         <div class="x1-regras">
             <div class="x1-rgl"><span>Vale</span><b><span class="x1-mini-ic" style="--c:${tp.c}">${SVG_X(tp.ic)}</span>${tp.nome}</b><button class="x1-info" data-x1c="regras" aria-label="Regras">${SVG_X(IC_X1.info)}</button></div>
             <div class="x1-rgl"><span>Duração</span><b>${X1_DUR[x.duracao]}</b></div>
@@ -16834,7 +17053,7 @@ function abrirConviteX1(x) {
             b.disabled = false;
             if (error) { toast(msgErro(error), 'err'); return; }
             fechar();
-            if (a === 'aceitar') { vibrar([10, 40, 14]); toast('Valendo! Boa sorte 💪', 'ok'); setTimeout(() => abrirX1(x.id), 250); }
+            if (a === 'aceitar') { vibrar([10, 40, 14]); toast(new Date().getHours() < 12 ? 'Valendo! Boa sorte 💪' : 'Aceito! Começa amanhã às 00h 💪', 'ok'); setTimeout(() => abrirX1(x.id), 250); }
             else toast('Desafio recusado', 'ok');
             if (state.view === 'desafio') hydrateX1Lista();
         }
@@ -16869,7 +17088,7 @@ function abrirPlacarX1(x) {
     const tot = euPts + elePts;
     const lider = euPts > elePts ? 'eu' : elePts > euPts ? 'ele' : '';
     const fim = x.status === 'fim';
-    const pendente = x.status === 'pendente';
+    const pendente = x.status === 'pendente', antes = x1NaoComecou(x);
     const nDias = (pl.dias || []).length;
     const idxHoje = (pl.dias || []).findIndex(d => d.dia === hojeISO);
     const ganhei = fim && x.vencedor === eu.id, empate = fim && !x.vencedor;
@@ -16903,14 +17122,14 @@ function abrirPlacarX1(x) {
                 ${x.prenda && !empate ? `<div class="x1-prenda">${ganhei ? `${escapeHTML(ele.nome)} te deve: ` : 'Você deve: '}${escapeHTML(x.prenda.replace(/^quem perder\s*/i, ''))}</div>` : ''}
                 <div class="x1-duas"><button class="btn x1-btn ghost" data-x1p="revanche">Revanche</button><button class="btn x1-btn" data-x1p="story">Postar no story</button></div>
             </div>` : `<div class="x1-hero">
-                <div class="x1-tipo">${pendente ? '<i class="esp"></i>ESPERANDO ACEITAR' : '<i></i>AO VIVO'} · ${tp.nome.toUpperCase()}</div>
+                <div class="x1-tipo">${pendente ? '<i class="esp"></i>ESPERANDO ACEITAR' : antes ? '<i class="esp"></i>COMEÇA EM BREVE' : '<i></i>AO VIVO'} · ${tp.nome.toUpperCase()}</div>
                 <div class="x1-vs">
                     <div class="x1-pl${lider === 'eu' ? ' lider' : ''}">${x1Av(eu, 'g')}<b>Você</b><small>${lider === 'eu' ? 'LIDERANDO' : ''}</small></div>
                     <div class="x1-pt">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</div>
                     <div class="x1-pl dele${lider === 'ele' ? ' lider' : ''}">${x1Av(ele, 'g')}<b>${escapeHTML(ele.nome)}</b><small>${lider === 'ele' ? 'LIDERANDO' : ''}</small></div>
                 </div>
                 <div class="x1-cabo"><i style="flex:${tot ? euPts : 1}"></i><u style="flex:${tot ? elePts : 1}"></u></div>
-                <div class="x1-rest"><span>${pendente ? 'Começa quando aceitar' : `Dia ${idxHoje + 1} de ${nDias}`}</span><span>${pendente ? 'Convite vale 48 h' : x1Restante(x.fim)}</span></div>
+                <div class="x1-rest"><span>${pendente ? 'Começa quando aceitar' : antes ? x1ComecaEm(x.inicio) : `Dia ${idxHoje + 1} de ${nDias}`}</span><span>${pendente ? 'Convite ' + x1Expira(new Date(new Date(x.criado_em).getTime() + 48 * 3600000)) : antes ? `${nDias} ${nDias === 1 ? 'dia inteiro' : 'dias inteiros'}` : x1Restante(x.fim)}</span></div>
             </div>
             ${x.prenda ? `<div class="x1-prenda">${escapeHTML(x.prenda)}</div>` : ''}`}
 
@@ -16988,7 +17207,42 @@ document.addEventListener('click', async e => {
         const { ele } = x1Lados(x);
         abrirCriarX1(ele, { tipo: x.tipo, duracao: x.duracao, prenda: x.prenda });
     } else if (a === 'abrir') abrirX1(b.dataset.id);
+    else if (a === 'historico') { e.stopPropagation(); abrirHistoricoX1(); }
 }, true);
+
+// Histórico de X1: placar geral e todos os terminados
+async function abrirHistoricoX1() {
+    const t = x1Tela('x1Hist', `<div class="x1-topo"><button class="x1-ib" data-x1h="voltar" aria-label="Voltar">${SVG_X(IC_X1.voltar)}</button><h1>Histórico de X1</h1></div>
+        <div class="x1-corpo"><div class="spinner"></div></div>`);
+    t.addEventListener('click', e => {
+        const b = e.target.closest('[data-x1h]'); if (!b) return;
+        if (b.dataset.x1h === 'voltar') x1FecharTela('x1Hist');
+        else if (b.dataset.x1h === 'abrir') abrirX1(b.dataset.id);
+    });
+    const { data, error } = await sb.rpc('x1_historico');
+    const corpo = t.querySelector('.x1-corpo'); if (!corpo) return;
+    if (error || !data) { corpo.innerHTML = `<p class="tr-dica" style="text-align:center">${escapeHTML(msgErro(error) || 'Não deu pra carregar agora.')}</p>`; return; }
+    const l = data.lista || [];
+    const tot = (data.vitorias || 0) + (data.derrotas || 0) + (data.empates || 0);
+    corpo.innerHTML = `<div class="x1h-resumo">
+            <div class="v"><b>${data.vitorias || 0}</b><small>${data.vitorias === 1 ? 'vitória' : 'vitórias'}</small></div>
+            <div class="d"><b>${data.derrotas || 0}</b><small>${data.derrotas === 1 ? 'derrota' : 'derrotas'}</small></div>
+            <div class="e"><b>${data.empates || 0}</b><small>${data.empates === 1 ? 'empate' : 'empates'}</small></div>
+        </div>
+        ${tot ? `<p class="x1h-aprov">Aproveitamento: <b>${Math.round((data.vitorias || 0) / tot * 100)}%</b></p>` : ''}
+        ${l.length ? `<div class="x1-sec">TODOS</div>${l.map(x => `<button class="x1-card x1-fim" data-x1h="abrir" data-id="${x.id}">
+            <span class="x1-res ${x.venci ? 'v' : x.empate ? 'e' : 'd'}">${x.venci ? 'Venceu' : x.empate ? 'Empate' : 'Perdeu'}</span>
+            <span class="x1-card-txt"><b>vs ${escapeHTML(x.outro ? x.outro.nome : '?')}</b><small>${x1Num(Number(x.meus || 0))} x ${x1Num(Number(x.dele || 0))} · ${new Date(x.fim).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</small></span>
+            ${x.outro ? `<span class="x1-pill cinza" data-x1h="revanche" data-id="${x.id}">Revanche</span>` : ''}</button>`).join('')}`
+        : '<p class="tr-dica" style="text-align:center">Nenhum X1 terminado ainda. Desafie alguém!</p>'}`;
+    corpo.addEventListener('click', e => {
+        const b = e.target.closest('[data-x1h="revanche"]'); if (!b) return;
+        e.stopPropagation();
+        const x = l.find(i => i.id === b.dataset.id); if (!x || !x.outro) return;
+        x1FecharTela('x1Hist');
+        abrirCriarX1(x.outro, { tipo: x.tipo, duracao: x.duracao });
+    }, true);
+}
 
 // Card do X1 no feed (24 h)
 function x1FeedHTML(m) {
@@ -17098,6 +17352,25 @@ function lerExercicioTexto(txt) {
 }
 
 // ---------- 1) MONTAR (o tempo ainda não conta) ----------
+// Redesenha uma tela sem perder o lugar: mantém a rolagem e o campo que estava sendo digitado
+function manterLugar(tela, fn) {
+    const c = tela.querySelector('.x1-corpo'); const y = c ? c.scrollTop : null;
+    const a = document.activeElement; let sel = null, pos = null;
+    if (a && tela.contains(a) && a.tagName === 'INPUT') {
+        sel = Object.keys(a.dataset).map(k => `[data-${k.replace(/[A-Z]/g, x => '-' + x.toLowerCase())}="${a.dataset[k]}"]`).join('');
+        try { pos = a.selectionStart; } catch (_) {}
+    }
+    fn();
+    const c2 = tela.querySelector('.x1-corpo'); if (c2 && y != null) c2.scrollTop = y;
+    if (sel) {
+        const el = tela.querySelector('input' + sel);
+        if (el) {
+            manterLugar.refoco = true;
+            try { el.focus({ preventScroll: true }); const p = pos == null ? el.value.length : Math.min(pos, el.value.length); el.setSelectionRange(p, p); } catch (_) {}
+            setTimeout(() => { manterLugar.refoco = false; }, 0);
+        }
+    }
+}
 async function abrirModoTreino(preset = null, editar = false) {
     const salvo = trGet();
     if (salvo && salvo.inicio && !editar) return abrirTreinoVivo();
@@ -17130,7 +17403,14 @@ async function abrirModoTreino(preset = null, editar = false) {
     const tela = x1Tela('treinoInicio', '');
     tela.classList.add('tr-tela');
     const musc = () => m.ativ === 'Musculação';
-    const pintar = () => {
+    const rotuloSalvar = () => m.modeloId ? (((modelos.find(x => x.id === m.modeloId) || {}).sig === JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length]))) ? `★ ${escapeHTML(m.doCoach || 'Treino')} · salvo` : '☆ Salvar mudanças') : '☆ Salvar como meu treino';
+    // muda só o número de séries daquela linha (não redesenha, o teclado continua aberto)
+    const pintarSeries = i => {
+        const b = tela.querySelector(`.trm-ex[data-i="${i}"] .trm-step b`); if (!b) return pintar();
+        b.innerHTML = `${m.exercicios[i].series.length}<i>séries</i>`;
+        const sv = tela.querySelector('.trm-salvar'); if (sv) sv.innerHTML = rotuloSalvar();
+    };
+    const pintarTudo = () => {
         const n = m.exercicios.length;
         const haDias = d => { if (!d) return 'ainda não feito'; const n = Math.floor((Date.now() - new Date(d)) / 86400000); return n <= 0 ? 'feito hoje' : n === 1 ? 'feito ontem' : `feito há ${n} dias`; };
         const meus = !editar ? `<div class="x1-sec">MEUS TREINOS</div>
@@ -17165,14 +17445,17 @@ async function abrirModoTreino(preset = null, editar = false) {
                 </div>
             </div>`).join('')}</div>
             <button class="tr-add" data-tr="add">+ Adicionar exercício</button>
-            ${!editar && n ? `<button class="trm-salvar" data-tr="salvar-meu">${m.modeloId ? (((modelos.find(x => x.id === m.modeloId) || {}).sig === JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length]))) ? `★ ${escapeHTML(m.doCoach || 'Treino')} · salvo` : '☆ Salvar mudanças') : '☆ Salvar como meu treino'}</button>` : ''}` : `<p class="tr-dica">Escolha os grupos pra montar a lista de exercícios.</p>`}`
+            ${!editar && n ? `<button class="trm-salvar" data-tr="salvar-meu">${rotuloSalvar()}</button>` : ''}` : `<p class="tr-dica">Escolha os grupos pra montar a lista de exercícios.</p>`}`
             : `<p class="tr-dica">O cronômetro começa quando você tocar em começar. No fim, você confere o tempo${['Corrida', 'Caminhada', 'Ciclismo', 'Natação'].includes(m.ativ) ? ' e coloca a distância' : ''}.</p>`}
         </div>
         <div class="x1-rodape"><button class="btn x1-btn" data-tr="comecar"${!m.ativ || (musc() && !n) ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar ${musc() ? (m.modeloId ? escapeHTML(m.doCoach || 'treino') : `treino · ${n} ${n === 1 ? 'exercício' : 'exercícios'}`) : escapeHTML(String(m.ativ || 'treino').toLowerCase())}`}</button></div>`;
     };
+    const pintar = () => manterLugar(tela, pintarTudo);
+    // tocar num botão com o teclado aberto não tira o foco do campo
+    tela.addEventListener('mousedown', e => { const a = document.activeElement; if (a && a.tagName === 'INPUT' && tela.contains(a) && e.target.closest('button')) e.preventDefault(); });
     pintar();
     // carga e repetições direto na montagem (ficam lembradas)
-    tela.addEventListener('focusin', e => { if (e.target.dataset && e.target.dataset.trm) setTimeout(() => { try { e.target.select(); } catch (_) {} }, 0); });
+    tela.addEventListener('focusin', e => { if (manterLugar.refoco) return; if (e.target.dataset && e.target.dataset.trm) setTimeout(() => { try { e.target.select(); } catch (_) {} }, 0); });
     tela.addEventListener('input', e => {
         const k = e.target.dataset.trm; if (!k) return;
         const ex = m.exercicios[Number(e.target.dataset.i)]; if (!ex) return;
@@ -17197,8 +17480,8 @@ async function abrirModoTreino(preset = null, editar = false) {
         };
         const soltar = () => {
             document.removeEventListener('pointermove', mover); document.removeEventListener('pointerup', soltar); document.removeEventListener('pointercancel', soltar);
-            if (para !== de) { const [x] = m.exercicios.splice(de, 1); m.exercicios.splice(para, 0, x); vibrar(8); }
-            pintar();
+            if (para !== de) { const [x] = m.exercicios.splice(de, 1); m.exercicios.splice(para, 0, x); vibrar(8); pintar(); }
+            else itens.forEach(x => { x.style.transform = ''; x.classList.remove('arrastando'); });
         };
         document.addEventListener('pointermove', mover); document.addEventListener('pointerup', soltar); document.addEventListener('pointercancel', soltar);
     });
@@ -17236,8 +17519,8 @@ async function abrirModoTreino(preset = null, editar = false) {
             else { m.grupos.push(g); (BIBLIO_EX[g] || []).slice(0, m.grupos.length === 1 ? 3 : 2).forEach(n => { if (!m.exercicios.some(x => x.nome === n)) m.exercicios.push(novoExercicio(n, 3, null, g)); }); }
             vibrar(6); pintar();
         }
-        else if (a === 'menos') { const ex = m.exercicios[i]; if (ex.series.length > 1) { ex.series.pop(); pintar(); } }
-        else if (a === 'mais') { const ex = m.exercicios[i]; if (ex.series.length < 10) { const u = ex.series[ex.series.length - 1]; ex.series.push({ kg: u ? u.kg : '', reps: u ? u.reps : '10', ok: false }); pintar(); } }
+        else if (a === 'menos') { const ex = m.exercicios[i]; if (ex.series.length > 1) { ex.series.pop(); vibrar(5); pintarSeries(i); } }
+        else if (a === 'mais') { const ex = m.exercicios[i]; if (ex.series.length < 10) { const u = ex.series[ex.series.length - 1]; ex.series.push({ kg: u ? u.kg : '', reps: u ? u.reps : '10', ok: false }); vibrar(5); pintarSeries(i); } }
         else if (a === 'tirar') { m.exercicios.splice(i, 1); vibrar(6); pintar(); }
         else if (a === 'add') escolherExercicio(nome => { m.exercicios.push(novoExercicio(nome)); pintar(); const c = tela.querySelector('.x1-corpo'); if (c) c.scrollTop = c.scrollHeight; });
         else if (a === 'coach') {
@@ -17366,7 +17649,7 @@ async function abrirTreinoVivo() {
         const seg = descansoEx(ex ? ex.nome : '');
         s.descEx = ex ? ex.nome : null; s.descansoTotal = seg * 1000; s.descansoAte = Date.now() + s.descansoTotal; trSom();
     };
-    const pintar = () => {
+    const pintarTudo = () => {
         const feitas = s.exercicios.reduce((t, ex) => t + ex.series.filter(x => x.ok).length, 0);
         tela.innerHTML = `
         <div class="x1-topo tr-topo"><button class="x1-ib" data-tv="menu" aria-label="Opções do treino">${SVG_X(IC_X1.fechar)}</button>
@@ -17405,6 +17688,9 @@ async function abrirTreinoVivo() {
         ${musc ? `<div class="tr-desc" id="trDesc"><div class="tr-desc-fill"></div><div class="tr-desc-in"><span><small>Descanso</small><b>0:00</b></span><button data-tv="mais30">+30 s</button><button data-tv="pular">Pular</button></div></div>` : ''}`;
         pintarRelogios();
     };
+    const pintar = () => manterLugar(tela, pintarTudo);
+    // tocar num botão com o teclado aberto não tira o foco do campo
+    tela.addEventListener('mousedown', e => { const a = document.activeElement; if (a && a.tagName === 'INPUT' && tela.contains(a) && e.target.closest('button')) e.preventDefault(); });
     const fecharVivo = () => { clearInterval(trRelogio); trManterTelaAcesa(false); x1FecharTela('treinoVivo'); setTimeout(pintarPilulaTreino, 200); };
     pintar();
     carregarHist();
@@ -17416,7 +17702,7 @@ async function abrirTreinoVivo() {
         const t2 = tela.querySelector('#trTempo2'); if (t2) t2.textContent = trTempo(trDecorrido(s));
     }, 500);
     // tocar no campo seleciona o número: o que digitar substitui (não junta "10" com "20")
-    tela.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('tr-in')) setTimeout(() => { try { e.target.select(); e.target.setSelectionRange(0, 99); } catch (_) {} }, 0); });
+    tela.addEventListener('focusin', e => { if (manterLugar.refoco) return; if (e.target.classList && e.target.classList.contains('tr-in')) setTimeout(() => { try { e.target.select(); e.target.setSelectionRange(0, 99); } catch (_) {} }, 0); });
     tela.addEventListener('input', e => {
         const i = e.target.dataset.i, j = e.target.dataset.j, k = e.target.dataset.tv;
         if (i == null || !['kg', 'reps'].includes(k)) return;
@@ -17443,6 +17729,7 @@ async function abrirTreinoVivo() {
             });
         }
         else if (a === 'ok') {
+            if (document.activeElement && tela.contains(document.activeElement)) document.activeElement.blur(); // marcou a série: o teclado pode fechar
             const ex = s.exercicios[i], se = ex.series[j];
             se.ok = !se.ok;
             if (se.ok) {
