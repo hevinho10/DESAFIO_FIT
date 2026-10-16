@@ -14263,6 +14263,12 @@ const FILTROS_STORY = [
     ['manha', 'Manhã', [['brightness', 1.08], ['saturate', 0.85], ['contrast', 0.94], ['sepia', 0.08]]],
     ['noite', 'Noite', [['tint', [0.9, 0.97, 1.12]], ['contrast', 1.1], ['saturate', 0.85], ['brightness', 0.95]]],
     ['vivo', 'Vivo', [['saturate', 1.6], ['contrast', 1.12]]],
+    ['dourado', 'Dourado', [['sepia', 0.3], ['saturate', 1.25], ['brightness', 1.06], ['tint', [1.06, 1, 0.88]]]],
+    ['retro', 'Retrô', [['fade', 0.18], ['sepia', 0.25], ['saturate', 0.8], ['contrast', 0.92]]],
+    ['gelo', 'Gelo', [['tint', [0.88, 1, 1.15]], ['saturate', 0.75], ['contrast', 1.15], ['brightness', 1.04]]],
+    ['rose', 'Rosé', [['tint', [1.08, 0.96, 1.02]], ['brightness', 1.05], ['contrast', 0.96], ['saturate', 1.05]]],
+    ['drama', 'Drama', [['saturate', 0.55], ['contrast', 1.4], ['brightness', 0.88]]],
+    ['cinema', 'Cinema', [['mat', [[1.1, 0, -0.06, 0], [0, 1.02, 0, 0], [-0.06, 0.04, 1.08, 0.03]]], ['contrast', 1.15], ['saturate', 1.1]]],
 ];
 // matriz de cor 3x4 (r,g,b + deslocamento), na mesma conta dos filtros do CSS
 function matrizFiltro(id, t = 1) {
@@ -14273,6 +14279,8 @@ function matrizFiltro(id, t = 1) {
     for (const [op, alvo] of f[2]) {
         let O;
         if (op === 'tint') { const v = alvo.map(x => 1 + (x - 1) * t); O = [[v[0], 0, 0, 0], [0, v[1], 0, 0], [0, 0, v[2], 0]]; }
+        else if (op === 'mat') O = alvo.map((l, i) => l.map((v, j) => { const id = i === j ? 1 : 0; return id + (v - id) * t; }));
+        else if (op === 'fade') { const v = alvo * t; O = [[1 - v, 0, 0, v * 0.6], [0, 1 - v, 0, v * 0.6], [0, 0, 1 - v, v * 0.6]]; }
         else {
             const neutro = op === 'sepia' || op === 'grayscale' ? 0 : 1;
             const v = neutro + (alvo - neutro) * t;
@@ -14397,7 +14405,14 @@ async function arquivoComFiltroStory(file) {
         if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
         const i = FILTROS_STORY.findIndex(f => f[0] === sc.filtro);
         const j = (i + (dx < 0 ? 1 : -1) + FILTROS_STORY.length) % FILTROS_STORY.length;
+        stage._deslizou = Date.now();
         trocarFiltroStory(FILTROS_STORY[j][0]);
+        const on = document.querySelector(`#scFiltroLista .sc-fi[data-f="${FILTROS_STORY[j][0]}"]`); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+    });
+    // tocar fora da fileira fecha os filtros e as outras opções voltam
+    stage.addEventListener('click', () => {
+        if (p.classList.contains('hidden') || Date.now() - (stage._deslizou || 0) < 400) return;
+        p.classList.add('hidden'); $('#storyCreator').classList.remove('filtros-on');
     });
     stage.addEventListener('pointercancel', () => { ini = null; });
 })();
@@ -17105,7 +17120,8 @@ function abrirPlacarX1(x) {
         const q = ev.uid === eu.id ? 'Você' : escapeHTML(ele.nome);
         if (ev.kind === 'workout') return `<b>${q}</b> treinou · ${escapeHTML(ev.atividade || 'Treino')}${ev.min ? ' ' + ev.min + ' min' : ''}${ev.km ? ' · ' + br(ev.km) + ' km' : ''}`;
         if (ev.kind === 'meal') return `<b>${q}</b> registrou ${(MEAL_SLOT_NAME[ev.slot] || 'uma refeição').toLowerCase()}`;
-        return `<b>${q}</b> bebeu ${ev.ml || 0} ml de água`;
+        const ml = Number(ev.ml || 0);
+        return `<b>${q}</b> bebeu ${ml >= 1000 ? (ml % 1000 ? br(ml / 1000, 1) : ml / 1000) + ' L' : ml + ' ml'} de água`;
     };
     const evQuando = q => { const d = new Date(q); const hoje = isoDe(new Date()) === isoDe(d); return hoje ? d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : isoDe(new Date(Date.now() - 86400000)) === isoDe(d) ? 'ontem' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }); };
     const evIc = k => k === 'workout' ? IC_X1.halter : k === 'meal' ? IC_X1.prato : IC_X1.gota;
@@ -17137,15 +17153,17 @@ function abrirPlacarX1(x) {
 
             ${nDias ? `<div class="x1-sec">DIA A DIA</div><div class="x1-tab">
                 <div class="x1-tr x1-th"><span>DIA</span><span>VOCÊ</span><span>${escapeHTML(ele.nome.toUpperCase())}</span></div>
-                ${pl.dias.map(d => {
+                ${(fim ? pl.dias : pl.dias.filter(d => d.dia <= hojeISO)).map(d => {
                     const dt = new Date(d.dia + 'T12:00:00');
                     const cel = (lado, cls) => { if (!d[lado]) return '<span class="x1-cel"><u></u><b>–</b></span>'; const v = Number(d[lado].pts || 0); return `<span class="x1-cel ${cls}"><u><i style="width:${Math.round(Math.min(1, v / maxDia) * 100)}%"></i></u><b>${x1Num(v)}${d[lado].perfeito ? '<em>★</em>' : ''}</b></span>`; };
                     return `<div class="x1-tr${d.dia === hojeISO ? ' hj' : ''}${!d.a ? ' fut' : ''}"><span class="x1-td-d"><b>${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dt.getDay()]}</b><small>${d.dia === hojeISO ? 'hoje' : dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small></span>${cel(meuLado, 'v')}${cel(ladoDele, 'b')}</div>`;
                 }).join('')}
                 <div class="x1-tr x1-tot"><span>Total</span><span class="v">${x1Num(euPts)}</span><span class="b">${x1Num(elePts)}</span></div>
-            </div>` : ''}
+            </div>${!fim && !pendente ? (() => { const ult = pl.dias[pl.dias.length - 1].dia; const falt = pl.dias.filter(d => d.dia > hojeISO).length; const dU = new Date(ult + 'T12:00:00');
+                return `<p class="x1-falta">${antes ? `Começa ${new Date(pl.dias[0].dia + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '')} · ${nDias} dias` : falt ? `Faltam ${falt} ${falt === 1 ? 'dia' : 'dias'}` : 'Último dia!'} · termina ${['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][dU.getDay()]} ${dU.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</p>`; })() : ''}` : ''}
 
-            ${(x.eventos || []).length ? `<div class="x1-sec">ÚLTIMAS</div><div class="x1-evs">${x.eventos.slice(0, 6).map(ev => `<div class="x1-ev"><span class="x1-ev-ic ${ev.uid === eu.id ? 'v' : 'b'}">${SVG_X(evIc(ev.kind))}</span><span>${evTxt(ev)}</span><time>${evQuando(ev.quando)}</time></div>`).join('')}</div>` : ''}
+            ${!fim && !pendente && !antes && !(x.eventos || []).length ? '<div class="x1-sec">ÚLTIMAS 12 H</div><p class="x1-ev-vazio">Nada nas últimas 12 h. Bora registrar?</p>' : ''}
+            ${(x.eventos || []).length && !fim ? `<div class="x1-sec">ÚLTIMAS 12 H</div><div class="x1-evs">${x.eventos.slice(0, 8).map(ev => `<div class="x1-ev"><span class="x1-ev-ic ${ev.uid === eu.id ? 'v' : 'b'}">${SVG_X(evIc(ev.kind))}</span><span>${evTxt(ev)}</span><time>${evQuando(ev.quando)}</time></div>`).join('')}</div>` : ''}
             ${pendente && x.sou_criador ? `<button class="x1-cancelar" data-x1p="cancelar">Cancelar convite</button>` : ''}
         </div>
         ${cta ? `<div class="x1-rodape">${cta}</div>` : ''}`);
