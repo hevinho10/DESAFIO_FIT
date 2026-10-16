@@ -17575,36 +17575,45 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
     const num = v => parseFloat(String(v || '').replace(',', '.'));
     const volume = Math.round(feitas.reduce((t, x) => t + x.kg * x.reps, 0));
     const recordes = s.exercicios.map(ex => { if (ex.tipo === 'tempo') return null; const rec = hist[ex.nome] && hist[ex.nome].recorde != null ? Number(hist[ex.nome].recorde) : null; const m = Math.max(0, ...ex.series.filter(x => x.ok).map(x => num(x.kg) || 0)); return rec != null && m > rec ? { ex: ex.nome, kg: m } : null; }).filter(Boolean);
+    const exFeitos = s.exercicios.filter(ex => ex.series.some(x => x.ok)).length;
     const distancia = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação'].includes(s.ativ);
     let foto = null, publicar = false;
     const { f, fechar } = x1Folha(`
         <div class="tr-fim-topo"><span class="x1-tipo-ic" style="--c:53,225,155">${SVG_X(IC_X1.halter)}</span><div><h3>Treino concluído</h3><small>${escapeHTML(s.ativ)}${musc && s.grupos.length ? ' · ' + escapeHTML(s.grupos.join(', ')) : ''}</small></div></div>
         <div class="tr-fim-stats">
             <label><small>Minutos</small><input class="tr-in" id="trMin" inputmode="numeric" value="${min}"></label>
-            ${musc ? `<div><small>Séries</small><b>${feitas.length}</b></div><div><small>Volume</small><b>${volume >= 1000 ? br(volume / 1000, 1) + ' t' : volume + ' kg'}</b></div>`
+            ${musc ? `<div><small>Séries</small><b>${feitas.length}</b></div>${recordes.length ? `<div class="tr-fim-rec"><small>Recorde${recordes.length > 1 ? 's' : ''}</small><b>🏆 ${recordes.length}</b></div>` : `<div><small>Exercícios</small><b>${exFeitos}<i>/${s.exercicios.length}</i></b></div>`}`
             : distancia ? `<label><small>Distância (km)</small><input class="tr-in" id="trKm" inputmode="decimal" placeholder="0,0"></label>` : ''}
         </div>
         ${recordes.length ? `<div class="tr-pr">🏆 ${recordes.length === 1 ? `Novo recorde no ${escapeHTML(recordes[0].ex.toLowerCase())}: ${br(recordes[0].kg, Number.isInteger(recordes[0].kg) ? 0 : 1)} kg` : `${recordes.length} recordes novos hoje`}</div>` : ''}
         <div class="trf-foto">
-            <label class="trf-add" id="trFotoBtn">${SVG_X('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}<span>Adicionar foto <small>+3 pts</small></span><input type="file" accept="image/*" id="trFoto" hidden></label>
+            <div class="trf-add2" id="trFotoBtn">
+                <label class="trf-add">${SVG_X('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}<span>Tirar foto</span><input type="file" accept="image/*" capture="environment" class="trFotoIn" hidden></label>
+                <label class="trf-add">${SVG_X('<rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 16l-5-5-9 8.5"/>')}<span>Galeria</span><input type="file" accept="image/*" class="trFotoIn" hidden></label>
+            </div><p class="trf-pts">Com foto: <b>+3 pts</b></p>
             <div class="trf-prev hidden" id="trFotoPrev"><img alt=""><button type="button" id="trFotoX" aria-label="Tirar foto">${SVG_X(IC_X1.fechar)}</button></div>
         </div>
         <div class="trf-leg"><textarea id="trLegenda" rows="1" maxlength="2200" placeholder="Legenda (opcional)"></textarea><div class="cm-sugestoes hidden" id="trLegSug"></div></div>
         <button type="button" class="x1-sw trf-pub" id="trPub"><span><b>Publicar no feed</b><small>Sem foto, vai como card do treino</small></span><i class="x1-tg" id="trPubTg"></i></button>
         <p class="tr-erro" id="trErro" hidden></p>
         <div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Voltar</button><button class="btn x1-btn" id="trSalvar">Salvar treino</button></div>
-        ${musc && s.exercicios.length ? '<button class="trf-modelo" id="trModeloBtn">☆ Salvar estes exercícios como modelo</button>' : ''}`, 'trFim');
+        ${musc && s.exercicios.length ? '<button class="trf-modelo" id="trModeloBtn">☆ Salvar estes exercícios como modelo</button>' : ''}
+        <button class="trf-apagar" id="trApagar">Apagar treino</button>`, 'trFim');
+    f.querySelector('#trApagar').onclick = async () => {
+        if (!(await confirmar('Apagar este treino? Nada vai ser salvo.', 'Apagar', true))) return;
+        trSet(null); fechar(); aoFechar(); toast('Treino apagado', 'ok');
+    };
     const trErro = txt => { const e = f.querySelector('#trErro'); if (!e) return; e.textContent = txt || ''; e.hidden = !txt; if (txt) vibrar([20, 40, 20]); };
     const pintarPub = () => f.querySelector('#trPubTg').classList.toggle('on', publicar);
     f.querySelector('#trMin').addEventListener('focus', e => setTimeout(() => { try { e.target.select(); } catch (_) {} }, 0));
     f.querySelector('#trMin').addEventListener('input', () => trErro(''));
-    f.querySelector('#trFoto').addEventListener('change', e => {
-        const arq = e.target.files && e.target.files[0]; if (!arq) return;
+    f.querySelectorAll('.trFotoIn').forEach(inp => inp.addEventListener('change', e => {
+        const arq = e.target.files && e.target.files[0]; e.target.value = ''; if (!arq) return;
         foto = arq; publicar = true; pintarPub();
         const pv = f.querySelector('#trFotoPrev'); pv.querySelector('img').src = URL.createObjectURL(arq);
-        pv.classList.remove('hidden'); f.querySelector('#trFotoBtn').classList.add('hidden');
-    });
-    f.querySelector('#trFotoX').onclick = () => { foto = null; f.querySelector('#trFotoPrev').classList.add('hidden'); f.querySelector('#trFotoBtn').classList.remove('hidden'); f.querySelector('#trFoto').value = ''; };
+        pv.classList.remove('hidden'); f.querySelector('#trFotoBtn').classList.add('hidden'); f.querySelector('.trf-pts').classList.add('hidden');
+    }));
+    f.querySelector('#trFotoX').onclick = () => { foto = null; f.querySelector('#trFotoPrev').classList.add('hidden'); f.querySelector('#trFotoBtn').classList.remove('hidden'); f.querySelector('.trf-pts').classList.remove('hidden'); };
     f.querySelector('#trPub').onclick = () => { publicar = !publicar; pintarPub(); vibrar(6); };
     const leg = f.querySelector('#trLegenda');
     leg.addEventListener('input', () => { leg.style.height = 'auto'; leg.style.height = Math.min(120, leg.scrollHeight) + 'px'; });

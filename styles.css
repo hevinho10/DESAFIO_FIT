@@ -4241,3 +4241,17 @@ a.cm-mencao{ color:var(--vital); font-weight:600; text-decoration:none; cursor:p
 .story-avatar.dourado, .story-avatar.dourado.seen, .story-avatar.mine.dourado.seen{ background:var(--ouro-anel) !important; padding:2.5px !important; }
 /* "Salvar como meu treino" agora fica no fim da lista (não cobre o "+ Adicionar exercício") */
 .x1-corpo .trm-salvar{ margin:12px 0 4px; }
+
+/* Concluir treino: foto em dois botões, exercícios no lugar do volume, apagar */
+.trf-add2{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.trf-add2.hidden{ display:none; }
+.trf-add2 .trf-add{ padding:12px 10px; }
+.trf-pts{ margin:7px 0 0; text-align:center; font-size:12px; color:var(--ink-faint); }
+.trf-pts b{ color:var(--vital); }
+.trf-pts.hidden{ display:none; }
+.tr-fim-stats b i{ font-style:normal; font-size:15px; color:var(--ink-faint); font-weight:600; margin-left:1px; }
+.tr-fim-stats .tr-fim-rec{ border-color:rgba(245,184,61,.35); background:linear-gradient(160deg, rgba(245,184,61,.10), transparent 70%), var(--bg); }
+.tr-fim-stats .tr-fim-rec small{ color:#E7B24A; }
+.trf-apagar{ display:block; margin:6px auto 0; padding:8px 14px; border:0; background:none; color:#EF5A5A; font-family:inherit; font-size:13px; font-weight:600; opacity:.85; }
+:root[data-theme="light"] .tr-fim-stats .tr-fim-rec{ background:linear-gradient(160deg, rgba(245,184,61,.14), transparent 70%), #F6F8F6; }
+:root[data-theme="light"] .tr-fim-stats .tr-fim-rec small{ color:#B07A12; }
