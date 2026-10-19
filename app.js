@@ -17878,12 +17878,24 @@ async function abrirTreinoVivo() {
             const rest = s.descansoAte - Date.now();
             bar.classList.add('on');
             bar.querySelector('b').textContent = trTempo(rest);
-            bar.querySelector('small').textContent = s.descEx ? `Descanso · ${s.descEx}` : 'Descanso';
+            bar.querySelector('small').textContent = 'Descanso';
+            bar.querySelector('.tr-prox').textContent = proximaSerie();
             bar.querySelector('.tr-desc-fill').style.width = (100 - rest / (s.descansoTotal || 60000) * 100) + '%';
         } else {
             if (s.descansoAte) { s.descansoAte = null; trCancelarPushDescanso(); trSet(s); trBip(); vibrar([30, 60, 30]); bar.classList.add('fim'); setTimeout(() => bar.classList.remove('fim'), 1600); }
             bar.classList.remove('on');
         }
+    };
+    // o que vem depois da pausa (mostrado na barra de descanso)
+    const proximaSerie = () => {
+        const ordem = [...s.exercicios.filter(e2 => e2.nome === s.descEx), ...s.exercicios.filter(e2 => e2.nome !== s.descEx)];
+        for (const e2 of ordem) {
+            const k = e2.series.findIndex(x => !x.ok); if (k < 0) continue;
+            const se = e2.series[k];
+            const carga = e2.tipo === 'carga' && se.kg ? `${String(se.kg).replace('.', ',')} kg × ` : '';
+            return `Próximo: ${e2.nome} · série ${k + 1} · ${carga}${se.reps || '10'}${e2.tipo === 'tempo' ? ' s' : ''}`;
+        }
+        return 'Descanso';
     };
     const iniciarDescanso = ex => {
         const seg = descansoEx(ex ? ex.nome : '');
@@ -17893,11 +17905,12 @@ async function abrirTreinoVivo() {
         const feitas = s.exercicios.reduce((t, ex) => t + ex.series.filter(x => x.ok).length, 0);
         const totalSeries = s.exercicios.reduce((t, ex) => t + ex.series.length, 0);
         const prep = !s.inicio; // ainda não começou: dá pra ajustar tudo antes
+        const tudoFeito = totalSeries > 0 && feitas === totalSeries;
         const estMin = Math.max(10, Math.round((totalSeries * 2.5 + s.exercicios.length * 1.5) / 5) * 5);
         tela.innerHTML = `
         <div class="x1-topo tr-topo2">
             <button class="tr-voltar" data-tv="minimizar" aria-label="Voltar pro app sem parar o treino">${SVG_X('<path d="M6 9l6 6 6-6"/>')}<span>${escapeHTML(trNomeTela())}</span></button>
-            <span class="tr-acoes"><button class="x1-ib" data-tv="menu" aria-label="Opções do treino">${SVG_X(IC_X1.mais)}</button>${prep ? `<button class="tr-concluir tr-play" data-tv="iniciar">${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar</button>` : '<button class="tr-concluir" data-tv="concluir">Concluir</button>'}</span>
+            <span class="tr-acoes"><button class="x1-ib" data-tv="menu" aria-label="Opções do treino">${SVG_X(IC_X1.mais)}</button>${prep ? `<button class="tr-concluir tr-play" data-tv="iniciar">${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar</button>` : `<button class="tr-concluir${musc && tudoFeito ? ' brilha' : ''}" data-tv="concluir">Concluir</button>`}</span>
         </div>
         <div class="tr-cab2">
             <div class="tr-tit2"><b>${escapeHTML(trTitulo(s))}</b><small class="${s.pausadoEm ? 'pausado' : ''}">${s.pausadoEm ? 'Pausado · ' : ''}<span id="trTempo">${trTempo(trDecorrido(s))}</span>${musc ? (prep ? ` · ${totalSeries} ${totalSeries === 1 ? 'série' : 'séries'} · cerca de ${estMin} min` : ` · ${feitas} de ${totalSeries} ${totalSeries === 1 ? 'série' : 'séries'}`) : ''}</small></div>
@@ -17920,14 +17933,14 @@ async function abrirTreinoVivo() {
                     const kgs = ex.series.map(x => num(x.kg) || 0), mk = Math.max(0, ...kgs);
                     return `<div class="tr-ex tr-feito${prep ? ' prep' : ''}" data-i="${i}"><span class="tr-arr" data-arrv="${i}" aria-label="Arrastar">${SVG_X('<path d="M5 9h14M5 15h14"/>')}</span>
                         <button class="tr-feito-btn" data-tv="abrir-ex" data-i="${i}">${prep ? '' : `<span class="tr-feito-ok">${SVG_X('<path d="M5 12l5 5 9-10"/>')}</span>`}<b>${escapeHTML(ex.nome)}</b>
-                        <small>${ex.series.length}×${ex.series[0] ? ex.series[0].reps || '-' : '-'}${ex.tipo === 'tempo' ? ' s' : ''}${ex.tipo === 'carga' && mk ? ' · ' + kgTxt(mk) + ' kg' : ''}${bateu ? ' · 🏆' : ''}</small></button>
+                        <small>${ex.series.length}×${ex.series[0] ? ex.series[0].reps || '-' : '-'}${ex.tipo === 'tempo' ? ' s' : ''}${ex.tipo === 'carga' ? (mk ? ' · ' + kgTxt(mk) + ' kg' : prep ? '' : ' · sem carga') : ''}${bateu ? ' · 🏆' : ''}</small></button>
                         ${prep ? `<button class="x1-ib mini" data-tv="ex-menu" data-i="${i}" aria-label="Opções">${SVG_X(IC_X1.mais)}</button>` : ''}</div>`;
                 }
                 return `<div class="tr-ex" data-i="${i}">
                     <div class="tr-ex-cab"><span class="tr-arr" data-arrv="${i}" aria-label="Arrastar">${SVG_X('<path d="M5 9h14M5 15h14"/>')}</span><button class="tr-ex-nome" data-tv="evolucao" data-i="${i}">${escapeHTML(ex.nome)}${ex.tipo === 'carga' && h && h.ultima ? `<i>${SVG_X('<path d="M4 17l5-5 4 3 7-8"/>')}</i>` : ''}</button><button class="x1-ib mini" data-tv="ex-menu" data-i="${i}" aria-label="Opções">${SVG_X(IC_X1.mais)}</button></div>
                     ${h && h.ultima ? `<small class="tr-ult">Última: ${h.ultima.length}×${h.ultima[0].reps || '-'}${ex.tipo === 'tempo' ? ' s' : ''}${ex.tipo === 'carga' && h.ultima[0].kg != null ? ' · ' + kgTxt(h.ultima[0].kg) + ' kg' : ''}${sg && sg.sobe && !pronto ? ` · <button class="tr-sug-mini" data-tv="sug" data-i="${i}" data-kg="${sg.kg}">↑ hoje ${kgTxt(sg.kg)} kg <span>usar</span></button>` : sg && sg.falta && !pronto ? ` · <span class="tr-falta"><span class="tr-bol">${[0, 1, 2].map(k => `<i${k < TREINOS_PRA_SUBIR - sg.falta ? ' class="on"' : ''}></i>`).join('')}</span>mais ${sg.falta} ${sg.falta === 1 ? 'treino completo' : 'treinos completos'} pra subir</span>` : ''}</small>` : ''}
                     <div class="tr-sets${ex.tipo === 'tempo' ? ' tempo' : ''}"><span class="tr-h">SÉRIE</span><span class="tr-h">${colKg}</span><span class="tr-h">${colReps}</span><span></span>
-                    ${ex.series.map((se, j) => `<span class="tr-n">${j + 1}</span>
+                    ${ex.series.map((se, j) => `<span class="tr-n${se.pr ? ' pr' : ''}">${se.pr ? '🏆' : j + 1}</span>
                         ${ex.tipo === 'tempo' ? '<span></span>' : `<input class="tr-in${se.ok ? ' ok' : ''}" inputmode="decimal" data-tv="kg" data-i="${i}" data-j="${j}" value="${escapeHTML(se.kg)}" placeholder="${ex.tipo === 'corpo' ? 'corpo' : 'kg'}">`}
                         <input class="tr-in${se.ok ? ' ok' : ''}" inputmode="numeric" data-tv="reps" data-i="${i}" data-j="${j}" value="${escapeHTML(se.reps)}" placeholder="${ex.tipo === 'tempo' ? '30' : '10'}">
                         <button class="tr-ok${se.ok ? ' on' : ''}" data-tv="ok" data-i="${i}" data-j="${j}" aria-label="Série feita">${SVG_X('<path d="M5 12l5 5 9-10"/>')}</button>`).join('')}
@@ -17943,7 +17956,8 @@ async function abrirTreinoVivo() {
                 <p>${s.pausadoEm ? 'O tempo pausado não conta no treino.' : 'A tela fica acesa enquanto o treino estiver aberto.'}</p>`}</div>`}
         </div>
         ${musc && prep ? `<div class="tr-comecar-wrap"><button class="tr-comecar-grande" data-tv="iniciar">${SVG_X('<path d="M8 5v14l11-7z"/>')}Começar treino</button></div>` : ''}
-        ${musc && !prep ? `<div class="tr-desc" id="trDesc"><div class="tr-desc-fill"></div><div class="tr-desc-in"><span><small>Descanso</small><b>0:00</b></span><button data-tv="menos20">−20 s</button><button data-tv="mais20">+20 s</button><button data-tv="pular">Pular</button></div></div>` : ''}`;
+        ${musc && !prep && tudoFeito ? `<div class="tr-tudo"><div><b>Tudo feito 🎉</b><small>${feitas} de ${totalSeries} séries · ${trTempo(trDecorrido(s))}</small></div><button data-tv="concluir">Concluir treino</button></div>` : ''}
+        ${musc && !prep && !tudoFeito ? `<div class="tr-desc" id="trDesc"><div class="tr-desc-fill"></div><div class="tr-prox"></div><div class="tr-desc-in"><span><small>Descanso</small><b>0:00</b></span><button data-tv="menos20">−20 s</button><button data-tv="mais20">+20 s</button><button data-tv="pular">Pular</button></div></div>` : ''}`;
         pintarRelogios();
     };
     const pintar = () => manterLugar(tela, pintarTudo);
@@ -17953,6 +17967,7 @@ async function abrirTreinoVivo() {
     pintar();
     carregarHist();
     if (s.inicio && !s.pausadoEm) trManterTelaAcesa(true);
+    s.ultAcao = Math.max(s.ultAcao || 0, Date.now()); // abriu a tela agora: conta como atividade
     // treino aberto há mais de 3 h: provavelmente esqueceram de concluir
     if (trDecorrido(s) > 3 * 3600000 && !s.avisou3h) {
         s.avisou3h = true; salvar();
@@ -18057,9 +18072,20 @@ async function abrirTreinoVivo() {
                 if (!se.reps) se.reps = ex.tipo === 'tempo' ? '30' : '10';
                 lembrarCarga(ex.nome, se.kg, se.reps);
                 const prox = ex.series[j + 1]; if (prox && !prox.kg && se.kg) prox.kg = se.kg;
-                iniciarDescanso(ex);
-                vibrar(10);
-            }
+                const tudo = s.exercicios.every(e2 => e2.series.every(x => x.ok));
+                // última série do treino: sem pausa, é hora de concluir
+                if (tudo) { s.descansoAte = null; vibrar([20, 40, 80]); } else { iniciarDescanso(ex); vibrar(10); }
+                // recorde na hora
+                const rec = recordeDe(ex), kgS = num(se.kg);
+                if (ex.tipo === 'carga' && rec != null && kgS > rec && !ex.prAvisado) {
+                    ex.prAvisado = true; se.pr = true; vibrar([30, 50, 30, 50, 90]);
+                    toast(`🏆 Novo recorde no ${ex.nome.toLowerCase()}: ${kgTxt(kgS)} kg`, 'ok');
+                } else if (!tudo) {
+                    toastComAcao(`Série ${j + 1} de ${ex.nome.toLowerCase()} marcada`, 'Desfazer', () => {
+                        se.ok = false; se.pr = false; s.descansoAte = null; abertos.delete(i); salvar(); pintar();
+                    });
+                }
+            } else se.pr = false;
             abertos.delete(i);
             salvar(); pintar();
             // terminou o exercício agora: rola até o próximo que falta
@@ -18117,7 +18143,12 @@ async function abrirTreinoVivo() {
             if (!(await confirmar('Apagar este treino? Nada vai ser salvo.', 'Apagar', true))) return;
             trSet(null); fecharVivo(); toast('Treino apagado', 'ok');
         }
-        else if (a === 'concluir') concluirTreino(s, hist, fecharVivo);
+        else if (a === 'concluir') {
+            const faltam = musc ? s.exercicios.reduce((t, e2) => t + e2.series.filter(x => !x.ok).length, 0) : 0;
+            const feitasC = musc ? s.exercicios.reduce((t, e2) => t + e2.series.filter(x => x.ok).length, 0) : 0;
+            if (faltam && feitasC && !(await confirmar(`Faltam ${faltam} ${faltam === 1 ? 'série' : 'séries'}. Concluir assim mesmo?`, 'Concluir'))) return;
+            concluirTreino(s, hist, fecharVivo);
+        }
     });
     pintarPilulaTreino();
 }
