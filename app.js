@@ -1359,7 +1359,7 @@ function openTermsSheet() {
                 mensagem: msg,
                 pilha: String(pilha || '').slice(0, 2000) || null,
                 aparelho: navigator.userAgent.slice(0, 300),
-                versao: (document.querySelector('script[src*="app.js"]') || {}).src?.split('v=')[1] || null,
+                versao: (document.querySelector('script[src*="app."]') || {}).src?.split('v=')[1] || null,
                 instalado: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches),
             }).then(() => {}, () => {});
         } catch (_) {}
@@ -6308,6 +6308,16 @@ async function obterPlanoSemana(forcar = false) {
     if (salvo && !forcar) return salvo;
     const p = state.profile;
     const l = await calcularLacunas();
+    // domingo é descanso, a não ser que a pessoa treine na maioria dos domingos (ou tenha marcado domingo)
+    let treinaDomingo = (p.train_days || []).map(Number).includes(0);
+    if (!treinaDomingo) {
+        try {
+            const { data: ws } = await sb.from('posts').select('created_at').eq('user_id', state.session.user.id).eq('kind', 'workout')
+                .gte('created_at', new Date(Date.now() - 56 * 86400000).toISOString()).limit(500);
+            const doms = new Set((ws || []).map(x => new Date(x.created_at)).filter(d => d.getDay() === 0).map(d => d.toDateString()));
+            treinaDomingo = doms.size >= 5; // 5 dos últimos 8 domingos
+        } catch (_) {}
+    }
     const prompt = `Você é o coach do app Pulso. Monte o plano DESTA semana (segunda a domingo) pra esta pessoa.
 
 PERFIL:
@@ -6320,12 +6330,16 @@ ${lacunasTexto(l)}
 
 COMO DECIDIR:
 - Exatamente ${p.weekly_goal || 3} dias de treino, nos dias disponíveis. Os outros dias são descanso ou leve.
+${treinaDomingo ? '' : '- DOMINGO É DESCANSO: não marque treino no domingo (a pessoa não costuma treinar nesse dia).'}
 - Parta do que a pessoa gosta e encaixe o que falta (força, superior, inferior, cardio), sem repetir o mesmo grupo em dias seguidos.
 ${REGRAS_SEGURAS}
 
 Formato do JSON:
 {"resumo": "uma frase sobre o foco da semana", "dias": [{"dia": "segunda", "foco": "ex: Corrida leve 30 min ou Descanso", "minutos": número ou 0, "treino": true ou false}]} com os 7 dias, de segunda a domingo.`;
     const plano = await iaJSON(prompt);
+    if (!treinaDomingo && plano && Array.isArray(plano.dias)) {
+        plano.dias.forEach(d => { if (/^dom/i.test(String(d.dia || ''))) { d.treino = false; d.minutos = 0; d.foco = 'Descanso'; } });
+    }
     await iaGuardar('plano', seg, plano);
     return plano;
 }
@@ -7978,6 +7992,8 @@ async function dadosDaSemana() {
     const diasTreino = l => new Set(l.filter(x => x.kind === 'workout').map(x => new Date(x.created_at).toDateString())).size;
     const atual = naSemana(posts, 'created_at', ini, fim), ant = naSemana(posts, 'created_at', iniAnt, ini);
     const agua = atual.filter(x => x.kind === 'water').reduce((t, x) => t + (x.water_ml || 0), 0);
+    // média só dos dias em que registrou água (não divide por 7 com a semana pela metade)
+    const diasAgua = new Set(atual.filter(x => x.kind === 'water' && x.water_ml > 0).map(x => new Date(x.created_at).toDateString())).size;
     const somaPts = (a, b) => Math.round(naSemana(pts, 'earned_at', a, b).reduce((t, x) => t + Number(x.amount || 0), 0));
     const horas = (sonos || []).map(x => Number(x.hours)).filter(h => h > 0);
     const { data: ofe } = await sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle();
@@ -7991,7 +8007,7 @@ async function dadosDaSemana() {
         km: treinosSem.reduce((t, x) => t + Number(x.distance_km || 0), 0),
         ofensiva: ofe && ofe.current_streak,
         minutos: treinosSem.reduce((t, x) => t + (x.duration_min || 0), 0),
-        aguaMedia: agua ? agua / 7 : 0,
+        aguaMedia: diasAgua ? agua / diasAgua : 0,
         refeicoesBoas: atual.filter(x => x.kind === 'meal' && Number(x.meal_score) >= 7).length,
         sono: horas.length ? horas.reduce((a, b) => a + b, 0) / horas.length : null,
         pontos: somaPts(ini, fim),
@@ -8003,7 +8019,7 @@ async function dadosDaSemana() {
         candidatos,
         ini, treinos: diasTreino(atual), treinosAnt: diasTreino(ant),
         minutos: atual.filter(x => x.kind === 'workout').reduce((t, x) => t + (x.duration_min || 0), 0),
-        aguaMediaL: Math.round((agua / 7) / 100) / 10,
+        aguaMediaL: diasAgua ? Math.round((agua / diasAgua) / 100) / 10 : 0,
         sono: horas.length ? Math.round((horas.reduce((a, b) => a + b, 0) / horas.length) * 10) / 10 : null,
         pontos: somaPts(ini, fim), pontosAnt: somaPts(iniAnt, ini),
         meta: state.profile.weekly_goal || 3,
@@ -8063,7 +8079,7 @@ async function hydrateResumoSemana() {
         <div class="resumo-grade">
             <div><b>${d.treinos}<small>/${d.meta}</small></b><span>treinos</span><em>${difTxt(d.treinos, d.treinosAnt)}</em></div>
             <div><b>${d.pontos}</b><span>pontos</span><em>${difTxt(d.pontos, d.pontosAnt)}</em></div>
-            <div><b>${String(d.aguaMediaL).replace('.', ',')}<small> L</small></b><span>água por dia</span></div>
+            <div><b>${String(d.aguaMediaL).replace('.', ',')}<small> L</small></b><span>água · média por dia</span></div>
             <div><b>${d.sono != null ? String(d.sono).replace('.', ',') + '<small> h</small>' : '-'}</b><span>sono médio</span></div>
         </div>
         ${d.versiculo ? `<p class="resumo-verso">“${escapeHTML(d.versiculo[0])}”<span>${escapeHTML(d.versiculo[1])}</span></p>` : ''}
@@ -8098,7 +8114,7 @@ async function imagemResumoSemana(d) {
         itens: [
             [`${d.treinos}/${d.meta}`, 'treinos na semana', d.treinos >= d.meta],
             [String(d.pontos), 'pontos'],
-            [String(d.aguaMediaL).replace('.', ',') + ' L', 'de água por dia'],
+            [String(d.aguaMediaL).replace('.', ',') + ' L', 'de água, média por dia'],
             [d.sono != null ? String(d.sono).replace('.', ',') + ' h' : '-', 'de sono por noite'],
         ],
     });
@@ -16704,6 +16720,7 @@ async function bootInterno() {
     else if (ap && ap.tela === 'perfil' && ap.id) await switchView('user-profile', { uid: ap.id });
     else if (ap && ['notifications', 'messages', 'progress', 'coach'].includes(ap.tela)) await switchView(ap.tela);
     else await switchView(abaInicial());
+    if (ap && ap.tela === 'treino' && trGet()) setTimeout(() => abrirTreinoVivo(), 300);
     state.bootPronto = true;
     updateUnreadBadge();
     updateNotifBadge();
@@ -16820,6 +16837,12 @@ function x1ComecaEm(inicio) {
 function x1Expira(q) {
     const ms = new Date(q) - Date.now(); if (ms <= 0) return 'expirando';
     const h = Math.floor(ms / 3600000); return h >= 1 ? `expira em ${h} h` : `expira em ${Math.max(1, Math.floor(ms / 60000))} min`;
+}
+// versão curta pro card quando o placar é comprido ("3d 5h")
+function x1RestanteCurto(fim) {
+    const ms = new Date(fim) - Date.now(); if (ms <= 0) return 'acabou';
+    const d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000);
+    return d ? `${d}d ${h}h` : h ? `${h}h ${m}min` : `${m}min`;
 }
 function x1Restante(fim) {
     const ms = new Date(fim) - Date.now();
@@ -16972,7 +16995,7 @@ async function hydrateX1Lista(pronta = null, hub = false) {
         const fa = tot ? Math.max(euPts, tot * 0.06) : 1, fb = tot ? Math.max(elePts, tot * 0.06) : 1;
         return `<button class="x1-card${antes ? ' x1-antes' : ''}" data-x1l="abrir" data-id="${x.id}">
             <span class="x1-duo">${x1Av(x.sou_criador ? x.criador : x.rival)}${x1Av(ele)}</span>
-            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${tp.nome} · ${antes ? x1ComecaEm(x.inicio).toLowerCase() : x1Restante(x.fim).toLowerCase()}</small></span>
+            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${tp.nome} · ${antes ? x1ComecaEm(x.inicio).toLowerCase() : (x1Num(euPts) + x1Num(elePts)).length > 5 ? x1RestanteCurto(x.fim) : x1Restante(x.fim).toLowerCase()}</small></span>
             ${antes ? '<span class="x1-pill">⏳ 00h</span>' : `<span class="x1-sc ${cls}">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</span>
             <span class="x1-mb"><i style="flex:${fa}"></i><u style="flex:${fb}"></u></span>`}
         </button>`;
@@ -16989,7 +17012,7 @@ async function hydrateX1Lista(pronta = null, hub = false) {
         ${vazio ? `<div class="x1-vazio" data-act="x1-escolher"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X(IC_X1.raio)}</span><div><b>Desafie um amigo</b><small>Toque aqui e escolha alguém que você segue. Vale treino, km, minutos, pontos ou o dia perfeito.</small></div></div>` : ''}
         ${fim.length ? `<div class="x1-sec x1-sec-l">TERMINADOS</div>${fim.map(x => { const { ele, euPts, elePts } = x1Lados(x); const ganhei = x.vencedor === (x.sou_criador ? x.criador.id : x.rival.id); const emp = !x.vencedor;
             return `<button class="x1-card x1-fim" data-x1l="abrir" data-id="${x.id}"><span class="x1-res ${ganhei ? 'v' : emp ? 'e' : 'd'}">${ganhei ? 'Venceu' : emp ? 'Empate' : 'Perdeu'}</span>
-            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span><span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span></button>`; }).join('')}` : ''}
+            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span>${ganhei ? '' : `<span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span>`}</button>`; }).join('')}` : ''}
         ${!vazio ? '<button class="x1-hist-link" data-x1l="historico">Ver histórico de X1</button>' : ''}
     </div>`;
 }
@@ -17136,7 +17159,7 @@ function abrirPlacarX1(x) {
                 <p>${tp.nome} · ${X1_DUR[x.duracao]}${x.desistiu ? ` · ${x.desistiu === eu.id ? 'você desistiu' : escapeHTML(ele.nome) + ' desistiu'}` : ''}</p>
                 <div class="x1-pt">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</div>
                 ${x.prenda && !empate ? `<div class="x1-prenda">${ganhei ? `${escapeHTML(ele.nome)} te deve: ` : 'Você deve: '}${escapeHTML(x.prenda.replace(/^quem perder\s*/i, ''))}</div>` : ''}
-                <div class="x1-duas"><button class="btn x1-btn ghost" data-x1p="revanche">Revanche</button><button class="btn x1-btn" data-x1p="story">Postar no story</button></div>
+                ${ganhei ? '<button class="btn x1-btn" data-x1p="story">Postar no story</button>' : '<div class="x1-duas"><button class="btn x1-btn ghost" data-x1p="revanche">Revanche</button><button class="btn x1-btn" data-x1p="story">Postar no story</button></div>'}
             </div>` : `<div class="x1-hero">
                 <div class="x1-tipo">${pendente ? '<i class="esp"></i>ESPERANDO ACEITAR' : antes ? '<i class="esp"></i>COMEÇA EM BREVE' : '<i></i>AO VIVO'} · ${tp.nome.toUpperCase()}</div>
                 <div class="x1-vs">
@@ -17251,7 +17274,7 @@ async function abrirHistoricoX1() {
         ${l.length ? `<div class="x1-sec">TODOS</div>${l.map(x => `<button class="x1-card x1-fim" data-x1h="abrir" data-id="${x.id}">
             <span class="x1-res ${x.venci ? 'v' : x.empate ? 'e' : 'd'}">${x.venci ? 'Venceu' : x.empate ? 'Empate' : 'Perdeu'}</span>
             <span class="x1-card-txt"><b>vs ${escapeHTML(x.outro ? x.outro.nome : '?')}</b><small>${x1Num(Number(x.meus || 0))} x ${x1Num(Number(x.dele || 0))} · ${new Date(x.fim).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}</small></span>
-            ${x.outro ? `<span class="x1-pill cinza" data-x1h="revanche" data-id="${x.id}">Revanche</span>` : ''}</button>`).join('')}`
+            ${x.outro && !x.venci ? `<span class="x1-pill cinza" data-x1h="revanche" data-id="${x.id}">Revanche</span>` : ''}</button>`).join('')}`
         : '<p class="tr-dica" style="text-align:center">Nenhum X1 terminado ainda. Desafie alguém!</p>'}`;
     corpo.addEventListener('click', e => {
         const b = e.target.closest('[data-x1h="revanche"]'); if (!b) return;
@@ -17296,10 +17319,26 @@ const EX_CORPO = ['Flexão', 'Barra fixa', 'Mergulho', 'Abdominal', 'Elevação 
 const EX_TEMPO = ['Prancha', 'Prancha lateral'];
 const EX_PESADOS = ['Supino reto', 'Supino inclinado', 'Agachamento', 'Levantamento terra', 'Leg press', 'Remada curvada', 'Desenvolvimento', 'Barra fixa', 'Stiff', 'Agachamento búlgaro'];
 const tipoEx = n => EX_TEMPO.includes(n) ? 'tempo' : EX_CORPO.includes(n) ? 'corpo' : 'carga';
-const descansoEx = n => {
-    try { const m = JSON.parse(lsGet('pulso-desc-ex') || '{}'); if (m[n]) return m[n]; } catch (_) {}
-    return EX_PESADOS.includes(n) ? 120 : tipoEx(n) !== 'carga' ? 45 : 60;
-};
+// toda pausa começa em 40 s (a pessoa ajusta de 20 em 20 na hora)
+const DESCANSO_PADRAO = 40;
+const descansoEx = () => DESCANSO_PADRAO;
+// Aviso de "descanso acabou" pelo servidor, pra chegar mesmo com a tela bloqueada
+let trPushAgendado = null;
+// a pausa acabou com o app aberto: o aviso do servidor não precisa chegar
+function trCancelarPushDescanso() {
+    if (trPushAgendado == null) return;
+    trPushAgendado = null;
+    if (document.visibilityState === 'visible') { try { sb.rpc('descanso_cancelar').then(() => {}, () => {}); } catch (_) {} }
+}
+function trSyncPushDescanso(s) {
+    const ate = s && s.descansoAte && s.descansoAte > Date.now() + 3000 ? s.descansoAte : null;
+    if (ate === trPushAgendado) return;
+    trPushAgendado = ate;
+    try {
+        if (ate) sb.rpc('descanso_agendar', { seg: Math.round((ate - Date.now()) / 1000), exercicio: (s.descEx || '').slice(0, 60) }).then(() => {}, () => {});
+        else sb.rpc('descanso_cancelar').then(() => {}, () => {});
+    } catch (_) {}
+}
 // Carga de cada exercício fica lembrada (na conta) até a pessoa mudar
 const cargasEx = () => {
     if (state.profile && state.profile.cargas_ex && typeof state.profile.cargas_ex === 'object') return state.profile.cargas_ex;
@@ -17326,7 +17365,7 @@ const novoExercicio = (nome, series = 3, reps = null, grupo = null) => {
 };
 const CHAVE_TREINO = () => 'pulso-treino-vivo-' + (state.session ? state.session.user.id : '');
 const trGet = () => { try { return JSON.parse(lsGet(CHAVE_TREINO()) || 'null'); } catch (_) { return null; } };
-const trSet = t => { try { if (t) lsSet(CHAVE_TREINO(), JSON.stringify(t)); else localStorage.removeItem(CHAVE_TREINO()); } catch (_) {} };
+const trSet = t => { try { if (t) lsSet(CHAVE_TREINO(), JSON.stringify(t)); else { localStorage.removeItem(CHAVE_TREINO()); trSyncPushDescanso(null); } } catch (_) {} };
 const trTempo = ms => { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(ss).padStart(2, '0'); };
 let trRelogio = null, trAudio = null, trLuz = null;
 // tempo de treino sem contar as pausas
@@ -17622,7 +17661,7 @@ async function abrirTreinoVivo() {
     let hist = {};
     const tela = x1Tela('treinoVivo', '');
     tela.classList.add('tr-tela', 'tr-vivo');
-    const salvar = () => trSet(s);
+    const salvar = () => { trSet(s); trSyncPushDescanso(s); };
     const num = v => parseFloat(String(v || '').replace(',', '.'));
     const kgTxt = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
     s.exercicios.forEach(ex => { if (!ex.tipo) ex.tipo = tipoEx(ex.nome); });
@@ -17659,7 +17698,7 @@ async function abrirTreinoVivo() {
             bar.querySelector('small').textContent = s.descEx ? `Descanso · ${s.descEx}` : 'Descanso';
             bar.querySelector('.tr-desc-fill').style.width = (100 - rest / (s.descansoTotal || 60000) * 100) + '%';
         } else {
-            if (s.descansoAte) { s.descansoAte = null; salvar(); trBip(); bar.classList.add('fim'); setTimeout(() => bar.classList.remove('fim'), 1600); }
+            if (s.descansoAte) { s.descansoAte = null; trCancelarPushDescanso(); trSet(s); trBip(); vibrar([30, 60, 30]); bar.classList.add('fim'); setTimeout(() => bar.classList.remove('fim'), 1600); }
             bar.classList.remove('on');
         }
     };
@@ -17670,7 +17709,7 @@ async function abrirTreinoVivo() {
     const pintarTudo = () => {
         const feitas = s.exercicios.reduce((t, ex) => t + ex.series.filter(x => x.ok).length, 0);
         tela.innerHTML = `
-        <div class="x1-topo tr-topo"><button class="x1-ib" data-tv="menu" aria-label="Opções do treino">${SVG_X(IC_X1.fechar)}</button>
+        <div class="x1-topo tr-topo"><span class="tr-esq"><button class="x1-ib" data-tv="menu" aria-label="Opções do treino">${SVG_X(IC_X1.fechar)}</button><button class="x1-ib tr-min" data-tv="minimizar" aria-label="Minimizar e usar o app">${SVG_X('<path d="M6 9l6 6 6-6"/>')}</button></span>
             <div class="tr-tit"><b>${escapeHTML(trTitulo(s))}</b><small class="${s.pausadoEm ? 'pausado' : ''}">${s.pausadoEm ? 'Pausado · ' : ''}<span id="trTempo">${trTempo(trDecorrido(s))}</span>${musc ? ` · ${feitas} ${feitas === 1 ? 'série' : 'séries'}` : ''}</small></div>
             ${musc && !s.pausadoEm ? `<button class="x1-ib tr-pausa tr-desc-btn" data-tv="descanso" aria-label="Descanso">${SVG_X('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/>')}</button>` : ''}
             ${musc ? `<button class="x1-ib tr-pausa${s.pausadoEm ? ' on' : ''}" data-tv="pausa" aria-label="${s.pausadoEm ? 'Continuar' : 'Pausar'}">${s.pausadoEm ? SVG_X('<path d="M8 5v14l11-7z"/>') : SVG_X('<path d="M9 5v14M15 5v14"/>')}</button>` : ''}
@@ -17703,7 +17742,7 @@ async function abrirTreinoVivo() {
                     <button data-tv="concluir"><i>${SVG_X('<path d="M5 12l5 5 9-10"/>')}</i>Concluir</button></div>
                 <p>${s.pausadoEm ? 'O tempo pausado não conta no treino.' : 'A tela fica acesa enquanto o treino estiver aberto.'}</p></div>`}
         </div>
-        ${musc ? `<div class="tr-desc" id="trDesc"><div class="tr-desc-fill"></div><div class="tr-desc-in"><span><small>Descanso</small><b>0:00</b></span><button data-tv="mais30">+30 s</button><button data-tv="pular">Pular</button></div></div>` : ''}`;
+        ${musc ? `<div class="tr-desc" id="trDesc"><div class="tr-desc-fill"></div><div class="tr-desc-in"><span><small>Descanso</small><b>0:00</b></span><button data-tv="menos20">−20 s</button><button data-tv="mais20">+20 s</button><button data-tv="pular">Pular</button></div></div>` : ''}`;
         pintarRelogios();
     };
     const pintar = () => manterLugar(tela, pintarTudo);
@@ -17713,6 +17752,24 @@ async function abrirTreinoVivo() {
     pintar();
     carregarHist();
     if (!s.pausadoEm) trManterTelaAcesa(true);
+    // treino aberto há mais de 3 h: provavelmente esqueceram de concluir
+    if (trDecorrido(s) > 3 * 3600000 && !s.avisou3h) {
+        s.avisou3h = true; salvar();
+        setTimeout(() => {
+            const h = Math.floor(trDecorrido(s) / 3600000), mm = Math.floor(trDecorrido(s) % 3600000 / 60000);
+            const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Esqueceu de concluir?</h3>
+                <p class="tr-dica" style="margin-top:0">Esse treino está aberto há ${h} h${mm ? ` e ${mm} min` : ''}. No fim você ajusta os minutos de verdade.</p>
+                <button class="x1-op" data-t3="concluir">Concluir agora</button>
+                <button class="x1-op" data-t3="seguir">Ainda estou treinando</button>
+                <button class="x1-op perigo" data-t3="apagar">Apagar treino</button>`, 'tr3h');
+            f.addEventListener('click', async ev => {
+                const b = ev.target.closest('[data-t3]'); if (!b) return;
+                fechar();
+                if (b.dataset.t3 === 'concluir') { const c = tela.querySelector('[data-tv="concluir"]'); if (c) setTimeout(() => c.click(), 220); }
+                else if (b.dataset.t3 === 'apagar' && await confirmar('Apagar este treino? Nada vai ser salvo.', 'Apagar', true)) { trSet(null); fecharVivo(); toast('Treino apagado', 'ok'); }
+            });
+        }, 500);
+    }
     clearInterval(trRelogio);
     trRelogio = setInterval(() => {
         if (!document.getElementById('treinoVivo')) { clearInterval(trRelogio); return; }
@@ -17732,6 +17789,7 @@ async function abrirTreinoVivo() {
     tela.addEventListener('click', async e => {
         const b = e.target.closest('[data-tv]'); if (!b || b.tagName === 'INPUT') return;
         const a = b.dataset.tv, i = Number(b.dataset.i), j = Number(b.dataset.j);
+        if (a === 'minimizar') { salvar(); vibrar(6); fecharVivo(); if (!lsGet('pulso-tr-min')) { lsSet('pulso-tr-min', '1'); setTimeout(() => toast('Treino minimizado. Toque na pílula pra voltar.', 'ok'), 400); } return; }
         if (a === 'menu') {
             const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(trTitulo(s))} · ${trTempo(trDecorrido(s))}</h3>
                 <button class="x1-op" data-m="depois">Continuar depois<small>O treino fica aberto e o tempo segue</small></button>
@@ -17769,12 +17827,13 @@ async function abrirTreinoVivo() {
             else { s.pausadoEm = Date.now(); s.descansoAte = null; trManterTelaAcesa(false); }
             vibrar(8); salvar(); pintar();
         }
-        else if (a === 'mais30') {
+        else if (a === 'mais20' || a === 'menos20') {
             if (s.descansoAte) {
-                s.descansoAte += 30000; s.descansoTotal += 30000;
-                // lembra o descanso que você prefere nesse exercício
-                if (s.descEx) { try { const mm = JSON.parse(lsGet('pulso-desc-ex') || '{}'); mm[s.descEx] = Math.min(300, Math.round(s.descansoTotal / 1000)); lsSet('pulso-desc-ex', JSON.stringify(mm)); } catch (_) {} }
-                salvar();
+                const d = a === 'mais20' ? 20000 : -20000;
+                s.descansoAte = Math.min(Date.now() + 600000, s.descansoAte + d);
+                s.descansoTotal = Math.max(20000, (s.descansoTotal || 40000) + d);
+                if (s.descansoAte <= Date.now() + 500) s.descansoAte = null; // chegou a zero: acabou a pausa
+                vibrar(5); salvar(); pintarRelogios();
             }
         }
         else if (a === 'pular') { s.descansoAte = null; salvar(); pintarRelogios(); }
@@ -18000,9 +18059,24 @@ function pintarPilulaTreino() {
     const pintar = () => {
         const s2 = trGet();
         if (!s2 || !document.getElementById('trPilula')) { clearInterval(p._t); if (!s2 && p) p.remove(); return; }
-        p.innerHTML = `<i class="${s2.pausadoEm ? 'pausado' : ''}"></i><span>${escapeHTML(trTitulo(s2))}${s2.pausadoEm ? ' · pausado' : ''}</span><b>${trTempo(trDecorrido(s2))}</b>`;
+        // pausa rolando com o treino minimizado: a pílula mostra a contagem e avisa quando acaba
+        if (s2.descansoAte && s2.descansoAte <= Date.now()) {
+            s2.descansoAte = null; trSet(s2); trCancelarPushDescanso();
+            trBip(); vibrar([30, 60, 30]);
+            p.classList.add('fim'); clearTimeout(p._f); p._f = setTimeout(() => p.classList.remove('fim'), 4000);
+        }
+        const desc = s2.descansoAte && s2.descansoAte > Date.now();
+        p.classList.toggle('desc', !!desc);
+        if (desc) {
+            const rest = s2.descansoAte - Date.now(), tot = s2.descansoTotal || 40000;
+            p.innerHTML = `<i class="desc"></i><span>Descanso</span><b>${trTempo(rest)}</b><u style="width:${Math.max(0, Math.min(100, 100 - rest / tot * 100))}%"></u>`;
+        } else if (p.classList.contains('fim')) {
+            p.innerHTML = `<i class="ok"></i><span>Descanso acabou · bora!</span><b>${trTempo(trDecorrido(s2))}</b>`;
+        } else {
+            p.innerHTML = `<i class="${s2.pausadoEm ? 'pausado' : ''}"></i><span>${escapeHTML(trTitulo(s2))}${s2.pausadoEm ? ' · pausado' : ''}</span><b>${trTempo(trDecorrido(s2))}</b>`;
+        }
     };
-    clearInterval(p._t); pintar(); p._t = setInterval(pintar, 1000);
+    clearInterval(p._t); pintar(); p._t = setInterval(pintar, 500);
 }
 
 // ============================================================
@@ -18170,7 +18244,7 @@ document.addEventListener('click', e => {
 
 // Versão nova publicada: troca sozinho (só quando a pessoa não está no meio de algo)
 (function trocarVersaoAntiga() {
-    const minha = ((document.querySelector('script[src*="app.js"]') || {}).src || '').split('v=')[1] || '';
+    const minha = ((document.querySelector('script[src*="app."]') || {}).src || '').split('v=')[1] || '';
     let checando = false;
     const ocupado = () => document.querySelector('.sheet.on, #novoPostTela, #criarTela, .x1-tela, .x1-veu, .sc.on, #postsViewer, #onbTela') || (document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName));
     const checar = async () => {
