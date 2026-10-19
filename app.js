@@ -17164,13 +17164,14 @@ function abrirPlacarX1(x) {
                 <div class="x1-tipo">${pendente ? '<i class="esp"></i>ESPERANDO ACEITAR' : antes ? '<i class="esp"></i>COMEÇA EM BREVE' : '<i></i>AO VIVO'} · ${tp.nome.toUpperCase()}</div>
                 <div class="x1-vs">
                     <div class="x1-pl${lider === 'eu' ? ' lider' : ''}">${x1Av(eu, 'g')}<b>Você</b><small>${lider === 'eu' ? 'LIDERANDO' : ''}</small></div>
-                    <div class="x1-pt">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</div>
+                    <div class="x1-pt${(x1Num(euPts) + x1Num(elePts)).length > 5 ? ' longo' : ''}">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</div>
                     <div class="x1-pl dele${lider === 'ele' ? ' lider' : ''}">${x1Av(ele, 'g')}<b>${escapeHTML(ele.nome)}</b><small>${lider === 'ele' ? 'LIDERANDO' : ''}</small></div>
                 </div>
                 <div class="x1-cabo"><i style="flex:${tot ? euPts : 1}"></i><u style="flex:${tot ? elePts : 1}"></u></div>
                 <div class="x1-rest"><span>${pendente ? 'Começa quando aceitar' : antes ? x1ComecaEm(x.inicio) : `Dia ${idxHoje + 1} de ${nDias}`}</span><span>${pendente ? 'Convite ' + x1Expira(new Date(new Date(x.criado_em).getTime() + 48 * 3600000)) : antes ? `${nDias} ${nDias === 1 ? 'dia inteiro' : 'dias inteiros'}` : x1Restante(x.fim)}</span></div>
             </div>
-            ${x.prenda ? `<div class="x1-prenda">${escapeHTML(x.prenda)}</div>` : ''}`}
+            ${x.prenda ? `<div class="x1-prenda">${escapeHTML(x.prenda)}</div>` : ''}
+            ${!pendente && !antes && elePts > euPts ? '<button class="x1-virar" data-x1p="virar">✦ Como virar?<small>A IA olha o placar e o que falta hoje</small></button>' : ''}`}
 
             ${!pendente && diaHoje && !fim && x.tipo === 'perfeito' ? `<div class="x1-sec">HOJE</div>${x1HojeLinhaHTML(eu, diaHoje[meuLado], 'var(--vital)')}${x1HojeLinhaHTML(ele, diaHoje[ladoDele], '#5FB0FF')}` : ''}
 
@@ -17198,6 +17199,7 @@ function abrirPlacarX1(x) {
         const a = b.dataset.x1p;
         if (a === 'voltar') { x1FecharTela('x1Placar'); if (state.view === 'desafio') hydrateX1Lista(); }
         else if (a === 'regras') abrirRegrasX1(x.tipo, x.duracao);
+        else if (a === 'virar') comoVirarX1(x);
         else if (a === 'menu') {
             const { f, fechar } = x1Folha(`<button class="x1-op perigo" data-x1m="desistir">Desistir do X1</button><button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'x1Menu');
             f.querySelector('[data-x1m]').onclick = async () => {
@@ -17319,6 +17321,128 @@ const EX_CORPO = ['Flexão', 'Barra fixa', 'Mergulho', 'Abdominal', 'Elevação 
 const EX_TEMPO = ['Prancha', 'Prancha lateral'];
 const EX_PESADOS = ['Supino reto', 'Supino inclinado', 'Agachamento', 'Levantamento terra', 'Leg press', 'Remada curvada', 'Desenvolvimento', 'Barra fixa', 'Stiff', 'Agachamento búlgaro'];
 const tipoEx = n => EX_TEMPO.includes(n) ? 'tempo' : EX_CORPO.includes(n) ? 'corpo' : 'carga';
+// ============ IA no treino e no X1 ============
+// Comentário curto do coach ao concluir (com dados reais; só fala em subir carga se bateu o padrão)
+async function comentarioCoachTreino(s, hist, feitas) {
+    const num = v => parseFloat(String(v || '').replace(',', '.'));
+    const linhas = s.exercicios.filter(ex => ex.series.some(x => x.ok)).slice(0, 10).map(ex => {
+        const ok = ex.series.filter(x => x.ok), kg = Math.max(0, ...ok.map(x => num(x.kg) || 0));
+        const reps = ok.map(x => parseInt(x.reps) || 0), completo = ok.length === ex.series.length && Math.min(...reps) >= 6;
+        const h = hist[ex.nome] || {}, ult = h.ultima || [];
+        const kgAnt = ult.length ? Math.max(0, ...ult.map(x => Number(x.kg || 0))) : null;
+        // progressão contando o treino de hoje
+        const ses = [{ kg, completo }, ...(h.sessoes || [])];
+        const pr = ex.tipo === 'carga' && kg ? progressaoCarga({ sessoes: ses }) : null;
+        return `- ${ex.nome}: hoje ${ok.length}x${reps[0] || '-'}${kg ? ' com ' + kg + ' kg' : ''}${kgAnt != null && kgAnt ? `, última vez ${kgAnt} kg` : ', primeira vez registrada'}${pr && pr.sobe ? `, PRONTO PRA SUBIR: próxima vez ${pr.kg} kg` : pr && pr.falta ? `, faltam ${pr.falta} treinos completos com essa carga pra subir` : ''}`;
+    });
+    const volHoje = feitas.reduce((t, x) => t + x.kg * x.reps, 0);
+    const fallback = () => {
+        const sub = linhas.find(l => l.includes('PRONTO PRA SUBIR'));
+        if (sub) return `Boa! ${sub.split(':')[0].slice(2)} está pronto pra subir: ${sub.split('próxima vez ')[1]} no próximo treino.`;
+        return `Treino registrado: ${feitas.length} séries. Constância é o que faz a carga subir, segue assim.`;
+    };
+    try {
+        const r = await Promise.race([
+            iaJSON(`Você é o coach do app Pulso. Escreva UM comentário curto (máximo 2 frases, até 30 palavras) sobre o treino de musculação que a pessoa acabou de fazer.
+DADOS REAIS (use só isso, não invente números):
+${linhas.join('\n')}
+Séries feitas: ${feitas.length}. Volume (kg x reps): ${Math.round(volHoje)}.
+REGRAS: fale em subir carga SOMENTE nos exercícios marcados "PRONTO PRA SUBIR" e use exatamente o valor indicado. Se nenhum estiver pronto, elogie a constância ou o que melhorou, sem sugerir aumento. Português do Brasil, tom animado e direto, sem travessão.
+{"frase": "..."}`),
+            new Promise((_, no) => setTimeout(() => no(new Error('tempo')), 9000)),
+        ]);
+        const t = String(r && r.frase || '').replace(/\s*[—–]\s*/g, ', ').trim();
+        return t || fallback();
+    } catch (_) { return fallback(); }
+}
+// Montar treino escrevendo ("peito e tríceps, 45 min, só halter")
+function montarTreinoEscrevendo(aoMontar) {
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Descreva o treino</h3>
+        <p class="tr-dica" style="margin-top:0">Escreva ou toque no microfone do teclado e fale. A IA monta a lista com os exercícios, e você ajusta antes de começar.</p>
+        <textarea class="obj-input" id="trEscTxt" rows="3" maxlength="300" placeholder="ex: peito e tríceps, 45 min, só halter"></textarea>
+        <p class="tr-erro" id="trEscErro" hidden></p>
+        <div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Cancelar</button><button class="btn x1-btn" id="trEscOk">✦ Montar</button></div>`, 'trEscrever');
+    const txt = f.querySelector('#trEscTxt'), ok = f.querySelector('#trEscOk'), erro = f.querySelector('#trEscErro');
+    setTimeout(() => txt.focus(), 250);
+    ok.onclick = async () => {
+        const pedido = txt.value.trim(); if (pedido.length < 3) { txt.focus(); return; }
+        ok.disabled = true; ok.textContent = 'Montando…'; erro.hidden = true;
+        const biblio = Object.entries(BIBLIO_EX).map(([g, l]) => `${g}: ${l.join(', ')}`).join('\n');
+        try {
+            const r = await iaJSON(`Monte um treino de musculação para o app Pulso a partir do pedido da pessoa.
+PEDIDO: "${pedido.replace(/"/g, "'")}"
+${perfilTreinoTexto(state.profile)}
+EXERCÍCIOS DO APP (use estes nomes exatamente; só invente um nome curto se nenhum servir, por exemplo por causa do equipamento pedido):
+${biblio}
+GRUPOS VÁLIDOS: ${GRUPOS_TREINO.join(', ')}
+REGRAS: de 4 a 8 exercícios conforme o tempo pedido (cerca de 6 a 8 min por exercício), respeite o equipamento citado, 3 ou 4 séries, repetições entre 6 e 15.
+{"grupos": ["Peito"], "exercicios": [{"nome": "Supino reto", "series": 3, "reps": 10, "grupo": "Peito"}]}`);
+            const grupos = (r.grupos || []).filter(g => GRUPOS_TREINO.includes(g)).slice(0, 4);
+            const exs = (r.exercicios || []).filter(x => x && x.nome).slice(0, 8).map(x => novoExercicio(String(x.nome).slice(0, 40),
+                Math.max(1, Math.min(6, parseInt(x.series) || 3)), Math.max(1, Math.min(30, parseInt(x.reps) || 10)), GRUPOS_TREINO.includes(x.grupo) ? x.grupo : null));
+            if (!exs.length) throw new Error('vazio');
+            fechar(); aoMontar({ grupos, exercicios: exs });
+            toast(`Treino montado: ${exs.length} exercícios. Ajuste o que quiser.`, 'ok');
+        } catch (_) {
+            ok.disabled = false; ok.textContent = '✦ Montar';
+            erro.textContent = 'Não consegui montar agora. Tenta escrever de outro jeito ou daqui a pouco.'; erro.hidden = false;
+        }
+    };
+}
+// "Como virar?" no X1: 2 ações práticas pra hoje
+async function comoVirarX1(x) {
+    const { eu, ele, euPts, elePts } = x1Lados(x);
+    const tp = X1_TIPOS[x.tipo] || X1_TIPOS.perfeito;
+    const { f } = x1Folha(`<h3 class="x1-folha-t">Como virar o X1</h3><div class="x1-virar-r"><div class="spinner"></div></div><button class="x1-op" data-x1f="fechar">Fechar</button>`, 'x1Virar');
+    const hoje = isoDe(new Date());
+    const dia = ((x.placar || {}).dias || []).find(d => d.dia === hoje) || {};
+    const meu = x.sou_criador ? dia.a : dia.b, dele = x.sou_criador ? dia.b : dia.a;
+    const hora = new Date().getHours();
+    const regras = (typeof regrasX1HTML === 'function' ? regrasX1HTML(x.tipo, x.duracao) : tp.desc).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 900);
+    let dicas = null;
+    try {
+        const r = await iaJSON(`Você é o coach do app Pulso. A pessoa está perdendo um X1 (desafio 1 contra 1) e quer virar.
+TIPO: ${tp.nome}. REGRAS DO PLACAR: ${regras}
+PLACAR: você ${euPts} x ${elePts} ${ele.nome}. ${x1Restante(x.fim)}. Agora são ${hora}h.
+HOJE (o que já contou): você ${JSON.stringify(meu || {})}; ${ele.nome} ${JSON.stringify(dele || {})}.
+Dê exatamente 2 ações práticas e possíveis AINDA HOJE (considere a hora) que mais somam no placar segundo as regras. Seja específico (o que registrar, quanto). Diga quanto cada uma soma, se as regras permitirem calcular. Português do Brasil, tom de parceiro, sem travessão.
+{"dicas": ["...", "..."], "frase": "uma frase curta de ânimo"}`);
+        dicas = r;
+    } catch (_) {}
+    const box = f.querySelector('.x1-virar-r'); if (!box) return;
+    const lim = t => escapeHTML(String(t || '').replace(/\s*[—–]\s*/g, ', '));
+    box.innerHTML = dicas && (dicas.dicas || []).length
+        ? `<div class="x1-virar-pl">Você <b>${x1Num(euPts)}</b> x <b>${x1Num(elePts)}</b> ${escapeHTML(ele.nome)} · falta${elePts - euPts > 1 ? 'm' : ''} ${x1Num(elePts - euPts)} ${escapeHTML(tp.un)}</div>
+           ${dicas.dicas.slice(0, 2).map((d, k) => `<div class="x1-virar-d"><b>${k + 1}</b><p>${lim(d)}</p></div>`).join('')}
+           ${dicas.frase ? `<p class="x1-virar-f">${lim(dicas.frase)}</p>` : ''}`
+        : '<p class="tr-dica" style="text-align:center">Não consegui analisar agora. Tenta de novo daqui a pouco.</p>';
+}
+// Nome da tela que está por baixo do treino (o botão "⌄ Feed" volta pra ela)
+function trNomeTela() {
+    const v = state.view || 'feed';
+    return v === 'desafio' || v === 'challenge' ? 'Desafios' : v === 'profile' || v === 'user-profile' ? 'Perfil'
+        : v === 'progress' ? 'Progresso' : v === 'messages' || v === 'chat' ? 'Mensagens' : v === 'notifications' ? 'Avisos' : 'Feed';
+}
+// 3 exercícios parecidos (mesmo grupo) pra trocar quando o aparelho está ocupado
+function exerciciosParecidos(ex, jaTem = []) {
+    const g = ex.grupo && BIBLIO_EX[ex.grupo] ? ex.grupo : Object.keys(BIBLIO_EX).find(k => BIBLIO_EX[k].includes(ex.nome));
+    if (!g) return [];
+    const lista = BIBLIO_EX[g].filter(n => n !== ex.nome && !jaTem.includes(n));
+    const k = BIBLIO_EX[g].indexOf(ex.nome);
+    return lista.sort((a, b) => Math.abs(BIBLIO_EX[g].indexOf(a) - k) - Math.abs(BIBLIO_EX[g].indexOf(b) - k)).slice(0, 3);
+}
+// Progressão dupla: só sobe a carga depois de 3 treinos seguidos completos com a mesma carga
+const TREINOS_PRA_SUBIR = 3;
+function progressaoCarga(h) {
+    const ses = (h && h.sessoes) || [];
+    if (!ses.length) return null;
+    const kg = Number(ses[0].kg || 0); if (!kg) return null;
+    let n = 0;
+    for (const x of ses) { if (Number(x.kg || 0) === kg && x.completo) n++; else break; }
+    const passo = kg >= 40 ? 2.5 : kg >= 10 ? 2 : 1;
+    if (n >= TREINOS_PRA_SUBIR) return { kg: Math.round((kg + passo) * 10) / 10, sobe: true, atual: kg };
+    return n >= 1 ? { kg, sobe: false, falta: TREINOS_PRA_SUBIR - n, atual: kg } : { kg, sobe: false, atual: kg };
+}
 // toda pausa começa em 40 s (a pessoa ajusta de 20 em 20 na hora)
 const DESCANSO_PADRAO = 40;
 const descansoEx = () => DESCANSO_PADRAO;
@@ -17476,6 +17600,7 @@ async function abrirModoTreino(preset = null, editar = false) {
                 <span class="trm-meu-t"><b>${escapeHTML(md.nome)}</b><small>${(md.exercicios || []).length} ${(md.exercicios || []).length === 1 ? 'exercício' : 'exercícios'} · ${haDias(md.usado_em)}</small></span>
                 <button class="x1-ib mini" data-tr="modelo-menu" data-id="${md.id}" aria-label="Opções">${SVG_X(IC_X1.mais)}</button>
             </div>`).join('')}</div>` : '<p class="trm-vazio">Monte um treino e salve com um nome. Na próxima vez, é um toque.</p>'}
+            ${!editar ? '<button class="trm-escrever" data-tr="escrever">✦ Descreva o treino e a IA monta<small>ex: peito e tríceps, 45 min, só halter</small></button>' : ''}
             ${doCoach || ultimo || ultimaOutra ? `<div class="trm-mini">
                 ${doCoach ? '<button data-tr="coach">✦ Treino do coach</button>' : ''}
                 ${ultimo ? '<button data-tr="ultimo">↻ Repetir último</button>' : ''}
@@ -17579,6 +17704,10 @@ async function abrirModoTreino(preset = null, editar = false) {
         else if (a === 'menos') { const ex = m.exercicios[i]; if (ex.series.length > 1) { ex.series.pop(); vibrar(5); pintarSeries(i); } }
         else if (a === 'mais') { const ex = m.exercicios[i]; if (ex.series.length < 10) { const u = ex.series[ex.series.length - 1]; ex.series.push({ kg: u ? u.kg : '', reps: u ? u.reps : '10', ok: false }); vibrar(5); pintarSeries(i); } }
         else if (a === 'tirar') { m.exercicios.splice(i, 1); vibrar(6); pintar(); }
+        else if (a === 'escrever') montarTreinoEscrevendo(r => {
+            m.ativ = 'Musculação'; m.grupos = r.grupos; m.exercicios = r.exercicios; m.doCoach = null; m.modeloId = null; vibrar([10, 30, 10]); pintar();
+            const c = tela.querySelector('#trmLista'); if (c) setTimeout(() => c.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+        });
         else if (a === 'add') escolherExercicio(nome => { m.exercicios.push(novoExercicio(nome)); pintar(); const c = tela.querySelector('.x1-corpo'); if (c) c.scrollTop = c.scrollHeight; });
         else if (a === 'coach') {
             m.ativ = 'Musculação';
@@ -17662,6 +17791,7 @@ async function abrirTreinoVivo() {
     const tela = x1Tela('treinoVivo', '');
     tela.classList.add('tr-tela', 'tr-vivo');
     const salvar = () => { trSet(s); trSyncPushDescanso(s); };
+    const abertos = new Set(); // exercícios terminados que a pessoa abriu de novo
     const num = v => parseFloat(String(v || '').replace(',', '.'));
     const kgTxt = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
     s.exercicios.forEach(ex => { if (!ex.tipo) ex.tipo = tipoEx(ex.nome); });
@@ -17678,14 +17808,7 @@ async function abrirTreinoVivo() {
         pintar();
     };
     // sugestão de carga: completou tudo da última vez → sobe um pouco; senão repete
-    const sugestao = ex => {
-        const h = hist[ex.nome]; if (ex.tipo !== 'carga' || !h || !h.ultima || !h.ultima.length) return null;
-        const kgs = h.ultima.map(x => Number(x.kg || 0)), reps = h.ultima.map(x => Number(x.reps || 0));
-        const maxKg = Math.max(...kgs); if (!maxKg) return null;
-        const completou = reps.every(r => r >= reps[0] && r >= 6);
-        const passo = maxKg >= 40 ? 2.5 : maxKg >= 10 ? 2 : 1;
-        return completou ? { kg: Math.round((maxKg + passo) * 10) / 10, sobe: true } : { kg: maxKg, sobe: false };
-    };
+    const sugestao = ex => (ex.tipo === 'carga' ? progressaoCarga(hist[ex.nome]) : null);
     const recordeDe = ex => { const h = hist[ex.nome]; return h && h.recorde != null ? Number(h.recorde) : null; };
     const pintarRelogios = () => {
         const tt = tela.querySelector('#trTempo'); if (tt) tt.textContent = trTempo(trDecorrido(s));
@@ -17708,12 +17831,18 @@ async function abrirTreinoVivo() {
     };
     const pintarTudo = () => {
         const feitas = s.exercicios.reduce((t, ex) => t + ex.series.filter(x => x.ok).length, 0);
+        const totalSeries = s.exercicios.reduce((t, ex) => t + ex.series.length, 0);
         tela.innerHTML = `
-        <div class="x1-topo tr-topo"><span class="tr-esq"><button class="x1-ib" data-tv="menu" aria-label="Opções do treino">${SVG_X(IC_X1.fechar)}</button><button class="x1-ib tr-min" data-tv="minimizar" aria-label="Minimizar e usar o app">${SVG_X('<path d="M6 9l6 6 6-6"/>')}</button></span>
-            <div class="tr-tit"><b>${escapeHTML(trTitulo(s))}</b><small class="${s.pausadoEm ? 'pausado' : ''}">${s.pausadoEm ? 'Pausado · ' : ''}<span id="trTempo">${trTempo(trDecorrido(s))}</span>${musc ? ` · ${feitas} ${feitas === 1 ? 'série' : 'séries'}` : ''}</small></div>
+        <div class="x1-topo tr-topo2">
+            <button class="tr-voltar" data-tv="minimizar" aria-label="Voltar pro app sem parar o treino">${SVG_X('<path d="M6 9l6 6 6-6"/>')}<span>${escapeHTML(trNomeTela())}</span></button>
+            <span class="tr-acoes"><button class="x1-ib" data-tv="menu" aria-label="Opções do treino">${SVG_X(IC_X1.mais)}</button><button class="tr-concluir" data-tv="concluir">Concluir</button></span>
+        </div>
+        <div class="tr-cab2">
+            <div class="tr-tit2"><b>${escapeHTML(trTitulo(s))}</b><small class="${s.pausadoEm ? 'pausado' : ''}">${s.pausadoEm ? 'Pausado · ' : ''}<span id="trTempo">${trTempo(trDecorrido(s))}</span>${musc ? ` · ${feitas} de ${totalSeries} ${totalSeries === 1 ? 'série' : 'séries'}` : ''}</small></div>
             ${musc && !s.pausadoEm ? `<button class="x1-ib tr-pausa tr-desc-btn" data-tv="descanso" aria-label="Descanso">${SVG_X('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/>')}</button>` : ''}
             ${musc ? `<button class="x1-ib tr-pausa${s.pausadoEm ? ' on' : ''}" data-tv="pausa" aria-label="${s.pausadoEm ? 'Continuar' : 'Pausar'}">${s.pausadoEm ? SVG_X('<path d="M8 5v14l11-7z"/>') : SVG_X('<path d="M9 5v14M15 5v14"/>')}</button>` : ''}
-            <button class="tr-concluir" data-tv="concluir">Concluir</button></div>
+        </div>
+        ${!lsGet('pulso-tr-dica-voltar') ? `<button class="tr-dica-voltar" data-tv="dica-ok"><span>↑ Toque em <b>${escapeHTML(trNomeTela())}</b> pra usar o app sem parar o treino</span><i>✕</i></button>` : ''}
         <div class="x1-corpo">
             ${musc ? s.exercicios.map((ex, i) => {
                 const h = hist[ex.nome]; const rec = recordeDe(ex);
@@ -17722,10 +17851,16 @@ async function abrirTreinoVivo() {
                 const sg = sugestao(ex);
                 const colKg = ex.tipo === 'carga' ? 'KG' : ex.tipo === 'corpo' ? 'CARGA' : '';
                 const colReps = ex.tipo === 'tempo' ? 'SEG' : 'REPS';
+                const pronto = ex.series.length && ex.series.every(x => x.ok);
+                // exercício terminado vira uma linha (toque pra abrir de novo)
+                if (pronto && !abertos.has(i)) {
+                    const kgs = ex.series.map(x => num(x.kg) || 0), mk = Math.max(0, ...kgs);
+                    return `<button class="tr-ex tr-feito" data-tv="abrir-ex" data-i="${i}"><span class="tr-feito-ok">${SVG_X('<path d="M5 12l5 5 9-10"/>')}</span><b>${escapeHTML(ex.nome)}</b>
+                        <small>${ex.series.length}×${ex.series[0].reps || '-'}${ex.tipo === 'tempo' ? ' s' : ''}${ex.tipo === 'carga' && mk ? ' · ' + kgTxt(mk) + ' kg' : ''}${bateu ? ' · 🏆' : ''}</small></button>`;
+                }
                 return `<div class="tr-ex" data-i="${i}">
                     <div class="tr-ex-cab"><b>${escapeHTML(ex.nome)}</b><button class="x1-ib mini" data-tv="ex-menu" data-i="${i}" aria-label="Opções">${SVG_X(IC_X1.mais)}</button></div>
-                    ${h && h.ultima ? `<small class="tr-ult">Última vez: ${h.ultima.length} × ${h.ultima[0].reps || '-'}${ex.tipo === 'tempo' ? ' s' : ''}${ex.tipo === 'carga' && h.ultima[0].kg != null ? ' com ' + kgTxt(h.ultima[0].kg) + ' kg' : ''}</small>` : ''}
-                    ${sg && !ex.series.every(x => x.ok) ? `<button class="tr-sug" data-tv="sug" data-i="${i}" data-kg="${sg.kg}">${sg.sobe ? '↑ Hoje tente' : 'Repita'} <b>${kgTxt(sg.kg)} kg</b><span>usar</span></button>` : ''}
+                    ${h && h.ultima ? `<small class="tr-ult">Última: ${h.ultima.length}×${h.ultima[0].reps || '-'}${ex.tipo === 'tempo' ? ' s' : ''}${ex.tipo === 'carga' && h.ultima[0].kg != null ? ' · ' + kgTxt(h.ultima[0].kg) + ' kg' : ''}${sg && sg.sobe && !pronto ? ` · <button class="tr-sug-mini" data-tv="sug" data-i="${i}" data-kg="${sg.kg}">↑ hoje ${kgTxt(sg.kg)} kg <span>usar</span></button>` : sg && sg.falta && !pronto ? ` · <span class="tr-falta">mais ${sg.falta} ${sg.falta === 1 ? 'treino completo' : 'treinos completos'} pra subir</span>` : ''}</small>` : ''}
                     <div class="tr-sets${ex.tipo === 'tempo' ? ' tempo' : ''}"><span class="tr-h">SÉRIE</span><span class="tr-h">${colKg}</span><span class="tr-h">${colReps}</span><span></span>
                     ${ex.series.map((se, j) => `<span class="tr-n">${j + 1}</span>
                         ${ex.tipo === 'tempo' ? '<span></span>' : `<input class="tr-in${se.ok ? ' ok' : ''}" inputmode="decimal" data-tv="kg" data-i="${i}" data-j="${j}" value="${escapeHTML(se.kg)}" placeholder="${ex.tipo === 'corpo' ? 'corpo' : 'kg'}">`}
@@ -17789,10 +17924,9 @@ async function abrirTreinoVivo() {
     tela.addEventListener('click', async e => {
         const b = e.target.closest('[data-tv]'); if (!b || b.tagName === 'INPUT') return;
         const a = b.dataset.tv, i = Number(b.dataset.i), j = Number(b.dataset.j);
-        if (a === 'minimizar') { salvar(); vibrar(6); fecharVivo(); if (!lsGet('pulso-tr-min')) { lsSet('pulso-tr-min', '1'); setTimeout(() => toast('Treino minimizado. Toque na pílula pra voltar.', 'ok'), 400); } return; }
+        if (a === 'minimizar') { salvar(); vibrar(6); lsSet('pulso-tr-dica-voltar', '1'); fecharVivo(); if (!lsGet('pulso-tr-min')) { lsSet('pulso-tr-min', '1'); setTimeout(() => toast('O treino continua. Toque na pílula pra voltar.', 'ok'), 400); } return; }
         if (a === 'menu') {
             const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(trTitulo(s))} · ${trTempo(trDecorrido(s))}</h3>
-                <button class="x1-op" data-m="depois">Continuar depois<small>O treino fica aberto e o tempo segue</small></button>
                 ${musc ? '<button class="x1-op" data-m="editar">Editar exercícios</button>' : ''}
                 <button class="x1-op perigo" data-m="apagar">Apagar treino</button>
                 <button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'trMenu');
@@ -17804,9 +17938,12 @@ async function abrirTreinoVivo() {
                 else if (await confirmar('Apagar este treino? Nada vai ser salvo.', 'Apagar', true)) { trSet(null); fecharVivo(); toast('Treino apagado', 'ok'); }
             });
         }
+        else if (a === 'abrir-ex') { abertos.add(i); pintar(); return; }
+        else if (a === 'dica-ok') { lsSet('pulso-tr-dica-voltar', '1'); b.remove(); return; }
         else if (a === 'ok') {
             if (document.activeElement && tela.contains(document.activeElement)) document.activeElement.blur(); // marcou a série: o teclado pode fechar
             const ex = s.exercicios[i], se = ex.series[j];
+            const antesPronto = ex.series.every(x => x.ok);
             se.ok = !se.ok;
             if (se.ok) {
                 if (!se.reps) se.reps = ex.tipo === 'tempo' ? '30' : '10';
@@ -17815,7 +17952,14 @@ async function abrirTreinoVivo() {
                 iniciarDescanso(ex);
                 vibrar(10);
             }
+            abertos.delete(i);
             salvar(); pintar();
+            // terminou o exercício agora: rola até o próximo que falta
+            if (!antesPronto && ex.series.every(x => x.ok)) {
+                const prox = s.exercicios.findIndex((e2, k) => k !== i && !e2.series.every(x => x.ok));
+                const alvo = prox >= 0 && tela.querySelector(`.tr-ex[data-i="${prox}"]`);
+                if (alvo) setTimeout(() => alvo.scrollIntoView({ behavior: 'smooth', block: 'start' }), 120);
+            }
         }
         else if (a === 'sug') {
             const ex = s.exercicios[i]; const kg = String(b.dataset.kg).replace('.', ',');
@@ -17844,14 +17988,17 @@ async function abrirTreinoVivo() {
         }
         else if (a === 'ex-menu') {
             const ex = s.exercicios[i];
+            const pares = exerciciosParecidos(ex, s.exercicios.map(e2 => e2.nome));
             const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(ex.nome)}</h3>
+                ${pares.length ? `<div class="tr-pares"><small>Aparelho ocupado? Troque por um parecido</small>${pares.map(n => `<button class="tr-par" data-m="par" data-n="${escapeHTML(n)}">${escapeHTML(n)}</button>`).join('')}</div>` : ''}
                 ${ex.series.length > 1 ? '<button class="x1-op" data-m="tirar-serie">Tirar a última série</button>' : ''}
-                <button class="x1-op" data-m="trocar">Trocar exercício</button>
+                <button class="x1-op" data-m="trocar">${pares.length ? 'Outro exercício…' : 'Trocar exercício'}</button>
                 <button class="x1-op perigo" data-m="remover">Remover exercício</button>
                 <button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'trExMenu');
             f.addEventListener('click', ev => {
                 const op = ev.target.closest('[data-m]'); if (!op) return;
                 fechar();
+                if (op.dataset.m === 'par') { const nv = novoExercicio(op.dataset.n, ex.series.length, null, ex.grupo); s.exercicios[i] = nv; vibrar(6); salvar(); carregarHist(); return; }
                 if (op.dataset.m === 'tirar-serie') { ex.series.pop(); salvar(); pintar(); }
                 else if (op.dataset.m === 'remover') { s.exercicios.splice(i, 1); salvar(); pintar(); }
                 else escolherExercicio(nome => { const nv = novoExercicio(nome, ex.series.length); s.exercicios[i] = nv; salvar(); carregarHist(); });
@@ -17949,6 +18096,7 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
             ${musc ? `<div><small>Séries</small><b>${feitas.length}</b></div>${recordes.length ? `<div class="tr-fim-rec"><small>Recorde${recordes.length > 1 ? 's' : ''}</small><b>🏆 ${recordes.length}</b></div>` : `<div><small>Exercícios</small><b>${exFeitos}<i>/${s.exercicios.length}</i></b></div>`}`
             : distancia ? `<label><small>Distância (km)</small><input class="tr-in" id="trKm" inputmode="decimal" placeholder="0,0"></label>` : ''}
         </div>
+        ${musc && feitas.length ? '<div class="trf-coach" id="trCoach"><span>✦</span><p>O coach está olhando seu treino…</p></div>' : ''}
         ${recordes.length ? `<div class="tr-pr">🏆 ${recordes.length === 1 ? `Novo recorde no ${escapeHTML(recordes[0].ex.toLowerCase())}: ${br(recordes[0].kg, Number.isInteger(recordes[0].kg) ? 0 : 1)} kg` : `${recordes.length} recordes novos hoje`}</div>` : ''}
         <div class="trf-foto">
             <div class="trf-add2" id="trFotoBtn">
@@ -17982,6 +18130,7 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
     const leg = f.querySelector('#trLegenda');
     leg.addEventListener('input', () => { leg.style.height = 'auto'; leg.style.height = Math.min(120, leg.scrollHeight) + 'px'; });
     ligarMencoes(leg, f.querySelector('#trLegSug'));
+    if (musc && feitas.length) comentarioCoachTreino(s, hist, feitas).then(t => { const c = f.querySelector('#trCoach'); if (c && t) { c.querySelector('p').textContent = t; c.classList.add('ok'); } else if (c) c.remove(); });
     const bm = f.querySelector('#trModeloBtn'); if (bm) bm.onclick = () => salvarModeloTreino(s);
     f.querySelector('#trSalvar').onclick = async ev => {
         const b = ev.currentTarget; if (b.disabled) return;
