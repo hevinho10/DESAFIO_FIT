@@ -7657,7 +7657,77 @@ async function abrirMusculo(slug, M) {
         });
     } catch (_) {}
 }
+// ===== Pôster do mapa no story (tela toda): número, manchete ou scan =====
+const GRUPO_MANCHETE = { chest: 'Peito', 'upper-back': 'Costas', trapezius: 'Costas', 'lower-back': 'Costas', deltoids: 'Ombros', biceps: 'Braços', triceps: 'Braços', forearm: 'Braços',
+    abs: 'Abdômen', obliques: 'Abdômen', quadriceps: 'Perna', hamstring: 'Perna', adductors: 'Perna', calves: 'Perna', tibialis: 'Perna', gluteal: 'Glúteo' };
+const ESTILOS_POSTER = [['numero', 'Número'], ['manchete', 'Manchete'], ['scan', 'Scan']];
+// centro de cada lado de um músculo no desenho (pra apontar as setas do scan)
+const centrosMusc = {};
+function centroMusculo(sexo, slug, lado) {
+    const k = sexo + slug + lado; if (centrosMusc[k]) return centrosMusc[k];
+    const c = CORPO_SVG && CORPO_SVG[sexo + '_F']; if (!c) return null;
+    const vb = c.vb.split(/\s+/).map(Number);
+    const p = c.partes.find(x => x.s === slug); if (!p) return null;
+    // mede cada pedaço do músculo de verdade (o navegador calcula a caixa do desenho)
+    let med = document.getElementById('svgMedidor');
+    if (!med) { med = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); med.id = 'svgMedidor'; med.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden;visibility:hidden'); document.body.appendChild(med); }
+    const cands = p.d.map(d => {
+        const el = document.createElementNS('http://www.w3.org/2000/svg', 'path'); el.setAttribute('d', d); med.appendChild(el);
+        let b = null; try { b = el.getBBox(); } catch (_) {} el.remove();
+        return b && b.width ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : null; }).filter(Boolean);
+    if (!cands.length) return null;
+    const meio = vb[0] + vb[2] / 2;
+    const o = cands.sort((a, b) => lado === 'esq' ? a.x - b.x : b.x - a.x)[0];
+    return (centrosMusc[k] = { x: (o.x - vb[0]) / vb[2], y: (o.y - vb[1]) / vb[3], ratio: vb[2] / vb[3], centro: Math.abs(o.x - meio) < vb[2] * 0.04 });
+}
+function dadosPosterCorpo(M, per) {
+    const { ints, quentes } = resumoMapa(M, per);
+    const cont = s => { const m = M[s]; return m ? (per === 30 ? (m.mes || 0) : (m.semana || 0)) : 0; };
+    const acesos = Object.values(ints).filter(v => v !== 'nenhuma').length;
+    // manchete: o grupo mais treinado no período
+    const grupos = {}; Object.keys(GRUPO_MANCHETE).forEach(s => { const g = GRUPO_MANCHETE[s]; grupos[g] = Math.max(grupos[g] || 0, cont(s)); });
+    const ord = Object.entries(grupos).sort((a, b) => b[1] - a[1]);
+    let manchete = 'BORA ACENDER';
+    if (ord[0] && ord[0][1] > 0) manchete = (ord[1] && ord[1][1] === ord[0][1] ? `${ord[0][0]} e ${ord[1][0]}` : ord[0][0]).toUpperCase() + ' EM CHAMAS';
+    // scan: os 2 mais quentes e o mais frio
+    // o scan mostra a frente: só aponta pra músculos que aparecem nela
+    const naFrente = new Set(((CORPO_SVG && CORPO_SVG[sexoCorpo(state.profile) + '_F']) || { partes: [] }).partes.map(x => x.s));
+    const visiveis = Object.keys(NOME_MUSC).filter(s => naFrente.has(s));
+    const ordMusc = visiveis.map(s => [s, cont(s)]).sort((a, b) => b[1] - a[1]);
+    const call = ordMusc.filter(x => x[1] > 0).slice(0, 2).map(([s, n]) => ({ s, txt: `${Math.round(n)} ${Math.round(n) === 1 ? 'treino' : 'treinos'}` }));
+    const frio = visiveis.filter(s => MUSC_PRINCIPAIS.includes(s) && (ints[s] === 'baixa' || ints[s] === 'nenhuma')).sort((a, b) => cont(a) - cont(b))[0];
+    if (frio) call.push({ s: frio, txt: M[frio] && M[frio].dias != null ? 'esfriando' : 'sem treino', frio: true });
+    return { tipo: 'corpo', v: 3, per, sexo: sexoCorpo(state.profile), ints: intsCompactas(ints), quentes: quentes.slice(0, 3),
+        treinos: (M.__treinos || {})[per] || 0, acesos, total: Object.keys(NOME_MUSC).length, manchete, call,
+        estilo: ESTILOS_POSTER.some(e => e[0] === lsGet('pulso-poster-estilo')) ? lsGet('pulso-poster-estilo') : 'manchete' };
+}
+function htmlPosterCorpo(c) {
+    const sx = c.sexo === 'F' ? 'F' : 'M', per = c.per === 30 ? 30 : 7;
+    const dois = `<div class="pt-dois"><div>${corpoParaStory(c.ints || {}, sx, 'F')}</div><div>${corpoParaStory(c.ints || {}, sx, 'C')}</div></div>`;
+    const quentes = (c.quentes || []).join(' · ');
+    if (c.estilo === 'numero') return `<div class="poster pt-numero"><small class="pt-top">${per === 30 ? 'MEU MÊS DE TREINO' : 'MINHA SEMANA DE TREINO'}</small>
+        <div class="pt-big">${c.acesos || 0}<span>/${c.total || 16}</span></div><div class="pt-sub">grupos musculares ativados</div>${dois}
+        <div class="pt-chips"><span>💪 ${c.treinos || 0} ${c.treinos === 1 ? 'treino' : 'treinos'}</span>${quentes ? `<span>🔥 ${escapeHTML(quentes)}</span>` : ''}</div><b class="pt-marca">Pulso.</b></div>`;
+    if (c.estilo === 'scan') {
+        const corpo = corpoParaStory(c.ints || {}, sx, 'F');
+        const calls = (c.call || []).map((k, i) => {
+            const lado = i % 2 === 0 ? 'esq' : 'dir';
+            const o = CORPO_SVG ? centroMusculo(sx, k.s, lado) : null; if (!o) return '';
+            const x = `calc(50% + ${(o.x - 0.5).toFixed(4)} * 56cqh * ${o.ratio.toFixed(4)})`, y = `calc(${o.y.toFixed(4)} * 56cqh)`;
+            return `<div class="pt-call ${lado}${k.frio ? ' frio' : ''}" style="${lado === 'esq' ? `left:4%;width:calc(${x} - 4%)` : `left:${x};right:4%`};top:${y}"><span><b>${escapeHTML((NOME_MUSC[k.s] || '').toUpperCase())}</b>${escapeHTML(k.txt)}</span><i></i><em></em></div>`;
+        }).join('');
+        return `<div class="poster pt-scan"><div class="pt-grade"></div><i class="pt-c c1"></i><i class="pt-c c2"></i><i class="pt-c c3"></i><i class="pt-c c4"></i>
+            <small class="pt-top"><b class="pt-rec"></b>SCAN TÉRMICO · ${per} DIAS</small>
+            <div class="pt-corpo">${corpo}${calls}<div class="pt-feixe"></div></div>
+            <div class="pt-nums"><div><b>${c.treinos || 0}</b><span>${c.treinos === 1 ? 'treino' : 'treinos'}</span></div><div><b>${c.acesos || 0}<i>/${c.total || 16}</i></b><span>grupos ativados</span></div></div><b class="pt-marca">Pulso.</b></div>`;
+    }
+    return `<div class="poster pt-manchete"><small class="pt-top">ÚLTIMOS ${per} DIAS</small><h1>${escapeHTML(c.manchete || 'BORA ACENDER').replace(' EM CHAMAS', '<br>EM CHAMAS')}</h1>
+        <div class="pt-sub">${c.treinos || 0} ${c.treinos === 1 ? 'treino' : 'treinos'} · ${c.acesos || 0} de ${c.total || 16} grupos musculares</div>${dois}<div class="pt-linha"></div><b class="pt-marca">Pulso.</b></div>`;
+}
 async function postarCorpoNoStory(M) {
+    await carregarCorpo().catch(() => {});
+    abrirEditorComCard({ card: dadosPosterCorpo(M, state.mapaPeriodo), bg: '#05070A' });
+    return;
     const per = state.mapaPeriodo;
     const { ints, quentes } = resumoMapa(M, per);
     const acesos = Object.values(ints).filter(v => v !== 'nenhuma').length;
@@ -14775,6 +14845,7 @@ function estiloTextoStory(st, len, emFoto) {
 const CARD_STORY_BG = 'linear-gradient(165deg, #0F4A35 0%, #0A0C0B 55%, #1C1446 100%)';
 function htmlCardStory(st, comFoto) {
     const c = st.card || {};
+    if (c.tipo === 'corpo' && c.v === 3) return htmlPosterCorpo(c);
     if (c.tipo === 'corpo' && c.v === 2) {
         const sx = c.sexo === 'F' ? 'F' : 'M';
         const q = (c.quentes || []);
@@ -15120,7 +15191,7 @@ function adicionarMencaoStory(p) {
 function openStoryCreator() {
     Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 });
     sc.card = null; sc.cardPos = null; sc.cardEsc = 1; sc.cardRot = 0; sc.semFoco = false;
-    { const cd = elCardCriador(); cd.classList.add('hidden'); cd.innerHTML = ''; cd.style.transform = ''; }
+    { const cd = elCardCriador(); cd.classList.add('hidden'); cd.classList.remove('sc-poster'); cd.innerHTML = ''; cd.style.transform = ''; const bar = document.getElementById('scEstilos'); if (bar) bar.classList.add('hidden'); }
     $('#scText').style.transform = ''; $('#scSticker').style.transform = '';
     $('#storyCreator').classList.remove('arrastando');
     document.querySelectorAll('#scStage .sc-mencao, #scStage .sc-enquete').forEach(x => x.remove());
@@ -15293,9 +15364,39 @@ function elCardCriador() {
     if (!el) { $('#scSticker').insertAdjacentHTML('afterend', '<div id="scCard" class="sc-card hidden"></div>'); el = document.getElementById('scCard'); }
     return el;
 }
+const ehPoster = c => !!(c && c.tipo === 'corpo' && c.v === 3);
+function pintarEstilosPoster() {
+    let bar = document.getElementById('scEstilos');
+    if (!bar) {
+        bar = document.createElement('div'); bar.id = 'scEstilos'; bar.className = 'sc-estilos hidden';
+        document.getElementById('storyCreator').appendChild(bar);
+        bar.addEventListener('click', e => { const b = e.target.closest('[data-estilo]'); if (b) trocarEstiloPoster(b.dataset.estilo); });
+    }
+    const on = ehPoster(sc.card);
+    bar.classList.toggle('hidden', !on);
+    if (on) bar.innerHTML = ESTILOS_POSTER.map(([k, n]) => `<button type="button" class="${sc.card.estilo === k ? 'on' : ''}" data-estilo="${k}">${n}</button>`).join('');
+}
+function trocarEstiloPoster(k) {
+    if (!ehPoster(sc.card) || sc.card.estilo === k) return;
+    sc.card = { ...sc.card, estilo: k }; lsSet('pulso-poster-estilo', k); vibrar(5);
+    pintarCardCriador();
+}
 function pintarCardCriador() {
     const el = elCardCriador();
+    pintarEstilosPoster();
+    el.classList.toggle('sc-poster', ehPoster(sc.card));
     if (!sc.card) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    if (ehPoster(sc.card)) {
+        // fundo de tela inteira: fica embaixo do texto e dos adesivos e não arrasta
+        const stage = $('#scStage'); if (stage.firstChild !== el) stage.prepend(el);
+        el.style.left = ''; el.style.top = ''; el.style.transform = '';
+        el.innerHTML = htmlCardStory({ card: sc.card }, false);
+        el.classList.remove('hidden');
+        sc.cardPos = { x: 50, y: 50 }; sc.cardEsc = 1; sc.cardRot = 0;
+        const t = $('#scText'); if (t && !t.value) t.placeholder = '';
+        return;
+    }
+    { const st = $('#scSticker'); if (st && el.previousElementSibling !== st) st.after(el); }
     el.innerHTML = htmlCardStory({ card: sc.card }, sc.mode === 'photo');
     if (!sc.cardPos) sc.cardPos = { x: 50, y: sc.mode === 'photo' ? 68 : 50 };
     el.classList.remove('hidden');
@@ -15411,7 +15512,7 @@ function tornarArrastavel(el, campoPos, aoTocar) {
     const stage = document.getElementById('scStage');
     let g = null;
     const alvo = (cx, cy) => {
-        const cands = [$('#scSticker'), elCardCriador(), $('#scText')].filter(el => !el.classList.contains('hidden') && (el.id !== 'scText' || sc.mode === 'photo'));
+        const cands = [$('#scSticker'), elCardCriador(), $('#scText')].filter(el => !el.classList.contains('hidden') && !el.classList.contains('sc-poster') && (el.id !== 'scText' || sc.mode === 'photo'));
         if (!cands.length) return null;
         if (sc.itemAtivo && cands.includes(sc.itemAtivo)) {
             const r = sc.itemAtivo.getBoundingClientRect();
@@ -15460,6 +15561,16 @@ tornarArrastavel($('#scText'), 'pos', () => {
 });
 tornarArrastavel($('#scSticker'), 'adesivoPos', null);
 tornarArrastavel(elCardCriador(), 'cardPos', null);
+(function deslizarEstiloPoster() {
+    const stage = document.getElementById('scStage'); let ini = null;
+    stage.addEventListener('pointerdown', e => { ini = ehPoster(sc.card) && !e.target.closest('.sc-text:not([readonly]), .sc-sticker, .sc-mencao, .sc-enquete, button') ? { x: e.clientX, y: e.clientY } : null; });
+    stage.addEventListener('pointerup', e => {
+        if (!ini) return; const dx = e.clientX - ini.x, dy = e.clientY - ini.y; ini = null;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+        const i = ESTILOS_POSTER.findIndex(x => x[0] === sc.card.estilo);
+        trocarEstiloPoster(ESTILOS_POSTER[(i + (dx < 0 ? 1 : -1) + ESTILOS_POSTER.length) % ESTILOS_POSTER.length][0]);
+    });
+})();
 $('#scText').addEventListener('blur', () => {
     if (sc.mode === 'photo') {
         const t = $('#scText');
@@ -16083,7 +16194,8 @@ function showCurrentStory() {
     const adesivoHTML = st.sticker
         ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${htmlAdesivo(st.sticker)}</div>` : '';
     // card feito no editor (com posição): entra junto com o resto do story
-    const cardPosHTML = st.card && st.cardPos ? `<div class="sv-card" style="left:${Number(st.cardPos.x) || 50}%;top:${Number(st.cardPos.y) || 50}%;transform:translate(-50%, -50%) scale(${Number(st.cardScale) || 1}) rotate(${Number(st.cardRot) || 0}deg)">${htmlCardStory(st, !!item.image_url)}</div>` : '';
+    const posterHTML = st.card && ehPoster(st.card) ? `<div class="sv-poster">${htmlCardStory(st, false)}</div>` : '';
+    const cardPosHTML = st.card && st.cardPos && !ehPoster(st.card) ? `<div class="sv-card" style="left:${Number(st.cardPos.x) || 50}%;top:${Number(st.cardPos.y) || 50}%;transform:translate(-50%, -50%) scale(${Number(st.cardScale) || 1}) rotate(${Number(st.cardRot) || 0}deg)">${htmlCardStory(st, !!item.image_url)}</div>` : '';
     if (st.card && !st.cardPos) {
         content.className = 'story-content' + (item.image_url ? '' : ' text-story card-fundo');
         content.style.background = item.image_url ? '#000' : (item.background_color || CARD_STORY_BG);
@@ -16094,7 +16206,7 @@ function showCurrentStory() {
         content.style.background = '#000';
         const e = estiloTextoStory(st, (item.caption || '').length, true);
         const pos = st.pos || null;
-        content.innerHTML = `<div class="sv-fundo" style="background-image:url('${item.image_url}')"></div><img class="sv-foto" src="${item.image_url}">
+        content.innerHTML = `${posterHTML}<div class="sv-fundo" style="background-image:url('${item.image_url}')"></div><img class="sv-foto" src="${item.image_url}">
             ${item.caption ? `<div class="caption-over ${e.cls} fundo-${st.fundo || 'escuro'}${pos ? ' posicionado' : ''}" style="font-size:${e.size}px;${pos ? `left:${pos.x}%;top:${pos.y}%;transform:translate(-50%, -50%) scale(${Number(st.textScale) || 1}) rotate(${Number(st.textRot) || 0}deg)` : ''}">${escapeHTML(item.caption)}</div>` : ''}
             ${adesivoHTML}${cardPosHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
@@ -16106,7 +16218,7 @@ function showCurrentStory() {
         const e = estiloTextoStory(st, (item.caption || '').length, false);
         const alin = st.align || 'center';
         const marca = st.fundo && st.fundo !== 'nenhum' ? st.fundo : null;
-        content.innerHTML = `${item.caption ? `<div class="text-body ${e.cls}" style="color:${st.color || corDeTextoPara(fundo)};font-size:${e.size}px;text-align:${alin}">${marca ? `<span class="marcador-${marca}">${escapeHTML(item.caption)}</span>` : escapeHTML(item.caption)}</div>` : ''}
+        content.innerHTML = `${posterHTML}${item.caption ? `<div class="text-body ${e.cls}" style="color:${st.color || corDeTextoPara(fundo)};font-size:${e.size}px;text-align:${alin}">${marca ? `<span class="marcador-${marca}">${escapeHTML(item.caption)}</span>` : escapeHTML(item.caption)}</div>` : ''}
             ${adesivoHTML}${cardPosHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     }
