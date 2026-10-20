@@ -903,6 +903,25 @@ async function hydrateAdminErros() {
     };
 }
 
+// ---- Capacidade do banco e dos arquivos (limites do plano gratuito do Supabase) ----
+const LIMITE_BANCO = 500 * 1024 * 1024, LIMITE_ARQUIVOS = 1024 * 1024 * 1024;
+const PASTA_NOME = { 'post-images': 'Fotos dos posts e stories', 'private-images': 'Fotos privadas', 'avatars': 'Fotos de perfil', 'chat-audio': 'Áudios do chat', 'activity-photos': 'Fotos do app antigo' };
+const fmtBytes = b => { b = Number(b) || 0; if (b < 1024 * 1024) return br(b / 1024, 0) + ' KB'; if (b < 1024 ** 3) return br(b / 1024 / 1024, b < 10 * 1024 * 1024 ? 1 : 0) + ' MB'; return br(b / 1024 ** 3, 2) + ' GB'; };
+async function hydrateAdminCapacidade() {
+    const box = document.getElementById('admCapacidade'); if (!box) return;
+    const { data, error } = await sb.rpc('admin_capacidade');
+    if (!document.getElementById('admCapacidade')) return;
+    if (error || !data) { box.innerHTML = `<p class="faixa-nota" style="margin:0">Não consegui ler a capacidade${error ? ': ' + escapeHTML(error.message) : ''}. Rode o SQL mais recente.</p>`; return; }
+    const barra = (usado, limite) => { const pct = Math.min(100, Math.round(usado / limite * 100)); return `<div class="cap-barra ${pct >= 90 ? 'vermelho' : pct >= 70 ? 'amarelo' : ''}"><i style="width:${Math.max(2, pct)}%"></i></div><small class="cap-pct">${pct}% de ${fmtBytes(limite)}</small>`; };
+    const pastas = data.pastas || [], totArq = pastas.reduce((t, x) => t + Number(x.bytes || 0), 0);
+    const maior = Math.max(1, ...pastas.map(x => Number(x.bytes) || 0));
+    box.innerHTML = `<div class="cap-bloco"><div class="cap-l"><b>Banco de dados</b><span>${fmtBytes(data.banco)}</span></div>${barra(Number(data.banco), LIMITE_BANCO)}</div>
+        <div class="cap-bloco"><div class="cap-l"><b>Arquivos</b><span>${fmtBytes(totArq)}</span></div>${barra(totArq, LIMITE_ARQUIVOS)}
+            <div class="cap-lista">${pastas.map(x => `<div class="cap-it"><span>${escapeHTML(PASTA_NOME[x.pasta] || x.pasta)}${x.pasta === 'activity-photos' ? ' <em>não usado pelo Pulso</em>' : ''}<small>${Number(x.arquivos).toLocaleString('pt-BR')} arquivos</small></span><b>${fmtBytes(x.bytes)}</b><i style="width:${Math.max(2, Math.round(Number(x.bytes) / maior * 100))}%"></i></div>`).join('')}</div></div>
+        <div class="cap-bloco"><div class="cap-l"><b>Tabelas que mais ocupam</b></div>
+            <div class="cap-lista">${(data.tabelas || []).map(t => `<div class="cap-it"><span>${escapeHTML(t.nome)}</span><b>${fmtBytes(t.bytes)}</b></div>`).join('')}</div></div>
+        <p class="faixa-nota" style="margin-bottom:0">Limites do plano gratuito do Supabase. Amarelo a partir de 70%, vermelho a partir de 90%.</p>`;
+}
 async function renderAdmin() {
     const c = $('#viewContainer');
     if (!state.profile.is_admin) {
@@ -997,7 +1016,9 @@ async function renderAdmin() {
             </div>
 
             <div class="adm-painel${state.abaAdmin === 'ferramentas' ? '' : ' hidden'}" data-painel="ferramentas">
-            <h3 class="edit-section-title">Alterações feitas por você</h3>
+            <h3 class="edit-section-title">Capacidade</h3>
+            <div class="chart-card" id="admCapacidade"><div class="spinner"></div></div>
+            <h3 class="edit-section-title" style="margin-top:22px">Alterações feitas por você</h3>
             <div class="chart-card" id="admLog"><div class="spinner"></div></div>
             <h3 class="edit-section-title" style="margin-top:22px">Backup</h3>
             <div class="chart-card">
@@ -1022,6 +1043,7 @@ async function renderAdmin() {
     hydrateAdminUsuarios();
     hydrateAdminLog();
     hydrateAdminErros();
+    hydrateAdminCapacidade();
     hydrateNovosCadastros().then(() => {
         const n = document.querySelectorAll('#cadastrosBox [data-status="aprovado"]').length - document.querySelectorAll('#cadastrosBox details [data-status="aprovado"]').length;
         const aba = document.querySelector('.adm-abas [data-aba="cadastros"]');
@@ -7427,6 +7449,7 @@ function calcularMapaMuscular(treinos, agora = Date.now()) {
         const dias = (agora - quando) / 86400000;
         if (quando > m.ultimo) m.ultimo = quando;
         if (dias <= 7) m.semana += peso;
+        if (dias <= 30) m.mes = (m.mes || 0) + peso;
         if (ex && peso === 1) { const e = m.ex[ex] || (m.ex[ex] = { n: 0, ultimo: 0 }); e.n++; if (quando > e.ultimo) e.ultimo = quando; }
     };
     (treinos || []).forEach(t => {
@@ -7450,6 +7473,14 @@ function intensidadeMusc(m) {
     if (!m || m.dias == null || m.dias > 28) return 'nenhuma';
     if (m.dias <= 1 || (m.dias <= 3 && m.semana >= 2)) return 'alta';
     if (m.dias <= 6) return 'media';
+    return 'baixa';
+}
+// 30 dias: a cor mostra a frequência no mês
+function intensidadeMusc30(m) {
+    const n = (m && m.mes) || 0;
+    if (!n) return 'nenhuma';
+    if (n >= 6) return 'alta';
+    if (n >= 3) return 'media';
     return 'baixa';
 }
 const ROTULO_INT = { alta: 'Zona quente', media: 'Morno', baixa: 'Esfriando', nenhuma: 'Sem treino recente' };
@@ -7483,10 +7514,10 @@ function svgCorpo(sexo, lado, ints, { brilho = true } = {}) {
     return `<svg class="mc-svg" viewBox="${c.vb}" aria-hidden="true">
         <path class="mc-silhueta" d="${c.contorno}"/>${brilho ? `<g class="mc-fundo">${calor}</g>` : ''}${camadas}</svg>`;
 }
-const intsDoMapa = M => { const o = {}; Object.keys(NOME_MUSC).forEach(s => { o[s] = intensidadeMusc(M[s]); }); return o; };
+const intsDoMapa = (M, per = 7) => { const o = {}; Object.keys(NOME_MUSC).forEach(s => { o[s] = per === 30 ? intensidadeMusc30(M[s]) : intensidadeMusc(M[s]); }); return o; };
 // resumo em palavras: o que está quente e o que mais precisa de atenção
-function resumoMapa(M) {
-    const ints = intsDoMapa(M);
+function resumoMapa(M, per = 7) {
+    const ints = intsDoMapa(M, per);
     const quentes = MUSC_PRINCIPAIS.filter(s => ints[s] === 'alta').map(s => NOME_MUSC[s]);
     // primeiro os que já foram treinados e estão esfriando (mais tempo parado antes), depois os nunca treinados
     const frios = MUSC_PRINCIPAIS.filter(s => ints[s] === 'baixa' || ints[s] === 'nenhuma')
@@ -7496,30 +7527,35 @@ function resumoMapa(M) {
 // stories com o corpo, desenhados antes do corpo.json chegar
 function preencherCorposPendentes() {
     document.querySelectorAll('.cs-corpo[data-ints]').forEach(el => {
-        try { const ints = JSON.parse(el.dataset.ints); el.innerHTML = svgCorpo(el.dataset.sexo || 'M', 'F', ints); el.removeAttribute('data-ints'); } catch (_) {}
+        try { const ints = JSON.parse(el.dataset.ints); el.innerHTML = svgCorpo(el.dataset.sexo || 'M', el.dataset.lado || 'F', ints); el.removeAttribute('data-ints'); } catch (_) {}
     });
 }
-function corpoParaStory(ints, sexo) {
-    if (CORPO_SVG) return `<div class="cs-corpo">${svgCorpo(sexo, 'F', ints)}</div>`;
+function corpoParaStory(ints, sexo, lado = 'F') {
+    if (CORPO_SVG) return `<div class="cs-corpo">${svgCorpo(sexo, lado, ints)}</div>`;
     carregarCorpo().catch(() => {});
-    return `<div class="cs-corpo" data-sexo="${sexo}" data-ints='${escapeHTML(JSON.stringify(ints))}'></div>`;
+    return `<div class="cs-corpo" data-sexo="${sexo}" data-lado="${lado}" data-ints='${escapeHTML(JSON.stringify(ints))}'></div>`;
 }
 // intensidades compactas pro story (só o que não é "nenhuma")
 const intsCompactas = ints => Object.fromEntries(Object.entries(ints).filter(([, v]) => v !== 'nenhuma'));
 
 // ---- o card do Progresso ----
 state.mapaLado = 'F';
+state.mapaPeriodo = lsGet('pulso-mapa-periodo') === '30' ? 30 : 7;
 async function hydrateMapaCorpo() {
     const box = document.getElementById('mapaCorpoBox'); if (!box) return;
-    const desde = new Date(Date.now() - 28 * 86400000).toISOString();
-    let treinos = [];
+    const desde = new Date(Date.now() - 35 * 86400000).toISOString();
+    let treinos = [], todos = [];
     try {
         const [, r] = await Promise.all([carregarCorpo(),
             sb.from('posts').select('created_at, muscle_groups, meta, activity_type').eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', desde).order('created_at', { ascending: false }).limit(120)]);
-        treinos = (r.data || []).filter(t => t.activity_type === 'Musculação' || (t.muscle_groups || []).length || (t.meta && (t.meta.exercicios || []).length));
+        todos = r.data || [];
+        treinos = todos.filter(t => t.activity_type === 'Musculação' || (t.muscle_groups || []).length || (t.meta && (t.meta.exercicios || []).length));
     } catch (_) { box.innerHTML = '<p class="faixa-nota">Não consegui carregar o mapa agora.</p>'; const t = document.getElementById('corpoTeaser'); if (t) t.classList.add('vazio'); return; }
     if (!document.getElementById('mapaCorpoBox')) return;
     const M = calcularMapaMuscular(treinos);
+    // quantos treinos (de qualquer tipo) em cada período, pro story
+    const agora = Date.now();
+    M.__treinos = { 7: todos.filter(t => agora - new Date(t.created_at) <= 7 * 86400000).length, 30: todos.filter(t => agora - new Date(t.created_at) <= 30 * 86400000).length };
     state.mapaMusc = M;
     pintarMapaCorpo(box, M, true);
     pintarTeaserCorpo(M);
@@ -7527,7 +7563,7 @@ async function hydrateMapaCorpo() {
 // na aba Hoje: o corpo pequeno, com atalho pro mapa completo
 function pintarTeaserCorpo(M) {
     const el = document.getElementById('corpoTeaser'); if (!el) return;
-    if (!Object.keys(M).length) { el.classList.add('vazio'); return; }
+    if (!Object.keys(M).some(k => NOME_MUSC[k])) { el.classList.add('vazio'); return; }
     const { ints, quentes, frios } = resumoMapa(M);
     el.innerHTML = `<button class="mc-teaser" data-act="evo-aba" data-aba="treinos">
         <span class="mc-teaser-corpo">${svgCorpo(sexoCorpo(state.profile), 'F', ints)}</span>
@@ -7539,12 +7575,13 @@ function pintarTeaserCorpo(M) {
 }
 function pintarMapaCorpo(box, M, animar) {
     const sexo = sexoCorpo(state.profile);
-    const { ints, quentes, frios } = resumoMapa(M);
-    const vazio = !Object.keys(M).length;
+    const per = state.mapaPeriodo;
+    const { ints, quentes, frios } = resumoMapa(M, per);
+    const vazio = !Object.keys(M).some(k => NOME_MUSC[k]);
     const alvo = frios[0];
     const diasAlvo = alvo && M[alvo] && M[alvo].dias;
     box.innerHTML = `<div class="mc-card${animar ? ' scaneando' : ''}">
-        <div class="mc-topo"><div><b>Seu corpo</b><small>${vazio ? 'sem treino de musculação nas últimas 4 semanas' : 'últimos 7 dias'}</small></div>
+        <div class="mc-topo"><div><b>Seu corpo</b>${vazio ? '<small>sem treino de musculação nas últimas semanas</small>' : `<div class="mc-per"><button class="${per === 7 ? 'on' : ''}" data-mc-per="7">7 dias</button><button class="${per === 30 ? 'on' : ''}" data-mc-per="30">30 dias</button></div>`}</div>
             <div class="mc-seg"><button class="${state.mapaLado === 'F' ? 'on' : ''}" data-mc-lado="F">Frente</button><button class="${state.mapaLado === 'C' ? 'on' : ''}" data-mc-lado="C">Costas</button></div></div>
         <div class="mc-palco">
             <div class="mc-virar${state.mapaLado === 'C' ? ' costas' : ''}">
@@ -7573,6 +7610,8 @@ function pintarMapaCorpo(box, M, animar) {
         const t = e.target.closest('[data-mc-treinar]');
         if (t) { abrirModoTreino({ a: 'Musculação', g: [MUSC_PARA_GRUPO[t.dataset.mcTreinar]] }); return; }
         if (e.target.closest('[data-mc-story]')) { postarCorpoNoStory(M); return; }
+        const pe = e.target.closest('[data-mc-per]');
+        if (pe) { state.mapaPeriodo = Number(pe.dataset.mcPer); lsSet('pulso-mapa-periodo', String(state.mapaPeriodo)); vibrar(5); pintarMapaCorpo(box, M, false); return; }
         const m = e.target.closest('.mc-musc');
         if (m) { vibrar(8); box.querySelectorAll('.mc-musc.foco').forEach(x => x.classList.remove('foco')); m.classList.add('foco'); abrirMusculo(m.dataset.musc, M); }
     };
@@ -7603,7 +7642,7 @@ async function abrirMusculo(slug, M) {
     const quando = !m || m.dias == null ? 'Sem treino nas últimas 4 semanas' : m.dias === 0 ? 'Treinado hoje' : m.dias === 1 ? 'Treinado ontem' : `Último treino há ${m.dias} dias`;
     const semana = m ? Math.round(m.semana * 2) / 2 : 0;
     const { f, fechar } = x1Folha(`<div class="mc-folha-topo"><span class="mc-ponto" style="--c:${COR_INT[it]}"></span><div><h3 class="x1-folha-t">${NOME_MUSC[slug]}</h3><small>${ROTULO_INT[it]}</small></div></div>
-        <div class="mc-folha-num"><div><b>${m && m.dias != null ? (m.dias === 0 ? 'hoje' : m.dias + 'd') : '–'}</b><small>último treino</small></div><div><b>${String(semana).replace('.', ',')}</b><small>treinos na semana</small></div></div>
+        <div class="mc-folha-num"><div><b>${m && m.dias != null ? (m.dias === 0 ? 'hoje' : m.dias + 'd') : '–'}</b><small>último treino</small></div><div><b>${String(semana).replace('.', ',')}</b><small>treinos na semana</small></div><div><b>${String(Math.round(((m && m.mes) || 0) * 2) / 2).replace('.', ',')}</b><small>no mês</small></div></div>
         <p class="mc-folha-q">${quando}</p>
         ${exs.length ? `<div class="x1-sec">O QUE VOCÊ FEZ</div><div class="mc-exs" id="mcExs">${exs.map(([n, e]) => `<div class="mc-ex" data-ex="${escapeHTML(n)}"><span>${escapeHTML(n)}</span><small>${e.n}x · ${timeAgo(new Date(e.ultimo).toISOString())}</small><b></b></div>`).join('')}</div>` : ''}
         <button class="btn x1-btn" id="mcTreinar">Montar treino de ${escapeHTML(grupo.toLowerCase())}</button>`);
@@ -7619,7 +7658,12 @@ async function abrirMusculo(slug, M) {
     } catch (_) {}
 }
 async function postarCorpoNoStory(M) {
-    const { ints, quentes, frios } = resumoMapa(M);
+    const per = state.mapaPeriodo;
+    const { ints, quentes } = resumoMapa(M, per);
+    const acesos = Object.values(ints).filter(v => v !== 'nenhuma').length;
+    abrirEditorComCard({ card: { tipo: 'corpo', v: 2, per, sexo: sexoCorpo(state.profile), ints: intsCompactas(ints), quentes: quentes.slice(0, 3),
+        treinos: (M.__treinos || {})[per] || 0, acesos, total: Object.keys(NOME_MUSC).length } });
+    return;
     abrirEditorComCard({ card: { tipo: 'corpo', sexo: sexoCorpo(state.profile), ints: intsCompactas(ints),
         quentes: quentes.slice(0, 3), frios: frios.slice(0, 2).map(s => NOME_MUSC[s]) } });
 }
@@ -14731,6 +14775,18 @@ function estiloTextoStory(st, len, emFoto) {
 const CARD_STORY_BG = 'linear-gradient(165deg, #0F4A35 0%, #0A0C0B 55%, #1C1446 100%)';
 function htmlCardStory(st, comFoto) {
     const c = st.card || {};
+    if (c.tipo === 'corpo' && c.v === 2) {
+        const sx = c.sexo === 'F' ? 'F' : 'M';
+        const q = (c.quentes || []);
+        const lista = q.length > 1 ? q.slice(0, -1).join(', ') + ' e ' + q[q.length - 1] : q.join('');
+        return `<div class="card-story corpo-cs corpo2${comFoto ? ' sobre-foto' : ''}">
+            <small class="cs-rot">Meu corpo · últimos ${c.per === 30 ? 30 : 7} dias</small>
+            <div class="cs-dois"><div>${corpoParaStory(c.ints || {}, sx, 'F')}<span>Frente</span></div><div>${corpoParaStory(c.ints || {}, sx, 'C')}<span>Costas</span></div></div>
+            <div class="cs-stats"><div><b>${c.treinos || 0}</b><small>${c.treinos === 1 ? 'treino' : 'treinos'}</small></div><div><b>${c.acesos || 0}<i> de ${c.total || 16}</i></b><small>grupos musculares</small></div></div>
+            ${q.length ? `<p class="cs-q">🔥 <b>${escapeHTML(lista)}</b> em chamas</p>` : ''}
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
     if (c.tipo === 'corpo') {
         return `<div class="card-story corpo-cs${comFoto ? ' sobre-foto' : ''}">
             <small class="cs-rot">Meu corpo esta semana</small>
