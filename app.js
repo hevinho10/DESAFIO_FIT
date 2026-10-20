@@ -11228,7 +11228,7 @@ function abrirEscreverDepoimento(uid, nome, editando = null) {
             <textarea id="depTexto" maxlength="140" rows="3" placeholder="O que te inspira em ${primeiro}?">${editando ? escapeHTML(editando.texto) : ''}</textarea>
             <span class="dep-conta"><b id="depConta">${editando ? editando.texto.length : 0}</b>/140</span>
         </div>
-        <div class="dep-cores" id="depCores">${Object.entries(CORES_DEP).map(([k, v]) => `<button type="button" class="dep-cor${k === cor ? ' on' : ''}" data-cor="${k}" style="background:${v[1]}" aria-label="${k}"></button>`).join('')}</div>
+        <div class="dep-cores" id="depCores">${Object.entries(CORES_DEP).map(([k, v]) => `<button type="button" class="dep-cor${k === cor ? ' on' : ''}" data-cor="${k}" style="background:${v[1]};--c:${v[0]}" aria-label="${k}"></button>`).join('')}</div>
         <button class="btn x1-btn" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar'}</button>`, 'depSheet');
     const campo = f.querySelector('#depTexto'), enviar = f.querySelector('#depEnviar'), card = f.querySelector('#depCard');
     const ajustar = () => { campo.style.height = 'auto'; campo.style.height = Math.min(160, campo.scrollHeight) + 'px'; };
@@ -15191,7 +15191,7 @@ function adicionarMencaoStory(p) {
 function openStoryCreator() {
     Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 });
     sc.card = null; sc.cardPos = null; sc.cardEsc = 1; sc.cardRot = 0; sc.semFoco = false;
-    { const cd = elCardCriador(); cd.classList.add('hidden'); cd.classList.remove('sc-poster'); cd.innerHTML = ''; cd.style.transform = ''; const bar = document.getElementById('scEstilos'); if (bar) bar.classList.add('hidden'); }
+    { const cd = elCardCriador(); cd.classList.add('hidden'); cd.classList.remove('sc-poster', 'solto'); cd.style.removeProperty('--pt-tf'); cd.innerHTML = ''; cd.style.transform = ''; $('#storyCreator').classList.remove('com-card'); const bar = document.getElementById('scEstilos'); if (bar) bar.classList.add('hidden'); }
     $('#scText').style.transform = ''; $('#scSticker').style.transform = '';
     $('#storyCreator').classList.remove('arrastando');
     document.querySelectorAll('#scStage .sc-mencao, #scStage .sc-enquete').forEach(x => x.remove());
@@ -15365,6 +15365,19 @@ function elCardCriador() {
     return el;
 }
 const ehPoster = c => !!(c && c.tipo === 'corpo' && c.v === 3);
+// pôster solto: a pessoa diminuiu, arrastou ou girou (deixa de ocupar a tela toda)
+const posterSolto = (pos, esc, rot) => { const p = pos || { x: 50, y: 50 }; return (Number(esc) || 1) < 0.985 || Math.abs((p.x ?? 50) - 50) > 0.5 || Math.abs((p.y ?? 50) - 50) > 0.5 || Math.abs(Number(rot) || 0) > 0.5; };
+const transformPoster = (pos, esc, rot) => { const p = pos || { x: 50, y: 50 }; return `translate(${(p.x ?? 50) - 50}%, ${(p.y ?? 50) - 50}%) scale(${Number(esc) || 1}) rotate(${Number(rot) || 0}deg)`; };
+function dentroDoPoster(x, y) {
+    if (!ehPoster(sc.card)) return false;
+    const r = elCardCriador().getBoundingClientRect();
+    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+function aplicarTransformPoster() {
+    const el = elCardCriador(); if (!ehPoster(sc.card)) return;
+    el.style.setProperty('--pt-tf', transformPoster(sc.cardPos, sc.cardEsc, sc.cardRot));
+    el.classList.toggle('solto', posterSolto(sc.cardPos, sc.cardEsc, sc.cardRot));
+}
 function pintarEstilosPoster() {
     let bar = document.getElementById('scEstilos');
     if (!bar) {
@@ -15385,18 +15398,24 @@ function pintarCardCriador() {
     const el = elCardCriador();
     pintarEstilosPoster();
     el.classList.toggle('sc-poster', ehPoster(sc.card));
-    if (!sc.card) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    if (!sc.card) { el.classList.add('hidden'); el.innerHTML = ''; $('#storyCreator').classList.remove('com-card'); return; }
     if (ehPoster(sc.card)) {
         // fundo de tela inteira: fica embaixo do texto e dos adesivos e não arrasta
         const stage = $('#scStage'); if (stage.firstChild !== el) stage.prepend(el);
         el.style.left = ''; el.style.top = ''; el.style.transform = '';
         el.innerHTML = htmlCardStory({ card: sc.card }, false);
         el.classList.remove('hidden');
-        sc.cardPos = { x: 50, y: 50 }; sc.cardEsc = 1; sc.cardRot = 0;
+        if (!sc.cardPos) sc.cardPos = { x: 50, y: 50 };
+        // com foto de fundo, o pôster já começa menor pra foto aparecer
+        if (sc.mode === 'photo' && !posterSolto(sc.cardPos, sc.cardEsc, sc.cardRot)) sc.cardEsc = 0.62;
+        aplicarTransformPoster();
         const t = $('#scText'); if (t && !t.value) t.placeholder = '';
+        $('#storyCreator').classList.add('com-card');
         return;
     }
     { const st = $('#scSticker'); if (st && el.previousElementSibling !== st) st.after(el); }
+    el.classList.remove('solto'); el.style.removeProperty('--pt-tf');
+    $('#storyCreator').classList.add('com-card');
     el.innerHTML = htmlCardStory({ card: sc.card }, sc.mode === 'photo');
     if (!sc.cardPos) sc.cardPos = { x: 50, y: sc.mode === 'photo' ? 68 : 50 };
     el.classList.remove('hidden');
@@ -15426,11 +15445,24 @@ async function abrirEditorComCard({ card, file = null, url = null, repost = fals
     }
     pintarCardCriador();
     atualizarBotaoPublicarStory();
+    dicaEditorStory();
+}
+// Aviso só na primeira vez: dá pra personalizar antes de publicar
+function dicaEditorStory() {
+    if (lsGet('pulso-dica-editor')) return;
+    lsSet('pulso-dica-editor', '1');
+    const cr = document.getElementById('storyCreator');
+    const d = document.createElement('div'); d.className = 'sc-dica';
+    d.textContent = 'Personalize antes de publicar: texto, adesivo, menção';
+    cr.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('on'));
+    setTimeout(() => { d.classList.remove('on'); setTimeout(() => d.remove(), 400); }, 3400);
 }
 
 // Arrastar texto e adesivo (toque curto no texto = editar), com guias de centro e lixeira
 function transformarItem(el) {
     const ehTexto = el.id === 'scText', ehCard = el.id === 'scCard';
+    if (ehCard && ehPoster(sc.card)) { aplicarTransformPoster(); return; }
     if (ehTexto && sc.mode !== 'photo') { el.style.transform = ''; return; }
     const esc = ehCard ? sc.cardEsc : ehTexto ? sc.txtEsc : sc.adEsc, rot = ehCard ? sc.cardRot : ehTexto ? sc.txtRot : sc.adRot;
     el.style.transform = `translate(-50%, -50%) scale(${esc}) rotate(${rot}deg)`;
@@ -15446,7 +15478,8 @@ function apagarItemStory(el) {
     }
     if (el.id === 'scCard') {
         sc.card = null; sc.cardPos = null; sc.cardEsc = 1; sc.cardRot = 0;
-        el.classList.add('hidden'); el.innerHTML = ''; el.style.transform = '';
+        el.classList.add('hidden'); el.innerHTML = ''; el.style.transform = ''; el.classList.remove('solto'); el.style.removeProperty('--pt-tf');
+        $('#storyCreator').classList.remove('com-card');
         atualizarBotaoPublicarStory();
         return;
     }
@@ -15513,6 +15546,12 @@ function tornarArrastavel(el, campoPos, aoTocar) {
     let g = null;
     const alvo = (cx, cy) => {
         const cands = [$('#scSticker'), elCardCriador(), $('#scText')].filter(el => !el.classList.contains('hidden') && !el.classList.contains('sc-poster') && (el.id !== 'scText' || sc.mode === 'photo'));
+        const poster = ehPoster(sc.card) ? elCardCriador() : null;
+        if (poster) {
+            // o pôster é o alvo, a não ser que os dedos estejam em cima de outro item
+            const perto = cands.find(el => { const r = el.getBoundingClientRect(); return cx > r.left - 30 && cx < r.right + 30 && cy > r.top - 30 && cy < r.bottom + 30; });
+            return perto || poster;
+        }
         if (!cands.length) return null;
         if (sc.itemAtivo && cands.includes(sc.itemAtivo)) {
             const r = sc.itemAtivo.getBoundingClientRect();
@@ -15539,7 +15578,8 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         const [a, b] = e.touches;
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
-        const esc = Math.max(g.ehCard ? 0.4 : 0.6, Math.min(g.ehCard ? 1.6 : 2.2, g.esc0 * d / g.d0));
+        const pst = g.ehCard && ehPoster(sc.card);
+        const esc = Math.max(pst ? 0.3 : g.ehCard ? 0.4 : 0.6, Math.min(pst ? 1 : g.ehCard ? 1.6 : 2.2, g.esc0 * d / g.d0));
         let rot = g.rot0 + (ang - g.a0) * 180 / Math.PI;
         if (Math.abs(rot % 90) < 4) rot = Math.round(rot / 90) * 90; // gruda reto
         if (g.ehCard) { sc.cardEsc = esc; sc.cardRot = rot; } else if (g.ehTexto) { sc.txtEsc = esc; sc.txtRot = rot; } else { sc.adEsc = esc; sc.adRot = rot; }
@@ -15562,10 +15602,32 @@ tornarArrastavel($('#scText'), 'pos', () => {
 tornarArrastavel($('#scSticker'), 'adesivoPos', null);
 tornarArrastavel(elCardCriador(), 'cardPos', null);
 (function deslizarEstiloPoster() {
-    const stage = document.getElementById('scStage'); let ini = null;
-    stage.addEventListener('pointerdown', e => { ini = ehPoster(sc.card) && !e.target.closest('.sc-text:not([readonly]), .sc-sticker, .sc-mencao, .sc-enquete, button') ? { x: e.clientX, y: e.clientY } : null; });
+    // pôster em tela cheia: deslizar pro lado troca o estilo. Pôster menor: um dedo arrasta. Toque duplo volta pra tela cheia.
+    const stage = document.getElementById('scStage'); let ini = null, ultimoToque = 0;
+    stage.addEventListener('pointerdown', e => {
+        ini = ehPoster(sc.card) && !sc.doisDedos && !e.target.closest('.sc-text:not([readonly]), .sc-sticker, .sc-mencao, .sc-enquete, button, .sc-card:not(.sc-poster)')
+            ? { x: e.clientX, y: e.clientY, pos: { ...(sc.cardPos || { x: 50, y: 50 }) }, solto: posterSolto(sc.cardPos, sc.cardEsc, sc.cardRot), mexeu: false } : null;
+        // com foto, só mexe no pôster quem começa em cima dele (fora dele o dedo troca o filtro)
+        if (ini && sc.mode === 'photo' && !dentroDoPoster(e.clientX, e.clientY)) ini = null;
+    });
+    stage.addEventListener('pointermove', e => {
+        if (!ini || !ini.solto || sc.doisDedos) return;
+        const r = stage.getBoundingClientRect(), dx = e.clientX - ini.x, dy = e.clientY - ini.y;
+        if (!ini.mexeu && Math.hypot(dx, dy) < 6) return;
+        ini.mexeu = true; $('#storyCreator').classList.add('arrastando');
+        sc.cardPos = { x: Math.max(0, Math.min(100, ini.pos.x + dx / r.width * 100)), y: Math.max(0, Math.min(100, ini.pos.y + dy / r.height * 100)) };
+        aplicarTransformPoster();
+    });
+    stage.addEventListener('pointercancel', () => { ini = null; $('#storyCreator').classList.remove('arrastando'); });
     stage.addEventListener('pointerup', e => {
-        if (!ini) return; const dx = e.clientX - ini.x, dy = e.clientY - ini.y; ini = null;
+        if (!ini) return; const dx = e.clientX - ini.x, dy = e.clientY - ini.y, era = ini; ini = null;
+        if (era.mexeu || sc.doisDedos) { stage._deslizou = Date.now(); $('#storyCreator').classList.remove('arrastando'); return; }
+        if (Math.hypot(dx, dy) < 10) {
+            const agora = Date.now();
+            if (agora - ultimoToque < 320 && era.solto && sc.mode !== 'photo') { sc.cardPos = { x: 50, y: 50 }; sc.cardEsc = 1; sc.cardRot = 0; aplicarTransformPoster(); vibrar(8); ultimoToque = 0; stage._deslizou = agora; setTimeout(() => $('#scText').blur(), 0); return; }
+            ultimoToque = agora; return;
+        }
+        if (era.solto) return;
         if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
         const i = ESTILOS_POSTER.findIndex(x => x[0] === sc.card.estilo);
         trocarEstiloPoster(ESTILOS_POSTER[(i + (dx < 0 ? 1 : -1) + ESTILOS_POSTER.length) % ESTILOS_POSTER.length][0]);
@@ -15607,6 +15669,7 @@ $('#scColAlinhar').addEventListener('click', e => {
 $('#scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
 $('#scColTreino').addEventListener('click', e => { e.stopPropagation(); abrirAdesivosStory(); });
 $('#scColTexto').addEventListener('click', e => { e.stopPropagation(); $('#scAddText').click(); });
+$('#scColFoto').addEventListener('click', e => { e.stopPropagation(); $('#scGal').click(); });
 $('#scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrirMencionarStory(); });
 $('#scColFechar').addEventListener('click', e => {
     e.stopPropagation();
@@ -15792,7 +15855,7 @@ async function arquivoComFiltroStory(file) {
     const stage = document.getElementById('scStage');
     let ini = null;
     stage.addEventListener('pointerdown', e => {
-        if (sc.mode !== 'photo' || !sc.filtroBase || e.target.closest('.sc-text, .sc-sticker, .sc-card, .sc-mencao, button')) { ini = null; return; }
+        if (sc.mode !== 'photo' || !sc.filtroBase || e.target.closest('.sc-text, .sc-sticker, .sc-card, .sc-mencao, button') || dentroDoPoster(e.clientX, e.clientY)) { ini = null; return; }
         ini = { x: e.clientX, y: e.clientY, t: Date.now() };
     });
     stage.addEventListener('pointerup', e => {
@@ -15893,7 +15956,7 @@ $('#scAdesivo').addEventListener('click', async () => {
     atualizarBotaoPublicarStory();
 });
 $('#scStage').addEventListener('click', e => {
-    if (sc.mode === 'text' && e.target.id === 'scStage') $('#scText').focus();
+    if (sc.mode === 'text' && e.target.id === 'scStage' && Date.now() - (e.currentTarget._deslizou || 0) > 400) $('#scText').focus();
     $('#scSwatches').classList.add('hidden');
     $('#scPaleta').classList.add('hidden');
 });
@@ -16194,7 +16257,7 @@ function showCurrentStory() {
     const adesivoHTML = st.sticker
         ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${htmlAdesivo(st.sticker)}</div>` : '';
     // card feito no editor (com posição): entra junto com o resto do story
-    const posterHTML = st.card && ehPoster(st.card) ? `<div class="sv-poster">${htmlCardStory(st, false)}</div>` : '';
+    const posterHTML = st.card && ehPoster(st.card) ? (() => { const sl = posterSolto(st.cardPos, st.cardScale, st.cardRot); return `<div class="sv-poster${sl ? ' solto' : ''}"${sl ? ` style="transform:${transformPoster(st.cardPos, st.cardScale, st.cardRot)}"` : ''}>${htmlCardStory(st, false)}</div>`; })() : '';
     const cardPosHTML = st.card && st.cardPos && !ehPoster(st.card) ? `<div class="sv-card" style="left:${Number(st.cardPos.x) || 50}%;top:${Number(st.cardPos.y) || 50}%;transform:translate(-50%, -50%) scale(${Number(st.cardScale) || 1}) rotate(${Number(st.cardRot) || 0}deg)">${htmlCardStory(st, !!item.image_url)}</div>` : '';
     if (st.card && !st.cardPos) {
         content.className = 'story-content' + (item.image_url ? '' : ' text-story card-fundo');
@@ -16206,7 +16269,7 @@ function showCurrentStory() {
         content.style.background = '#000';
         const e = estiloTextoStory(st, (item.caption || '').length, true);
         const pos = st.pos || null;
-        content.innerHTML = `${posterHTML}<div class="sv-fundo" style="background-image:url('${item.image_url}')"></div><img class="sv-foto" src="${item.image_url}">
+        content.innerHTML = `<div class="sv-fundo" style="background-image:url('${item.image_url}')"></div><img class="sv-foto" src="${item.image_url}">${posterHTML}
             ${item.caption ? `<div class="caption-over ${e.cls} fundo-${st.fundo || 'escuro'}${pos ? ' posicionado' : ''}" style="font-size:${e.size}px;${pos ? `left:${pos.x}%;top:${pos.y}%;transform:translate(-50%, -50%) scale(${Number(st.textScale) || 1}) rotate(${Number(st.textRot) || 0}deg)` : ''}">${escapeHTML(item.caption)}</div>` : ''}
             ${adesivoHTML}${cardPosHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;

@@ -5175,3 +5175,55 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 /* =================== botão "Compartilhar no story" com neon verde =================== */
 .mc-story{ border:1px solid rgba(16,185,129,.45) !important; color:#34D399 !important; box-shadow:0 0 18px rgba(16,185,129,.18), inset 0 0 12px rgba(16,185,129,.06); font-weight:700 !important; }
 :root[data-theme="light"] .mc-story{ border-color:rgba(16,185,129,.55) !important; color:#047857 !important; background:rgba(16,185,129,.06) !important; box-shadow:0 0 22px rgba(16,185,129,.28), 0 0 0 3px rgba(16,185,129,.08); }
+
+/* =================== ONDA 41: tema claro mais leve, depoimentos em tom pastel =================== */
+/* depoimentos: sem aspas em nenhum tema */
+.dep-vidro::after{ display:none !important; content:none !important; }
+.dep-vidro .dep-texto{ padding-right:0; }
+.dep-redigir textarea{ padding-right:0; }
+/* tema claro: o card inteiro na cor, bem clarinha */
+:root[data-theme="light"] .dep-vidro{ background:color-mix(in srgb, rgb(var(--dc)) 13%, #FFFFFF) !important;
+  border:1px solid color-mix(in srgb, rgb(var(--dc)) 24%, #FFFFFF) !important; box-shadow:none !important; }
+:root[data-theme="light"] .dep-vidro::before{ display:none; }
+:root[data-theme="light"] .dep-vidro .dep-texto{ color:color-mix(in srgb, rgb(var(--dc)) 16%, #18181B) !important; }
+:root[data-theme="light"] .dep-vidro .dep-mini{ background:rgba(255,255,255,.6); border-color:rgba(16,21,18,.06); }
+:root[data-theme="light"] .dep-cor{ background:color-mix(in srgb, rgb(var(--c)) 55%, #FFFFFF) !important; box-shadow:inset 0 0 0 1px rgba(16,21,18,.06) !important; }
+:root[data-theme="light"] .dep-cor.on{ box-shadow:0 0 0 2px #FFFFFF, 0 0 0 3.5px #18181B !important; }
+
+/* menu de baixo: vidro fosco */
+:root[data-theme="light"] .bottomnav, html.nav-compacta[data-theme="light"] .bottomnav{ background:rgba(255,255,255,.45) !important;
+  -webkit-backdrop-filter:blur(24px) saturate(1.8); backdrop-filter:blur(24px) saturate(1.8);
+  border:1px solid rgba(255,255,255,.6) !important; box-shadow:0 10px 30px -12px rgba(16,21,18,.22), inset 0 1px 0 rgba(255,255,255,.7) !important; }
+:root[data-theme="light"] .bottomnav .nav-btn{ color:#3F3F46 !important; }
+:root[data-theme="light"] .bottomnav .nav-btn.on{ color:#09090B !important; }
+/* topo: mesmo vidro, mais firme pra não embolar com o conteúdo */
+:root[data-theme="light"] .topbar{ background:rgba(246,247,246,.9) !important; -webkit-backdrop-filter:blur(24px) saturate(1.8); backdrop-filter:blur(24px) saturate(1.8); }
+/* botões secundários com borda visível */
+:root[data-theme="light"] .btn-ghost, :root[data-theme="light"] .btn-secondary{ border-color:rgba(16,21,18,.12) !important; background:rgba(255,255,255,.7); }
+
+/* =================== ONDA 41: editor de story =================== */
+/* pôster: dá pra diminuir, arrastar e girar */
+#scStage .sc-card.sc-poster{ transform:var(--pt-tf, none) !important; transform-origin:50% 50%; transition:border-radius .2s; }
+#scStage .sc-card.sc-poster.solto .poster, .sv-poster.solto .poster{ border-radius:28px; box-shadow:0 24px 60px -18px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.08); }
+.sv-poster.solto{ transform-origin:50% 50%; }
+.sc.photo-mode .sc-card.sc-poster{ z-index:1; }
+/* Texto e Foto de fundo aparecem quando tem card */
+.sc-col-item.so-card{ display:none; }
+.sc.text-mode.com-card .sc-col-item.so-card{ display:flex; }
+.sc.text-mode.com-card .sc-col-item#scColTexto{ display:flex; }
+/* Publicar escrito */
+.sc-publicar-grande{ width:auto !important; height:54px !important; padding:0 22px 0 28px; border-radius:999px !important; border:0 !important;
+  display:none; align-items:center; gap:4px; font-family:var(--ff-display); font-size:16px; font-weight:700; letter-spacing:-.01em;
+  background:#FFFFFF !important; color:#0A0C0B !important; box-shadow:0 10px 30px rgba(0,0,0,.35) !important; }
+.sc.text-mode .sc-publicar-grande, .sc.photo-mode .sc-publicar-grande{ display:flex; }
+.sc-publicar-grande svg{ width:20px !important; height:20px !important; }
+.sc-publicar-grande.enviando svg{ animation:none; }
+.sc-publicar-grande.enviando{ opacity:.6; }
+/* aviso da primeira vez */
+.sc-dica{ position:absolute; left:50%; top:calc(118px + env(safe-area-inset-top)); z-index:6; transform:translate(-50%, -8px); opacity:0; pointer-events:none;
+  max-width:calc(100% - 120px); padding:10px 16px; border-radius:999px; background:rgba(10,12,16,.72); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,.1); color:#fff; font-size:13px; font-weight:600; text-align:center; line-height:1.3; transition:opacity .3s, transform .3s; }
+.sc-dica.on{ opacity:1; transform:translate(-50%, 0); }
+.sc.text-mode.com-card .sc-text:placeholder-shown:not(:focus){ pointer-events:none; }
+.sc-dica{ top:auto; bottom:calc(98px + env(safe-area-inset-bottom)); max-width:calc(100% - 48px); transform:translate(-50%, 8px); }
+.sc-dica{ width:max-content; max-width:calc(100% - 32px); font-size:12.5px; }
