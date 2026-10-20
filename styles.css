@@ -4529,3 +4529,29 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 .un-campo input{ flex:1; height:48px; border:0; outline:none; background:none; color:var(--ink); font-family:inherit; font-size:16px; }
 .un-st{ min-height:18px; margin:6px 2px 12px; font-size:12.5px; color:var(--ink-faint); }
 .un-st.ok{ color:var(--vital); } .un-st.err{ color:#EF5A5A; }
+
+/* Depoimento no feed (vidro na cor de quem escreveu) */
+.dep-feed-card{ margin-top:6px; }
+.dep-feed-card .dep-texto{ margin:0 0 12px; }
+.dep-feed-card .dep-autor{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-dim); }
+.dep-feed-card .dep-autor b{ color:var(--ink); }
+.dep-sw{ margin:2px 0 10px; padding:10px 12px; }
+.dep-sw b{ font-size:13.5px; font-weight:600; }
+
+/* Temas da conversa */
+.coach-view.chat-tema{ background:var(--ct-fundo); }
+.coach-view.chat-tema .user-topbar, .coach-view.chat-tema .coach-composer{ background:transparent; }
+.coach-view.chat-tema #chatMessages{ background:transparent; }
+.coach-view.chat-tema .cmsg.user .cmsg-bubble{ background:var(--ct-meu) !important; color:var(--ct-txt) !important; border:0 !important; }
+.coach-view.chat-tema .cmsg.coach .cmsg-bubble{ background:var(--ct-ele) !important; border-color:transparent !important; }
+.coach-view.chat-tema .coach-send{ background:var(--ct-meu) !important; color:var(--ct-txt) !important; }
+.chat-sys-tema{ align-self:center; text-align:center; margin:6px auto 10px; font-size:11.5px; color:var(--ink-dim); }
+.ct-grade{ display:grid; grid-template-columns:repeat(4, 1fr); gap:12px 8px; margin:2px 0 16px; }
+.ct-op{ display:flex; flex-direction:column; align-items:center; gap:6px; border:0; background:none; color:var(--ink-dim); font-family:inherit; font-size:11.5px; font-weight:600; }
+.ct-op span{ position:relative; width:60px; height:60px; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,.08); }
+.ct-op span i, .ct-op span u{ position:absolute; height:12px; border-radius:6px; text-decoration:none; }
+.ct-op span i{ left:8px; top:13px; width:30px; }
+.ct-op span u{ right:8px; bottom:13px; width:32px; }
+.ct-op.on{ color:var(--ink); }
+.ct-op.on span{ box-shadow:0 0 0 2px var(--bg-elev), 0 0 0 4px var(--ink); }
+.conv-tema{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; }

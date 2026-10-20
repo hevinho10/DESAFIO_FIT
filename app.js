@@ -4587,6 +4587,7 @@ function showChatMenu(anchor) {
     menu.dataset.menuType = 'chat';
     menu.className = 'post-menu';
     menu.innerHTML = `
+        <button class="post-menu-item" data-act="chat-tema" data-id="${anchor.dataset.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18c1.7 0 2-1.2 1.2-2.2-.9-1.1-.3-2.8 1.3-2.8H17a4 4 0 0 0 4-4c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>Tema da conversa</button>
         <button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">${icon('lixo')}Apagar conversa</button>
     `;
     const rect = anchor.getBoundingClientRect();
@@ -4684,6 +4685,14 @@ async function renderMessages() {
     }
 
     list.innerHTML = html;
+    // pontinho com a cor do tema de cada conversa
+    sb.rpc('chat_temas').then(({ data }) => {
+        (data || []).forEach(t => {
+            const tema = TEMAS_CHAT[t.tema]; if (!tema || t.tema === 'pulso') return;
+            const nome = list.querySelector(`.conv-item[data-conv-id="${t.id}"] .conv-name`);
+            if (nome && !nome.querySelector('.conv-tema')) nome.insertAdjacentHTML('afterbegin', `<i class="conv-tema" style="background:${tema.meu}"></i>`);
+        });
+    }, () => {});
     updateUnreadBadge();
 }
 
@@ -4748,6 +4757,11 @@ async function renderChat(conversationId, otherUser) {
     `;
 
     state.chatRespondendo = null;
+    state.chatTema = null;
+    sb.rpc('chat_tema', { cid: conversationId }).then(({ data }) => {
+        if (state.chatConversationId !== conversationId || !data) return;
+        state.chatTema = data; aplicarTemaChat(data.tema); pintarAvisoTema();
+    }, () => {});
     try {
         state.chatMessages = await loadChatMessages(conversationId);
         await carregarExtrasDoChat(conversationId);
@@ -4904,6 +4918,7 @@ function paintChatMessages() {
         }).join('');
         if (digitando) box.appendChild(digitando);
     }
+    pintarAvisoTema();
     box.scrollTop = box.scrollHeight;
 }
 
@@ -5751,10 +5766,9 @@ function renderPost(p) {
         badge = x1FeedHTML(m);
     } else if (p.kind === 'text' && p.meta && p.meta.depoimento) {
         const dep = p.meta.depoimento;
-        badge = `<div class="dep-card-feed">
-            <span class="dep-aspas">“</span>
-            <p>${escapeHTML(p.caption || '')}</p>
-            <span class="dep-autor" data-act="view-user" data-uid="${dep.autor_id}">Depoimento de <b>${escapeHTML(dep.autor_nome || '')}</b> <small>@${escapeHTML(dep.autor_username || '')}</small></span>
+        badge = `<div class="dep-vidro dep-feed-card" style="${estiloCorDep(dep.cor)}">
+            <p class="dep-texto">${escapeHTML(p.caption || '')}</p>
+            <span class="dep-autor" data-act="view-user" data-uid="${dep.autor_id}">${avatarHTML({ id: dep.autor_id, display_name: dep.autor_nome, username: dep.autor_username, avatar_url: dep.autor_avatar || null }, 'sm')}<span>Depoimento de <b>${escapeHTML(dep.autor_nome || dep.autor_username || '')}</b></span></span>
         </div>`;
         p = Object.assign({}, p, { caption: null });
     } else if (p.kind === 'achievement') {
@@ -10029,7 +10043,7 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
                 </div>
             </div>` : ''}
             ${pendente && meu ? `<div class="dep-decidir">
-                <label class="dep-feed"><input type="checkbox" id="depFeed-${x.id}"> também postar no feed</label>
+                <button type="button" class="x1-sw dep-sw" data-act="dep-feed-tg" data-id="${x.id}"><span><b>Também postar no feed</b></span><i class="x1-tg" id="depFeed-${x.id}"></i></button>
                 <div class="dep-bts">
                     <button class="btn-ghost btn-xs" data-act="dep-responder" data-id="${x.id}" data-pub="0">Recusar</button>
                     <button class="btn-primary-sm" data-act="dep-responder" data-id="${x.id}" data-pub="1">Publicar</button>
@@ -10056,6 +10070,68 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     `;
 }
 
+// ================= TEMAS DA CONVERSA (valem pros dois) =================
+const TEMAS_CHAT = {
+    pulso:    { nome: 'Pulso',      fundo: '#0A0C0B', ele: '#1a201d', meu: '#35E19B', txt: '#04120B', claro: '#F4F7F5', eleClaro: '#FFFFFF' },
+    oceano:   { nome: 'Oceano',     fundo: 'linear-gradient(180deg,#0B1A2E,#081019)', ele: '#16263a', meu: 'linear-gradient(135deg,#3B82F6,#22D3EE)', txt: '#fff', claro: 'linear-gradient(180deg,#EAF3FF,#F4F9FF)', eleClaro: '#FFFFFF', emo: '🌊' },
+    sol:      { nome: 'Pôr do sol', fundo: 'linear-gradient(180deg,#1E1210,#120B0F)', ele: '#2a1c1b', meu: 'linear-gradient(135deg,#FF8A4C,#FF5E8A)', txt: '#fff', claro: 'linear-gradient(180deg,#FFF1EA,#FFF7F4)', eleClaro: '#FFFFFF', emo: '🌅' },
+    lavanda:  { nome: 'Lavanda',    fundo: 'linear-gradient(180deg,#16131F,#0E0C14)', ele: '#221d30', meu: 'linear-gradient(135deg,#A78BFA,#C4B5FD)', txt: '#160E2B', claro: 'linear-gradient(180deg,#F3EFFF,#F9F7FF)', eleClaro: '#FFFFFF', emo: '💜' },
+    dourado:  { nome: 'Dourado',    fundo: 'linear-gradient(180deg,#17140C,#0D0B07)', ele: '#262014', meu: 'linear-gradient(135deg,#F6DE9A,#C9A24B)', txt: '#1a1405', claro: 'linear-gradient(180deg,#FFF8E6,#FFFCF3)', eleClaro: '#FFFFFF', emo: '✨' },
+    floresta: { nome: 'Floresta',   fundo: 'linear-gradient(180deg,#0E1A12,#08100B)', ele: '#16261b', meu: 'linear-gradient(135deg,#22C55E,#86EFAC)', txt: '#05210F', claro: 'linear-gradient(180deg,#EAF8EE,#F5FCF7)', eleClaro: '#FFFFFF', emo: '🌿' },
+    grafite:  { nome: 'Grafite',    fundo: '#111111', ele: '#222222', meu: '#E5E5E5', txt: '#111111', claro: '#F2F2F2', eleClaro: '#FFFFFF', emo: '🖤' },
+    rose:     { nome: 'Rosé',       fundo: 'linear-gradient(180deg,#1A0F17,#0F090E)', ele: '#2a1825', meu: 'linear-gradient(135deg,#F472B6,#FB7185)', txt: '#fff', claro: 'linear-gradient(180deg,#FFEEF5,#FFF7FA)', eleClaro: '#FFFFFF', emo: '🌸' },
+};
+function aplicarTemaChat(chave) {
+    const v = document.querySelector('.coach-view'); if (!v || !document.getElementById('chatMessages')) return;
+    const t = TEMAS_CHAT[chave] || TEMAS_CHAT.pulso;
+    const claro = document.documentElement.getAttribute('data-theme') === 'light';
+    v.classList.add('chat-tema');
+    v.style.setProperty('--ct-fundo', claro ? t.claro : t.fundo);
+    v.style.setProperty('--ct-ele', claro ? t.eleClaro : t.ele);
+    v.style.setProperty('--ct-meu', t.meu);
+    v.style.setProperty('--ct-txt', t.txt);
+    v.dataset.tema = chave;
+}
+function pintarAvisoTema() {
+    const box = document.getElementById('chatMessages'); const t = state.chatTema;
+    if (!box) return;
+    box.querySelectorAll('.chat-sys-tema').forEach(x => x.remove());
+    if (!t || !t.em || !t.tema || t.tema === 'pulso' && !t.por_nome) return;
+    const tema = TEMAS_CHAT[t.tema] || TEMAS_CHAT.pulso;
+    const quem = t.por === state.session.user.id ? 'Você' : escapeHTML(String(t.por_nome || '').split(' ')[0] || 'Alguém');
+    const html = `<div class="chat-sys-tema">${quem} mudou o tema pra ${escapeHTML(tema.nome)} ${tema.emo || ''}</div>`;
+    const prox = (state.chatMessages || []).find(m => m.created_at && new Date(m.created_at) > new Date(t.em));
+    const el = prox && box.querySelector(`[data-mid="${prox.id}"]`);
+    if (el) el.insertAdjacentHTML('beforebegin', html);
+    else { const dig = document.getElementById('typingBubble'); if (dig && dig.parentNode === box) dig.insertAdjacentHTML('beforebegin', html); else box.insertAdjacentHTML('beforeend', html); }
+}
+function abrirTemasChat(cid) {
+    const atual = (state.chatTema && state.chatTema.tema) || 'pulso';
+    let escolhido = atual;
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Tema da conversa</h3><p class="dep-sub">Muda pra vocês dois</p>
+        <div class="ct-grade">${Object.entries(TEMAS_CHAT).map(([k, t]) => `<button type="button" class="ct-op${k === atual ? ' on' : ''}" data-ct="${k}">
+            <span style="background:${t.fundo}"><i style="background:${t.ele}"></i><u style="background:${t.meu}"></u></span>${escapeHTML(t.nome)}</button>`).join('')}</div>
+        <button class="btn x1-btn" id="ctOk" disabled>Usar este tema</button>`, 'chatTemas');
+    let confirmou = false;
+    f.querySelector('.ct-grade').addEventListener('click', e => {
+        const b = e.target.closest('[data-ct]'); if (!b) return;
+        escolhido = b.dataset.ct; vibrar(5);
+        f.querySelectorAll('.ct-op').forEach(x => x.classList.toggle('on', x === b));
+        aplicarTemaChat(escolhido); // prévia ao vivo
+        f.querySelector('#ctOk').disabled = escolhido === atual;
+    });
+    f.querySelector('#ctOk').onclick = async ev => {
+        ev.currentTarget.disabled = true; confirmou = true;
+        const { data, error } = await sb.rpc('definir_tema_conversa', { cid, p_tema: escolhido });
+        if (error) { toast(msgErro(error), 'err'); confirmou = false; aplicarTemaChat(atual); return; }
+        state.chatTema = data || { tema: escolhido, por: state.session.user.id, em: new Date().toISOString() };
+        fechar(); pintarAvisoTema();
+        const box = document.getElementById('chatMessages'); if (box) box.scrollTop = box.scrollHeight;
+    };
+    // fechou sem confirmar: volta pro tema de antes
+    const obs = new MutationObserver(() => { if (!document.body.contains(f)) { obs.disconnect(); if (!confirmou) aplicarTemaChat(atual); } });
+    obs.observe(document.body, { childList: true, subtree: true });
+}
 // Cores do cartão de depoimento (quem escreve escolhe)
 const CORES_DEP = {
     dourado: ['226,190,110', 'linear-gradient(135deg,#F6DE9A,#B8913F)'], prata: ['205,211,219', 'linear-gradient(135deg,#F3F5F7,#98A1AB)'],
@@ -12337,6 +12413,11 @@ document.addEventListener('click', async e => {
         salvarImagem(blob, nome);
         const info = document.getElementById('backupInfo');
         if (info) info.textContent = `Backup gerado (${Math.round(texto.length / 1024)} KB). Guarde o arquivo ${nome} num lugar seguro.`;
+    } else if (act === 'chat-tema') {
+        hidePostMenu && hidePostMenu();
+        abrirTemasChat(btn.dataset.id);
+    } else if (act === 'dep-feed-tg') {
+        const tg = document.getElementById('depFeed-' + btn.dataset.id); if (tg) { tg.classList.toggle('on'); vibrar(6); }
     } else if (act === 'dep-editar') {
         abrirEscreverDepoimento(btn.dataset.uid, '', { id: btn.dataset.id, texto: btn.dataset.texto, cor: btn.dataset.cor });
     } else if (act === 'dep-escrever') {
@@ -12345,7 +12426,7 @@ document.addEventListener('click', async e => {
         const publicar = btn.dataset.pub === '1';
         const ck = document.getElementById('depFeed-' + btn.dataset.id);
         btn.disabled = true;
-        const { error } = await sb.rpc('responder_depoimento', { did: btn.dataset.id, publicar, no_feed: !!(publicar && ck && ck.checked) });
+        const { error } = await sb.rpc('responder_depoimento', { did: btn.dataset.id, publicar, no_feed: !!(publicar && ck && ck.classList.contains('on')) });
         if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
         toast(publicar ? (ck && ck.checked ? 'Publicado no perfil e no feed ✨' : 'Publicado no seu perfil ✨') : 'Depoimento recusado', 'ok');
         renderDepoimentos(state.session.user.id, false, '');
