@@ -7475,19 +7475,21 @@ function intensidadeMusc(m) {
     if (m.dias <= 6) return 'media';
     return 'baixa';
 }
-// 30 dias: a cor mostra a frequência no mês
+// 30 dias: a data do último treino manda; treinar muito no mês (6+) sobe um nível, só se foi nas últimas 2 semanas
 function intensidadeMusc30(m) {
-    const n = (m && m.mes) || 0;
-    if (!n) return 'nenhuma';
-    if (n >= 6) return 'alta';
-    if (n >= 3) return 'media';
+    if (!m || m.dias == null || m.dias > 28 || !(m.mes > 0)) return 'nenhuma';
+    const muito = m.mes >= 6;
+    if (m.dias <= 2) return 'alta';
+    if (m.dias <= 6) return muito ? 'quente' : 'media';
+    if (m.dias <= 14) return muito ? 'media' : 'baixa';
     return 'baixa';
 }
-const ROTULO_INT = { alta: 'Zona quente', media: 'Morno', baixa: 'Esfriando', nenhuma: 'Sem treino recente' };
-const COR_INT = { alta: '#F59E0B', media: '#10B981', baixa: '#8B5CF6', nenhuma: '#4B5563' };
+const ROTULO_INT = { alta: 'Em chamas', quente: 'Quente', media: 'Morno', baixa: 'Esfriando', nenhuma: 'Sem treino recente' };
+const COR_INT = { alta: '#F97316', quente: '#FACC15', media: '#10B981', baixa: '#8B5CF6', nenhuma: '#4B5563' };
 const sexoCorpo = p => (p && String(p.sexo || '').toUpperCase().startsWith('F')) ? 'F' : 'M';
 const DEFS_CALOR = `<defs>
- <radialGradient id="calor-alta" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#FEF3C7"/><stop offset=".35" stop-color="#FBBF24"/><stop offset=".75" stop-color="#F59E0B"/><stop offset="1" stop-color="#EF4444"/></radialGradient>
+ <radialGradient id="calor-alta" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#FFEDD5"/><stop offset=".35" stop-color="#FB923C"/><stop offset=".75" stop-color="#F97316"/><stop offset="1" stop-color="#DC2626"/></radialGradient>
+ <radialGradient id="calor-quente" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#FEF9C3"/><stop offset=".45" stop-color="#FDE047"/><stop offset="1" stop-color="#F59E0B"/></radialGradient>
  <radialGradient id="calor-media" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#D1FAE5"/><stop offset=".4" stop-color="#34D399"/><stop offset=".8" stop-color="#10B981"/><stop offset="1" stop-color="#06B6D4"/></radialGradient>
  <radialGradient id="calor-baixa" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#C4B5FD"/><stop offset=".45" stop-color="#8B5CF6"/><stop offset="1" stop-color="#3B82F6"/></radialGradient>
 </defs>`;
@@ -7518,7 +7520,7 @@ const intsDoMapa = (M, per = 7) => { const o = {}; Object.keys(NOME_MUSC).forEac
 // resumo em palavras: o que está quente e o que mais precisa de atenção
 function resumoMapa(M, per = 7) {
     const ints = intsDoMapa(M, per);
-    const quentes = MUSC_PRINCIPAIS.filter(s => ints[s] === 'alta').map(s => NOME_MUSC[s]);
+    const quentes = MUSC_PRINCIPAIS.filter(s => ints[s] === 'alta' || ints[s] === 'quente').sort((a, b) => (ints[a] === 'quente') - (ints[b] === 'quente')).map(s => NOME_MUSC[s]);
     // primeiro os que já foram treinados e estão esfriando (mais tempo parado antes), depois os nunca treinados
     const frios = MUSC_PRINCIPAIS.filter(s => ints[s] === 'baixa' || ints[s] === 'nenhuma')
         .sort((a, b) => (ints[a] === 'nenhuma') - (ints[b] === 'nenhuma') || ((M[b] && M[b].dias) ?? 99) - ((M[a] && M[a].dias) ?? 99));
@@ -7637,9 +7639,10 @@ function acenderMapa(card) {
 }
 // tocou num músculo: o que foi feito pra ele e um atalho pra treinar
 async function abrirMusculo(slug, M) {
-    const m = M[slug], it = intensidadeMusc(m), grupo = MUSC_PARA_GRUPO[slug];
+    const m = M[slug], per30 = state.mapaPeriodo === 30, it = per30 ? intensidadeMusc30(m) : intensidadeMusc(m), grupo = MUSC_PARA_GRUPO[slug];
     const exs = m ? Object.entries(m.ex).sort((a, b) => b[1].ultimo - a[1].ultimo).slice(0, 5) : [];
-    const quando = !m || m.dias == null ? 'Sem treino nas últimas 4 semanas' : m.dias === 0 ? 'Treinado hoje' : m.dias === 1 ? 'Treinado ontem' : `Último treino há ${m.dias} dias`;
+    let quando = !m || m.dias == null ? 'Sem treino nas últimas 4 semanas' : m.dias === 0 ? 'Treinado hoje' : m.dias === 1 ? 'Treinado ontem' : `Último treino há ${m.dias} dias`;
+    if (per30 && m && m.dias != null && m.mes > 0) { const n = String(Math.round(m.mes * 2) / 2).replace('.', ','); quando = `${n} ${m.mes === 1 ? 'treino' : 'treinos'} no mês · ${m.dias === 0 ? 'último hoje' : m.dias === 1 ? 'último ontem' : `último há ${m.dias} dias`}`; }
     const semana = m ? Math.round(m.semana * 2) / 2 : 0;
     const { f, fechar } = x1Folha(`<div class="mc-folha-topo"><span class="mc-ponto" style="--c:${COR_INT[it]}"></span><div><h3 class="x1-folha-t">${NOME_MUSC[slug]}</h3><small>${ROTULO_INT[it]}</small></div></div>
         <div class="mc-folha-num"><div><b>${m && m.dias != null ? (m.dias === 0 ? 'hoje' : m.dias + 'd') : '–'}</b><small>último treino</small></div><div><b>${String(semana).replace('.', ',')}</b><small>treinos na semana</small></div><div><b>${String(Math.round(((m && m.mes) || 0) * 2) / 2).replace('.', ',')}</b><small>no mês</small></div></div>
