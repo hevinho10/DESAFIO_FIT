@@ -398,8 +398,10 @@ async function creditPoints(amount, reason, referenceId=null) {
 async function updateStreak(activityDate) {
     const { data, error } = await sb.rpc('update_streak', {
         uid: state.session.user.id,
-        activity_date: activityDate
+        activity_date: activityDate || hojeISO()
     });
+    // confere pelo histórico real (corrige se a conta antiga errou)
+    sb.rpc('recalcular_minha_ofensiva').then(() => {}, () => {});
     if (error) { console.error('streak', error); return null; }
     return data?.[0];
 }
@@ -821,10 +823,7 @@ function showProfileMenu(anchor, isAdmin) {
         <div class="menu-divider"></div>
         <button class="post-menu-item danger" data-act="do-logout">${icon('sair')}Sair</button>
     `;
-    const rect = anchor.getBoundingClientRect();
-    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    menu.style.right = (window.innerWidth - rect.right) + 'px';
-    document.body.appendChild(menu);
+    mostrarMenuFolha(menu);
     setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
 }
 
@@ -3161,10 +3160,7 @@ function showUserMenu(anchor) {
             ${bloqueado ? icon('ok') + 'Desbloquear' : icon('bloquear') + 'Bloquear'}
         </button>
     `;
-    const rect = anchor.getBoundingClientRect();
-    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    menu.style.right = (window.innerWidth - rect.right) + 'px';
-    document.body.appendChild(menu);
+    mostrarMenuFolha(menu);
     setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
 }
 
@@ -4921,10 +4917,7 @@ function showChatMenu(anchor) {
         <button class="post-menu-item" data-act="chat-tema" data-id="${anchor.dataset.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18c1.7 0 2-1.2 1.2-2.2-.9-1.1-.3-2.8 1.3-2.8H17a4 4 0 0 0 4-4c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>Tema da conversa</button>
         <button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">${icon('lixo')}Apagar conversa</button>
     `;
-    const rect = anchor.getBoundingClientRect();
-    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    menu.style.right = (window.innerWidth - rect.right) + 'px';
-    document.body.appendChild(menu);
+    mostrarMenuFolha(menu);
     setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
 }
 
@@ -11995,7 +11988,7 @@ function openBodyDataSheet() {
     const p = state.profile;
     const old = document.getElementById('bodySheet');
     if (old) old.remove();
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = hojeISO();
 
     const sheet = document.createElement('div');
     sheet.id = 'bodySheet';
@@ -12240,7 +12233,7 @@ function openWeightLogSheet() {
             }).select().single();
             if (error) throw error;
 
-            const today = new Date().toISOString().split('T')[0];
+            const today = hojeISO();
             const streakInfo = await updateStreak(today);
             const { data: wl } = await sb.rpc('credit_weight_loss');
             const wlPts = Number((wl && wl[0] && wl[0].pts) || 0);
@@ -12350,7 +12343,7 @@ function openMeasureSheet() {
 
     sheet.classList.add('on');
     document.body.style.overflow = 'hidden';
-    document.getElementById('msDate').value = new Date().toISOString().split('T')[0];
+    document.getElementById('msDate').value = hojeISO();
 
     sheet.onclick = e => { if (e.target === sheet) closeMeasureSheet(); };
     document.getElementById('measureCancel').onclick = closeMeasureSheet;
@@ -12362,7 +12355,7 @@ function openMeasureSheet() {
         const num = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
         const row = {
             user_id: state.session.user.id,
-            measured_at: document.getElementById('msDate').value || new Date().toISOString().split('T')[0],
+            measured_at: document.getElementById('msDate').value || hojeISO(),
             cintura: num('msCintura'),
             quadril: num('msQuadril'),
             peito: num('msPeito'),
@@ -13105,10 +13098,7 @@ document.addEventListener('click', async e => {
         menu.className = 'post-menu';
         menu.innerHTML = `<button class="post-menu-item danger" data-act="apagar-meu-depoimento" data-dep="${btn.dataset.dep}" data-id="${id}">${icon('lixo')}Apagar meu depoimento</button>
             <button class="post-menu-item" data-act="report-post" data-id="${id}" data-uid="${btn.dataset.uid}" data-name="${btn.dataset.name}">${icon('bloquear')}Denunciar</button>`;
-        const rect = btn.getBoundingClientRect();
-        menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-        menu.style.right = (window.innerWidth - rect.right) + 'px';
-        document.body.appendChild(menu);
+        mostrarMenuFolha(menu);
         setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
     } else if (act === 'apagar-meu-depoimento') {
         hidePostMenu();
@@ -14177,14 +14167,14 @@ document.addEventListener('click', async e => {
         }).eq('id', postId);
         if (error) { toast('Erro ao mudar privacidade', 'err'); return; }
 
-        const meta = { public:{emo:'🌍',label:'Público'}, followers:{emo:'👥',label:'Seguidores'}, private:{emo:'🔒',label:'Só eu'} }[newVis];
+        const meta = { public:{label:'Público'}, followers:{label:'Seguidores'}, private:{label:'Só eu'} }[newVis];
         const postEl = document.querySelector(`.post[data-post-id="${postId}"]`);
         if (postEl) {
             postEl.dataset.visibility = newVis;
             const badge = postEl.querySelector('[data-privacy-badge]');
             if (badge) badge.innerHTML = `${ICONE_VIS[newVis]} ${meta.label}`;
         }
-        toast('Privacidade atualizada', 'ok');
+        toast({ public: 'Agora todo mundo vê', followers: 'Agora só seus seguidores veem', private: 'Agora só você vê' }[newVis], 'ok');
         hidePostMenu();
         const pm = document.getElementById('floatingPrivacyMenu');
         if (pm) pm.remove();
@@ -14238,19 +14228,21 @@ function showPostMenu(postId, anchor) {
     const menu = document.createElement('div');
     menu.id = 'floatingPostMenu';
     menu.className = 'post-menu';
+    const DICA_VIS = { public: 'Todo mundo pode ver esse post.', followers: 'Só quem te segue vê esse post.', private: 'Só você vê esse post. Ele continua no seu histórico.' };
     menu.innerHTML = `
-        <button class="post-menu-item" data-act="post-ao-story" data-id="${postId}"><svg class="pm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.6"/><path d="M12 8.5v7M8.5 12h7"/></svg>Adicionar ao story</button>
+        <div class="mf-sec">Quem pode ver</div>
+        <div class="mf-seg">${[['public', 'Público'], ['followers', 'Seguidores'], ['private', 'Só eu']].map(([v, n]) => `<button class="mf-seg-op${v === currentVis ? ' on' : ''}" data-act="set-post-privacy" data-id="${postId}" data-vis="${v}">${ICONE_VIS[v]}<span>${n}</span></button>`).join('')}</div>
+        <p class="mf-dica">${DICA_VIS[currentVis] || ''}</p>
+        <div class="mf-lista">
+        <button class="post-menu-item mf-destaque" data-act="post-ao-story" data-id="${postId}"><svg class="pm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.6"/><path d="M12 8.5v7M8.5 12h7"/></svg>Adicionar ao story</button>
         <button class="post-menu-item" data-act="edit-post" data-id="${postId}">${icon('editar')}Editar</button>
-        <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">${icon('olho')}Quem pode ver</button>
         <button class="post-menu-item" data-act="toggle-comentarios-post" data-id="${postId}">${icon('comentario')}${postEl && postEl.dataset.comentOff === '1' ? 'Ativar comentários' : 'Desativar comentários'}</button>
-        <button class="post-menu-item" data-act="fixar-post" data-id="${postId}" data-fixar="${postEl && postEl.dataset.fixado === '1' ? '0' : '1'}"><span class="pm-emo">📌</span>${postEl && postEl.dataset.fixado === '1' ? 'Desafixar do perfil' : 'Fixar no perfil'}</button>
+        <button class="post-menu-item" data-act="fixar-post" data-id="${postId}" data-fixar="${postEl && postEl.dataset.fixado === '1' ? '0' : '1'}"><svg class="pm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 5 4 4H6l4-4zM12 13v7"/></svg>${postEl && postEl.dataset.fixado === '1' ? 'Desafixar do perfil' : 'Fixar no perfil'}</button>
         <button class="post-menu-item" data-act="arquivar-post" data-id="${postId}"><svg class="pm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/></svg>Arquivar</button>
         <button class="post-menu-item danger" data-act="delete-post" data-id="${postId}">${icon('lixo')}Apagar post</button>
+        </div>
     `;
-    const rect = anchor.getBoundingClientRect();
-    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    menu.style.right = (window.innerWidth - rect.right) + 'px';
-    document.body.appendChild(menu);
+    mostrarMenuFolha(menu);
     setTimeout(() => {
         document.addEventListener('click', hidePostMenuOnce, { once: true });
     }, 10);
@@ -14258,6 +14250,32 @@ function showPostMenu(postId, anchor) {
 function hidePostMenu() {
     const m = document.getElementById('floatingPostMenu');
     if (m) m.remove();
+    document.querySelectorAll('.menu-folha-fundo').forEach(x => x.remove());
+}
+// Menu ⋯ como folha que sobe de baixo (não depende de onde o botão está na tela)
+function mostrarMenuFolha(menu) {
+    document.querySelectorAll('.menu-folha-fundo').forEach(x => x.remove());
+    const fundo = document.createElement('div');
+    fundo.className = 'menu-folha-fundo';
+    menu.classList.add('em-folha'); menu.style.top = ''; menu.style.right = '';
+    menu.insertAdjacentHTML('afterbegin', '<div class="mf-alca"></div>');
+    fundo.appendChild(menu);
+    document.body.appendChild(fundo);
+    requestAnimationFrame(() => fundo.classList.add('on'));
+    const fechar = () => { fundo.classList.remove('on'); setTimeout(() => fundo.remove(), 200); };
+    fundo.addEventListener('click', e => { if (e.target === fundo) fechar(); });
+    // escolher uma opção fecha a folha (a ação roda pelo clique de sempre)
+    menu.addEventListener('click', e => { if (e.target.closest('[data-act]')) setTimeout(() => fundo.remove(), 0); });
+    // se o menu sair por outro caminho, o fundo sai junto
+    new MutationObserver((_, o) => { if (!fundo.contains(menu)) { o.disconnect(); fundo.remove(); } }).observe(fundo, { childList: true });
+    // arrastar pra baixo fecha
+    let y0 = null;
+    menu.addEventListener('touchstart', e => { if (menu.scrollTop <= 0) y0 = e.touches[0].clientY; }, { passive: true });
+    menu.addEventListener('touchmove', e => { if (y0 == null) return; const dy = e.touches[0].clientY - y0; if (dy > 0) menu.style.transform = `translateY(${dy}px)`; }, { passive: true });
+    menu.addEventListener('touchend', e => {
+        if (y0 == null) return; const dy = (e.changedTouches[0] || {}).clientY - y0; y0 = null;
+        if (dy > 80) fechar(); else menu.style.transform = '';
+    });
 }
 function hidePostMenuOnce(e) {
     // tocar no ··· de outro item abre o menu dele (não fecha o novo que acabou de abrir)
@@ -14276,19 +14294,16 @@ function showPrivacyEditMenu(postId, anchor) {
     menu.id = 'floatingPrivacyMenu';
     menu.className = 'post-menu';
     const opts = [
-        { v:'public', emo:'🌍', label:'Público' },
-        { v:'followers', emo:'👥', label:'Seguidores' },
-        { v:'private', emo:'🔒', label:'Só eu' },
+        { v:'public', emo:ICONE_VIS.public, label:'Público' },
+        { v:'followers', emo:ICONE_VIS.followers, label:'Seguidores' },
+        { v:'private', emo:ICONE_VIS.private, label:'Só eu' },
     ];
     menu.innerHTML = opts.map(o => `
         <button class="post-menu-item${o.v===currentVis?' active-vis':''}" data-act="set-post-privacy" data-id="${postId}" data-vis="${o.v}">
             ${o.emo} ${o.label}${o.v===currentVis?' ✓':''}
         </button>
     `).join('');
-    const rect = anchor.getBoundingClientRect();
-    menu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    menu.style.right = (window.innerWidth - rect.right) + 'px';
-    document.body.appendChild(menu);
+    mostrarMenuFolha(menu);
     setTimeout(() => {
         document.addEventListener('click', hidePostMenuOnce, { once: true });
     }, 10);
@@ -14804,6 +14819,7 @@ async function publicarStoryPronto({ caption, image_url = null, background_color
         user_id: state.session.user.id, caption: caption || null, image_url, background_color: image_url ? null : background_color, style,
     }).select().single();
     if (error) { toast(msgErro(error), 'err'); return null; }
+    updateStreak(hojeISO()).catch(() => {});
     const { data: pts } = await sb.rpc('points_for_reference', { ref: story.id });
     loadScore();
     if (state.view === 'feed') renderFeed();
@@ -15783,6 +15799,7 @@ async function publicarStoryFundo(d) {
             const se = document.getElementById('semanaEvoSlot'); if (se) se.innerHTML = '';
         }
         if ((d.style.mencoes || []).length) sb.rpc('marcar_story_mencao', { sid: story.id }).then(() => {});
+        updateStreak(hojeISO()).catch(() => {});
         const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id });
         const ganhos = Number(stPts || 0);
         loadScore();
@@ -17564,7 +17581,8 @@ function updatePrivacyChip() {
         followers: { emo:'👥', label:'Seguidores' },
         private:   { emo:'🔒', label:'Só eu' },
     }[state.composerPrivacy] || { emo:'👥', label:'Seguidores' };
-    $('#pcEmo').textContent = meta.emo;
+    $('#pcEmo').innerHTML = ICONE_VIS[state.composerPrivacy] || ICONE_VIS.public;
+    document.querySelectorAll('[data-vis-ic]').forEach(el => { if (!el.innerHTML) el.innerHTML = ICONE_VIS[el.dataset.visIc] || ''; });
     $('#pcLabel').textContent = meta.label;
     $$('.privacy-opt').forEach(x => x.classList.toggle('on', x.dataset.privacy === state.composerPrivacy));
 }
@@ -17967,7 +17985,7 @@ $('#composerSubmit').addEventListener('click', async () => {
         let mealFeedback = null;
         let mealAnalysisFailed = false;
         let mealLimitReached = false;
-        const today = new Date().toISOString().split('T')[0];
+        const today = hojeISO();
 
         if (state.composerKind === 'workout') {
             post.activity_type = $('#wType').value;
@@ -19907,7 +19925,7 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
         }
         trSet(null);
         fechar(); aoFechar();
-        const [{ data: pts }] = await Promise.all([sb.rpc('points_for_reference', { ref: criado.id }), updateStreak(new Date().toISOString().split('T')[0]).catch(() => null)]);
+        const [{ data: pts }] = await Promise.all([sb.rpc('points_for_reference', { ref: criado.id }), updateStreak(hojeISO()).catch(() => null)]);
         sb.rpc('check_and_credit_weekly_bonus', { uid: state.session.user.id }).then(() => loadScore());
         loadScore();
         state.semanaHist = null;
