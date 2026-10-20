@@ -5235,3 +5235,24 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 :root[data-theme="light"] .mc-card .mc-musc[data-int="quente"], :root[data-theme="light"] .mc-teaser .mc-musc[data-int="quente"]{ filter:drop-shadow(0 2px 6px rgba(234,179,8,.35)); }
 :root[data-theme="light"] .mc-card .mc-musc[data-int="alta"], :root[data-theme="light"] .mc-teaser .mc-musc[data-int="alta"]{ filter:drop-shadow(0 2px 6px rgba(249,115,22,.4)); }
 .mc-escala i{ background:linear-gradient(90deg,#8B5CF6,#3B82F6,#10B981,#FACC15,#F97316,#DC2626); }
+
+/* =================== DEPOIMENTOS: vidro tingido com borda em degradê cintilante =================== */
+.dep-vidro, :root[data-theme="light"] .dep-vidro{ position:relative; isolation:isolate; overflow:visible; background:transparent !important; border:0 !important;
+  box-shadow:0 0 22px -6px rgba(var(--dc), .65), 0 0 2px rgba(var(--dc), .7) !important; }
+.dep-vidro::before, :root[data-theme="light"] .dep-vidro::before{ display:block !important; content:''; position:absolute; inset:0; left:0; top:0; width:auto; height:auto; z-index:-1; border-radius:inherit;
+  background:var(--dg) !important; opacity:.16; filter:none; }
+:root[data-theme="light"] .dep-vidro::before{ opacity:.2; }
+.dep-vidro::after, :root[data-theme="light"] .dep-vidro::after{ display:block !important; content:'' !important; position:absolute; inset:0; right:0; top:0; z-index:-1; border-radius:inherit; padding:1.5px;
+  background:var(--dg) !important; opacity:1; font-size:0;
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; }
+.dep-vidro .dep-texto, :root[data-theme="light"] .dep-vidro .dep-texto{ color:var(--ink) !important; padding-right:0; }
+.dep-vidro .avatar{ background:var(--dg) !important; color:#0A0C0B !important; }
+/* reflexo de luz passando devagar */
+.dep-brilho{ position:absolute; inset:0; border-radius:inherit; overflow:hidden; z-index:-1; pointer-events:none; }
+.dep-brilho::before{ content:''; position:absolute; top:-50%; left:-60%; width:45%; height:200%; transform:rotate(18deg);
+  background:linear-gradient(90deg, transparent, rgba(255,255,255,.22), transparent); animation:depReflexo 6.5s ease-in-out infinite; }
+@keyframes depReflexo{ 0%, 55%{ left:-60%; } 85%, 100%{ left:130%; } }
+@media (prefers-reduced-motion: reduce){ .dep-brilho::before{ animation:none; display:none; } }
+/* bolinhas */
+.dep-cor, :root[data-theme="light"] .dep-cor{ background:var(--dg) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.6), 0 0 12px -2px rgba(var(--dc), .8) !important; }
+.dep-cor.on, :root[data-theme="light"] .dep-cor.on{ outline:2px solid var(--ink); outline-offset:3px; }

@@ -6227,7 +6227,7 @@ function renderPost(p) {
         badge = x1FeedHTML(m);
     } else if (p.kind === 'text' && p.meta && p.meta.depoimento) {
         const dep = p.meta.depoimento;
-        badge = `<div class="dep-vidro dep-feed-card" style="${estiloCorDep(dep.cor)}">
+        badge = `<div class="dep-vidro dep-feed-card" style="${estiloCorDep(dep.cor)}"><span class="dep-brilho"></span>
             <p class="dep-texto">${escapeHTML(p.caption || '')}</p>
             <span class="dep-autor" data-act="view-user" data-uid="${dep.autor_id}">${avatarHTML({ id: dep.autor_id, display_name: dep.autor_nome, username: dep.autor_username, avatar_url: dep.autor_avatar || null }, 'sm')}<span>Depoimento de <b>${escapeHTML(dep.autor_nome || dep.autor_username || '')}</b></span></span>
         </div>`;
@@ -11098,7 +11098,7 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     const cartao = (x, pendente) => {
         const a = x.autor || {};
         const podeApagar = meu || x.author_id === eu;
-        return `<div class="dep-item dep-vidro${pendente ? ' pendente' : ''}" style="${estiloCorDep(x.cor)}">
+        return `<div class="dep-item dep-vidro${pendente ? ' pendente' : ''}" style="${estiloCorDep(x.cor)}"><span class="dep-brilho"></span>
             <p class="dep-texto">${escapeHTML(x.texto)}</p>
             <div class="dep-topo">
                 <span data-act="view-user" data-uid="${a.id}">${avatarHTML(a, 'sm')}</span>
@@ -11215,23 +11215,30 @@ function abrirTemasChat(cid) {
     obs.observe(document.body, { childList: true, subtree: true });
 }
 // Cores do cartão de depoimento (quem escreve escolhe)
+// cores dos depoimentos: degradês vivos (as chaves antigas continuam valendo pros depoimentos já salvos)
 const CORES_DEP = {
-    dourado: ['226,190,110', 'linear-gradient(135deg,#F6DE9A,#B8913F)'], prata: ['205,211,219', 'linear-gradient(135deg,#F3F5F7,#98A1AB)'],
-    bronze: ['205,140,95', 'linear-gradient(135deg,#E9B48C,#9A5C35)'], verde: ['53,225,155', '#35E19B'], menta: ['120,230,210', '#78E6D2'],
-    azul: ['95,176,255', '#5FB0FF'], lilas: ['167,139,250', '#A78BFA'], rosa: ['255,143,177', '#FF8FB1'], coral: ['255,122,110', '#FF7A6E'],
-    laranja: ['255,159,90', '#FF9F5A'], vinho: ['176,70,100', '#B04664'], neutro: ['160,170,165', '#3A403D'],
+    verde: ['0,255,135', 'linear-gradient(135deg,#00FF87 0%,#60EFFF 100%)'],
+    coral: ['255,0,122', 'linear-gradient(120deg,#FFD700 0%,#FF6A00 35%,#FF007A 70%,#A100FF 100%)'],
+    dourado: ['255,191,0', 'linear-gradient(120deg,#FFF200 0%,#FFDF00 40%,#FF9900 100%)'],
+    prata: ['160,196,255', 'linear-gradient(120deg,#FFFFFF 0%,#E8EEF8 45%,#A0C4FF 100%)'],
+    rosa: ['255,0,122', 'linear-gradient(135deg,#FF9AD5 0%,#FF007A 100%)'],
+    lilas: ['139,92,246', 'linear-gradient(135deg,#C084FC 0%,#6D28D9 100%)'],
+    azul: ['59,130,246', 'linear-gradient(135deg,#60EFFF 0%,#3B82F6 100%)'],
+    bronze: ['240,138,75', 'linear-gradient(120deg,#FFD3A5 0%,#F08A4B 50%,#B4532A 100%)'],
 };
-const estiloCorDep = cor => { const k = CORES_DEP[cor] || CORES_DEP.neutro; return `--dc:${k[0]}${String(k[1]).startsWith('linear') ? `;--dg:${k[1]}` : ''}`; };
+const COR_DEP_ANTIGA = { menta: 'verde', laranja: 'coral', vinho: 'lilas', neutro: 'prata' };
+const corDep = cor => CORES_DEP[cor] ? cor : (COR_DEP_ANTIGA[cor] || 'prata');
+const estiloCorDep = cor => { const k = CORES_DEP[corDep(cor)]; return `--dc:${k[0]};--dg:${k[1]}`; };
 function abrirEscreverDepoimento(uid, nome, editando = null) {
-    let cor = (editando && editando.cor) || 'neutro';
+    let cor = corDep((editando && editando.cor) || 'verde');
     const primeiro = escapeHTML(String(nome || '').split(' ')[0]);
     const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${editando ? 'Editar depoimento' : `Depoimento pra ${primeiro}`}</h3>
         <p class="dep-sub">Ela lê e decide se publica no perfil. Seja gentil e verdadeiro.</p>
-        <div class="dep-vidro dep-redigir" id="depCard" style="${estiloCorDep(cor)}">
+        <div class="dep-vidro dep-redigir" id="depCard" style="${estiloCorDep(cor)}"><span class="dep-brilho"></span>
             <textarea id="depTexto" maxlength="140" rows="3" placeholder="O que te inspira em ${primeiro}?">${editando ? escapeHTML(editando.texto) : ''}</textarea>
             <span class="dep-conta"><b id="depConta">${editando ? editando.texto.length : 0}</b>/140</span>
         </div>
-        <div class="dep-cores" id="depCores">${Object.entries(CORES_DEP).map(([k, v]) => `<button type="button" class="dep-cor${k === cor ? ' on' : ''}" data-cor="${k}" style="background:${v[1]};--c:${v[0]}" aria-label="${k}"></button>`).join('')}</div>
+        <div class="dep-cores" id="depCores">${Object.entries(CORES_DEP).map(([k, v]) => `<button type="button" class="dep-cor${k === cor ? ' on' : ''}" data-cor="${k}" style="--dg:${v[1]};--dc:${v[0]}" aria-label="${k}"></button>`).join('')}</div>
         <button class="btn x1-btn" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar'}</button>`, 'depSheet');
     const campo = f.querySelector('#depTexto'), enviar = f.querySelector('#depEnviar'), card = f.querySelector('#depCard');
     const ajustar = () => { campo.style.height = 'auto'; campo.style.height = Math.min(160, campo.scrollHeight) + 'px'; };
