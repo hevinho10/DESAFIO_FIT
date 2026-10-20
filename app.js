@@ -905,7 +905,7 @@ async function hydrateAdminErros() {
 
 // ---- Capacidade do banco e dos arquivos (limites do plano gratuito do Supabase) ----
 const LIMITE_BANCO = 500 * 1024 * 1024, LIMITE_ARQUIVOS = 1024 * 1024 * 1024;
-const PASTA_NOME = { 'post-images': 'Fotos dos posts e stories', 'private-images': 'Fotos privadas', 'avatars': 'Fotos de perfil', 'chat-audio': 'Áudios do chat', 'activity-photos': 'Fotos do app antigo' };
+const PASTA_NOME = { 'post-images': 'Fotos dos posts e stories', 'private-images': 'Fotos privadas', 'avatars': 'Fotos de perfil', 'chat-audio': 'Áudios do chat' };
 const fmtBytes = b => { b = Number(b) || 0; if (b < 1024 * 1024) return br(b / 1024, 0) + ' KB'; if (b < 1024 ** 3) return br(b / 1024 / 1024, b < 10 * 1024 * 1024 ? 1 : 0) + ' MB'; return br(b / 1024 ** 3, 2) + ' GB'; };
 async function hydrateAdminCapacidade() {
     const box = document.getElementById('admCapacidade'); if (!box) return;
@@ -913,11 +913,11 @@ async function hydrateAdminCapacidade() {
     if (!document.getElementById('admCapacidade')) return;
     if (error || !data) { box.innerHTML = `<p class="faixa-nota" style="margin:0">Não consegui ler a capacidade${error ? ': ' + escapeHTML(error.message) : ''}. Rode o SQL mais recente.</p>`; return; }
     const barra = (usado, limite) => { const pct = Math.min(100, Math.round(usado / limite * 100)); return `<div class="cap-barra ${pct >= 90 ? 'vermelho' : pct >= 70 ? 'amarelo' : ''}"><i style="width:${Math.max(2, pct)}%"></i></div><small class="cap-pct">${pct}% de ${fmtBytes(limite)}</small>`; };
-    const pastas = data.pastas || [], totArq = pastas.reduce((t, x) => t + Number(x.bytes || 0), 0);
+    const pastas = (data.pastas || []).filter(x => x.pasta !== 'activity-photos'), totArq = pastas.reduce((t, x) => t + Number(x.bytes || 0), 0);
     const maior = Math.max(1, ...pastas.map(x => Number(x.bytes) || 0));
     box.innerHTML = `<div class="cap-bloco"><div class="cap-l"><b>Banco de dados</b><span>${fmtBytes(data.banco)}</span></div>${barra(Number(data.banco), LIMITE_BANCO)}</div>
         <div class="cap-bloco"><div class="cap-l"><b>Arquivos</b><span>${fmtBytes(totArq)}</span></div>${barra(totArq, LIMITE_ARQUIVOS)}
-            <div class="cap-lista">${pastas.map(x => `<div class="cap-it"><span>${escapeHTML(PASTA_NOME[x.pasta] || x.pasta)}${x.pasta === 'activity-photos' ? ' <em>não usado pelo Pulso</em>' : ''}<small>${Number(x.arquivos).toLocaleString('pt-BR')} arquivos</small></span><b>${fmtBytes(x.bytes)}</b><i style="width:${Math.max(2, Math.round(Number(x.bytes) / maior * 100))}%"></i></div>`).join('')}</div></div>
+            <div class="cap-lista">${pastas.map(x => `<div class="cap-it"><span>${escapeHTML(PASTA_NOME[x.pasta] || x.pasta)}<small>${Number(x.arquivos).toLocaleString('pt-BR')} arquivos</small></span><b>${fmtBytes(x.bytes)}</b><i style="width:${Math.max(2, Math.round(Number(x.bytes) / maior * 100))}%"></i></div>`).join('')}</div></div>
         <div class="cap-bloco"><div class="cap-l"><b>Tabelas que mais ocupam</b></div>
             <div class="cap-lista">${(data.tabelas || []).map(t => `<div class="cap-it"><span>${escapeHTML(t.nome)}</span><b>${fmtBytes(t.bytes)}</b></div>`).join('')}</div></div>
         <p class="faixa-nota" style="margin-bottom:0">Limites do plano gratuito do Supabase. Amarelo a partir de 70%, vermelho a partir de 90%.</p>`;
