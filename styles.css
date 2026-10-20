@@ -4459,3 +4459,42 @@ html.com-sessao #authScreen{ display:none; }
 .tr-prox:empty{ display:none; }
 .tr-desc.fim .tr-prox{ color:#04120B; }
 body:has(#treinoVivo) .toast{ bottom:calc(132px + env(safe-area-inset-bottom)); }
+
+/* Stories: envio em segundo plano, fundo desfocado, reações, carregando */
+.story-avatar.enviando{ background:conic-gradient(from 0deg, var(--vital), transparent 70%) !important; animation:anelGira 1s linear infinite; }
+.story-avatar.enviando .story-avatar-in{ animation:anelGira 1s linear infinite reverse; }
+@keyframes anelGira{ to{ transform:rotate(360deg); } }
+.story-content .sv-fundo{ position:absolute; inset:-12%; background-size:cover; background-position:center; filter:blur(34px) brightness(.55) saturate(1.2); transform:scale(1.1); z-index:0; }
+.story-content img.sv-foto{ position:relative; }
+.story-content .sv-enq{ z-index:5; }
+.story-viewer.carregando .story-progress-bar.active .fill{ animation-play-state:paused; }
+.sv-reacoes{ position:absolute; left:0; right:0; bottom:calc(74px + env(safe-area-inset-bottom)); z-index:6; display:flex; justify-content:center; gap:18px; }
+.sv-reacoes.hidden{ display:none; }
+.sv-reacoes button{ width:48px; height:48px; border-radius:50%; border:0; background:rgba(0,0,0,.28); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); font-size:24px; display:grid; place-items:center; transition:transform .15s; }
+.sv-reacoes button:active{ transform:scale(1.25); }
+.story-viewer:has(#svRespInput:focus) .sv-reacoes{ display:none; }
+.sv-voa{ position:absolute; bottom:22%; z-index:20; pointer-events:none; animation:svVoa 1.5s ease-out forwards; }
+@keyframes svVoa{ 0%{ transform:translateY(0) scale(.6); opacity:0; } 15%{ opacity:1; transform:translateY(-30px) scale(1.1); } 100%{ transform:translateY(-55vh) scale(1); opacity:0; } }
+
+/* Enquete no story (criador e quem vê) */
+.sc-enquete, .sv-enq{ position:absolute; z-index:5; width:min(78%, 300px); transform:translate(-50%, -50%); }
+.sc-enquete{ touch-action:none; }
+.sc-enquete .enq-op{ pointer-events:none; }
+.enq{ padding:16px 14px 12px; border-radius:22px; background:rgba(255,255,255,.94); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); box-shadow:0 18px 40px -16px rgba(0,0,0,.55); color:#101512; display:flex; flex-direction:column; gap:8px; }
+.enq-p{ margin:0 2px 4px; font-family:var(--ff-display); font-size:17px; font-weight:700; line-height:1.25; text-align:center; color:#101512; }
+.enq-op{ position:relative; display:flex; align-items:center; gap:8px; min-height:46px; padding:0 14px; border-radius:14px; border:1.5px solid rgba(16,21,18,.12); background:#fff; color:#101512; font-family:inherit; font-size:15px; font-weight:700; overflow:hidden; text-align:left; transition:border-color .2s, transform .12s; }
+.enq-op:not(.res):active{ transform:scale(.98); border-color:var(--vital); }
+.enq-op span{ position:relative; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.enq-op i{ position:absolute; left:0; top:0; bottom:0; background:rgba(16,21,18,.07); transition:width .6s cubic-bezier(.2,.9,.3,1); }
+.enq-op.ganha i{ background:rgba(53,225,155,.28); }
+.enq-op.meu{ border-color:#1FB57A; }
+.enq-op svg{ position:relative; width:16px; height:16px; color:#13996A; flex:none; }
+.enq-op b{ position:relative; font-family:var(--ff-display); font-size:15px; }
+.enq-total{ align-self:center; margin-top:2px; padding:2px 6px; border:0; background:none; font-family:inherit; font-size:12px; font-weight:600; color:rgba(16,21,18,.55); }
+button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
+.enq-ed{ display:flex; flex-direction:column; gap:8px; margin:4px 0 14px; }
+.enq-votos{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:4px 0 12px; max-height:50vh; overflow:auto; }
+.enq-col b{ display:block; font-size:14px; margin-bottom:8px; }
+.enq-col b small{ color:var(--ink-faint); font-weight:600; margin-left:4px; }
+.enq-pessoa{ display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13.5px; }
+.enq-ninguem{ color:var(--ink-faint); font-size:12.5px; }

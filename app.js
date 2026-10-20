@@ -5612,12 +5612,13 @@ async function renderFeed() {
         .sort((a, b) => (grupoVisto(a) - grupoVisto(b)) || (recente(b) - recente(a)));
     const storiesOrdered = mine ? [mine, ...others] : others;
     state.storiesData = storiesOrdered;
+    setTimeout(preCarregarBarraStories, 800);
 
     // HTML da barra de stories
     let storiesHTML = '<div class="stories-bar">';
     // Meu botão de adicionar story sempre presente
     storiesHTML += `<div class="story-item" data-add-story="1">
-        <div class="story-avatar mine${mine && grupoVisto(mine) ? ' seen' : ''}${ehDourado(state.profile) ? ' dourado' : ''}">
+        <div class="story-avatar mine${mine && grupoVisto(mine) ? ' seen' : ''}${ehDourado(state.profile) ? ' dourado' : ''}${state.storyEnviando ? ' enviando' : ''}">
             <div class="story-avatar-in">${avatarHTML(state.profile, 'md').replace('avatar-md','avatar')}</div>
             <span class="story-plus">+</span>
         </div>
@@ -13652,6 +13653,7 @@ function htmlCardStory(st, comFoto) {
 // extras do story no visualizador: repostado de @x e menções tocáveis
 function extrasStoryHTML(st) {
     let h = '';
+    if (st.enquete && st.enquete.p != null) h += `<div class="sv-enq" style="left:${Number(st.enquete.x) || 50}%;top:${Number(st.enquete.y) || 64}%">${htmlEnquete(st.enquete)}</div>`;
     if (st.repost_de && st.repost_de.username) h += `<button type="button" class="sv-repost-de" data-sv-uid="${st.repost_de.id}">↻ Repostado de @${escapeHTML(st.repost_de.username)}</button>`;
     (st.mencoes || []).forEach(m => {
         h += `<button type="button" class="sv-mencao" data-sv-uid="${m.id}" style="left:${Number(m.x) || 50}%;top:${Number(m.y) || 40}%">@${escapeHTML(m.username || '')}</button>`;
@@ -13915,7 +13917,8 @@ function openStoryCreator() {
     Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 });
     $('#scText').style.transform = ''; $('#scSticker').style.transform = '';
     $('#storyCreator').classList.remove('arrastando');
-    document.querySelectorAll('#scStage .sc-mencao').forEach(x => x.remove());
+    document.querySelectorAll('#scStage .sc-mencao, #scStage .sc-enquete').forEach(x => x.remove());
+    sc.enquete = null; sc.enqPos = null;
     Object.keys(sc).filter(k => k.startsWith('men_')).forEach(k => delete sc[k]);
     sc.mencoes = []; sc.repost = false; sc.repostDe = null; sc.repostUrl = null;
     $('#scRepostAviso').classList.add('hidden');
@@ -13966,7 +13969,7 @@ function ajustarAlturaTextoStory() {
 }
 function atualizarBotaoPublicarStory() {
     const temTexto = $('#scText').value.trim().length > 0;
-    const pronto = (sc.mode === 'photo' && (sc.file || sc.repostUrl)) || (sc.mode === 'text' && (temTexto || sc.adesivo || (sc.mencoes || []).length));
+    const pronto = (sc.mode === 'photo' && (sc.file || sc.repostUrl)) || (sc.mode === 'text' && (temTexto || sc.adesivo || sc.enquete || (sc.mencoes || []).length));
     $('#scPublish').classList.add('hidden'); // o botão redondo grande publica nos dois modos
     $('#scPublicarGrande').disabled = !pronto;
 }
@@ -14083,6 +14086,7 @@ function transformarItem(el) {
     el.style.transform = `translate(-50%, -50%) scale(${esc}) rotate(${rot}deg)`;
 }
 function apagarItemStory(el) {
+    if (el.classList.contains('sc-enquete')) { sc.enquete = null; sc.enqPos = null; el.remove(); atualizarBotaoPublicarStory(); return; }
     if (el.classList.contains('sc-mencao')) {
         sc.mencoes = (sc.mencoes || []).filter(m => m.id !== el.dataset.uid);
         delete sc['men_' + el.dataset.uid];
@@ -14475,7 +14479,8 @@ async function abrirAdesivosStory() {
     const ofensiva = (st && st.current_streak) || 0;
     const pts = Math.round((led || []).reduce((t, x) => t + Number(x.amount || 0), 0));
     const ativos = (x1s || []).filter(x => x.status === 'ativo' && !x1NaoComecou(x));
-    const ops = [['treino', '<span class="ad-ic" style="--c:53,225,155">' + SVG_X('<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>') + '</span>', 'Treino de hoje', 'Seu último treino das últimas 24 h']];
+    const ops = [['enquete', '<span class="ad-ic" style="--c:167,139,250">' + SVG_X('<path d="M4 6h10M4 12h16M4 18h7"/>') + '</span>', 'Enquete', 'Uma pergunta com duas opções'],
+        ['treino', '<span class="ad-ic" style="--c:53,225,155">' + SVG_X('<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>') + '</span>', 'Treino de hoje', 'Seu último treino das últimas 24 h']];
     if (ofensiva > 0) ops.push(['ofensiva', '<span class="ad-ic ad-emo" style="--c:255,138,61">🔥</span>', `${ofensiva} ${ofensiva === 1 ? 'dia' : 'dias'} seguidos`, 'Sua sequência']);
     if (pts > 0) ops.push(['pontos', '<span class="ad-ic ad-emo" style="--c:53,225,155">⚡</span>', `+${pts} pts hoje`, 'Pontos do dia']);
     ativos.forEach(x => { const { ele, euPts, elePts } = x1Lados(x); ops.push(['x1:' + x.id, '<span class="ad-ic ad-emo" style="--c:255,194,75">⚔️</span>', `X1 vs ${ele.nome} · ${x1Num(euPts)} x ${x1Num(elePts)}`, 'Placar ao vivo']); });
@@ -14486,6 +14491,7 @@ async function abrirAdesivosStory() {
         const a = b.dataset.ad; fechar();
         if (a === 'tirar') { sc.adesivo = null; $('#scSticker').classList.add('hidden'); atualizarBotaoPublicarStory(); return; }
         if (a === 'treino') { sc.adesivo = null; $('#scAdesivo').click(); return; }
+        if (a === 'enquete') { setTimeout(editarEnqueteStory, 220); return; }
         if (a === 'ofensiva') colocarAdesivoStory(`pulso:ofensiva|${ofensiva}`);
         else if (a === 'pontos') colocarAdesivoStory(`pulso:pontos|${pts}|${ofensiva > 1 ? `🔥 ${ofensiva} dias seguidos` : 'no Pulso'}`);
         else if (a.startsWith('x1:')) {
@@ -14527,21 +14533,46 @@ $('#scStage').addEventListener('click', e => {
 
 $('#scPublish').addEventListener('click', async () => {
     if (sc.busy) return;
-    const btn = $('#scPublish');
     const caption = $('#scText').value.trim();
-    if (sc.mode === 'text' && !caption && !sc.adesivo && !(sc.mencoes || []).length) return;
+    if (sc.mode === 'text' && !caption && !sc.adesivo && !(sc.mencoes || []).length && !sc.enquete) return;
     if (sc.mode === 'photo' && !sc.file && !sc.repostUrl) return;
     sc.busy = true;
-    btn.disabled = true;
     $('#scPublicarGrande').classList.add('enviando');
-    btn.textContent = sc.file ? 'Enviando...' : 'Publicando...';
-    let imageUrl = null;
+    // monta tudo agora (o criador fecha e o envio segue em segundo plano)
+    const style = { font: sc.fonte, fundo: sc.fundoTxt };
+    if (sc.mode === 'photo') {
+        style.pos = sc.pos;
+        if (sc.txtEsc !== 1) style.textScale = Math.round(sc.txtEsc * 100) / 100;
+        if (sc.txtRot) style.textRot = Math.round(sc.txtRot);
+    }
+    if (sc.mode === 'text') { style.align = sc.alinhar; if (sc.corLetra) style.color = sc.corLetra; }
+    if (sc.adesivo) {
+        style.sticker = sc.adesivo; style.stickerPos = sc.adesivoPos;
+        if (sc.adEsc !== 1) style.stickerScale = Math.round(sc.adEsc * 100) / 100;
+        if (sc.adRot) style.stickerRot = Math.round(sc.adRot);
+    }
+    if (sc.enquete) style.enquete = { p: sc.enquete.p, a: sc.enquete.a, b: sc.enquete.b, x: Math.round((sc.enqPos || {}).x || 50), y: Math.round((sc.enqPos || {}).y || 64) };
+    if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
+    if ((sc.mencoes || []).length) style.mencoes = sc.mencoes.map(m => ({ id: m.id, username: m.username, x: Math.round((sc[m.chave] || {}).x || 50), y: Math.round((sc[m.chave] || {}).y || 40) }));
+    if (sc.repost) style.repost = true;
+    if (sc.repostDe) style.repost_de = sc.repostDe;
+    let arquivo = null;
+    try { arquivo = sc.mode === 'photo' && !sc.repostUrl ? await arquivoComFiltroStory(sc.file) : null; } catch (_) { arquivo = sc.file; }
+    const dados = { caption: caption || null, arquivo, repostUrl: sc.mode === 'photo' ? sc.repostUrl : null, bg: sc.bg, style, resumo: state.storyResumoSemana || null };
+    state.storyResumoSemana = null;
+    sc.busy = false;
+    $('#scPublicarGrande').classList.remove('enviando');
+    closeStoryCreator();
+    publicarStoryFundo(dados);
+});
+
+// Envia o story em segundo plano: anel girando no "Seu story" e aviso se der errado
+async function publicarStoryFundo(d) {
+    state.storyEnviando = (state.storyEnviando || 0) + 1; pintarAnelEnvio();
+    let imageUrl = d.repostUrl || null;
     try {
-        if (sc.mode === 'photo' && sc.repostUrl) {
-            imageUrl = sc.repostUrl;
-        } else if (sc.mode === 'photo') {
-            imageUrl = await uploadImage('post-images', await arquivoComFiltroStory(sc.file));
-            btn.textContent = 'Verificando...';
+        if (d.arquivo) {
+            imageUrl = await uploadImage('post-images', d.arquivo);
             try {
                 const { data: mod } = await sb.functions.invoke('vision-tools', { body: { task: 'moderate', imageUrl } });
                 if (mod && mod.safe === false) {
@@ -14551,56 +14582,38 @@ $('#scPublish').addEventListener('click', async () => {
                 }
             } catch (e) { console.warn('moderação indisponível', e); }
         }
-        const style = { font: sc.fonte, fundo: sc.fundoTxt };
-        if (sc.mode === 'photo') {
-            style.pos = sc.pos;
-            if (sc.txtEsc !== 1) style.textScale = Math.round(sc.txtEsc * 100) / 100;
-            if (sc.txtRot) style.textRot = Math.round(sc.txtRot);
-        }
-        if (sc.mode === 'text') { style.align = sc.alinhar; if (sc.corLetra) style.color = sc.corLetra; }
-        if (sc.adesivo) {
-            style.sticker = sc.adesivo; style.stickerPos = sc.adesivoPos;
-            if (sc.adEsc !== 1) style.stickerScale = Math.round(sc.adEsc * 100) / 100;
-            if (sc.adRot) style.stickerRot = Math.round(sc.adRot);
-        }
-        if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
-        if ((sc.mencoes || []).length) style.mencoes = sc.mencoes.map(m => ({ id: m.id, username: m.username, x: Math.round((sc[m.chave] || {}).x || 50), y: Math.round((sc[m.chave] || {}).y || 40) }));
-        if (sc.repost) style.repost = true;
-        if (sc.repostDe) style.repost_de = sc.repostDe;
-
         const { data: story, error } = await sb.from('stories').insert({
-            user_id: state.session.user.id,
-            caption: caption || null,
-            image_url: imageUrl,
-            background_color: imageUrl ? null : sc.bg,
-            style,
+            user_id: state.session.user.id, caption: d.caption, image_url: imageUrl,
+            background_color: imageUrl ? null : d.bg, style: d.style,
         }).select().single();
         if (error) throw error;
-
-        if (state.storyResumoSemana) {
-            lsSet('pulso-resumo-postado-' + state.session.user.id, state.storyResumoSemana);
-            state.storyResumoSemana = null;
+        if (d.resumo) {
+            lsSet('pulso-resumo-postado-' + state.session.user.id, d.resumo);
             const rs = document.getElementById('resumoSlot'); if (rs) rs.innerHTML = '';
             const se = document.getElementById('semanaEvoSlot'); if (se) se.innerHTML = '';
         }
-        if ((style.mencoes || []).length) sb.rpc('marcar_story_mencao', { sid: story.id }).then(() => {});
+        if ((d.style.mencoes || []).length) sb.rpc('marcar_story_mencao', { sid: story.id }).then(() => {});
         const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id });
         const ganhos = Number(stPts || 0);
-        await loadScore();
-        closeStoryCreator();
+        loadScore();
         toast(ganhos > 0 ? `+${ganhos} pontos! Story publicado` : 'Story publicado', 'ok');
+        state.storyEnviando = Math.max(0, state.storyEnviando - 1); d.feito = true;
         if (state.view === 'feed') await renderFeed();
         else if (state.view === 'profile') await renderProfile();
+        return;
     } catch (err) {
         console.error(err);
-        toast(msgErro(err), 'err');
+        if (d.arquivo && imageUrl && !d.repostUrl) { removeStoredImage(imageUrl); }
+        toastComAcao('Não deu pra publicar o story.', 'Tentar de novo', () => publicarStoryFundo(d));
     } finally {
-        sc.busy = false;
-        btn.disabled = false;
-        $('#scPublicarGrande').classList.remove('enviando');
-        btn.textContent = 'Publicar';
+        if (!d.feito) state.storyEnviando = Math.max(0, state.storyEnviando - 1);
+        d.feito = false;
+        pintarAnelEnvio();
     }
-});
+}
+function pintarAnelEnvio() {
+    document.querySelectorAll('.story-avatar.mine').forEach(el => el.classList.toggle('enviando', (state.storyEnviando || 0) > 0));
+}
 
 
 // ---- Stories vistos: círculo cinza quando você já viu tudo daquela pessoa ----
@@ -14715,6 +14728,7 @@ function showCurrentStory() {
     const resp = document.getElementById('svResp');
     const podeResponder = !souDonoDoStory && !ehDestaque;
     resp.classList.toggle('hidden', !podeResponder);
+    const reac = document.getElementById('svReacoes'); if (reac) reac.classList.toggle('hidden', !podeResponder);
     if (podeResponder) {
         state.storyResp = { item, user: group.user };
         const nome = String(group.user.display_name || group.user.username || '').split(' ')[0];
@@ -14815,7 +14829,7 @@ function showCurrentStory() {
         content.style.background = '#000';
         const e = estiloTextoStory(st, (item.caption || '').length, true);
         const pos = st.pos || null;
-        content.innerHTML = `<img src="${item.image_url}">
+        content.innerHTML = `<div class="sv-fundo" style="background-image:url('${item.image_url}')"></div><img class="sv-foto" src="${item.image_url}">
             ${item.caption ? `<div class="caption-over ${e.cls} fundo-${st.fundo || 'escuro'}${pos ? ' posicionado' : ''}" style="font-size:${e.size}px;${pos ? `left:${pos.x}%;top:${pos.y}%;transform:translate(-50%, -50%) scale(${Number(st.textScale) || 1}) rotate(${Number(st.textRot) || 0}deg)` : ''}">${escapeHTML(item.caption)}</div>` : ''}
             ${adesivoHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
@@ -14832,6 +14846,7 @@ function showCurrentStory() {
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     }
 
+    hidratarEnqueteStory(content, item, group, souDonoDoStory, ehDestaque);
     content.querySelectorAll('[data-sv-uid]').forEach(b => b.addEventListener('click', ev => {
         ev.stopPropagation();
         const uid = b.dataset.svUid;
@@ -14854,11 +14869,56 @@ function showCurrentStory() {
     ligarToqueStory(document.getElementById('svPrev'), -1);
     ligarToqueStory(document.getElementById('svNext'), 1);
 
-    // Auto-avança em 6s (só se não tem imagem, senão espera load)
+    // Auto-avança em 6 s. Com foto, o tempo só começa quando ela aparece (no máximo 5 s de espera)
+    clearTimeout(state.storyTimer); clearTimeout(state.storyEspera);
+    const iniciarTempo = () => {
+        clearTimeout(state.storyEspera);
+        if (state.storyItemAtual !== item.id) return;
+        $('#storyViewer').classList.remove('carregando');
+        state.storyRestante = 6000;
+        state.storyInicio = Date.now();
+        clearTimeout(state.storyTimer);
+        if (!$('#storyViewer').classList.contains('paused')) state.storyTimer = setTimeout(() => advanceStory(1), 6000);
+        const barra = content.parentElement && document.querySelector('#storyViewer .story-progress-bar.active .fill');
+        if (barra) { barra.style.animation = 'none'; void barra.offsetWidth; barra.style.animation = ''; }
+    };
+    state.storyItemAtual = item.id;
+    const foto = content.querySelector('img.sv-foto');
+    if (foto && !foto.complete) {
+        $('#storyViewer').classList.add('carregando');
+        state.storyRestante = 6000; state.storyInicio = Date.now();
+        foto.addEventListener('load', iniciarTempo, { once: true });
+        foto.addEventListener('error', iniciarTempo, { once: true });
+        state.storyEspera = setTimeout(iniciarTempo, 5000);
+    } else iniciarTempo();
+    preCarregarStories();
+}
+// Baixa antes o próximo story e o primeiro da próxima pessoa (sem tela vazia ao tocar)
+const storyJaBaixado = new Set();
+function baixarFotoStory(url) { if (!url || storyJaBaixado.has(url)) return; storyJaBaixado.add(url); const im = new Image(); im.decoding = 'async'; im.src = url; }
+function preCarregarStories() {
+    const d = state.storiesData || [], g = d[state.storyIdx]; if (!g) return;
+    const prox = g.items[state.storyItemIdx + 1]; if (prox) baixarFotoStory(prox.image_url);
+    const g2 = d[state.storyIdx + 1]; if (g2) { const it = g2.items[primeiroNaoVisto(g2)] || g2.items[0]; if (it) baixarFotoStory(it.image_url); }
+}
+// No feed: baixa aos poucos o primeiro story de quem aparece na barra
+function preCarregarBarraStories() {
+    const d = (state.storiesData || []).slice(0, 6);
+    const ir = () => d.forEach(g => { const it = g.items[primeiroNaoVisto(g)] || g.items[0]; if (it) baixarFotoStory(it.image_url); });
+    if ('requestIdleCallback' in window) requestIdleCallback(ir, { timeout: 2500 }); else setTimeout(ir, 1200);
+}
+// Pula pra próxima pessoa (ou volta pra anterior)
+function trocarPessoaStory(dir) {
+    const d = state.storiesData || [];
+    const novo = state.storyIdx + dir;
+    if (novo < 0) return false;
+    if (novo >= d.length) { closeStoryViewer(); return true; }
     clearTimeout(state.storyTimer);
-    state.storyRestante = 6000;
-    state.storyInicio = Date.now();
-    state.storyTimer = setTimeout(() => advanceStory(1), 6000);
+    state.storyIdx = novo;
+    state.storyItemIdx = dir > 0 ? primeiroNaoVisto(d[novo]) : 0;
+    $('#storyViewer').classList.remove('paused');
+    showCurrentStory();
+    return true;
 }
 
 // ---- Destaques de stories ----
@@ -15058,7 +15118,7 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null, modo = nul
 async function abrirDestaque(hid, uid) {
     const [{ data: h }, { data: itens }, { data: autor }] = await Promise.all([
         sb.from('story_highlights').select('id, title').eq('id', hid).maybeSingle(),
-        sb.from('story_highlight_items').select('id, caption, image_url, background_color, style, created_at')
+        sb.from('story_highlight_items').select('id, source_story_id, caption, image_url, background_color, style, created_at')
             .eq('highlight_id', hid).order('created_at', { ascending: true }),
         sb.from('profiles').select('id, username, display_name, avatar_url').eq('id', uid).maybeSingle(),
     ]);
@@ -15203,10 +15263,26 @@ respInput.addEventListener('input', () => document.getElementById('svRespEnviar'
 respInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarRespostaStory(); } });
 document.getElementById('svRespEnviar').addEventListener('click', e => { e.stopPropagation(); enviarRespostaStory(); });
 ['click', 'pointerdown', 'pointerup'].forEach(ev => document.getElementById('svResp').addEventListener(ev, e => e.stopPropagation()));
+// Reações rápidas: um toque manda pelo chat e o emoji sobe na tela
+(function reacoesStory() {
+    const box = document.getElementById('svReacoes'); if (!box) return;
+    ['click', 'pointerdown', 'pointerup'].forEach(ev => box.addEventListener(ev, e => e.stopPropagation()));
+    box.addEventListener('click', e => {
+        const b = e.target.closest('[data-reacao]'); if (!b) return;
+        const emo = b.dataset.reacao; vibrar(12);
+        const v = document.getElementById('storyViewer');
+        for (let k = 0; k < 6; k++) {
+            const f = document.createElement('span'); f.className = 'sv-voa'; f.textContent = emo;
+            f.style.left = (35 + Math.random() * 30) + '%'; f.style.animationDelay = (k * 70) + 'ms'; f.style.fontSize = (30 + Math.random() * 18) + 'px';
+            v.appendChild(f); setTimeout(() => f.remove(), 1700);
+        }
+        enviarRespostaStory(emo);
+    });
+})();
 
-async function enviarRespostaStory() {
+async function enviarRespostaStory(reacao = null) {
     const r = state.storyResp;
-    const texto = respInput.value.trim();
+    const texto = reacao || respInput.value.trim();
     if (!r || !texto) return;
     const btn = document.getElementById('svRespEnviar');
     btn.disabled = true;
@@ -15220,6 +15296,7 @@ async function enviarRespostaStory() {
     const { error: e2 } = await sb.from('messages').insert({ conversation_id: convId, sender_id: state.session.user.id, body: corpoComStory(r.item, texto) });
     btn.disabled = false;
     if (e2) { toast('Não consegui enviar agora.', 'err'); return; }
+    if (reacao) { toast(`${reacao} enviado pra ${String(r.user.display_name || r.user.username || '').split(' ')[0]}`, 'ok'); return; }
     respInput.value = '';
     btn.classList.add('hidden');
     respInput.blur();
@@ -15297,16 +15374,28 @@ document.getElementById('svAdd').addEventListener('click', e => {
 });
 (function gestosDoStory() {
     const v = document.getElementById('storyViewer');
-    let x0 = 0, y0 = 0, t0 = 0, puxando = false, ativo = false;
-    const livre = t => t.closest('input, textarea, button, .sv-menu, #svMenu, .sheet');
+    let x0 = 0, y0 = 0, t0 = 0, puxando = false, ativo = false, lateral = false;
+    const livre = t => t.closest('input, textarea, button, .sv-menu, #svMenu, .sheet, .sv-enq');
+    const palco = () => v.querySelector('.story-content');
     v.addEventListener('touchstart', e => {
         ativo = e.touches.length === 1 && !livre(e.target);
-        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); puxando = false;
+        x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now(); puxando = false; lateral = false;
         state.storyArrastou = false;
     }, { passive: true });
     v.addEventListener('touchmove', e => {
         if (!ativo) return;
         const dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
+        // arrastar pro lado: gira como um cubo pra próxima pessoa
+        if (lateral || (!puxando && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.3)) {
+            if (!lateral) { lateral = true; state.storyArrastou = true; if (!v.classList.contains('paused')) pausarStoryNoPonto(); }
+            const pc = palco(); if (!pc) return;
+            const w = window.innerWidth, ang = Math.max(-70, Math.min(70, dx / w * 90));
+            pc.style.transition = 'none';
+            pc.style.transformOrigin = dx < 0 ? 'right center' : 'left center';
+            pc.style.transform = `perspective(1000px) rotateY(${ang}deg)`;
+            pc.style.filter = `brightness(${1 - Math.min(0.45, Math.abs(dx) / w * 0.6)})`;
+            return;
+        }
         if (!puxando) {
             if (dy > 12 && dy > Math.abs(dx) * 1.3) {
                 puxando = true; state.storyArrastou = true;
@@ -15322,6 +15411,27 @@ document.getElementById('svAdd').addEventListener('click', e => {
     v.addEventListener('touchend', e => {
         if (!ativo) return;
         const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+        if (lateral) {
+            lateral = false;
+            const pc = palco(), dir = dx < 0 ? 1 : -1, w = window.innerWidth;
+            const vai = Math.abs(dx) > w * 0.22 || (Math.abs(dx) > 40 && Math.abs(dx) / Math.max(1, Date.now() - t0) > 0.5);
+            const temDestino = dir > 0 || state.storyIdx > 0;
+            if (pc) { pc.style.transition = 'transform .22s ease, filter .22s ease'; }
+            if (vai && temDestino) {
+                if (pc) { pc.style.transform = `perspective(1000px) rotateY(${dir > 0 ? -88 : 88}deg)`; pc.style.filter = 'brightness(.5)'; }
+                setTimeout(() => {
+                    if (!trocarPessoaStory(dir)) return;
+                    const novo = palco(); if (!novo || !$('#storyViewer').classList.contains('on')) return;
+                    novo.style.transition = 'none'; novo.style.transformOrigin = dir > 0 ? 'left center' : 'right center';
+                    novo.style.transform = `perspective(1000px) rotateY(${dir > 0 ? 88 : -88}deg)`; novo.style.filter = 'brightness(.5)';
+                    requestAnimationFrame(() => requestAnimationFrame(() => { novo.style.transition = 'transform .24s ease-out, filter .24s ease-out'; novo.style.transform = ''; novo.style.filter = ''; }));
+                }, 200);
+            } else {
+                if (pc) { pc.style.transform = ''; pc.style.filter = ''; }
+                setTimeout(() => retomarStoryDoPonto(), 220);
+            }
+            return;
+        }
         if (!puxando) {
             if (dy < -60 && Math.abs(dy) > Math.abs(dx) * 1.5 && state.storyAtual) { state.storyArrastou = true; abrirQuemViuStory(); }
             return;
@@ -17332,6 +17442,82 @@ const EX_CORPO = ['Flexão', 'Barra fixa', 'Mergulho', 'Abdominal', 'Elevação 
 const EX_TEMPO = ['Prancha', 'Prancha lateral'];
 const EX_PESADOS = ['Supino reto', 'Supino inclinado', 'Agachamento', 'Levantamento terra', 'Leg press', 'Remada curvada', 'Desenvolvimento', 'Barra fixa', 'Stiff', 'Agachamento búlgaro'];
 const tipoEx = n => EX_TEMPO.includes(n) ? 'tempo' : EX_CORPO.includes(n) ? 'corpo' : 'carga';
+// ================= ENQUETE NO STORY =================
+// r = { a, b, meu } (contagens e o meu voto: 0, 1 ou null). Sem r: só a pergunta e as opções.
+function htmlEnquete(e, r = null, dono = false) {
+    const tot = r ? (Number(r.a) || 0) + (Number(r.b) || 0) : 0;
+    const mostra = !!r && (dono || r.meu != null);
+    const pct = k => tot ? Math.round(((k === 0 ? r.a : r.b) || 0) / tot * 100) : 0;
+    const op = (k, txt) => {
+        const p = pct(k), meu = r && r.meu === k, ganha = mostra && tot && p >= pct(1 - k);
+        return `<button type="button" class="enq-op${mostra ? ' res' : ''}${meu ? ' meu' : ''}${ganha ? ' ganha' : ''}" data-enq-op="${k}"${mostra ? ' disabled' : ''}>
+            ${mostra ? `<i style="width:${p}%"></i>` : ''}<span>${escapeHTML(txt)}</span>${meu ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>` : ''}${mostra ? `<b>${p}%</b>` : ''}</button>`;
+    };
+    return `<div class="enq">${e.p ? `<p class="enq-p">${escapeHTML(e.p)}</p>` : ''}${op(0, e.a || 'Sim')}${op(1, e.b || 'Não')}
+        ${mostra && dono ? `<button type="button" class="enq-total" data-enq-votos>${tot} ${tot === 1 ? 'voto' : 'votos'} · ver quem votou</button>` : mostra ? `<small class="enq-total">${tot} ${tot === 1 ? 'voto' : 'votos'}</small>` : ''}</div>`;
+}
+function editarEnqueteStory() {
+    const e = sc.enquete || { p: '', a: '', b: '' };
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Enquete</h3>
+        <div class="enq-ed">
+            <input class="obj-input" id="enqP" maxlength="70" placeholder="Faça uma pergunta…" value="${escapeHTML(e.p)}">
+            <input class="obj-input" id="enqA" maxlength="24" placeholder="Sim" value="${escapeHTML(e.a)}">
+            <input class="obj-input" id="enqB" maxlength="24" placeholder="Não" value="${escapeHTML(e.b)}">
+        </div>
+        <div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Cancelar</button><button class="btn x1-btn" id="enqOk">Colocar no story</button></div>`, 'scEnqEd');
+    setTimeout(() => f.querySelector('#enqP').focus(), 250);
+    f.querySelector('#enqOk').onclick = () => {
+        const p = f.querySelector('#enqP').value.trim(), a = f.querySelector('#enqA').value.trim() || 'Sim', b = f.querySelector('#enqB').value.trim() || 'Não';
+        if (!p) { f.querySelector('#enqP').focus(); return; }
+        fechar(); colocarEnqueteStory({ p, a, b });
+    };
+}
+function colocarEnqueteStory(e) {
+    sc.enquete = e;
+    if (!sc.enqPos) sc.enqPos = { x: 50, y: sc.mode === 'photo' ? 66 : 62 };
+    let el = document.querySelector('#scStage .sc-enquete');
+    if (!el) {
+        el = document.createElement('div'); el.className = 'sc-enquete';
+        $('#scStage').appendChild(el);
+        tornarArrastavel(el, 'enqPos', () => editarEnqueteStory());
+    }
+    el.innerHTML = htmlEnquete(e);
+    posicionar(el, sc.enqPos);
+    vibrar(8); atualizarBotaoPublicarStory();
+}
+async function hidratarEnqueteStory(content, item, group, dono, ehDestaque) {
+    const box = content.querySelector('.sv-enq'); if (!box) return;
+    const st = item.style || {}; const e = st.enquete;
+    ['click', 'pointerdown', 'pointerup'].forEach(ev => box.addEventListener(ev, x => x.stopPropagation()));
+    const sid = ehDestaque ? item.source_story_id : item.id;
+    if (!sid) { box.querySelectorAll('.enq-op').forEach(b => { b.disabled = true; }); return; }
+    const pintar = r => { if (state.storyItemAtual === item.id) box.innerHTML = htmlEnquete(e, r, dono); };
+    const { data: r } = await sb.rpc('story_enquete', { sid }).then(x => x, () => ({ data: null }));
+    if (r && (dono || r.meu != null || ehDestaque)) pintar(ehDestaque && r.meu == null && !dono ? { ...r, meu: -1 } : r);
+    box.addEventListener('click', async ev => {
+        const v = ev.target.closest('[data-enq-votos]');
+        if (v) { pausarStoryNoPonto(); abrirVotosEnquete(sid, e); return; }
+        const b = ev.target.closest('[data-enq-op]'); if (!b || b.disabled || dono || ehDestaque) return;
+        const op = Number(b.dataset.enqOp);
+        box.querySelectorAll('.enq-op').forEach(x => { x.disabled = true; });
+        vibrar(12);
+        const base = r || { a: 0, b: 0 };
+        pintar({ a: (Number(base.a) || 0) + (op === 0 ? 1 : 0), b: (Number(base.b) || 0) + (op === 1 ? 1 : 0), meu: op }); // mostra na hora
+        const { data: r2, error } = await sb.rpc('votar_enquete', { sid, op });
+        if (error) { toast('Não consegui registrar o voto agora.', 'err'); pintar(null); return; }
+        if (r2) pintar(r2);
+    });
+}
+async function abrirVotosEnquete(sid, e) {
+    const { f } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(e.p || 'Enquete')}</h3><div class="enq-votos"><div class="spinner"></div></div><button class="x1-op" data-x1f="fechar">Fechar</button>`, 'enqVotos');
+    f.addEventListener('click', ev => { if (ev.target.closest('[data-x1f="fechar"]')) setTimeout(retomarStoryDoPonto, 250); });
+    const { data } = await sb.rpc('story_enquete_votos', { sid }).then(x => x, () => ({ data: [] }));
+    const box = f.querySelector('.enq-votos'); if (!box) return;
+    const lista = data || [];
+    const grupo = k => lista.filter(v => Number(v.opcao) === k);
+    const col = (k, txt) => `<div class="enq-col"><b>${escapeHTML(txt)} <small>${grupo(k).length}</small></b>${grupo(k).map(v => `<div class="enq-pessoa">${avatarHTML({ id: v.id, display_name: v.nome, username: v.username, avatar_url: v.avatar }, 'sm')}<span>${escapeHTML(v.nome || v.username || '')}</span></div>`).join('') || '<small class="enq-ninguem">Ninguém ainda</small>'}</div>`;
+    box.innerHTML = lista.length ? col(0, e.a || 'Sim') + col(1, e.b || 'Não') : '<p class="tr-dica" style="text-align:center">Ninguém votou ainda.</p>';
+}
 // Evolução da carga de um exercício (toque no nome durante o treino)
 async function abrirEvolucaoCarga(nome, tipo) {
     const { f } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(nome)}</h3><div class="evo-box"><div class="spinner"></div></div><button class="x1-op" data-x1f="fechar">Fechar</button>`, 'trEvo');
