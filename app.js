@@ -1843,6 +1843,13 @@ window.addEventListener('scroll', () => { const p = document.getElementById('nov
 // ---- Foto no chat ----
 const MARCA_FOTO = '⟦foto⟧';
 const MARCA_POST = '⟦post⟧';
+const MARCA_AUDIO = '⟦audio⟧';
+function lerAudioDaMensagem(body) {
+    const b = String(body || '');
+    if (!b.startsWith(MARCA_AUDIO)) return null;
+    const [url, seg] = b.slice(MARCA_AUDIO.length).split('\n')[0].split('|');
+    return { url, seg: Number(seg) || 0 };
+}
 function lerPostDaMensagem(body) {
     const b = String(body || '');
     if (!b.startsWith(MARCA_POST)) return null;
@@ -1862,6 +1869,148 @@ async function enviarFotoNoChat(file) {
     try {
         const url = await uploadImage('post-images', file, { maxSide: 1400, quality: 0.82 });
         const { data, error } = await sb.from('messages').insert({ conversation_id: conv, sender_id: state.session.user.id, body: MARCA_FOTO + url }).select().single();
+        if (error) throw error;
+        if (data && !state.chatMessages.some(m => m.id === data.id)) { state.chatMessages.push(data); paintChatMessages(); }
+    } catch (err) { toast(msgErro(err), 'err'); }
+    finally { if (aviso) aviso.remove(); }
+}
+// ---- Mensagem de voz ----
+const fmtSeg = n => { n = Math.max(0, Math.round(n)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+function htmlAudioChat(au, mid) {
+    // barrinhas fixas por mensagem (parecem uma onda, sem precisar analisar o áudio)
+    let h = 0; for (const c of String(mid)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const barras = Array.from({ length: 26 }, (_, i) => { h = (h * 1103515245 + 12345) >>> 0; const v = 28 + (h % 72); return `<i style="height:${Math.round(i < 2 || i > 23 ? v * .5 : v)}%"></i>`; }).join('');
+    return `<button class="au-play" data-au="${escapeHTML(mid)}" data-src="${escapeHTML(au.url)}" data-seg="${au.seg}" aria-label="Ouvir áudio"><svg class="au-i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg><svg class="au-i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg></button><span class="au-onda" data-au-onda="${escapeHTML(mid)}">${barras}</span><span class="au-dur" data-au-dur="${escapeHTML(mid)}">${fmtSeg(au.seg)}</span>`;
+}
+const audioChat = { el: null, mid: null, raf: 0 };
+function pararAudioChat() {
+    if (audioChat.el) { audioChat.el.pause(); audioChat.el = null; }
+    cancelAnimationFrame(audioChat.raf); audioChat.mid = null; sincronizarAudioChat();
+}
+function tocarAudioChat(btn) {
+    const mid = btn.dataset.au;
+    if (audioChat.mid === mid && audioChat.el) {
+        if (audioChat.el.paused) audioChat.el.play().catch(() => {}); else audioChat.el.pause();
+        sincronizarAudioChat(); return;
+    }
+    pararAudioChat();
+    const el = new Audio(btn.dataset.src);
+    el.preload = 'auto';
+    audioChat.el = el; audioChat.mid = mid; audioChat.seg = Number(btn.dataset.seg) || 0;
+    el.onended = () => { pararAudioChat(); };
+    el.onerror = () => { if (audioChat.el === el) { pararAudioChat(); toast('Não deu pra tocar esse áudio', 'err'); } };
+    el.onplay = el.onpause = () => sincronizarAudioChat();
+    el.play().catch(() => { pararAudioChat(); toast('Não deu pra tocar esse áudio', 'err'); });
+    const passo = () => { if (audioChat.el !== el) return; sincronizarAudioChat(); audioChat.raf = requestAnimationFrame(passo); };
+    audioChat.raf = requestAnimationFrame(passo);
+}
+// a lista de mensagens é redesenhada a cada mensagem nova: devolve o estado do player
+function sincronizarAudioChat() {
+    document.querySelectorAll('.cmsg-audio').forEach(b => {
+        const btn = b.querySelector('[data-au]'); if (!btn) return;
+        const ativo = audioChat.el && audioChat.mid === btn.dataset.au;
+        const tocando = ativo && !audioChat.el.paused;
+        b.classList.toggle('tocando', !!tocando);
+        const total = (ativo && isFinite(audioChat.el.duration) && audioChat.el.duration) || Number(btn.dataset.seg) || 0;
+        const t = ativo ? audioChat.el.currentTime : 0;
+        b.style.setProperty('--au-p', total ? Math.min(1, t / total) : 0);
+        const d = b.querySelector('.au-dur'); if (d) d.textContent = ativo && t > 0 ? fmtSeg(t) : fmtSeg(Number(btn.dataset.seg) || 0);
+    });
+}
+const MAX_AUDIO_SEG = 60;
+function ligarMicDoChat(conv) {
+    const mic = $('#chatMic'); if (!mic) return;
+    let timer = null, segurando = false, gravando = null, x0 = 0;
+    mic.addEventListener('contextmenu', e => e.preventDefault());
+    mic.addEventListener('pointerdown', e => {
+        if (e.button) return;
+        e.preventDefault();
+        x0 = e.clientX; segurando = false;
+        try { mic.setPointerCapture(e.pointerId); } catch (_) {}
+        clearTimeout(timer);
+        timer = setTimeout(() => { segurando = true; gravando = comecarGravacao(conv); }, 300);
+    });
+    mic.addEventListener('pointermove', e => {
+        if (!gravando) return;
+        const dx = e.clientX - x0;
+        const barra = document.getElementById('ccGravando');
+        if (barra) barra.style.setProperty('--arrasto', Math.min(0, dx) + 'px');
+        if (dx < -90) { gravando.cancelar(); gravando = null; }
+    });
+    const soltar = () => {
+        clearTimeout(timer);
+        if (!segurando) { ditar('chatInput'); return; } // toque rápido: ditado, como antes
+        segurando = false;
+        if (gravando) { gravando.enviar(); gravando = null; }
+    };
+    mic.addEventListener('pointerup', soltar);
+    mic.addEventListener('pointercancel', () => { clearTimeout(timer); segurando = false; if (gravando) { gravando.cancelar(); gravando = null; } });
+}
+function comecarGravacao(conv) {
+    const ctl = { soltou: false, cancelado: false };
+    let rec = null, stream = null, inicio = 0, tick = null, pedacos = [];
+    const comp = $('#chatComposer');
+    const limpar = () => {
+        clearInterval(tick);
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        const b = document.getElementById('ccGravando'); if (b) b.remove();
+        if (comp) comp.classList.remove('gravando');
+    };
+    ctl.cancelar = () => {
+        ctl.cancelado = true;
+        if (rec && rec.state !== 'inactive') rec.stop(); else limpar();
+        if (inicio) vibrar([8, 40, 8]);
+    };
+    ctl.enviar = () => {
+        ctl.soltou = true;
+        if (!rec) return; // ainda pedindo permissão
+        if (Date.now() - inicio < 1000) { ctl.cancelado = true; toast('Segure pra gravar o áudio'); }
+        if (rec.state !== 'inactive') rec.stop();
+    };
+    if (!navigator.mediaDevices || !window.MediaRecorder) { toast('Seu aparelho não grava áudio aqui', 'err'); return ctl; }
+    pararAudioChat();
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
+        stream = s;
+        // se soltou enquanto o sistema pedia permissão, não grava nada
+        if (ctl.soltou || ctl.cancelado) { limpar(); if (ctl.soltou) toast('Agora é só segurar o microfone pra gravar'); return; }
+        const tipo = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'].find(t => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) || '';
+        rec = new MediaRecorder(stream, tipo ? { mimeType: tipo } : undefined);
+        rec.ondataavailable = ev => { if (ev.data && ev.data.size) pedacos.push(ev.data); };
+        rec.onstop = () => {
+            const seg = Math.min(MAX_AUDIO_SEG, Math.round((Date.now() - inicio) / 1000));
+            limpar();
+            if (ctl.cancelado || !pedacos.length) return;
+            enviarAudioNoChat(conv, new Blob(pedacos, { type: rec.mimeType || tipo || 'audio/mp4' }), Math.max(1, seg));
+        };
+        rec.start();
+        inicio = Date.now(); vibrar(12);
+        if (comp) {
+            comp.classList.add('gravando');
+            const b = document.createElement('div');
+            b.id = 'ccGravando'; b.className = 'cc-gravando';
+            b.innerHTML = `<span class="ccg-ponto"></span><span class="ccg-tempo">0:00</span><span class="ccg-dica">‹ Deslize pra cancelar</span>`;
+            comp.appendChild(b);
+        }
+        tick = setInterval(() => {
+            const s2 = (Date.now() - inicio) / 1000;
+            const t = document.querySelector('#ccGravando .ccg-tempo'); if (t) t.textContent = fmtSeg(s2);
+            if (s2 >= MAX_AUDIO_SEG) { clearInterval(tick); vibrar(20); if (rec.state !== 'inactive') rec.stop(); }
+        }, 250);
+    }).catch(() => { limpar(); toast('Libere o microfone pra mandar áudio', 'err'); });
+    return ctl;
+}
+async function enviarAudioNoChat(conv, blob, seg) {
+    if (!conv || !blob) return;
+    if (blob.size > 5 * 1024 * 1024) { toast('Áudio grande demais', 'err'); return; }
+    const aviso = toastComAcao('Enviando áudio...', '', () => {});
+    try {
+        const uid = state.session.user.id;
+        const ext = /webm/.test(blob.type) ? 'webm' : /ogg/.test(blob.type) ? 'ogg' : 'm4a';
+        const caminho = `${uid}/${Date.now()}.${ext}`;
+        const { error: eu } = await sb.storage.from('chat-audio').upload(caminho, blob, { contentType: blob.type.split(';')[0] || 'audio/mp4', upsert: false });
+        if (eu) throw eu;
+        const url = sb.storage.from('chat-audio').getPublicUrl(caminho).data.publicUrl;
+        const { data, error } = await sb.from('messages').insert({ conversation_id: conv, sender_id: uid, body: MARCA_AUDIO + url + '|' + seg }).select().single();
         if (error) throw error;
         if (data && !state.chatMessages.some(m => m.id === data.id)) { state.chatMessages.push(data); paintChatMessages(); }
     } catch (err) { toast(msgErro(err), 'err'); }
@@ -4687,14 +4836,7 @@ async function renderMessages() {
     }
 
     list.innerHTML = html;
-    // pontinho com a cor do tema de cada conversa
-    sb.rpc('chat_temas').then(({ data }) => {
-        (data || []).forEach(t => {
-            const tema = TEMAS_CHAT[t.tema]; if (!tema || t.tema === 'pulso') return;
-            const nome = list.querySelector(`.conv-item[data-conv-id="${t.id}"] .conv-name`);
-            if (nome && !nome.querySelector('.conv-tema')) nome.insertAdjacentHTML('afterbegin', `<i class="conv-tema" style="background:${tema.meu}"></i>`);
-        });
-    }, () => {});
+
     updateUnreadBadge();
 }
 
@@ -4711,6 +4853,7 @@ async function updateUnreadBadge() {
 let chatChannel = null;
 
 function stopChatSync() {
+    if (typeof pararAudioChat === 'function' && audioChat.el) pararAudioChat();
     if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }
     if (state.chatPoll) { clearInterval(state.chatPoll); state.chatPoll = null; }
 }
@@ -4747,7 +4890,7 @@ async function renderChat(conversationId, otherUser) {
                 <div class="cc-campo">
                 <textarea id="chatInput" placeholder="Mensagem..." maxlength="2000" rows="1"></textarea>
                 <label class="mic-btn chat-foto-btn" aria-label="Mandar foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="14" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M20.5 15.5l-4.5-4.5-8 8"/></svg><input type="file" id="chatFoto" accept="image/*" hidden></label>
-                <button class="mic-btn" id="chatMic" aria-label="Ditar">
+                <button class="mic-btn" id="chatMic" aria-label="Toque pra ditar, segure pra gravar áudio">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
                 </button>
                 </div>
@@ -4794,9 +4937,12 @@ async function renderChat(conversationId, otherUser) {
     ligarGestosDoChat(conversationId);
     const atualizarEnviar = () => $('#chatSend').classList.toggle('pronto', !!input.value.trim());
     input.addEventListener('input', atualizarEnviar); atualizarEnviar();
-    $('#chatMic').addEventListener('click', () => ditar('chatInput'));
+    ligarMicDoChat(conversationId);
     $('#chatFoto').addEventListener('change', e => { const fl = e.target.files && e.target.files[0]; e.target.value = ''; if (fl) enviarFotoNoChat(fl); });
-    $('#chatMessages').addEventListener('click', e => { const f = e.target.closest('[data-ver-foto]'); if (f) verFotoChat(f.dataset.verFoto); });
+    $('#chatMessages').addEventListener('click', e => {
+        const f = e.target.closest('[data-ver-foto]'); if (f) { verFotoChat(f.dataset.verFoto); return; }
+        const a = e.target.closest('[data-au]'); if (a) tocarAudioChat(a);
+    });
     restaurarRascunho('chatInput');
     atualizarEnviar();
 
@@ -4806,6 +4952,11 @@ async function renderChat(conversationId, otherUser) {
         .on('broadcast', { event: 'typing' }, ({ payload }) => {
             if (!payload || payload.uid === me) return;
             mostrarDigitando();
+        })
+        .on('broadcast', { event: 'tema' }, ({ payload }) => {
+            if (!payload || !payload.tema || payload.por === me || state.chatConversationId !== conversationId) return;
+            state.chatTema = payload; aplicarTemaChat(payload.tema); pintarAvisoTema();
+            const box = document.getElementById('chatMessages'); if (box) box.scrollTop = box.scrollHeight;
         })
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, payload => {
             const msg = payload.new;
@@ -4897,6 +5048,8 @@ function paintChatMessages() {
                 topo = `<button class="cmsg-post" data-act="view-post" data-id="${escapeHTML(r.id || '')}">${r.img ? `<img src="${escapeHTML(r.img)}" alt="" loading="lazy">` : `<span class="cmsg-post-txt">${escapeHTML(r.txt || 'Post')}</span>`}<span class="cmsg-post-de">@${escapeHTML(r.user || '')}</span></button>`;
                 corpo = pp.texto;
             }
+            const au = lerAudioDaMensagem(corpo);
+            if (au) corpo = '';
             const ft = lerFotoDaMensagem(corpo);
             if (ft) { topo = `<button class="cmsg-foto" data-ver-foto="${escapeHTML(ft.url)}" data-msg="${m.id}"><img src="${escapeHTML(ft.url)}" alt="" loading="lazy"></button>`; corpo = ft.texto; }
             const st = lerStoryDaMensagem(corpo);
@@ -4914,13 +5067,14 @@ function paintChatMessages() {
             const reacHTML = r.length ? `<span class="cmsg-reac">${[...new Set(r.map(x => x.emoji))].join('')}${r.length > 1 ? `<small>${r.length}</small>` : ''}</span>` : '';
             return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${grupo}${r.length ? ' com-reac' : ''}" data-mid="${m.id}">
                 ${topo}
-                ${corpo || (!ft && !pp) ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
+                ${au ? `<div class="cmsg-bubble cmsg-audio" data-msg="${m.id}">${htmlAudioChat(au, m.id)}${reacHTML}</div>` : corpo || (!ft && !pp) ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
                 ${hora}
             </div>`;
         }).join('');
         if (digitando) box.appendChild(digitando);
     }
     pintarAvisoTema();
+    sincronizarAudioChat();
     box.scrollTop = box.scrollHeight;
 }
 
@@ -4955,8 +5109,30 @@ function ligarGestosDoChat(conv) {
         alvo = b; moveu = false; x0 = e.clientX; y0 = e.clientY;
         timer = setTimeout(() => { if (!moveu) { abrirMenuMensagem(b.dataset.msg, conv); if (navigator.vibrate) navigator.vibrate(12); } }, 450);
     });
-    box.addEventListener('pointermove', e => { if (alvo && (Math.abs(e.clientX - x0) > 8 || Math.abs(e.clientY - y0) > 8)) { moveu = true; clearTimeout(timer); } });
-    const soltar = () => { clearTimeout(timer); alvo = null; };
+    let linha = null, puxou = 0;
+    box.addEventListener('pointermove', e => {
+        if (!alvo) return;
+        const dx = e.clientX - x0, dy = e.clientY - y0;
+        if (Math.abs(dx) > 8 || Math.abs(dy) > 8) { moveu = true; clearTimeout(timer); }
+        // arrastar pro lado direito: responder (como no WhatsApp)
+        if (dx > 10 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+            linha = linha || alvo.closest('.cmsg');
+            puxou = Math.min(80, dx);
+            linha.style.transition = 'none';
+            linha.style.transform = `translateX(${puxou}px)`;
+            linha.classList.toggle('vai-responder', puxou > 56);
+            if (puxou > 56 && !linha.dataset.vibrou) { linha.dataset.vibrou = '1'; vibrar(10); }
+        }
+    });
+    const soltar = () => {
+        clearTimeout(timer);
+        if (linha) {
+            const mid = linha.dataset.mid, foi = puxou > 56;
+            linha.style.transition = 'transform .2s ease'; linha.style.transform = ''; linha.classList.remove('vai-responder'); delete linha.dataset.vibrou;
+            if (foi && mid) iniciarRespostaChat(mid);
+        }
+        linha = null; puxou = 0; alvo = null;
+    };
     box.addEventListener('pointerup', soltar); box.addEventListener('pointercancel', soltar); box.addEventListener('pointerleave', soltar);
     box.addEventListener('contextmenu', e => { if (e.target.closest('.cmsg-bubble')) e.preventDefault(); });
     box.addEventListener('click', e => {
@@ -4986,6 +5162,15 @@ async function reagirMensagem(mid, emoji, conv, soColocar = false) {
     if (error) { await carregarExtrasDoChat(conv); paintChatMessages(); toast('Não consegui reagir agora', 'err'); }
 }
 
+function iniciarRespostaChat(mid) {
+    const m = (state.chatMessages || []).find(x => x.id === mid); if (!m) return;
+    const au = lerAudioDaMensagem(m.body);
+    const txt = au ? '🎤 Áudio' : textoLimpo(m.body).slice(0, 80);
+    state.chatRespondendo = { id: mid, txt, de: m.sender_id };
+    $('#chatRespTxt').textContent = txt;
+    $('#chatRespBarra').classList.remove('hidden');
+    $('#chatInput').focus();
+}
 function abrirMenuMensagem(mid, conv) {
     const m = state.chatMessages.find(x => x.id === mid);
     const bolha = document.querySelector(`.cmsg-bubble[data-msg="${mid}"]`);
@@ -5034,14 +5219,7 @@ function abrirMenuMensagem(mid, conv) {
     const fechar = () => { camada.classList.remove('on'); setTimeout(() => camada.remove(), 160); };
     camada.addEventListener('click', e => { if (e.target === camada || e.target.closest('.msg-clone')) fechar(); });
     reac.querySelectorAll('[data-emo]').forEach(b => b.onclick = () => { fechar(); reagirMensagem(mid, b.dataset.emo, conv); });
-    menu.querySelector('[data-op="responder"]').onclick = () => {
-        fechar();
-        const txt = textoLimpo(m.body).slice(0, 80);
-        state.chatRespondendo = { id: mid, txt, de: m.sender_id };
-        $('#chatRespTxt').textContent = txt;
-        $('#chatRespBarra').classList.remove('hidden');
-        $('#chatInput').focus();
-    };
+    menu.querySelector('[data-op="responder"]').onclick = () => { fechar(); iniciarRespostaChat(mid); };
     menu.querySelector('[data-op="copiar"]').onclick = async () => {
         fechar();
         try { await navigator.clipboard.writeText(textoLimpo(m.body)); toast('Copiado', 'ok'); } catch (_) {}
@@ -9294,6 +9472,12 @@ async function meusDesafiosAtivos() {
 async function renderPainelDesafio(cidEscolhido) {
     const c = $('#viewContainer');
     c.innerHTML = esqueleto('painel');
+    // adianta o ranking do desafio que provavelmente vai abrir (o último visto), junto com a lista
+    const palpite = cidEscolhido || state.desafioAtual || null;
+    const adiantado = palpite ? Promise.all([
+        sb.rpc('challenge_ranking', { cid: palpite }).then(r => r, () => ({ data: null })),
+        sb.from('challenges').select('rules, team_mode, team_count, team_names').eq('id', palpite).maybeSingle().then(r => r, () => ({ data: null })),
+    ]) : null;
     const [meus, x1Res] = await Promise.all([meusDesafiosAtivos(), sb.rpc('x1_lista').then(r => r, () => ({ data: [] }))]);
     const x1s = (x1Res && x1Res.data) || [];
     state.x1Lista = x1s;
@@ -9313,10 +9497,10 @@ async function renderPainelDesafio(cidEscolhido) {
     const ch = meus.find(x => x.id === cidEscolhido) || meus[0];
     state.desafioAtual = ch.id;
     const uid = state.session.user.id;
-    const [{ data: ranking }, { data: regrasRow }] = await Promise.all([
+    const [{ data: ranking }, { data: regrasRow }] = await (adiantado && palpite === ch.id ? adiantado : Promise.all([
         sb.rpc('challenge_ranking', { cid: ch.id }),
         sb.from('challenges').select('rules, team_mode, team_count, team_names').eq('id', ch.id).maybeSingle(),
-    ]);
+    ]));
     ch.rules = regrasRow ? regrasRow.rules : null;
     ch.team_mode = !!(regrasRow && regrasRow.team_mode);
     ch.team_names = (regrasRow && regrasRow.team_names) || NOMES_TIMES;
@@ -10135,6 +10319,8 @@ function abrirTemasChat(cid) {
         const { data, error } = await sb.rpc('definir_tema_conversa', { cid, p_tema: escolhido });
         if (error) { toast(msgErro(error), 'err'); confirmou = false; aplicarTemaChat(atual); return; }
         state.chatTema = data || { tema: escolhido, por: state.session.user.id, em: new Date().toISOString() };
+        // avisa quem está com a conversa aberta agora
+        if (chatChannel && state.chatConversationId === cid) { try { chatChannel.send({ type: 'broadcast', event: 'tema', payload: state.chatTema }); } catch (_) {} }
         fechar(); pintarAvisoTema();
         const box = document.getElementById('chatMessages'); if (box) box.scrollTop = box.scrollHeight;
     };
@@ -15370,6 +15556,7 @@ function lerStoryDaMensagem(body) {
     try { return { ref: JSON.parse(b.slice(MARCA_STORY.length, fim)), texto: b.slice(fim + 1) }; } catch (_) { return null; }
 }
 const previaMensagem = body => {
+    if (lerAudioDaMensagem(body)) return '🎤 Áudio';
     if (lerFotoDaMensagem(body)) return '📷 Foto';
     if (lerPostDaMensagem(body)) return '📎 Enviou um post';
     const st = lerStoryDaMensagem(body);
