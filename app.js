@@ -2829,6 +2829,7 @@ const NOTIF_TIPOS = [
     ['lembretes', 'Lembrete da ofensiva', 'No seu horário, se ainda não registrou nada'],
     ['agua', 'Lembrete de água', 'Até 3 vezes no dia, só se estiver atrasado'],
     ['resumo', 'Resumo da semana', 'Domingo à noite, como foi sua semana'],
+    ['corpo', 'Músculo esfriando', 'No máximo 1 por semana, quando um grupo fica 10 dias sem treino'],
 ];
 const prefNotif = k => ((state.profile && state.profile.notif_prefs) || {})[k] !== false;
 async function salvarPrefsNotif(novas) {
@@ -3060,7 +3061,7 @@ async function renderAchievements(uid) {
         const podeCompartilhar = ehGanha && ehMeu && !jaFoi;
         const prog = (!ehGanha && a.meta) || (ehGanha && a.proximoNivel && ehMeu)
             ? `<div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (a.prog / a.meta) * 100)}%"></div></div><span class="badge-prog-txt">${a.prog}/${a.meta}${ehGanha && a.proximoNivel ? ` pro ${a.proximoNivel}` : ''}</span>` : '';
-        return `<div class="badge-card${ehGanha ? ' ok' : ''}${nova ? ' nova' : ''}"${podeCompartilhar ? ` data-act="share-badge" data-code="${a.codeAtual}"` : ''}>
+        return `<div class="badge-card${ehGanha ? ' ok brilho-borda' : ''}${nova ? ' nova' : ''}"${ehGanha ? ` style="${brilhoNivel(a.nivel)};--atraso:${(a.nome || '').length % 6}s"` : ''}${podeCompartilhar ? ` data-act="share-badge" data-code="${a.codeAtual}"` : ''}>${ehGanha ? '<span class="dep-brilho"></span>' : ''}
             ${nova ? '<span class="badge-nova">nova</span>' : ''}
             <span class="badge-emo">${a.emo}</span>
             <div class="badge-name">${escapeHTML(a.nome)}</div>
@@ -3089,6 +3090,8 @@ const NIVEIS_CONQ = [
     { nome: 'Evolução no peso', emo: '📉', codes: ['perda_5', 'perda_10'] },
 ];
 const NOMES_NIVEL = ['Bronze', 'Prata', 'Ouro'];
+// borda cintilante por nível (mesmas cores dos depoimentos)
+const brilhoNivel = nivel => estiloCorDep({ bronze: 'bronze', prata: 'prata', ouro: 'dourado' }[String(nivel || '').toLowerCase()] || 'verde');
 function agruparNiveis(lista) {
     const porCode = Object.fromEntries(lista.map(a => [a.code, a]));
     const usados = new Set();
@@ -3135,7 +3138,7 @@ async function checarConquistasNovas() {
         localStorage.setItem('pulso-conq-datas-' + state.session.user.id, JSON.stringify(d));
         const a = novas[0];
         const grupo = NIVEIS_CONQ.find(g => g.codes.includes(a.code));
-        comemorarConquista(grupo ? { ...a, nome: `${grupo.nome} · ${NOMES_NIVEL[grupo.codes.indexOf(a.code)]}`, emo: a.emo } : a);
+        comemorarConquista(grupo ? { ...a, nome: `${grupo.nome} · ${NOMES_NIVEL[grupo.codes.indexOf(a.code)]}`, emo: a.emo, nivel: NOMES_NIVEL[grupo.codes.indexOf(a.code)] } : a);
     }
 }
 function comemorarConquista(a) {
@@ -3145,7 +3148,7 @@ function comemorarConquista(a) {
     tela.className = 'conq-tela';
     const confete = Array.from({ length: 26 }, (_, k) => `<i style="left:${(k * 37) % 100}%;animation-delay:${(k % 9) * 0.08}s;background:${['#35E19B', '#FFC24B', '#5FB0FF', '#FF7A4D', '#C08BFF'][k % 5]}"></i>`).join('');
     tela.innerHTML = `<div class="conq-confete">${confete}</div>
-        <div class="conq-card">
+        <div class="conq-card brilho-borda" style="${brilhoNivel(a.nivel)}"><span class="dep-brilho"></span>
             <small>Nova conquista</small>
             <span class="conq-emo">${a.emo}</span>
             <h2>${escapeHTML(a.nome)}</h2>
@@ -7561,6 +7564,23 @@ async function hydrateMapaCorpo() {
     state.mapaMusc = M;
     pintarMapaCorpo(box, M, true);
     pintarTeaserCorpo(M);
+    salvarMapaFrio(M);
+}
+// guarda o grupo que está esfriando há mais tempo: o servidor manda no máximo 1 aviso por semana
+function salvarMapaFrio(M) {
+    try {
+        if (!state.profile || !state.session) return;
+        const treinaMusc = MUSC_PRINCIPAIS.some(s => M[s] && M[s].dias != null && M[s].dias <= 14);
+        const frio = treinaMusc ? MUSC_PRINCIPAIS.filter(s => M[s] && M[s].dias != null && M[s].dias >= 10 && M[s].dias <= 28 && MUSC_PARA_GRUPO[s])
+            .sort((a, b) => M[b].dias - M[a].dias)[0] : null;
+        const novo = frio ? { slug: frio, nome: NOME_MUSC[frio], grupo: MUSC_PARA_GRUPO[frio], ultimo: new Date(M[frio].ultimo).toISOString() } : null;
+        const atual = state.profile.mapa_frio || null;
+        const igual = JSON.stringify(atual && { slug: atual.slug, ultimo: atual.ultimo }) === JSON.stringify(novo && { slug: novo.slug, ultimo: novo.ultimo });
+        if (igual && (!atual || Date.now() - new Date(atual.em || 0) < 3 * 86400000)) return;
+        const val = novo ? { ...novo, em: new Date().toISOString() } : null;
+        state.profile.mapa_frio = val;
+        sb.from('profiles').update({ mapa_frio: val }).eq('id', state.session.user.id).then(() => {}, () => {});
+    } catch (_) {}
 }
 // na aba Hoje: o corpo pequeno, com atalho pro mapa completo
 function pintarTeaserCorpo(M) {
@@ -7973,7 +7993,7 @@ function celebrarRecorde(ex, kg, antes) {
     const k = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
     el.innerHTML = `<div class="pr-raios"></div>
         ${[...Array(18)].map((_, i) => `<i class="pr-faisca" style="--a:${i * 20}deg;--r:${90 + (i % 3) * 30}px;--t:${(i % 4) * 60}ms"></i>`).join('')}
-        <div class="pr-miolo"><div class="pr-trofeu">🏆</div><small>NOVO RECORDE</small><h2>${escapeHTML(ex)}</h2>
+        <div class="pr-miolo brilho-borda" style="${estiloCorDep('dourado')}"><span class="dep-brilho"></span><div class="pr-trofeu">🏆</div><small>NOVO RECORDE</small><h2>${escapeHTML(ex)}</h2>
         <div class="pr-kg"><b>${k(kg)}</b><span>kg</span></div>${antes != null ? `<p>antes ${k(antes)} kg · <em>+${k(kg - antes)} kg</em></p>` : ''}</div>`;
     document.body.appendChild(el);
     vibrar([30, 50, 30, 50, 90]);
@@ -11095,8 +11115,10 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     const publicados = lista.filter(x => x.status === 'publicado');
     const jaMandei = !meu && lista.some(x => x.author_id === eu && x.status === 'pendente');
 
+    state.depsCache = state.depsCache || {};
     const cartao = (x, pendente) => {
         const a = x.autor || {};
+        state.depsCache[x.id] = x;
         const podeApagar = meu || x.author_id === eu;
         return `<div class="dep-item dep-vidro${pendente ? ' pendente' : ''}" style="${estiloCorDep(x.cor)}"><span class="dep-brilho"></span>
             <p class="dep-texto">${escapeHTML(x.texto)}</p>
@@ -11104,6 +11126,7 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
                 <span data-act="view-user" data-uid="${a.id}">${avatarHTML(a, 'sm')}</span>
                 <div class="dep-quem" data-act="view-user" data-uid="${a.id}"><b>${escapeHTML(a.display_name || a.username || '')}</b></div>
                 <small class="dep-data">${new Date(x.published_at || x.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small>
+                ${!pendente && meu ? `<button class="dep-mini dep-mini-story" data-act="dep-story" data-id="${x.id}" aria-label="Compartilhar no story">${SVG_X('<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/>')}</button>` : ''}
                 ${!pendente && podeApagar ? `<button class="dep-mini" data-act="dep-apagar" data-id="${x.id}" aria-label="Apagar">${SVG_X('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}</button>` : ''}
                 ${!pendente && !podeApagar ? `<button class="dep-mini" data-act="report-user" data-uid="${a.id}" data-name="${escapeHTML(a.display_name || '')}" aria-label="Denunciar">${SVG_X('<path d="M5 21V4M5 5h11l-1.5 3L16 11H5"/>')}</button>` : ''}
             </div>
@@ -13505,6 +13528,11 @@ document.addEventListener('click', async e => {
         const tg = document.getElementById('depFeed-' + btn.dataset.id); if (tg) { tg.classList.toggle('on'); vibrar(6); }
     } else if (act === 'dep-editar') {
         abrirEscreverDepoimento(btn.dataset.uid, '', { id: btn.dataset.id, texto: btn.dataset.texto, cor: btn.dataset.cor });
+    } else if (act === 'dep-story') {
+        const x = (state.depsCache || {})[btn.dataset.id]; if (!x) return;
+        const a = x.autor || {}, k = CORES_DEP[corDep(x.cor)];
+        abrirEditorComCard({ card: { tipo: 'depoimento', texto: x.texto, cor: corDep(x.cor), nome: a.display_name || a.username || '', uid: a.id || '', avatar: a.avatar_url || '' },
+            bg: `radial-gradient(90% 55% at 50% 45%, rgba(${k[0]}, .28), transparent 70%), #07080C` });
     } else if (act === 'dep-escrever') {
         abrirEscreverDepoimento(btn.dataset.uid, btn.dataset.nome);
     } else if (act === 'dep-responder') {
@@ -14855,6 +14883,15 @@ function estiloTextoStory(st, len, emFoto) {
 const CARD_STORY_BG = 'linear-gradient(165deg, #0F4A35 0%, #0A0C0B 55%, #1C1446 100%)';
 function htmlCardStory(st, comFoto) {
     const c = st.card || {};
+    if (c.tipo === 'depoimento') {
+        const k = CORES_DEP[corDep(c.cor)];
+        return `<div class="card-story dep-cs${comFoto ? ' sobre-foto' : ''}" style="--dc:${k[0]};--dg:${k[1]}"><span class="dep-brilho"></span>
+            <small class="cs-rot">Depoimento</small>
+            <p class="dep-cs-txt">${escapeHTML(c.texto || '')}</p>
+            <div class="dep-cs-autor">${avatarHTML({ id: c.uid, display_name: c.nome, avatar_url: c.avatar || null }, 'sm')}<span>de <b>${escapeHTML(c.nome || '')}</b></span></div>
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
     if (c.tipo === 'corpo' && c.v === 3) return htmlPosterCorpo(c);
     if (c.tipo === 'corpo' && c.v === 2) {
         const sx = c.sexo === 'F' ? 'F' : 'M';
@@ -18488,6 +18525,7 @@ async function bootInterno() {
     else await switchView(abaInicial());
     if (ap && ap.tela === 'treino' && trGet()) setTimeout(() => abrirTreinoVivo(), 300);
     if (ap && ap.tela === 'semana') setTimeout(() => abrirSemana(), 400);
+    if (ap && ap.tela === 'treinar' && ap.id) setTimeout(() => abrirModoTreino({ a: 'Musculação', g: [ap.id] }), 400);
     if (ap && ap.tela === 'agua') setTimeout(() => { limparComposer(); setComposerKind('water'); abrirComposer(); }, 350);
     state.bootPronto = true;
     updateUnreadBadge();
