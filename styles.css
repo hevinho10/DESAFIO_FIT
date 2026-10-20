@@ -4321,7 +4321,7 @@ a.cm-mencao{ color:var(--vital); font-weight:600; text-decoration:none; cursor:p
 /* folga no fim das telas pra nada ficar atrás da barra flutuante */
 .app{ padding-bottom:calc(112px + env(safe-area-inset-bottom)); }
 html.tela-cheia .app{ padding-bottom:calc(24px + env(safe-area-inset-bottom)); }
-body:has(#trPilula) .toast{ bottom:calc(152px + env(safe-area-inset-bottom)); }
+.toast.alto-pilula{ bottom:calc(152px + env(safe-area-inset-bottom)); }
 .tr-pilula span{ white-space:nowrap; }
 
 /* Abertura: já logado, mostra só a marca até o app ficar pronto */
@@ -4458,7 +4458,7 @@ html.com-sessao #authScreen{ display:none; }
 .tr-prox{ position:relative; padding:9px 16px 0 18px; font-size:12px; font-weight:600; color:var(--vital); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tr-prox:empty{ display:none; }
 .tr-desc.fim .tr-prox{ color:#04120B; }
-body:has(#treinoVivo) .toast{ bottom:calc(132px + env(safe-area-inset-bottom)); }
+.toast.alto-treino{ bottom:calc(132px + env(safe-area-inset-bottom)); }
 
 /* Stories: envio em segundo plano, fundo desfocado, reações, carregando */
 .story-avatar.enviando{ background:conic-gradient(from 0deg, var(--vital), transparent 70%) !important; animation:anelGira 1s linear infinite; }
@@ -4469,7 +4469,7 @@ body:has(#treinoVivo) .toast{ bottom:calc(132px + env(safe-area-inset-bottom)); 
 .story-content .sv-enq{ z-index:5; }
 .story-viewer.carregando .story-progress-bar.active .fill{ animation-play-state:paused; }
 .sv-reacoes{ position:absolute; left:0; right:0; bottom:100%; display:none; justify-content:center; gap:16px; padding-bottom:6px; }
-.sv-resp:has(#svRespInput:focus) .sv-reacoes{ display:flex; animation:trDica .2s ease; }
+.sv-resp.digitando .sv-reacoes{ display:flex; animation:trDica .2s ease; }
 .sv-reacoes button{ width:46px; height:46px; border-radius:50%; border:0; background:rgba(0,0,0,.32); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); font-size:23px; display:grid; place-items:center; transition:transform .15s; }
 .sv-reacoes button:active{ transform:scale(1.25); }
 .sv-voa{ position:absolute; bottom:22%; z-index:20; pointer-events:none; animation:svVoa 1.5s ease-out forwards; }
@@ -4479,7 +4479,7 @@ body:has(#treinoVivo) .toast{ bottom:calc(132px + env(safe-area-inset-bottom)); 
 .sc-enquete, .sv-enq{ position:absolute; z-index:5; width:min(78%, 300px); transform:translate(-50%, -50%); }
 .sc-enquete{ touch-action:none; }
 .sc-enquete .enq-op{ pointer-events:none; }
-.enq{ padding:16px 14px 12px; border-radius:22px; background:rgba(255,255,255,.94); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); box-shadow:0 18px 40px -16px rgba(0,0,0,.55); color:#101512; display:flex; flex-direction:column; gap:8px; }
+.enq{ padding:16px 14px 12px; border-radius:22px; background:rgba(255,255,255,.96); box-shadow:0 18px 40px -16px rgba(0,0,0,.55); color:#101512; display:flex; flex-direction:column; gap:8px; }
 .enq-p{ margin:0 2px 4px; font-family:var(--ff-display); font-size:17px; font-weight:700; line-height:1.25; text-align:center; color:#101512; }
 .enq-op{ position:relative; display:flex; align-items:center; gap:8px; min-height:46px; padding:0 14px; border-radius:14px; border:1.5px solid rgba(16,21,18,.12); background:#fff; color:#101512; font-family:inherit; font-size:15px; font-weight:700; overflow:hidden; text-align:left; transition:border-color .2s, transform .12s; }
 .enq-op:not(.res):active{ transform:scale(.98); border-color:var(--vital); }
@@ -4499,7 +4499,7 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 .enq-ninguem{ color:var(--ink-faint); font-size:12.5px; }
 
 /* Depoimentos em vidro, com a cor que quem escreveu escolheu */
-.dep-vidro{ --dc:160,170,165; position:relative; padding:18px 16px 14px; border-radius:22px; background:linear-gradient(160deg, rgba(var(--dc), .18), rgba(255,255,255,.015) 62%); border:1px solid rgba(var(--dc), .38); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.dep-vidro{ --dc:160,170,165; position:relative; padding:18px 16px 14px; border-radius:22px; background:linear-gradient(160deg, rgba(var(--dc), .18), rgba(255,255,255,.015) 62%); border:1px solid rgba(var(--dc), .38); }
 .dep-item.dep-vidro{ margin-bottom:12px; }
 .dep-vidro .dep-texto{ margin:0 0 14px; font-size:17px; line-height:1.38; font-weight:600; font-style:normal; letter-spacing:-.01em; color:var(--ink); }
 .dep-vidro .dep-topo{ display:flex; align-items:center; gap:9px; }
@@ -4538,19 +4538,24 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 .dep-sw{ margin:2px 0 10px; padding:10px 12px; }
 .dep-sw b{ font-size:13.5px; font-weight:600; }
 
-/* Temas da conversa */
-.coach-view.chat-tema{ background:var(--ct-fundo); }
-.coach-view.chat-tema .user-topbar, .coach-view.chat-tema .coach-composer{ background:transparent; }
-.coach-view.chat-tema #chatMessages{ background:transparent; }
+/* Temas da conversa: fundo de tela inteira, topo e campo em vidro */
+.coach-view.chat-tema{ background:var(--ct-fundo) !important; color:#fff; min-height:100%; }
+.coach-view.chat-tema .user-topbar{ background:rgba(0,0,0,.18) !important; -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border-color:rgba(255,255,255,.08) !important; }
+.coach-view.chat-tema .user-topbar, .coach-view.chat-tema .user-topbar *{ color:#fff; }
+.coach-view.chat-tema #chatMessages, .coach-view.chat-tema .coach-composer{ background:transparent !important; }
+.coach-view.chat-tema .cc-campo{ background:rgba(0,0,0,.26) !important; border-color:rgba(255,255,255,.1) !important; }
+.coach-view.chat-tema #chatInput{ background:transparent !important; color:#fff !important; }
+.coach-view.chat-tema #chatInput::placeholder{ color:rgba(255,255,255,.6); }
 .coach-view.chat-tema .cmsg.user .cmsg-bubble{ background:var(--ct-meu) !important; color:var(--ct-txt) !important; border:0 !important; }
-.coach-view.chat-tema .cmsg.coach .cmsg-bubble{ background:var(--ct-ele) !important; border-color:transparent !important; }
+.coach-view.chat-tema .cmsg.coach .cmsg-bubble{ background:rgba(255,255,255,.14) !important; color:#fff !important; border-color:transparent !important; }
 .coach-view.chat-tema .coach-send{ background:var(--ct-meu) !important; color:var(--ct-txt) !important; }
+.coach-view.chat-tema .cmsg-hora, .coach-view.chat-tema .chat-dia, .coach-view.chat-tema .chat-sys-tema, .coach-view.chat-tema small{ color:rgba(255,255,255,.72) !important; }
 .chat-sys-tema{ align-self:center; text-align:center; margin:6px auto 10px; font-size:11.5px; color:var(--ink-dim); }
 .ct-grade{ display:grid; grid-template-columns:repeat(4, 1fr); gap:12px 8px; margin:2px 0 16px; }
 .ct-op{ display:flex; flex-direction:column; align-items:center; gap:6px; border:0; background:none; color:var(--ink-dim); font-family:inherit; font-size:11.5px; font-weight:600; }
 .ct-op span{ position:relative; width:60px; height:60px; border-radius:18px; overflow:hidden; border:1px solid rgba(255,255,255,.08); }
 .ct-op span i, .ct-op span u{ position:absolute; height:12px; border-radius:6px; text-decoration:none; }
-.ct-op span i{ left:8px; top:13px; width:30px; }
+.ct-op span i{ left:8px; top:13px; width:30px; background:rgba(255,255,255,.18); }
 .ct-op span u{ right:8px; bottom:13px; width:32px; }
 .ct-op.on{ color:var(--ink); }
 .ct-op.on span{ box-shadow:0 0 0 2px var(--bg-elev), 0 0 0 4px var(--ink); }

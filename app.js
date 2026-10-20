@@ -127,9 +127,11 @@ const timeAgo = iso => {
     if (diff < 604800) return `${Math.floor(diff/86400)}d`;
     return new Date(iso).toLocaleDateString('pt-BR');
 };
+// toast sobe um pouco quando tem a barra do treino ou a pílula embaixo (sem regra pesada de CSS)
+const toastAlto = () => document.getElementById('treinoVivo') ? ' alto-treino' : document.getElementById('trPilula') ? ' alto-pilula' : '';
 const toast = (msg, kind='ok') => {
     const t = document.createElement('div');
-    t.className = `toast ${kind}`;
+    t.className = `toast ${kind}${toastAlto()}`;
     t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3000);
@@ -6939,7 +6941,7 @@ async function renderProgress() {
     const [
         { data: wSeries }, { data: aSeries }, { data: mSeries }, { data: pSeries },
         { data: goalData }, { data: streak }, { data: validWeeks },
-        { data: meusPosts }, { data: sonos }, { data: ledger }
+        { data: meusPosts }, { data: sonos }, { data: ledger }, aguaHoje, { data: daysThisWeek }, { data: escudo }
     ] = await Promise.all([
         sb.rpc('weight_series', { uid, days_back: 1100 }),
         sb.rpc('activity_series', { uid, weeks_back: 156 }),
@@ -6952,8 +6954,10 @@ async function renderProgress() {
             .eq('user_id', uid).in('kind', ['workout', 'water', 'meal', 'weight']).order('created_at', { ascending: true }).limit(3000),
         sb.from('sleep_logs').select('slept_on, hours').eq('user_id', uid).order('slept_on', { ascending: true }).limit(1200),
         sb.from('points_ledger').select('amount, earned_at').eq('user_id', uid).order('earned_at', { ascending: true }).limit(5000),
+        aguaDeHoje().catch(() => ({})),
+        sb.rpc('count_days_current_week', { uid }).then(r => r, () => ({ data: 0 })),
+        sb.rpc('shield_status').then(r => r, () => ({ data: null })),
     ]);
-    const aguaHoje = await aguaDeHoje();
     {
         const seg = segundaDe(); seg.setHours(0, 0, 0, 0);
         const dias = [0, 0, 0, 0, 0, 0, 0];
@@ -6966,13 +6970,11 @@ async function renderProgress() {
     const weeklyGoal = state.profile.weekly_goal || 3;
 
     // Card "Sua semana" (movido do feed pra cá)
-    const { data: daysThisWeek } = await sb.rpc('count_days_current_week', { uid });
     const days = Number(daysThisWeek || 0);
     const isValid = days >= weeklyGoal;
     const pctWeek = Math.min(100, Math.round((days / weeklyGoal) * 100));
     const falta = weeklyGoal - days;
     const currentStreak = streak?.current_streak || 0;
-    const { data: escudo } = await sb.rpc('shield_status');
     const escudoOk = escudo && escudo[0] && escudo[0].disponivel;
     const totalValid = Number(validWeeks || 0);
 
@@ -10071,26 +10073,34 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
 }
 
 // ================= TEMAS DA CONVERSA (valem pros dois) =================
+const svgFundo = x => `url("data:image/svg+xml,${encodeURIComponent(x)}")`;
+// fundos desenhados em código (não pesam pra carregar)
 const TEMAS_CHAT = {
-    pulso:    { nome: 'Pulso',      fundo: '#0A0C0B', ele: '#1a201d', meu: '#35E19B', txt: '#04120B', claro: '#F4F7F5', eleClaro: '#FFFFFF' },
-    oceano:   { nome: 'Oceano',     fundo: 'linear-gradient(180deg,#0B1A2E,#081019)', ele: '#16263a', meu: 'linear-gradient(135deg,#3B82F6,#22D3EE)', txt: '#fff', claro: 'linear-gradient(180deg,#EAF3FF,#F4F9FF)', eleClaro: '#FFFFFF', emo: '🌊' },
-    sol:      { nome: 'Pôr do sol', fundo: 'linear-gradient(180deg,#1E1210,#120B0F)', ele: '#2a1c1b', meu: 'linear-gradient(135deg,#FF8A4C,#FF5E8A)', txt: '#fff', claro: 'linear-gradient(180deg,#FFF1EA,#FFF7F4)', eleClaro: '#FFFFFF', emo: '🌅' },
-    lavanda:  { nome: 'Lavanda',    fundo: 'linear-gradient(180deg,#16131F,#0E0C14)', ele: '#221d30', meu: 'linear-gradient(135deg,#A78BFA,#C4B5FD)', txt: '#160E2B', claro: 'linear-gradient(180deg,#F3EFFF,#F9F7FF)', eleClaro: '#FFFFFF', emo: '💜' },
-    dourado:  { nome: 'Dourado',    fundo: 'linear-gradient(180deg,#17140C,#0D0B07)', ele: '#262014', meu: 'linear-gradient(135deg,#F6DE9A,#C9A24B)', txt: '#1a1405', claro: 'linear-gradient(180deg,#FFF8E6,#FFFCF3)', eleClaro: '#FFFFFF', emo: '✨' },
-    floresta: { nome: 'Floresta',   fundo: 'linear-gradient(180deg,#0E1A12,#08100B)', ele: '#16261b', meu: 'linear-gradient(135deg,#22C55E,#86EFAC)', txt: '#05210F', claro: 'linear-gradient(180deg,#EAF8EE,#F5FCF7)', eleClaro: '#FFFFFF', emo: '🌿' },
-    grafite:  { nome: 'Grafite',    fundo: '#111111', ele: '#222222', meu: '#E5E5E5', txt: '#111111', claro: '#F2F2F2', eleClaro: '#FFFFFF', emo: '🖤' },
-    rose:     { nome: 'Rosé',       fundo: 'linear-gradient(180deg,#1A0F17,#0F090E)', ele: '#2a1825', meu: 'linear-gradient(135deg,#F472B6,#FB7185)', txt: '#fff', claro: 'linear-gradient(180deg,#FFEEF5,#FFF7FA)', eleClaro: '#FFFFFF', emo: '🌸' },
+    pulso:    { nome: 'Pulso', meu: '#35E19B', txt: '#04120B' },
+    oceano:   { nome: 'Oceano', emo: '🌊', meu: 'linear-gradient(135deg,#3B82F6,#22D3EE)', txt: '#fff',
+        fundo: `${svgFundo("<svg xmlns='http://www.w3.org/2000/svg' width='300' height='120'><path d='M0 60 Q75 30 150 60 T300 60' fill='none' stroke='rgba(255,255,255,0.07)' stroke-width='2'/><path d='M0 92 Q75 62 150 92 T300 92' fill='none' stroke='rgba(255,255,255,0.05)' stroke-width='2'/></svg>")}, radial-gradient(circle at 85% 8%, #2563EB 0, transparent 45%), radial-gradient(circle at 10% 92%, #06B6D4 0, transparent 50%), linear-gradient(180deg,#0B2447,#071426)` },
+    sol:      { nome: 'Pôr do sol', emo: '🌅', meu: '#FFFFFF', txt: '#C2410C',
+        fundo: 'radial-gradient(circle at 50% 18%, rgba(255,214,140,.55) 0, rgba(255,140,80,0) 32%), linear-gradient(180deg,#FF9A5A 0%,#F2557A 45%,#5B2A86 100%)' },
+    lavanda:  { nome: 'Lavanda', emo: '💜', meu: 'linear-gradient(135deg,#C4B5FD,#A78BFA)', txt: '#1E1240',
+        fundo: 'radial-gradient(circle at 20% 20%, rgba(196,181,253,.45) 0, transparent 28%), radial-gradient(circle at 80% 45%, rgba(167,139,250,.35) 0, transparent 30%), radial-gradient(circle at 35% 80%, rgba(244,114,182,.25) 0, transparent 30%), linear-gradient(180deg,#2A1F4A,#140F26)' },
+    dourado:  { nome: 'Dourado', emo: '✨', meu: 'linear-gradient(135deg,#F6DE9A,#C9A24B)', txt: '#1a1405',
+        fundo: `${svgFundo("<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><circle cx='20' cy='30' r='1.4' fill='rgba(246,222,154,0.5)'/><circle cx='80' cy='14' r='1' fill='rgba(246,222,154,0.35)'/><circle cx='60' cy='70' r='1.8' fill='rgba(246,222,154,0.45)'/><circle cx='104' cy='96' r='1.2' fill='rgba(246,222,154,0.4)'/><circle cx='30' cy='100' r='0.9' fill='rgba(246,222,154,0.3)'/></svg>")}, radial-gradient(circle at 50% 0%, rgba(201,162,75,.35) 0, transparent 55%), linear-gradient(180deg,#1C170C,#0B0906)` },
+    floresta: { nome: 'Floresta', emo: '🌿', meu: 'linear-gradient(135deg,#22C55E,#86EFAC)', txt: '#05210F',
+        fundo: `${svgFundo("<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><path d='M30 120 C30 80 60 60 70 40 C70 70 60 100 30 120Z' fill='rgba(134,239,172,0.07)'/><path d='M120 60 C110 30 130 15 145 5 C150 30 140 50 120 60Z' fill='rgba(134,239,172,0.06)'/></svg>")}, radial-gradient(circle at 20% 12%, rgba(34,197,94,.3) 0, transparent 45%), linear-gradient(180deg,#0F2417,#07120B)` },
+    grafite:  { nome: 'Grafite', emo: '🖤', meu: '#EDEDED', txt: '#111111',
+        fundo: `${svgFundo("<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24'><path d='M24 0H0V24' fill='none' stroke='rgba(255,255,255,0.035)'/></svg>")}, radial-gradient(circle at 50% 0%, #2a2a2a 0, transparent 60%), #0f0f0f` },
+    rose:     { nome: 'Rosé', emo: '🌸', meu: 'linear-gradient(135deg,#F472B6,#FB7185)', txt: '#fff',
+        fundo: `${svgFundo("<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><ellipse cx='40' cy='50' rx='9' ry='5' transform='rotate(30 40 50)' fill='rgba(251,113,133,0.12)'/><ellipse cx='130' cy='120' rx='8' ry='4.5' transform='rotate(-25 130 120)' fill='rgba(244,114,182,0.1)'/><ellipse cx='150' cy='30' rx='6' ry='3.5' transform='rotate(60 150 30)' fill='rgba(251,113,133,0.09)'/></svg>")}, radial-gradient(circle at 80% 10%, rgba(244,114,182,.35) 0, transparent 45%), linear-gradient(180deg,#3A1426,#1A0912)` },
 };
 function aplicarTemaChat(chave) {
     const v = document.querySelector('.coach-view'); if (!v || !document.getElementById('chatMessages')) return;
     const t = TEMAS_CHAT[chave] || TEMAS_CHAT.pulso;
-    const claro = document.documentElement.getAttribute('data-theme') === 'light';
+    v.dataset.tema = chave;
+    if (!t.fundo) { v.classList.remove('chat-tema'); ['--ct-fundo', '--ct-meu', '--ct-txt'].forEach(k => v.style.removeProperty(k)); return; }
     v.classList.add('chat-tema');
-    v.style.setProperty('--ct-fundo', claro ? t.claro : t.fundo);
-    v.style.setProperty('--ct-ele', claro ? t.eleClaro : t.ele);
+    v.style.setProperty('--ct-fundo', t.fundo);
     v.style.setProperty('--ct-meu', t.meu);
     v.style.setProperty('--ct-txt', t.txt);
-    v.dataset.tema = chave;
 }
 function pintarAvisoTema() {
     const box = document.getElementById('chatMessages'); const t = state.chatTema;
@@ -10110,7 +10120,7 @@ function abrirTemasChat(cid) {
     let escolhido = atual;
     const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Tema da conversa</h3><p class="dep-sub">Muda pra vocês dois</p>
         <div class="ct-grade">${Object.entries(TEMAS_CHAT).map(([k, t]) => `<button type="button" class="ct-op${k === atual ? ' on' : ''}" data-ct="${k}">
-            <span style="background:${t.fundo}"><i style="background:${t.ele}"></i><u style="background:${t.meu}"></u></span>${escapeHTML(t.nome)}</button>`).join('')}</div>
+            <span style="background:${t.fundo || 'var(--bg)'}"><i></i><u style="background:${t.meu}"></u></span>${escapeHTML(t.nome)}</button>`).join('')}</div>
         <button class="btn x1-btn" id="ctOk" disabled>Usar este tema</button>`, 'chatTemas');
     let confirmou = false;
     f.querySelector('.ct-grade').addEventListener('click', e => {
@@ -10455,24 +10465,30 @@ async function renderProfile() {
     const c = $('#viewContainer');
     if (!c.querySelector('.ig-profile, .profile-header, .ig-profile-stats')) c.innerHTML = esqueleto('perfil');
     const p = state.profile;
-    const [{ count: postCount }, { data: streak }, { data: followersCount }, { data: followingCount }] = await Promise.all([
-        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', state.session.user.id).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true),
-        sb.from('daily_streaks').select('*').eq('user_id', state.session.user.id).maybeSingle(),
-        sb.rpc('my_followers_count'),
-        sb.rpc('my_following_count'),
+    const uidP = state.session.user.id;
+    // tudo que o perfil precisa sai junto (antes era um pedido depois do outro)
+    const pegar = x => Promise.resolve(x).then(r => r, () => ({ data: null }));
+    const [{ count: postCount }, { data: streak }, { data: followersCount }, { data: followingCount }, { data: myPosts }, { data: goalData },
+           { data: diasSem }, { data: rkProf }, meusDestaques, { data: meusStoriesAtivos }] = await Promise.all([
+        pegar(sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uidP).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true)),
+        pegar(sb.from('daily_streaks').select('*').eq('user_id', uidP).maybeSingle()),
+        pegar(sb.rpc('my_followers_count')),
+        pegar(sb.rpc('my_following_count')),
+        pegar(sb.from('posts')
+            .select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot, pinned_at')
+            .eq('user_id', uidP).neq('kind', 'weight')
+            .not('image_url', 'is', null).eq('in_feed', true).eq('archived', false)
+            .order('pinned_at', { ascending: false, nullsFirst: false })
+            .order('created_at', { ascending: false })
+            .limit(30)),
+        pegar(sb.rpc('weight_progress', { uid: uidP })),
+        pegar(sb.rpc('count_days_current_week', { uid: uidP })),
+        pegar(sb.rpc('my_weekly_rank')),
+        carregarDestaques(uidP).catch(() => []),
+        pegar(sb.from('stories').select('id').eq('user_id', uidP).gt('expires_at', new Date().toISOString())),
     ]);
 
-    const { data: myPosts } = await sb.from('posts')
-        .select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot, pinned_at')
-        .eq('user_id', state.session.user.id)
-        .neq('kind', 'weight')
-        .not('image_url', 'is', null).eq('in_feed', true).eq('archived', false)
-        .order('pinned_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
-        .limit(30);
-
     // Meta de peso
-    const { data: goalData } = await sb.rpc('weight_progress', { uid: state.session.user.id });
     const goal = goalData?.[0];
     let goalHTML = '';
     const temMeta = Number(state.profile.target_weight || (goal && goal.meta) || 0) > 0;
@@ -10507,20 +10523,12 @@ async function renderProfile() {
         <button class="btn-primary-sm" data-act="novo-post">Criar</button>
     </div>`;
 
-    const [{ data: diasSem }, { data: rkProf }] = await Promise.all([
-        sb.rpc('count_days_current_week', { uid: state.session.user.id }),
-        sb.rpc('my_weekly_rank'),
-    ]);
     const diasSemana = Number(diasSem || 0);
     const fxProf = rkProf && rkProf[0] ? faixaRanking(rkProf[0].rank, rkProf[0].total) : null;
     const rankTxt = fxProf ? fxProf.curto : '-';
     const metaSemana = state.profile.weekly_goal || 3;
     const metasHTML = await montarCardMetas(goal);
 
-    const meusDestaques = await carregarDestaques(state.session.user.id);
-    const { data: meusStoriesAtivos } = await sb.from('stories')
-        .select('id').eq('user_id', state.session.user.id)
-        .gt('expires_at', new Date().toISOString());
     const myStoryCount = (meusStoriesAtivos || []).length;
     const meusIdsStory = (meusStoriesAtivos || []).map(x => x.id);
     const meuVisto = myStoryCount > 0 && meusIdsStory.every(id => vistosStory().has(id));
@@ -11906,7 +11914,7 @@ async function switchView(v, params = {}) {
     const paramsAnteriores = state.viewParams || {};
     if (viewAnterior === 'feed' && v !== 'feed') state.feedScroll = window.scrollY; // lembra onde parou
     // Evolução e Desafio: guarda a última versão pra mostrar na hora na próxima visita
-    const ABAS_CACHE = ['progress', 'desafio'];
+    const ABAS_CACHE = ['progress', 'desafio', 'profile', 'feed']; // abas já visitadas aparecem na hora e atualizam por trás
     state.cacheTela = state.cacheTela || {};
     if (ABAS_CACHE.includes(viewAnterior) && viewAnterior !== v) {
         const vc = document.getElementById('viewContainer');
@@ -13626,7 +13634,7 @@ function btnCarregando(btn, on) {
 // Aviso com um botão (ex: Desfazer)
 function toastComAcao(texto, acao, aoClicar) {
     const el = document.createElement('div');
-    el.className = 'toast toast-acao';
+    el.className = 'toast toast-acao' + toastAlto();
     el.innerHTML = `<span>${escapeHTML(texto)}</span>${acao ? `<button>${escapeHTML(acao)}</button>` : ''}`;
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('on'));
@@ -15392,6 +15400,12 @@ respInput.addEventListener('input', () => document.getElementById('svRespEnviar'
 respInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarRespostaStory(); } });
 document.getElementById('svRespEnviar').addEventListener('click', e => { e.stopPropagation(); enviarRespostaStory(); });
 ['click', 'pointerdown', 'pointerup'].forEach(ev => document.getElementById('svResp').addEventListener(ev, e => e.stopPropagation()));
+// Reações rápidas aparecem só enquanto a pessoa escreve a resposta
+(function () {
+    const inp = document.getElementById('svRespInput'), r = document.getElementById('svResp'); if (!inp || !r) return;
+    inp.addEventListener('focus', () => r.classList.add('digitando'));
+    inp.addEventListener('blur', () => r.classList.remove('digitando'));
+})();
 // Reações rápidas: um toque manda pelo chat e o emoji sobe na tela
 (function reacoesStory() {
     const box = document.getElementById('svReacoes'); if (!box) return;
