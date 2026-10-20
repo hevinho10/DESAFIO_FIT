@@ -2330,6 +2330,7 @@ function contextoCurtoIA() {
     if (p.target_weight) L.push('meta de peso: ' + br(p.target_weight) + ' kg');
     if (p.train_avoid) L.push('evita: ' + p.train_avoid);
     const mem = memoriaCoach(); if (mem.length) L.push('já contou: ' + mem.slice(-6).join('; '));
+    const pr = contextoProntidao(); if (pr) L.push(pr);
     return L.join(' · ');
 }
 async function iaComFoto(task, file, pergunta = '') {
@@ -4358,6 +4359,7 @@ function renderSettings() {
             <div class="cfg-grupo">
                 <div class="cfg-titulo">App</div>
                 ${linhaConfig('cfg-page', 'tema', 'Aparência', tema, ' data-page="set-appearance"')}
+                ${linhaSwitch('toggle-prontidao', 'ajustes', 'Prontidão do dia', 'De manhã, 3 toques pro coach ajustar seu treino', prontidaoLigada())}
                 ${linhaConfig('go-install', 'instalar', 'Instalar na tela inicial')}
                 ${p.is_admin ? linhaConfig('export-data', 'baixar', 'Baixar meus dados') : ''}
             </div>
@@ -5694,6 +5696,7 @@ function formatCoachContext(ctx) {
     add('Alergias', ctx.alergias);
     add('Medicações em uso', ctx.medicacoes);
 
+    const pront = contextoProntidao(); if (pront) L.push('- ' + pront.replace(/^./, x => x.toUpperCase()) + ' (ajuste a intensidade a isso)');
     return L.join('\n') || 'Pessoa ainda não preencheu dados.';
 }
 
@@ -6084,9 +6087,11 @@ async function renderFeed() {
     let html = '<div class="view feed-view">';
 
     html += `<div id="coachSlot"></div>`;
-    html += storiesHTML + '<div id="lembrancaSlot"></div><div id="retroSlot"></div>';
+    html += storiesHTML + '<div id="prontSlot"></div><div id="lembrancaSlot"></div><div id="semanaSlot"></div><div id="retroSlot"></div>';
     setTimeout(hydrateLembranca, 400);
     setTimeout(hydrateRetroFeed, 600);
+    setTimeout(hydrateSemanaFeed, 700);
+    setTimeout(hydrateProntidaoFeed, 400);
     html += `<div id="resumoSlot"></div>`;
     html += `<div id="desafioSlot"></div>`;
 
@@ -6620,6 +6625,13 @@ function prontidaoDoDia(l) {
     else if (!l.treinouOntem) { n += 6; motivos.push('descansou ontem'); }
     const puxados = (l.ultimosEsforcos || []).slice(0, 2).filter(e => e === 'puxado').length;
     if (puxados) { n -= 10 * puxados; motivos.push(puxados > 1 ? 'últimos treinos puxados' : 'último treino puxado'); }
+    // o que a pessoa respondeu hoje de manhã (sono, dor e disposição)
+    const resp = typeof prontidaoHoje === 'function' ? prontidaoHoje() : null;
+    if (resp) {
+        if (l.sonoOntem == null) { if (resp.sono === 0) { n -= 16; motivos.push('dormiu mal'); } else if (resp.sono === 2) { n += 8; motivos.push('dormiu bem'); } }
+        if (resp.dor === 0) { n -= 18; motivos.unshift('dor muscular forte'); } else if (resp.dor === 1) n -= 5;
+        if (resp.disp === 0) { n -= 12; motivos.push('pouca disposição'); } else if (resp.disp === 2) { n += 6; motivos.push('disposição alta'); }
+    }
     n = Math.max(15, Math.min(98, Math.round(n)));
     const nivel = n >= 75 ? 'forte' : n >= 55 ? 'moderado' : 'leve';
     const frase = nivel === 'forte' ? 'Dia bom pra treino forte' : nivel === 'moderado' ? 'Bom pra um treino moderado' : 'Dia de pegar leve';
@@ -6932,7 +6944,7 @@ async function hydrateIAEvolucao() {
         const anteriores = (antigas || []).filter(a => !carta || a.day !== carta.semana).slice(0, 4);
         slot.innerHTML = [
             alerta && alerta.mensagem ? `<div class="chart-card ia-card ia-alerta"><div class="chart-head"><span class="chart-title">Tudo bem por aí?</span></div><p>${escapeHTML(alerta.mensagem || '')}</p>${alerta.passo ? `<p class="ia-passo">${escapeHTML(alerta.passo)}</p>` : ''}</div>` : '',
-            prontidaoHTML(prontidaoDoDia(l), l.treinouHoje, l.sonoOntem != null),
+            prontidaoHTML(prontidaoDoDia(l), l.treinouHoje, l.sonoOntem != null || !!prontidaoHoje()),
             semanaStripHTML(),
             treinoDoDiaHTML(treino, l.treinouHoje),
             planoSemanaHTML(plano, diasFeitos),
@@ -7199,25 +7211,8 @@ function montarEvolucao(d) {
         </div>`;
     }
 
-    // ---- equilíbrio muscular ----
-    const GRUPOS = ['Peito', 'Costas', 'Pernas', 'Ombros', 'Braços', 'Abdômen', 'Glúteos'];
-    const muscu = treinos.filter(p => p.activity_type === 'Musculação' && Array.isArray(p.muscle_groups) && p.muscle_groups.length);
-    let musculosHTML = '';
-    if (muscu.length) {
-        const ultimo = {}, qtd = {};
-        muscu.forEach(p => {
-            const gs = p.muscle_groups.includes('Corpo todo') ? GRUPOS : categoriasMusculares(p.muscle_groups);
-            gs.forEach(g => { ultimo[g] = Math.max(ultimo[g] || 0, +new Date(p.created_at)); if (noPer(+new Date(p.created_at))) qtd[g] = (qtd[g] || 0) + 1; });
-        });
-        musculosHTML = `<div class="chart-card">
-            <div class="chart-head"><span class="chart-title">Equilíbrio muscular</span><span class="chart-legend">treinos no período</span></div>
-            <div class="musc-lista">${GRUPOS.map(g => {
-                const dias = ultimo[g] ? Math.floor((agora - ultimo[g]) / DIA_MS) : null;
-                const cls = dias == null ? 'nunca' : dias > 10 ? 'alerta' : dias > 6 ? 'atencao' : 'ok';
-                return `<div class="musc ${cls}"><span class="musc-nome">${g}</span><span class="musc-qtd">${qtd[g] || 0}x</span><span class="musc-dias">${dias == null ? 'nunca registrado' : dias === 0 ? 'hoje' : dias === 1 ? 'ontem' : `há ${dias} dias`}</span></div>`;
-            }).join('')}</div>
-        </div>`;
-    }
+    // ---- mapa de calor muscular (desenhado depois, em hydrateMapaCorpo) ----
+    const musculosHTML = '<div id="mapaCorpoBox" class="mapa-corpo-box"><div class="mc-esq"></div></div>';
 
     // ---- nota das refeições ----
     const refeicoes = (d.meusPosts || []).filter(p => p.kind === 'meal' && p.meal_score != null && noPer(+new Date(p.created_at)));
@@ -7259,10 +7254,11 @@ function montarEvolucao(d) {
     if (longo) rec.push(['⏱️', `${longo.duration_min} min`, `treino mais longo (${escapeHTML(longo.activity_type || 'treino')})`]);
     const dist = treinos.reduce((m, p) => (Number(p.distance_km || 0) > (m ? Number(m.distance_km) : 0) ? p : m), null);
     if (dist) rec.push(['🏃', `${num1(Number(dist.distance_km))} km`, `maior distância (${escapeHTML(dist.activity_type || '')})`]);
-    const recordesHTML = rec.length ? `<div class="chart-card">
+    const recordesHTML = `<div class="chart-card" id="recordesCard"${rec.length ? '' : ' hidden'}>
         <div class="chart-head"><span class="chart-title">Seus recordes</span><span class="chart-legend">de todos os tempos</span></div>
-        <div class="recordes">${rec.map(([e, v, l]) => `<div class="recorde"><span class="rec-emo">${e}</span><b>${v}</b><span>${l}</span></div>`).join('')}</div>
-    </div>` : '';
+        ${rec.length ? `<div class="recordes">${rec.map(([e, v, l]) => `<div class="recorde"><span class="rec-emo">${e}</span><b>${v}</b><span>${l}</span></div>`).join('')}</div>` : ''}
+        <div id="recExBox"></div>
+    </div>`;
 
     // ---- resumo que se adapta ao tempo de uso: semana, mês ou ano ----
     let mesHTML = '';
@@ -7355,6 +7351,528 @@ function montarEvolucao(d) {
     return { periodosHTML, statsHTML, calendarioHTML, pesoHTML, atividadeHTML, tiposHTML, cardioHTML, musculosHTML, refeicoesHTML, pontosHTML, cinturaHTML, recordesHTML, mesHTML, aguaHistorico, aguaMediaTxt, semMedidas };
 }
 
+// ============================================================
+// MAPA DE CALOR MUSCULAR (desenho anatômico em SVG: react-native-body-highlighter, licença MIT, © ELABBASSI Hicham)
+// O corpo feminino foi ajustado pro formato violão. Os dados ficam em corpo.json (carregado só quando precisa).
+// ============================================================
+let CORPO_SVG = null, corpoCarregando = null;
+function carregarCorpo() {
+    if (CORPO_SVG) return Promise.resolve(CORPO_SVG);
+    if (!corpoCarregando) corpoCarregando = fetch('corpo.json?v=1').then(r => { if (!r.ok) throw new Error('corpo'); return r.json(); })
+        .then(j => { CORPO_SVG = j; preencherCorposPendentes(); return j; }).catch(e => { corpoCarregando = null; throw e; });
+    return corpoCarregando;
+}
+const NOME_MUSC = { chest: 'Peitoral', deltoids: 'Ombros', biceps: 'Bíceps', triceps: 'Tríceps', forearm: 'Antebraço', abs: 'Abdômen', obliques: 'Oblíquos',
+    trapezius: 'Trapézio', 'upper-back': 'Dorsais', 'lower-back': 'Lombar', gluteal: 'Glúteos', quadriceps: 'Quadríceps', adductors: 'Adutores',
+    hamstring: 'Posteriores', calves: 'Panturrilhas', tibialis: 'Tibial' };
+const MUSC_PRINCIPAIS = ['chest', 'upper-back', 'deltoids', 'biceps', 'triceps', 'abs', 'gluteal', 'quadriceps', 'hamstring', 'calves', 'lower-back'];
+// grupo marcado no treino → músculos do desenho
+const GRUPO_PARA_MUSC = {
+    'Peito': ['chest'], 'Costas': ['upper-back', 'trapezius'], 'Ombros': ['deltoids'], 'Bíceps': ['biceps', 'forearm'], 'Tríceps': ['triceps'],
+    'Braços': ['biceps', 'triceps', 'forearm'], 'Abdômen': ['abs', 'obliques'], 'Lombar': ['lower-back'], 'Glúteos': ['gluteal'],
+    'Quadríceps': ['quadriceps', 'adductors'], 'Posterior': ['hamstring'], 'Panturrilha': ['calves', 'tibialis'],
+    'Pernas': ['quadriceps', 'hamstring', 'adductors', 'calves', 'tibialis'],
+    'Corpo todo': ['chest', 'upper-back', 'deltoids', 'biceps', 'triceps', 'abs', 'gluteal', 'quadriceps', 'hamstring'],
+};
+// músculo do desenho → grupo pra montar o treino
+const MUSC_PARA_GRUPO = { chest: 'Peito', deltoids: 'Ombros', biceps: 'Bíceps', triceps: 'Tríceps', forearm: 'Bíceps', abs: 'Abdômen', obliques: 'Abdômen',
+    trapezius: 'Costas', 'upper-back': 'Costas', 'lower-back': 'Lombar', gluteal: 'Glúteos', quadriceps: 'Quadríceps', adductors: 'Quadríceps',
+    hamstring: 'Posterior', calves: 'Panturrilha', tibialis: 'Panturrilha' };
+const semAcento = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+// pelo nome do exercício: [regra, músculos principais, músculos que ajudam]. A ordem importa (o mais específico primeiro).
+const EX_MUSC = [
+    [/crucifixo invertido|crucifixo inverso|voador invertido|face pull|posterior de ombro/, ['deltoids'], ['upper-back']],
+    [/remada alta|encolhimento/, ['trapezius', 'deltoids'], []],
+    [/supino/, ['chest'], ['triceps', 'deltoids']],
+    [/crucifixo|crossover|cross over|peck|voador|peitoral/, ['chest'], ['deltoids']],
+    [/flexao de braco|^flexao|flexoes/, ['chest'], ['triceps', 'deltoids', 'abs']],
+    [/puxada|pulldown|pull down|barra fixa|pull up|chin up/, ['upper-back'], ['biceps', 'forearm']],
+    [/remada|serrote|pullover|pull over/, ['upper-back'], ['biceps', 'trapezius']],
+    [/desenvolvimento|arnold|militar|elevacao lateral|elevacao frontal/, ['deltoids'], ['triceps', 'trapezius']],
+    [/rosca|biceps/, ['biceps'], ['forearm']],
+    [/triceps|mergulho|paralela|frances|coice de triceps/, ['triceps'], ['chest']],
+    [/antebraco|punho|farmer|pegada/, ['forearm'], []],
+    [/prancha lateral|obliquo|russian|bicicleta|lenhador/, ['obliques'], ['abs']],
+    [/abdominal|abdomen|prancha|crunch|elevacao de pernas|infra|canivete|roda/, ['abs'], ['obliques']],
+    [/levantamento terra|terra romeno|good morning/, ['hamstring', 'lower-back', 'gluteal'], ['trapezius', 'forearm']],
+    [/hiperextens|lombar|extensao lombar/, ['lower-back'], ['gluteal', 'hamstring']],
+    [/stiff|flexora|posterior|nordic|mesa flexora/, ['hamstring'], ['gluteal']],
+    [/elevacao pelvica|hip thrust|ponte|gluteo|coice|abducao|abdutora|kickback/, ['gluteal'], ['hamstring']],
+    [/bulgaro|afundo|passada|avanco|lunge|subida no banco|step/, ['quadriceps', 'gluteal'], ['adductors', 'hamstring']],
+    [/agachamento|squat|leg press|hack|extensora|sissy|cadeira extensora/, ['quadriceps'], ['gluteal', 'adductors']],
+    [/adutor|aducao|adutora/, ['adductors'], []],
+    [/panturrilha|gemeos|soleo|calf/, ['calves'], ['tibialis']],
+    [/tibial/, ['tibialis'], []],
+    [/burpee|thruster|clean|snatch|arranco|kettlebell swing|swing/, ['quadriceps', 'gluteal', 'deltoids', 'chest'], ['abs', 'upper-back']],
+];
+function musculosDoExercicio(nome) {
+    const n = semAcento(nome);
+    for (const [re, p, s] of EX_MUSC) if (re.test(n)) return { p, s };
+    return null;
+}
+// treinos (posts) → como está cada músculo: dias desde o último, treinos na semana (ajudar conta meio) e exercícios feitos
+function calcularMapaMuscular(treinos, agora = Date.now()) {
+    const M = {};
+    const marcar = (slug, quando, peso, ex) => {
+        const m = M[slug] || (M[slug] = { ultimo: 0, semana: 0, ex: {} });
+        const dias = (agora - quando) / 86400000;
+        if (quando > m.ultimo) m.ultimo = quando;
+        if (dias <= 7) m.semana += peso;
+        if (ex && peso === 1) { const e = m.ex[ex] || (m.ex[ex] = { n: 0, ultimo: 0 }); e.n++; if (quando > e.ultimo) e.ultimo = quando; }
+    };
+    (treinos || []).forEach(t => {
+        const quando = +new Date(t.created_at); if (!quando) return;
+        const exs = (t.meta && Array.isArray(t.meta.exercicios)) ? t.meta.exercicios : [];
+        const peso = {}, origem = {};
+        exs.forEach(nome => {
+            const r = musculosDoExercicio(nome); if (!r) return;
+            r.p.forEach(s => { peso[s] = 1; (origem[s] = origem[s] || []).push(nome); });
+            r.s.forEach(s => { if (!peso[s]) peso[s] = 0.5; });
+        });
+        // sem exercício reconhecido: usa os grupos marcados
+        if (!Object.keys(peso).length) (t.muscle_groups || []).forEach(g => (GRUPO_PARA_MUSC[g] || []).forEach(s => { peso[s] = 1; }));
+        Object.entries(peso).forEach(([s, p]) => { if (origem[s]) origem[s].forEach(ex => marcar(s, quando, p, ex)); else marcar(s, quando, p, null); });
+    });
+    Object.values(M).forEach(m => { m.dias = m.ultimo ? Math.max(0, Math.floor((agora - m.ultimo) / 86400000)) : null; });
+    return M;
+}
+// quente: treinou ontem ou hoje, ou 2+ vezes na semana / morno: até 6 dias / esfriando: até 4 semanas / nada: sem treino
+function intensidadeMusc(m) {
+    if (!m || m.dias == null || m.dias > 28) return 'nenhuma';
+    if (m.dias <= 1 || (m.dias <= 3 && m.semana >= 2)) return 'alta';
+    if (m.dias <= 6) return 'media';
+    return 'baixa';
+}
+const ROTULO_INT = { alta: 'Zona quente', media: 'Morno', baixa: 'Esfriando', nenhuma: 'Sem treino recente' };
+const COR_INT = { alta: '#F59E0B', media: '#10B981', baixa: '#8B5CF6', nenhuma: '#4B5563' };
+const sexoCorpo = p => (p && String(p.sexo || '').toUpperCase().startsWith('F')) ? 'F' : 'M';
+const DEFS_CALOR = `<defs>
+ <radialGradient id="calor-alta" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#FEF3C7"/><stop offset=".35" stop-color="#FBBF24"/><stop offset=".75" stop-color="#F59E0B"/><stop offset="1" stop-color="#EF4444"/></radialGradient>
+ <radialGradient id="calor-media" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#D1FAE5"/><stop offset=".4" stop-color="#34D399"/><stop offset=".8" stop-color="#10B981"/><stop offset="1" stop-color="#06B6D4"/></radialGradient>
+ <radialGradient id="calor-baixa" cx="50%" cy="40%" r="70%"><stop offset="0" stop-color="#C4B5FD"/><stop offset=".45" stop-color="#8B5CF6"/><stop offset="1" stop-color="#3B82F6"/></radialGradient>
+</defs>`;
+// os degradês ficam uma vez só no documento (num svg que nunca some, senão o navegador não pinta)
+function garantirDefsCalor() {
+    if (document.getElementById('defsCalor')) return;
+    const d = document.createElement('div');
+    d.innerHTML = `<svg id="defsCalor" width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">${DEFS_CALOR}</svg>`;
+    document.body.appendChild(d.firstChild);
+}
+// desenha um lado do corpo. ints = { slug: 'alta' | 'media' | 'baixa' | 'nenhuma' }
+function svgCorpo(sexo, lado, ints, { brilho = true } = {}) {
+    const c = CORPO_SVG && CORPO_SVG[sexo + '_' + lado]; if (!c) return '';
+    let calor = '', camadas = '';
+    c.partes.forEach(p => {
+        const paths = p.d.map(d => `<path d="${d}"/>`).join('');
+        if (p.s === 'hair') { camadas += `<g class="mc-cabelo">${paths}</g>`; return; }
+        if (!NOME_MUSC[p.s]) { camadas += `<g class="mc-neutro">${paths}</g>`; return; }
+        const it = ints[p.s] || 'nenhuma';
+        camadas += `<g class="mc-musc" data-musc="${p.s}" data-int="${it}">${paths}</g>`;
+        if (brilho && it !== 'nenhuma') calor += `<g fill="url(#calor-${it})" class="mc-q-${it}">${paths}</g>`;
+    });
+    garantirDefsCalor();
+    return `<svg class="mc-svg" viewBox="${c.vb}" aria-hidden="true">
+        <path class="mc-silhueta" d="${c.contorno}"/>${brilho ? `<g class="mc-fundo">${calor}</g>` : ''}${camadas}</svg>`;
+}
+const intsDoMapa = M => { const o = {}; Object.keys(NOME_MUSC).forEach(s => { o[s] = intensidadeMusc(M[s]); }); return o; };
+// resumo em palavras: o que está quente e o que mais precisa de atenção
+function resumoMapa(M) {
+    const ints = intsDoMapa(M);
+    const quentes = MUSC_PRINCIPAIS.filter(s => ints[s] === 'alta').map(s => NOME_MUSC[s]);
+    // primeiro os que já foram treinados e estão esfriando (mais tempo parado antes), depois os nunca treinados
+    const frios = MUSC_PRINCIPAIS.filter(s => ints[s] === 'baixa' || ints[s] === 'nenhuma')
+        .sort((a, b) => (ints[a] === 'nenhuma') - (ints[b] === 'nenhuma') || ((M[b] && M[b].dias) ?? 99) - ((M[a] && M[a].dias) ?? 99));
+    return { ints, quentes, frios };
+}
+// stories com o corpo, desenhados antes do corpo.json chegar
+function preencherCorposPendentes() {
+    document.querySelectorAll('.cs-corpo[data-ints]').forEach(el => {
+        try { const ints = JSON.parse(el.dataset.ints); el.innerHTML = svgCorpo(el.dataset.sexo || 'M', 'F', ints); el.removeAttribute('data-ints'); } catch (_) {}
+    });
+}
+function corpoParaStory(ints, sexo) {
+    if (CORPO_SVG) return `<div class="cs-corpo">${svgCorpo(sexo, 'F', ints)}</div>`;
+    carregarCorpo().catch(() => {});
+    return `<div class="cs-corpo" data-sexo="${sexo}" data-ints='${escapeHTML(JSON.stringify(ints))}'></div>`;
+}
+// intensidades compactas pro story (só o que não é "nenhuma")
+const intsCompactas = ints => Object.fromEntries(Object.entries(ints).filter(([, v]) => v !== 'nenhuma'));
+
+// ---- o card do Progresso ----
+state.mapaLado = 'F';
+async function hydrateMapaCorpo() {
+    const box = document.getElementById('mapaCorpoBox'); if (!box) return;
+    const desde = new Date(Date.now() - 28 * 86400000).toISOString();
+    let treinos = [];
+    try {
+        const [, r] = await Promise.all([carregarCorpo(),
+            sb.from('posts').select('created_at, muscle_groups, meta, activity_type').eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', desde).order('created_at', { ascending: false }).limit(120)]);
+        treinos = (r.data || []).filter(t => t.activity_type === 'Musculação' || (t.muscle_groups || []).length || (t.meta && (t.meta.exercicios || []).length));
+    } catch (_) { box.innerHTML = '<p class="faixa-nota">Não consegui carregar o mapa agora.</p>'; return; }
+    if (!document.getElementById('mapaCorpoBox')) return;
+    const M = calcularMapaMuscular(treinos);
+    state.mapaMusc = M;
+    pintarMapaCorpo(box, M, true);
+    pintarTeaserCorpo(M);
+}
+// na aba Hoje: o corpo pequeno, com atalho pro mapa completo
+function pintarTeaserCorpo(M) {
+    const el = document.getElementById('corpoTeaser'); if (!el || !Object.keys(M).length) return;
+    const { ints, quentes, frios } = resumoMapa(M);
+    el.innerHTML = `<button class="mc-teaser" data-act="evo-aba" data-aba="treinos">
+        <span class="mc-teaser-corpo">${svgCorpo(sexoCorpo(state.profile), 'F', ints)}</span>
+        <span class="mc-teaser-txt"><small>Seu corpo esta semana</small>
+            ${quentes.length ? `<b>🔥 ${escapeHTML(quentes.slice(0, 2).join(' e '))}</b>` : '<b>Nenhum músculo aceso ainda</b>'}
+            ${frios.length ? `<span>❄️ ${escapeHTML(NOME_MUSC[frios[0]])} esfriando</span>` : ''}
+            <em>Ver o mapa completo ›</em></span>
+    </button>`;
+}
+function pintarMapaCorpo(box, M, animar) {
+    const sexo = sexoCorpo(state.profile);
+    const { ints, quentes, frios } = resumoMapa(M);
+    const vazio = !Object.keys(M).length;
+    const alvo = frios[0];
+    const diasAlvo = alvo && M[alvo] && M[alvo].dias;
+    box.innerHTML = `<div class="mc-card${animar ? ' scaneando' : ''}">
+        <div class="mc-topo"><div><b>Seu corpo</b><small>${vazio ? 'sem treino de musculação nas últimas 4 semanas' : 'últimos 7 dias'}</small></div>
+            <div class="mc-seg"><button class="${state.mapaLado === 'F' ? 'on' : ''}" data-mc-lado="F">Frente</button><button class="${state.mapaLado === 'C' ? 'on' : ''}" data-mc-lado="C">Costas</button></div></div>
+        <div class="mc-palco">
+            <div class="mc-virar${state.mapaLado === 'C' ? ' costas' : ''}">
+                <div class="mc-face mc-frente">${svgCorpo(sexo, 'F', ints)}</div>
+                <div class="mc-face mc-verso">${svgCorpo(sexo, 'C', ints)}</div>
+            </div>
+            <div class="mc-scan"></div>
+        </div>
+        <div class="mc-escala"><span>descansando</span><i></i><span>em chamas</span></div>
+        ${vazio ? `<p class="mc-vazio">Registre um treino de musculação e veja seu corpo acender. 🔥</p>` : `<div class="mc-zonas">
+            <div class="mc-z"><span>🔥 Zona quente</span><b>${quentes.length ? escapeHTML(quentes.slice(0, 3).join(' · ')) : 'nada ainda'}</b></div>
+            <div class="mc-z"><span>❄️ Esfriando</span><b>${frios.length ? escapeHTML(frios.slice(0, 2).map(s => NOME_MUSC[s]).join(' · ')) : 'nada, tudo em dia'}</b></div>
+        </div>`}
+        ${alvo && !vazio ? `<button class="mc-acao" data-mc-treinar="${alvo}"><span>${diasAlvo == null ? `${NOME_MUSC[alvo]} sem treino há mais de 4 semanas` : `${NOME_MUSC[alvo]} esfriando há ${diasAlvo} dias`}</span><b>Treinar agora</b></button>` : ''}
+        <button class="mc-story" data-mc-story>${SVG_X('<path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/>')} Compartilhar no story</button>
+    </div>`;
+    const card = box.querySelector('.mc-card');
+    if (animar && 'IntersectionObserver' in window) {
+        const io = new IntersectionObserver(ents => { if (!ents.some(x => x.isIntersecting)) return; io.disconnect(); card.classList.add('rodando'); acenderMapa(card); }, { threshold: 0.3 });
+        io.observe(card);
+    } else { card.classList.remove('scaneando'); card.classList.add('aceso'); }
+    box.onclick = e => {
+        const l = e.target.closest('[data-mc-lado]');
+        if (l) { state.mapaLado = l.dataset.mcLado; vibrar(6); box.querySelector('.mc-virar').classList.toggle('costas', state.mapaLado === 'C');
+            box.querySelectorAll('[data-mc-lado]').forEach(b => b.classList.toggle('on', b === l)); return; }
+        const t = e.target.closest('[data-mc-treinar]');
+        if (t) { abrirModoTreino({ a: 'Musculação', g: [MUSC_PARA_GRUPO[t.dataset.mcTreinar]] }); return; }
+        if (e.target.closest('[data-mc-story]')) { postarCorpoNoStory(M); return; }
+        const m = e.target.closest('.mc-musc');
+        if (m) { vibrar(8); box.querySelectorAll('.mc-musc.foco').forEach(x => x.classList.remove('foco')); m.classList.add('foco'); abrirMusculo(m.dataset.musc, M); }
+    };
+    // arrastar de lado também vira o corpo
+    const palco = box.querySelector('.mc-palco'); let x0 = null;
+    palco.addEventListener('pointerdown', e => { x0 = e.clientX; });
+    palco.addEventListener('pointerup', e => {
+        if (x0 == null) return; const dx = e.clientX - x0; x0 = null;
+        if (Math.abs(dx) > 50) { const b = box.querySelector(`[data-mc-lado="${state.mapaLado === 'F' ? 'C' : 'F'}"]`); if (b) b.click(); }
+    });
+}
+// scan: uma linha de luz desce e os músculos acendem de cima pra baixo
+function acenderMapa(card) {
+    const reduzir = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduzir) { card.classList.remove('scaneando'); card.classList.add('aceso'); return; }
+    const svg = card.querySelector('.mc-frente .mc-svg'); if (!svg) return;
+    const vb = svg.viewBox.baseVal, total = 1500;
+    svg.querySelectorAll('.mc-musc').forEach(g => {
+        let y = 0; try { const b = g.getBBox(); y = (b.y + b.height / 2 - vb.y) / vb.height; } catch (_) {}
+        g.style.animationDelay = Math.round(Math.max(0, Math.min(1, y)) * total * 0.9) + 'ms';
+    });
+    setTimeout(() => { card.classList.remove('scaneando'); card.classList.add('aceso'); }, total + 500);
+}
+// tocou num músculo: o que foi feito pra ele e um atalho pra treinar
+async function abrirMusculo(slug, M) {
+    const m = M[slug], it = intensidadeMusc(m), grupo = MUSC_PARA_GRUPO[slug];
+    const exs = m ? Object.entries(m.ex).sort((a, b) => b[1].ultimo - a[1].ultimo).slice(0, 5) : [];
+    const quando = !m || m.dias == null ? 'Sem treino nas últimas 4 semanas' : m.dias === 0 ? 'Treinado hoje' : m.dias === 1 ? 'Treinado ontem' : `Último treino há ${m.dias} dias`;
+    const semana = m ? Math.round(m.semana * 2) / 2 : 0;
+    const { f, fechar } = x1Folha(`<div class="mc-folha-topo"><span class="mc-ponto" style="--c:${COR_INT[it]}"></span><div><h3 class="x1-folha-t">${NOME_MUSC[slug]}</h3><small>${ROTULO_INT[it]}</small></div></div>
+        <div class="mc-folha-num"><div><b>${m && m.dias != null ? (m.dias === 0 ? 'hoje' : m.dias + 'd') : '–'}</b><small>último treino</small></div><div><b>${String(semana).replace('.', ',')}</b><small>treinos na semana</small></div></div>
+        <p class="mc-folha-q">${quando}</p>
+        ${exs.length ? `<div class="x1-sec">O QUE VOCÊ FEZ</div><div class="mc-exs" id="mcExs">${exs.map(([n, e]) => `<div class="mc-ex" data-ex="${escapeHTML(n)}"><span>${escapeHTML(n)}</span><small>${e.n}x · ${timeAgo(new Date(e.ultimo).toISOString())}</small><b></b></div>`).join('')}</div>` : ''}
+        <button class="btn x1-btn" id="mcTreinar">Montar treino de ${escapeHTML(grupo.toLowerCase())}</button>`);
+    f.querySelector('#mcTreinar').onclick = () => { fechar(); abrirModoTreino({ a: 'Musculação', g: [grupo] }); };
+    // última carga e recorde de cada exercício
+    if (exs.length) try {
+        const { data } = await sb.rpc('treino_historico', { exs: exs.map(([n]) => n) });
+        f.querySelectorAll('.mc-ex').forEach(el => {
+            const h = data && data[el.dataset.ex]; if (!h) return;
+            const ult = (h.ultima || []).reduce((mx, s) => Math.max(mx, Number(s.kg) || 0), 0);
+            el.querySelector('b').innerHTML = ult ? `${br(ult, Number.isInteger(ult) ? 0 : 1)} kg${h.recorde && Number(h.recorde) > ult ? `<i>recorde ${br(Number(h.recorde), Number.isInteger(Number(h.recorde)) ? 0 : 1)}</i>` : h.recorde ? '<i>🏆 seu recorde</i>' : ''}` : '';
+        });
+    } catch (_) {}
+}
+async function postarCorpoNoStory(M) {
+    const { ints, quentes, frios } = resumoMapa(M);
+    if (!(await confirmar('Postar seu mapa de calor no story?', 'Postar'))) return;
+    const r = await publicarStoryPronto({ caption: 'Meu corpo esta semana', style: { card: { tipo: 'corpo', sexo: sexoCorpo(state.profile), ints: intsCompactas(ints),
+        quentes: quentes.slice(0, 3), frios: frios.slice(0, 2).map(s => NOME_MUSC[s]) } } });
+    if (r) toast(r.pts > 0 ? `Story publicado · +${r.pts} pts` : 'Story publicado', 'ok');
+}
+
+// ============================================================
+// RETROSPECTIVA DA SEMANA (estilo story: telas que passam sozinhas)
+// ============================================================
+// semana fechada: de segunda a domingo. No domingo, é a semana de hoje; nos outros dias, a anterior.
+function semanaRetro(base = new Date()) {
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+    const dow = d.getDay(); // 0 = domingo
+    const fim = new Date(d); fim.setDate(d.getDate() - (dow === 0 ? 0 : dow)); // domingo
+    const ini = new Date(fim); ini.setDate(fim.getDate() - 6); // segunda
+    const fimX = new Date(fim); fimX.setDate(fim.getDate() + 1);
+    return { ini, fim, fimX, chave: isoDe(ini) };
+}
+const fmtDiaMes = d => d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+async function calcularSemana(sem) {
+    const uid = state.session.user.id;
+    const iniAnt = new Date(sem.ini); iniAnt.setDate(iniAnt.getDate() - 7);
+    const desde28 = new Date(sem.fimX); desde28.setDate(desde28.getDate() - 28);
+    const [{ data: posts }, { data: ant }, { data: of }, agua] = await Promise.all([
+        sb.from('posts').select('kind, created_at, activity_type, duration_min, distance_km, muscle_groups, meta, water_ml').eq('user_id', uid)
+            .in('kind', ['workout', 'water']).gte('created_at', desde28.toISOString()).lt('created_at', sem.fimX.toISOString()).limit(500),
+        sb.from('posts').select('id', { count: 'exact', head: false }).eq('user_id', uid).eq('kind', 'workout').gte('created_at', iniAnt.toISOString()).lt('created_at', sem.ini.toISOString()).limit(60),
+        sb.from('daily_streaks').select('current_streak, longest_streak').eq('user_id', uid).maybeSingle(),
+        aguaDeHoje().catch(() => ({ goal_ml: 2000 })),
+    ]);
+    const naSemana = p => { const t = +new Date(p.created_at); return t >= +sem.ini && t < +sem.fimX; };
+    const todos = posts || [];
+    const treinos = todos.filter(p => p.kind === 'workout' && naSemana(p));
+    const dias = new Set(treinos.map(p => isoDe(new Date(p.created_at))));
+    const porDia = [...Array(7)].map((_, i) => { const d = new Date(sem.ini); d.setDate(d.getDate() + i); return dias.has(isoDe(d)); });
+    const minutos = treinos.reduce((t, p) => t + (Number(p.duration_min) || 0), 0);
+    const km = treinos.reduce((t, p) => t + (Number(p.distance_km) || 0), 0);
+    const recordes = []; treinos.forEach(p => ((p.meta && p.meta.recordes) || []).forEach(r => recordes.push(r)));
+    const volume = treinos.reduce((t, p) => t + (Number(p.meta && p.meta.volume) || 0), 0);
+    const maisLongo = treinos.slice().sort((a, b) => (b.duration_min || 0) - (a.duration_min || 0))[0] || null;
+    const aguaSem = todos.filter(p => p.kind === 'water' && naSemana(p)).reduce((t, p) => t + (Number(p.water_ml) || 0), 0);
+    const aguaMedia = Math.round(aguaSem / 7);
+    const fav = {}; treinos.forEach(p => { fav[p.activity_type] = (fav[p.activity_type] || 0) + 1; });
+    const favorita = Object.entries(fav).sort((a, b) => b[1] - a[1])[0] || null;
+    // mapa do corpo como estava no fim da semana
+    const M = calcularMapaMuscular(todos.filter(p => p.kind === 'workout'), +sem.fimX);
+    return { sem, treinos: treinos.length, dias: dias.size, porDia, minutos, km: Math.round(km * 10) / 10, recordes, volume, maisLongo,
+        aguaMedia, aguaMeta: agua.goal_ml || 2000, ofensiva: (of && of.current_streak) || 0, antes: (ant || []).length, favorita, M };
+}
+async function fraseSemana(r) {
+    let frase = r.treinos >= 4 ? 'Semana de quem leva a sério. Mantém esse ritmo.' : r.treinos >= 2 ? 'Boa base. Um treino a mais na próxima e o corpo responde.'
+        : r.treinos === 1 ? 'Um treino é o começo. Bora fazer dois na próxima?' : 'Semana nova, placar zerado. O primeiro treino é o mais importante.';
+    try {
+        const j = await iaJSON(`Você é o Coach Pulso. Escreva UMA frase curta (até 16 palavras) sobre a semana desta pessoa, sem travessão e sem emoji.
+Fez ${r.treinos} treinos em ${r.dias} dias (semana anterior: ${r.antes}), ${Math.round(r.minutos)} min de atividade, ${r.recordes.length} recordes de carga, água média ${(r.aguaMedia / 1000).toFixed(1)} L de ${(r.aguaMeta / 1000).toFixed(1)} L.
+Seja honesto: elogie só se foi bom. Formato do JSON: {"frase": "..."}`);
+        if (j && j.frase) frase = String(j.frase).replace(/—/g, ',').slice(0, 140);
+    } catch (_) {}
+    return frase;
+}
+async function abrirSemana() {
+    const sem = semanaRetro();
+    const old = document.getElementById('semTela'); if (old) old.remove();
+    const tela = document.createElement('div');
+    tela.id = 'semTela'; tela.className = 'sem-tela';
+    tela.innerHTML = '<div class="spinner"></div>';
+    document.body.appendChild(tela); document.body.style.overflow = 'hidden';
+    lsSet(`pulso-semana-${state.session.user.id}-${sem.chave}`, 'fim');
+    const sl = document.getElementById('semanaSlot'); if (sl) sl.innerHTML = '';
+    let r;
+    try { [r] = await Promise.all([calcularSemana(sem), carregarCorpo().catch(() => null)]); }
+    catch (_) { tela.remove(); document.body.style.overflow = ''; toast('Não consegui montar sua semana agora', 'err'); return; }
+    r.frase = await fraseSemana(r);
+    state.semana = r;
+    const sexo = sexoCorpo(state.profile);
+    const { ints, quentes, frios } = resumoMapa(r.M);
+    const h = Math.floor(r.minutos / 60), mi = r.minutos % 60;
+    const tempo = h ? `${h}h${mi ? String(mi).padStart(2, '0') : ''}` : `${mi} min`;
+    const LETRAS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+    const dif = r.treinos - r.antes;
+    const nome = String((state.profile && state.profile.display_name) || '').split(' ')[0];
+    const pctAgua = r.aguaMeta ? Math.min(100, Math.round(r.aguaMedia / r.aguaMeta * 100)) : 0;
+    const kg = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
+    const telas = [
+        `<div class="st st-abre"><small>${fmtDiaMes(sem.ini)} a ${fmtDiaMes(sem.fim)}</small><h1>${nome ? escapeHTML(nome) + ', sua' : 'Sua'}<br>semana no<br><em>Pulso.</em></h1><div class="st-pulso"><svg viewBox="0 0 120 30"><path d="M0 15h34l6-11 9 22 7-15 5 4h59" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>`,
+        `<div class="st st-treinos"><small>Você treinou</small><div class="st-big">${r.treinos}<span>${r.treinos === 1 ? 'treino' : 'treinos'}</span></div>
+            <div class="st-dias">${r.porDia.map((on, i) => `<i class="${on ? 'on' : ''}" style="--d:${i * 90}ms"><b>${LETRAS[i]}</b></i>`).join('')}</div>
+            <p>${tempo} de atividade em ${r.dias} ${r.dias === 1 ? 'dia' : 'dias'}${r.km ? ` · ${br(r.km)} km` : ''}</p>
+            ${r.treinos ? `<span class="st-tag ${dif > 0 ? 'up' : dif < 0 ? 'down' : ''}">${dif > 0 ? `+${dif} que a semana passada` : dif < 0 ? `${dif} que a semana passada` : 'igual à semana passada'}</span>` : ''}</div>`,
+        `<div class="st st-corpo"><small>Seu corpo esta semana</small><div class="st-corpo-svg">${svgCorpo(sexo, 'F', ints)}</div>
+            <div class="st-linhas">${quentes.length ? `<p>🔥 <b>${escapeHTML(quentes.slice(0, 3).join(', '))}</b> em chamas</p>` : '<p>Nenhum músculo aceso essa semana</p>'}${frios.length ? `<p>❄️ <b>${escapeHTML(frios.slice(0, 2).map(s => NOME_MUSC[s]).join(' e '))}</b> pedindo atenção</p>` : ''}</div></div>`,
+        r.recordes.length ? `<div class="st st-rec"><small>Recordes da semana</small><div class="st-trofeu">🏆</div><div class="st-rec-lista">${r.recordes.slice(0, 4).map((x, i) => `<div style="--d:${i * 140}ms"><span>${escapeHTML(x.ex)}</span><b>${kg(x.kg)} kg</b></div>`).join('')}</div><p>Mais forte que nunca.</p></div>`
+        : r.maisLongo ? `<div class="st st-rec"><small>Seu treino mais forte</small><div class="st-trofeu">⚡</div><h2>${escapeHTML(r.maisLongo.activity_type || 'Treino')}</h2><p>${r.maisLongo.duration_min || 0} min${r.maisLongo.meta && r.maisLongo.meta.volume ? ` · ${Number(r.maisLongo.meta.volume).toLocaleString('pt-BR')} kg levantados` : ''}</p></div>` : '',
+        `<div class="st st-agua"><small>Água e ofensiva</small><div class="st-gota" style="--p:${pctAgua}%"><span>${br(r.aguaMedia / 1000)}<i>L/dia</i></span></div><p>${pctAgua}% da sua meta de ${br(r.aguaMeta / 1000)} L</p>
+            ${r.ofensiva > 1 ? `<div class="st-fogo">🔥 <b>${r.ofensiva}</b> dias de ofensiva</div>` : ''}</div>`,
+        `<div class="st st-fim"><div class="st-card-final">
+            <small>Minha semana no Pulso</small>
+            <div class="st-fim-num"><div><b>${r.treinos}</b><span>treinos</span></div><div><b>${tempo}</b><span>ativo</span></div><div><b>${r.recordes.length}</b><span>recordes</span></div></div>
+            <div class="st-fim-corpo">${svgCorpo(sexo, 'F', ints, { brilho: false })}</div>
+            <p>“${escapeHTML(r.frase)}”</p><b class="cs-marca">Pulso.</b></div>
+            <button class="btn-primary st-btn" data-act="semana-story">Postar no story</button>
+            <button class="st-link" data-st-plano>Ver o plano da próxima semana</button></div>`,
+    ].filter(Boolean);
+    tela.innerHTML = `<div class="st-barras">${telas.map(() => '<i><b></b></i>').join('')}</div>
+        <button class="st-x" aria-label="Fechar">×</button>
+        <div class="st-palco">${telas.map((t, i) => `<section class="st-tela" data-i="${i}">${t}</section>`).join('')}</div>`;
+    let i = 0, timer = null, pausado = false, t0 = 0, resto = 0;
+    const DUR = 5200;
+    const fechar = () => { clearTimeout(timer); tela.classList.add('saindo'); setTimeout(() => { tela.remove(); document.body.style.overflow = ''; }, 220); };
+    const ir = n => {
+        if (n < 0) n = 0;
+        if (n >= telas.length) { fechar(); return; }
+        i = n; clearTimeout(timer);
+        tela.querySelectorAll('.st-tela').forEach((s, k) => s.classList.toggle('on', k === i));
+        tela.querySelectorAll('.st-barras i').forEach((b, k) => { b.className = k < i ? 'feito' : k === i ? 'agora' : ''; });
+        const barra = tela.querySelectorAll('.st-barras i')[i]; if (barra) { barra.style.setProperty('--dur', DUR + 'ms'); }
+        if (i < telas.length - 1) { t0 = Date.now(); resto = DUR; timer = setTimeout(() => ir(i + 1), DUR); }
+        vibrar(4);
+    };
+    tela.querySelector('.st-x').onclick = fechar;
+    tela.querySelector('.st-palco').addEventListener('click', e => {
+        if (e.target.closest('button')) {
+            if (e.target.closest('[data-st-plano]')) { fechar(); switchView('coach'); }
+            return;
+        }
+        const x = e.clientX / window.innerWidth; ir(x < 0.3 ? i - 1 : i + 1);
+    });
+    // segurar pausa, como no story
+    const pausar = () => { if (pausado || i >= telas.length - 1) return; pausado = true; clearTimeout(timer); resto -= Date.now() - t0; tela.classList.add('pausado'); };
+    const seguir = () => { if (!pausado) return; pausado = false; tela.classList.remove('pausado'); t0 = Date.now(); timer = setTimeout(() => ir(i + 1), Math.max(300, resto)); };
+    let segura = null;
+    tela.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; segura = setTimeout(pausar, 220); });
+    tela.addEventListener('pointerup', () => { clearTimeout(segura); if (pausado) setTimeout(seguir, 0); });
+    ir(0);
+}
+async function postarSemanaNoStory(btn) {
+    const r = state.semana; if (!r) return;
+    btnCarregando(btn, true);
+    const { ints } = resumoMapa(r.M);
+    const ok = await publicarStoryPronto({ caption: 'Minha semana no Pulso', style: { card: { tipo: 'semana', treinos: r.treinos, minutos: r.minutos, recordes: r.recordes.length,
+        ofensiva: r.ofensiva, frase: r.frase, sexo: sexoCorpo(state.profile), ints: intsCompactas(ints), ini: isoDe(r.sem.ini), fim: isoDe(r.sem.fim) } } });
+    btnCarregando(btn, false);
+    if (ok) {
+        const t = document.getElementById('semTela'); if (t) t.remove(); document.body.style.overflow = '';
+        toast(ok.pts > 0 ? `Story publicado · +${ok.pts} pts` : 'Story publicado', 'ok');
+    }
+}
+// aviso no feed: domingo a partir das 17h e segunda/terça, até ver
+async function hydrateSemanaFeed() {
+    const slot = document.getElementById('semanaSlot'); if (!slot || !state.session) return;
+    const agora = new Date(), dow = agora.getDay();
+    if (!((dow === 0 && agora.getHours() >= 17) || dow === 1 || dow === 2)) return;
+    const sem = semanaRetro();
+    const chave = `pulso-semana-${state.session.user.id}-${sem.chave}`;
+    if (lsGet(chave) === 'fim') return;
+    const { count } = await sb.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', state.session.user.id).eq('kind', 'workout')
+        .gte('created_at', sem.ini.toISOString()).lt('created_at', sem.fimX.toISOString());
+    if (!count || !document.getElementById('semanaSlot')) return;
+    slot.innerHTML = `<div class="retro-aviso sem-aviso" data-act="semana-ver">
+        <span class="ra-emo">✨</span>
+        <div><b>Sua semana no Pulso está pronta</b><small>${count} ${count === 1 ? 'treino' : 'treinos'}, seu corpo e seus recordes</small></div>
+        <button class="btn-mini" data-act="semana-ver">Ver</button>
+        <button class="lb-x" data-act="semana-fechar" aria-label="Fechar">×</button>
+    </div>`;
+}
+
+// ============================================================
+// PRONTIDÃO DO DIA (sono, dor muscular e disposição em 3 toques)
+// ============================================================
+const PRONT_PERG = [
+    ['sono', '😴', 'Como você dormiu?', ['Mal', 'Ok', 'Bem']],
+    ['dor', '💪', 'Dor muscular?', ['Muita', 'Pouca', 'Nenhuma']],
+    ['disp', '⚡', 'Disposição?', ['Baixa', 'Média', 'Alta']],
+];
+const prontidaoLigada = () => !(state.profile && state.profile.prontidao_ligada === false);
+// a de hoje (ou nada)
+function prontidaoHoje() {
+    const p = state.profile && state.profile.prontidao;
+    return p && p.dia === hojeISO() ? p : null;
+}
+// 0 a 6: baixa (até 2), normal, ótima (5+ e sem dor forte)
+function nivelProntidao(p) {
+    if (!p) return null;
+    const t = (p.sono || 0) + (p.dor || 0) + (p.disp || 0);
+    if (t <= 2 || (p.dor === 0 && p.sono === 0)) return 'baixa';
+    if (t >= 5 && p.dor > 0) return 'otima';
+    return 'normal';
+}
+const TXT_PRONT = {
+    baixa: ['Pega leve hoje', 'Treina, mas com uma série a menos por exercício e a mesma carga. Recuperar também é treino.'],
+    normal: ['Dia normal', 'Segue o plano. Se sentir o corpo pesado, corta uma série.'],
+    otima: ['Dia de ir pra cima', 'Corpo descansado e disposto: bom dia pra buscar recorde. 🏆'],
+};
+function hydrateProntidaoFeed() {
+    const slot = document.getElementById('prontSlot'); if (!slot || !state.session) return;
+    if (!prontidaoLigada() || prontidaoHoje() || new Date().getHours() >= 14) { slot.innerHTML = ''; return; }
+    if (lsGet('pulso-pront-pulou') === hojeISO()) return;
+    const resp = {};
+    const pintar = () => {
+        slot.innerHTML = `<div class="pq-card">
+            <div class="pq-topo"><b>Como você está hoje?</b><small>3 toques e o coach ajusta seu treino</small><button class="lb-x" data-pront-x aria-label="Agora não">×</button></div>
+            ${PRONT_PERG.map(([k, emo, txt, ops]) => `<div class="pq-linha"><span>${emo} ${txt}</span><div class="pq-ops">${ops.map((o, i) => `<button class="${resp[k] === i ? 'on' : ''}" data-pront="${k}" data-v="${i}">${o}</button>`).join('')}</div></div>`).join('')}
+        </div>`;
+    };
+    pintar();
+    slot.onclick = async e => {
+        if (e.target.closest('[data-pront-x]')) { lsSet('pulso-pront-pulou', hojeISO()); slot.innerHTML = ''; return; }
+        const b = e.target.closest('[data-pront]'); if (!b) return;
+        resp[b.dataset.pront] = Number(b.dataset.v); vibrar(5); pintar();
+        if (PRONT_PERG.every(([k]) => resp[k] != null)) {
+            const p = { dia: hojeISO(), ...resp };
+            state.profile.prontidao = p;
+            sb.from('profiles').update({ prontidao: p }).eq('id', state.session.user.id).then(() => {}, () => {});
+            const nv = nivelProntidao(p), [t, s] = TXT_PRONT[nv];
+            slot.innerHTML = `<div class="pq-card pq-res ${nv}"><span class="pq-emo">${nv === 'baixa' ? '🌙' : nv === 'otima' ? '🔥' : '👍'}</span><div><b>${t}</b><small>${s}</small></div></div>`;
+            setTimeout(() => { const c = slot.querySelector('.pq-res'); if (c) { c.classList.add('sumindo'); setTimeout(() => { if (slot.querySelector('.pq-res')) slot.innerHTML = ''; }, 400); } }, 6000);
+        }
+    };
+}
+// no Montar treino: o aviso com a sugestão do dia
+function avisoProntidaoTreino(m) {
+    const p = prontidaoHoje(), nv = nivelProntidao(p);
+    if (!nv || nv === 'normal' || !m.exercicios.length) return '';
+    if (nv === 'otima') return `<div class="pq-tr otima"><span>🔥</span><div><b>Dia de ir pra cima</b><small>Você dormiu bem e está disposto. Bom dia pra buscar recorde.</small></div></div>`;
+    if (m.prontAplicado) return `<div class="pq-tr baixa ok"><span>🌙</span><div><b>Ajustado pro seu dia</b><small>Uma série a menos em cada exercício, mesma carga.</small></div></div>`;
+    return `<div class="pq-tr baixa"><span>🌙</span><div><b>Hoje é dia de pegar leve</b><small>${p.dor === 0 ? 'Com dor forte, ' : p.sono === 0 ? 'Dormiu mal: ' : ''}tira uma série de cada exercício e mantém a carga.</small></div><button data-tr="pront-aplicar">Ajustar</button></div>`;
+}
+function contextoProntidao() {
+    const p = prontidaoHoje(); if (!p) return '';
+    const n = (k, i) => PRONT_PERG.find(x => x[0] === k)[3][p[k]].toLowerCase();
+    return `prontidão de hoje: sono ${n('sono')}, dor muscular ${n('dor')}, disposição ${n('disp')}`;
+}
+
+// ============================================================
+// RECORDE: comemoração na hora
+// ============================================================
+function celebrarRecorde(ex, kg, antes) {
+    const old = document.getElementById('prFesta'); if (old) old.remove();
+    const el = document.createElement('div');
+    el.id = 'prFesta'; el.className = 'pr-festa';
+    const k = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
+    el.innerHTML = `<div class="pr-raios"></div>
+        ${[...Array(18)].map((_, i) => `<i class="pr-faisca" style="--a:${i * 20}deg;--r:${90 + (i % 3) * 30}px;--t:${(i % 4) * 60}ms"></i>`).join('')}
+        <div class="pr-miolo"><div class="pr-trofeu">🏆</div><small>NOVO RECORDE</small><h2>${escapeHTML(ex)}</h2>
+        <div class="pr-kg"><b>${k(kg)}</b><span>kg</span></div>${antes != null ? `<p>antes ${k(antes)} kg · <em>+${k(kg - antes)} kg</em></p>` : ''}</div>`;
+    document.body.appendChild(el);
+    vibrar([30, 50, 30, 50, 90]);
+    const sair = () => { el.classList.add('saindo'); setTimeout(() => el.remove(), 300); };
+    el.onclick = sair; setTimeout(sair, 2600);
+}
+
+// maiores cargas por exercício (e quanto subiu desde o começo)
+async function hydrateRecordesExercicio() {
+    const box = document.getElementById('recExBox'); if (!box) return;
+    const { data, error } = await sb.rpc('meus_recordes_exercicio');
+    if (error || !data || !data.length || !document.getElementById('recExBox')) return;
+    const card = document.getElementById('recordesCard'); if (card) card.hidden = false;
+    const k = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
+    box.innerHTML = `<div class="rec-ex-tit">🏋️ Maiores cargas</div><div class="rec-ex">${data.map(r => {
+        const ganho = Number(r.recorde) - Number(r.primeira || r.recorde);
+        return `<div class="rec-ex-l"><span>${escapeHTML(r.exercicio)}</span><b>${k(r.recorde)} kg</b>${ganho > 0 ? `<em>+${k(ganho)}</em>` : '<i></i>'}<small>${timeAgo(r.quando)}</small></div>`;
+    }).join('')}</div>`;
+}
 async function renderProgress() {
     sincronizarModoTela();
     const c = $('#viewContainer');
@@ -7474,6 +7992,7 @@ async function renderProgress() {
             ${abaHTML('coach', `
                 ${sugestaoMetaHTML(aSeries || [])}
                 <div id="iaSlot"></div>
+                <div id="corpoTeaser"></div>
                 <div id="proteinaSlot"></div>
                 <p class="coach-rodape">O coach usa seus <button class="ia-link" data-act="m-go" data-view="objetivos">objetivos</button> e o seu <button class="ia-link" data-act="m-go" data-view="jeito-treino">jeito de treinar</button>.</p>
             `)}
@@ -7488,10 +8007,10 @@ async function renderProgress() {
                 <div class="chart-card" id="reportCard"></div>
             `)}
             ${abaHTML('treinos', `
+                ${ev.musculosHTML}
                 ${ev.atividadeHTML}
                 ${ev.tiposHTML}
                 ${ev.cardioHTML}
-                ${ev.musculosHTML}
                 ${ev.recordesHTML}
                 ${ev.pontosHTML}
                 ${!ev.atividadeHTML && !ev.tiposHTML ? '<div class="chart-card"><div class="chart-convite"><span>Nenhum treino nesse período ainda.</span><button class="btn-mini" data-act="quick-kind" data-kind="workout">Registrar treino</button></div></div>' : ''}
@@ -7530,6 +8049,8 @@ async function renderProgress() {
     const cal = c.querySelector('.cal-scroll');
     if (cal) cal.scrollLeft = cal.scrollWidth;
     hydrateCalMes();
+    hydrateMapaCorpo();
+    hydrateRecordesExercicio();
     hydrateIAEvolucao();
     hydrateProteina();
     hydrateSemanaEvo();
@@ -13391,6 +13912,20 @@ document.addEventListener('click', async e => {
         if (error) { toast('Não consegui mudar agora. Tente de novo.', 'err'); return; }
         state.profile.is_private = privado;
         toast(privado ? 'Conta privada. Só seguidores aprovados veem seus posts.' : 'Conta pública. Pedidos pendentes foram aprovados.', 'ok');
+    } else if (act === 'semana-ver') {
+        abrirSemana();
+    } else if (act === 'semana-fechar') {
+        e.stopPropagation();
+        lsSet(`pulso-semana-${state.session.user.id}-${semanaRetro().chave}`, 'fim');
+        const sl = document.getElementById('semanaSlot'); if (sl) sl.innerHTML = '';
+    } else if (act === 'semana-story') {
+        postarSemanaNoStory(btn);
+    } else if (act === 'toggle-prontidao') {
+        const on = !prontidaoLigada();
+        state.profile.prontidao_ligada = on;
+        btn.setAttribute('aria-checked', on); btn.querySelector('.cfg-switch').classList.toggle('on', on);
+        const { error } = await sb.from('profiles').update({ prontidao_ligada: on }).eq('id', state.session.user.id);
+        if (error) { state.profile.prontidao_ligada = !on; btn.querySelector('.cfg-switch').classList.toggle('on', !on); toast(msgErro(error), 'err'); }
     } else if (act === 'retro-ver') {
         abrirRetrospecto();
     } else if (act === 'retro-fechar') {
@@ -14174,6 +14709,35 @@ function estiloTextoStory(st, len, emFoto) {
 const CARD_STORY_BG = 'linear-gradient(165deg, #0F4A35 0%, #0A0C0B 55%, #1C1446 100%)';
 function htmlCardStory(st, comFoto) {
     const c = st.card || {};
+    if (c.tipo === 'corpo') {
+        return `<div class="card-story corpo-cs${comFoto ? ' sobre-foto' : ''}">
+            <small class="cs-rot">Meu corpo esta semana</small>
+            ${corpoParaStory(c.ints || {}, c.sexo === 'F' ? 'F' : 'M')}
+            ${(c.quentes || []).length ? `<p class="cs-q">🔥 ${escapeHTML(c.quentes.join(' · '))}</p>` : ''}
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
+    if (c.tipo === 'semana') {
+        const h = Math.floor((c.minutos || 0) / 60), m = (c.minutos || 0) % 60;
+        return `<div class="card-story semana-cs${comFoto ? ' sobre-foto' : ''}">
+            <small class="cs-rot">Minha semana no Pulso</small>
+            <div class="cs-stats"><div><b>${c.treinos || 0}</b><small>treinos</small></div><div><b>${h ? `${h}h${m ? String(m).padStart(2, '0') : ''}` : `${m}min`}</b><small>ativo</small></div><div><b>${c.recordes || 0}</b><small>recordes</small></div></div>
+            ${corpoParaStory(c.ints || {}, c.sexo === 'F' ? 'F' : 'M')}
+            ${c.frase ? `<p>“${escapeHTML(c.frase)}”</p>` : ''}
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
+    if (c.tipo === 'recorde') {
+        const k = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
+        return `<div class="card-story recorde-cs${comFoto ? ' sobre-foto' : ''}">
+            <small class="cs-rot">Novo recorde</small>
+            <span class="cs-emo">🏆</span>
+            <h2>${escapeHTML(c.ex || '')}</h2>
+            <div class="cs-pr"><b>${k(c.kg)}</b><span>kg</span></div>
+            ${c.antes != null ? `<p>antes ${k(c.antes)} kg · <em>+${k(c.kg - c.antes)} kg</em></p>` : ''}
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
     if (c.tipo === 'conquista') {
         return `<div class="card-story${comFoto ? ' sobre-foto' : ''}">
             <small class="cs-rot">Nova conquista</small>
@@ -17387,6 +17951,7 @@ async function bootInterno() {
     else if (ap && ['notifications', 'messages', 'progress', 'coach'].includes(ap.tela)) await switchView(ap.tela);
     else await switchView(abaInicial());
     if (ap && ap.tela === 'treino' && trGet()) setTimeout(() => abrirTreinoVivo(), 300);
+    if (ap && ap.tela === 'semana') setTimeout(() => abrirSemana(), 400);
     if (ap && ap.tela === 'agua') setTimeout(() => { limparComposer(); setComposerKind('water'); abrirComposer(); }, 350);
     state.bootPronto = true;
     updateUnreadBadge();
@@ -18412,6 +18977,7 @@ async function abrirModoTreino(preset = null, editar = false) {
             <div class="trv-chips">${gostos.map(a => `<button class="x1-chip${a === m.ativ ? ' on' : ''}" data-tr="ativ" data-a="${a}">${a}</button>`).join('')}</div>` : ''}
             ${!m.ativ ? '' : musc() ? `${!editar ? `<div class="x1-sec">GRUPOS</div>
             <div class="trv-chips">${GRUPOS_TREINO.map(g => `<button class="x1-chip${m.grupos.includes(g) ? ' on' : ''}" data-tr="grupo" data-g="${g}">${g}</button>`).join('')}</div>` : ''}
+            ${!editar ? avisoProntidaoTreino(m) : ''}
             ${n || editar ? `<div class="x1-sec">EXERCÍCIOS · ${n}</div>
             ${n > 8 ? `<p class="trm-aviso">Treino grande: ${n} exercícios. Pode tirar alguns.</p>` : ''}
             <div class="trm-lista" id="trmLista">${m.exercicios.map((ex, i) => `<div class="trm-ex" data-i="${i}">
@@ -18434,6 +19000,11 @@ async function abrirModoTreino(preset = null, editar = false) {
     // tocar num botão com o teclado aberto não tira o foco do campo
     tela.addEventListener('mousedown', e => { const a = document.activeElement; if (a && a.tagName === 'INPUT' && tela.contains(a) && e.target.closest('button')) e.preventDefault(); });
     pintar();
+    tela.addEventListener('click', e => {
+        if (!e.target.closest('[data-tr="pront-aplicar"]')) return;
+        m.exercicios.forEach(ex => { const livres = ex.series.filter(x => !x.ok); if (ex.series.length > 2 && livres.length) ex.series.splice(ex.series.lastIndexOf(livres[livres.length - 1]), 1); });
+        m.prontAplicado = true; vibrar(8); pintar();
+    });
     // carga e repetições direto na montagem (ficam lembradas)
     tela.addEventListener('focusin', e => { if (manterLugar.refoco) return; if (e.target.dataset && e.target.dataset.trm) setTimeout(() => { try { e.target.select(); } catch (_) {} }, 0); });
     tela.addEventListener('input', e => {
@@ -18817,8 +19388,8 @@ async function abrirTreinoVivo() {
                 // recorde na hora
                 const rec = recordeDe(ex), kgS = num(se.kg);
                 if (ex.tipo === 'carga' && rec != null && kgS > rec && !ex.prAvisado) {
-                    ex.prAvisado = true; se.pr = true; vibrar([30, 50, 30, 50, 90]);
-                    toast(`🏆 Novo recorde no ${ex.nome.toLowerCase()}: ${kgTxt(kgS)} kg`, 'ok');
+                    ex.prAvisado = true; se.pr = true;
+                    celebrarRecorde(ex.nome, kgS, rec);
                 } else if (!tudo) {
                     toastComAcao(`Série ${j + 1} de ${ex.nome.toLowerCase()} marcada`, 'Desfazer', () => {
                         se.ok = false; se.pr = false; s.descansoAte = null; abertos.delete(i); salvar(); pintar();
@@ -18963,7 +19534,7 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
     const musc = s.ativ === 'Musculação';
     const num = v => parseFloat(String(v || '').replace(',', '.'));
     const volume = Math.round(feitas.reduce((t, x) => t + x.kg * x.reps, 0));
-    const recordes = s.exercicios.map(ex => { if (ex.tipo === 'tempo') return null; const rec = hist[ex.nome] && hist[ex.nome].recorde != null ? Number(hist[ex.nome].recorde) : null; const m = Math.max(0, ...ex.series.filter(x => x.ok).map(x => num(x.kg) || 0)); return rec != null && m > rec ? { ex: ex.nome, kg: m } : null; }).filter(Boolean);
+    const recordes = s.exercicios.map(ex => { if (ex.tipo === 'tempo') return null; const rec = hist[ex.nome] && hist[ex.nome].recorde != null ? Number(hist[ex.nome].recorde) : null; const m = Math.max(0, ...ex.series.filter(x => x.ok).map(x => num(x.kg) || 0)); return rec != null && m > rec ? { ex: ex.nome, kg: m, antes: rec } : null; }).filter(Boolean);
     const exFeitos = s.exercicios.filter(ex => ex.series.some(x => x.ok)).length;
     const distancia = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação'].includes(s.ativ);
     let foto = null, publicar = false;
@@ -18975,7 +19546,7 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
             : distancia ? `<label><small>Distância (km)</small><input class="tr-in" id="trKm" inputmode="decimal" placeholder="0,0"></label>` : ''}
         </div>
         ${musc && feitas.length ? '<div class="trf-coach" id="trCoach"><span>✦</span><p>O coach está olhando seu treino…</p></div>' : ''}
-        ${recordes.length ? `<div class="tr-pr">🏆 ${recordes.length === 1 ? `Novo recorde no ${escapeHTML(recordes[0].ex.toLowerCase())}: ${br(recordes[0].kg, Number.isInteger(recordes[0].kg) ? 0 : 1)} kg` : `${recordes.length} recordes novos hoje`}</div>` : ''}
+        ${recordes.length ? `<div class="tr-pr tr-pr-fim"><span>🏆 ${recordes.length === 1 ? `Novo recorde no ${escapeHTML(recordes[0].ex.toLowerCase())}: ${br(recordes[0].kg, Number.isInteger(recordes[0].kg) ? 0 : 1)} kg` : `${recordes.length} recordes novos hoje`}</span><button type="button" id="trPrStory">Postar no story</button></div>` : ''}
         <div class="trf-foto">
             <div class="trf-add2" id="trFotoBtn">
                 <label class="trf-add">${SVG_X('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}<span>Tirar foto</span><input type="file" accept="image/*" capture="environment" class="trFotoIn" hidden></label>
@@ -19010,6 +19581,12 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
     ligarMencoes(leg, f.querySelector('#trLegSug'));
     if (musc && feitas.length) comentarioCoachTreino(s, hist, feitas).then(t => { const c = f.querySelector('#trCoach'); if (c && t) { c.querySelector('p').textContent = t; c.classList.add('ok'); } else if (c) c.remove(); });
     const bm = f.querySelector('#trModeloBtn'); if (bm) bm.onclick = () => salvarModeloTreino(s);
+    const prS = f.querySelector('#trPrStory'); if (prS) prS.onclick = async () => {
+        const melhor = recordes.slice().sort((a, b) => (b.kg - (b.antes || 0)) - (a.kg - (a.antes || 0)))[0];
+        prS.disabled = true;
+        const r = await publicarStoryPronto({ caption: `Novo recorde: ${melhor.ex} ${br(melhor.kg, Number.isInteger(melhor.kg) ? 0 : 1)} kg`, style: { card: { tipo: 'recorde', ex: melhor.ex, kg: melhor.kg, antes: melhor.antes ?? null } } });
+        if (r) { prS.textContent = 'No story ✓'; toast(r.pts > 0 ? `Story publicado · +${r.pts} pts` : 'Story publicado', 'ok'); } else prS.disabled = false;
+    };
     f.querySelector('#trSalvar').onclick = async ev => {
         const b = ev.currentTarget; if (b.disabled) return;
         const dur = Math.max(1, Math.min(600, parseInt(f.querySelector('#trMin').value) || min));

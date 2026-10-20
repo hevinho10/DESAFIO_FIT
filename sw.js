@@ -4,7 +4,7 @@
 // o "Instalar aplicativo" do Chrome no Android e no computador.
 // ============================================================
 
-const CACHE = 'pulso-v27';
+const CACHE = 'pulso-v28';
 const ESTATICOS = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const ESTATICOS = [
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
+  './corpo.json?v=1',
 ];
 
 // Bibliotecas de fora que o app precisa pra abrir (guardadas pra funcionar sem internet)
