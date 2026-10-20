@@ -831,6 +831,79 @@ function showProfileMenu(anchor, isAdmin) {
 // ============================================================
 // PAINEL ADMIN
 // ============================================================
+// ---- Painel de erros (admin): agrupa o que quebrou e mostra a linha certa do app.js ----
+let mapaApp = null;
+async function carregarMapaApp() {
+    if (mapaApp) return mapaApp;
+    const r = await fetch('app.min.js.map', { cache: 'no-store' });
+    if (!r.ok) throw new Error('sem mapa');
+    const m = await r.json();
+    // decodifica as posições (formato VLQ do source map)
+    const B = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const val = {}; [...B].forEach((c, i) => { val[c] = i; });
+    const linhas = []; let src = 0, sl = 0, sc = 0, nm = 0;
+    for (const ln of m.mappings.split(';')) {
+        const segs = []; let gc = 0;
+        if (ln) for (const seg of ln.split(',')) {
+            const nums = []; let v = 0, sh = 0;
+            for (const ch of seg) { const d = val[ch]; v += (d & 31) << sh; if (d & 32) sh += 5; else { nums.push(v & 1 ? -(v >> 1) : v >> 1); v = 0; sh = 0; } }
+            gc += nums[0];
+            if (nums.length >= 4) { src += nums[1]; sl += nums[2]; sc += nums[3]; if (nums.length >= 5) nm += nums[4]; segs.push([gc, sl, sc, nums.length >= 5 ? nm : -1]); }
+        }
+        linhas.push(segs);
+    }
+    mapaApp = { linhas, nomes: m.names || [], fonte: ((m.sourcesContent || [])[0] || '').split('\n') };
+    return mapaApp;
+}
+function ondeNoApp(mapa, linha, col) {
+    const segs = mapa.linhas[linha - 1]; if (!segs || !segs.length) return null;
+    let lo = 0, hi = segs.length - 1, ach = null;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (segs[mid][0] <= col - 1) { ach = segs[mid]; lo = mid + 1; } else hi = mid - 1; }
+    if (!ach) return null;
+    return { linha: ach[1] + 1, nome: ach[3] >= 0 ? mapa.nomes[ach[3]] : '', codigo: (mapa.fonte[ach[1]] || '').trim().slice(0, 140) };
+}
+const NOME_TELA = { feed: 'Feed', progress: 'Progresso', desafio: 'Desafios', profile: 'Perfil', chat: 'Chat', messages: 'Mensagens', coach: 'Coach', admin: 'Admin' };
+async function hydrateAdminErros() {
+    const box = document.getElementById('admErros'); if (!box) return;
+    const { data, error } = await sb.rpc('admin_erros');
+    if (error) { box.innerHTML = `<p class="faixa-nota">Não consegui carregar os erros: ${escapeHTML(error.message)}</p>`; return; }
+    const lista = data || [];
+    if (!lista.length) { box.innerHTML = `<div class="chart-card"><p class="faixa-nota" style="margin:0">Nenhum erro nos últimos 7 dias. 🎉</p></div>`; return; }
+    const versaoAtual = ((document.querySelector('script[src*="app."]') || {}).src || '').split('v=')[1] || '';
+    box.innerHTML = `<p class="faixa-nota" style="margin-top:0">Últimos 7 dias, do que mais aconteceu pro que menos aconteceu.</p>` + lista.map((e, i) => {
+        const ap = [e.iphone ? `iPhone ${e.iphone}` : '', e.android ? `Android ${e.android}` : '', e.computador ? `computador ${e.computador}` : ''].filter(Boolean).join(' · ');
+        return `<div class="adm-erro" data-i="${i}">
+            <div class="adm-erro-top"><b>${escapeHTML(e.mensagem)}</b><span class="adm-erro-n">${e.vezes}x</span></div>
+            <small>${escapeHTML(NOME_TELA[e.tela] || e.tela || 'tela ?')} · ${plural(e.pessoas || 0, 'pessoa', 'pessoas')} · ${ap || 'aparelho ?'} · ${timeAgo(e.ultima_vez)}</small>
+            ${e.nomes && e.nomes.length ? `<small>${e.nomes.map(escapeHTML).join(', ')}</small>` : ''}
+            <div class="adm-erro-onde" data-onde="${i}">${e.pilha ? '<button type="button" class="btn-mini" data-ver-onde>Ver onde quebrou</button>' : '<small>Sem detalhe de onde aconteceu</small>'}</div>
+            <button type="button" class="btn-ghost btn-xs adm-erro-ok" data-erro-ok>Marcar como resolvido</button>
+        </div>`;
+    }).join('');
+    box.onclick = async ev => {
+        const card = ev.target.closest('.adm-erro'); if (!card) return;
+        const e = lista[Number(card.dataset.i)];
+        if (ev.target.closest('[data-erro-ok]')) {
+            if (!(await confirmar('Apagar os registros desse erro? Se ele acontecer de novo, volta pra lista.'))) return;
+            const { error: er } = await sb.rpc('admin_erros_resolver', { p_mensagem: e.mensagem });
+            if (er) { toast(msgErro(er), 'err'); return; }
+            card.remove(); toast('Marcado como resolvido', 'ok'); return;
+        }
+        if (!ev.target.closest('[data-ver-onde]')) return;
+        const alvo = card.querySelector('.adm-erro-onde');
+        alvo.innerHTML = '<div class="spinner"></div>';
+        const frames = [...String(e.pilha).matchAll(/app\.min\.js[^\s:)]*:(\d+):(\d+)/g)].slice(0, 4);
+        if (!frames.length) { alvo.innerHTML = `<pre class="adm-pilha">${escapeHTML(e.pilha)}</pre>`; return; }
+        if (e.versao && versaoAtual && e.versao !== versaoAtual) { alvo.innerHTML = `<small>Esse erro é da versão ${escapeHTML(e.versao)}. O mapa só vale pra versão atual (${escapeHTML(versaoAtual)}).</small><pre class="adm-pilha">${escapeHTML(e.pilha)}</pre>`; return; }
+        try {
+            const mapa = await carregarMapaApp();
+            const locais = frames.map(f => ondeNoApp(mapa, Number(f[1]), Number(f[2]))).filter(Boolean);
+            alvo.innerHTML = locais.length ? locais.map((l, k) => `<div class="adm-onde${k ? ' sec' : ''}"><b>app.js linha ${l.linha}</b>${l.nome ? ` · ${escapeHTML(l.nome)}` : ''}<code>${escapeHTML(l.codigo)}</code></div>`).join('')
+                : `<pre class="adm-pilha">${escapeHTML(e.pilha)}</pre>`;
+        } catch (_) { alvo.innerHTML = `<small>Não achei o app.min.js.map no site. Suba ele junto com o app.min.js.</small><pre class="adm-pilha">${escapeHTML(e.pilha)}</pre>`; }
+    };
+}
+
 async function renderAdmin() {
     const c = $('#viewContainer');
     if (!state.profile.is_admin) {
@@ -879,7 +952,7 @@ async function renderAdmin() {
             </div>
 
             <div class="evo-abas adm-abas">
-                ${[['geral', 'Visão geral'], ['cadastros', 'Cadastros'], ['usuarios', 'Usuários'], ['ferramentas', 'Ferramentas']].map(([k, n]) =>
+                ${[['geral', 'Visão geral'], ['cadastros', 'Cadastros'], ['usuarios', 'Usuários'], ['erros', 'Erros'], ['ferramentas', 'Ferramentas']].map(([k, n]) =>
                     `<button class="evo-aba${(state.abaAdmin || 'geral') === k ? ' on' : ''}" data-act="adm-aba" data-aba="${k}">${n}</button>`).join('')}
             </div>
 
@@ -936,6 +1009,10 @@ async function renderAdmin() {
 
             </div>
 
+            <div class="adm-painel${state.abaAdmin === 'erros' ? '' : ' hidden'}" data-painel="erros">
+            <div id="admErros"><div class="spinner"></div></div>
+            </div>
+
             <div class="adm-painel${state.abaAdmin === 'usuarios' ? '' : ' hidden'}" data-painel="usuarios">
             <div id="admUsuarios"><div class="spinner"></div></div>
             </div>
@@ -945,6 +1022,7 @@ async function renderAdmin() {
     state.admPodeCriar = podeCriar;
     hydrateAdminUsuarios();
     hydrateAdminLog();
+    hydrateAdminErros();
     hydrateNovosCadastros().then(() => {
         const n = document.querySelectorAll('#cadastrosBox [data-status="aprovado"]').length - document.querySelectorAll('#cadastrosBox details [data-status="aprovado"]').length;
         const aba = document.querySelector('.adm-abas [data-aba="cadastros"]');
@@ -1880,12 +1958,77 @@ function htmlAudioChat(au, mid) {
     // barrinhas fixas por mensagem (parecem uma onda, sem precisar analisar o áudio)
     let h = 0; for (const c of String(mid)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
     const barras = Array.from({ length: 26 }, (_, i) => { h = (h * 1103515245 + 12345) >>> 0; const v = 28 + (h % 72); return `<i style="height:${Math.round(i < 2 || i > 23 ? v * .5 : v)}%"></i>`; }).join('');
-    return `<button class="au-play" data-au="${escapeHTML(mid)}" data-src="${escapeHTML(au.url)}" data-seg="${au.seg}" aria-label="Ouvir áudio"><svg class="au-i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg><svg class="au-i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg></button><span class="au-onda" data-au-onda="${escapeHTML(mid)}">${barras}</span><span class="au-dur" data-au-dur="${escapeHTML(mid)}">${fmtSeg(au.seg)}</span>`;
+    return `<button class="au-play" data-au="${escapeHTML(mid)}" data-src="${escapeHTML(au.url)}" data-seg="${au.seg}" aria-label="Ouvir áudio"><svg class="au-i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z" fill="currentColor"/></svg><svg class="au-i-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg></button><span class="au-onda" data-au-onda="${escapeHTML(mid)}">${barras}</span><span class="au-dur" data-au-dur="${escapeHTML(mid)}">${fmtSeg(au.seg)}</span><button class="au-vel" data-au-vel aria-label="Velocidade">${txtVel(audioChat.vel)}</button>`;
 }
-const audioChat = { el: null, mid: null, raf: 0 };
+// Áudio fica em pasta privada: o app pede um link temporário (1h) pra tocar.
+// Se o link temporário falhar (pasta ainda pública, por exemplo), usa o endereço normal. Assim nenhum áudio deixa de tocar.
+const audioUrls = new Map();
+const caminhoAudio = src => { const s = String(src || ''); const i = s.indexOf('/chat-audio/'); return i < 0 ? null : decodeURIComponent(s.slice(i + 12).split('?')[0]); };
+const urlAudioPronta = src => { const c = audioUrls.get(src); return c && c.ate > Date.now() ? c.url : null; };
+async function urlAudioAssinada(src) {
+    const ok = urlAudioPronta(src); if (ok) return ok;
+    const cam = caminhoAudio(src); if (!cam) return src;
+    try {
+        const { data, error } = await sb.storage.from('chat-audio').createSignedUrl(cam, 3600);
+        if (error || !data || !data.signedUrl) throw error || new Error('sem link');
+        audioUrls.set(src, { url: data.signedUrl, ate: Date.now() + 50 * 60000 });
+        return data.signedUrl;
+    } catch (_) { return src; }
+}
+// já deixa os links prontos assim que a conversa aparece (no iPhone o toque precisa tocar na hora)
+let preAssinando = false;
+async function preAssinarAudios() {
+    if (preAssinando) return;
+    const srcs = [...new Set([...document.querySelectorAll('.cmsg-audio [data-src]')].map(b => b.dataset.src))].filter(x => caminhoAudio(x) && !urlAudioPronta(x));
+    if (!srcs.length) return;
+    preAssinando = true;
+    try {
+        const { data } = await sb.storage.from('chat-audio').createSignedUrls(srcs.map(caminhoAudio), 3600);
+        (data || []).forEach((d, i) => { if (d && d.signedUrl && !d.error) audioUrls.set(srcs[i], { url: d.signedUrl, ate: Date.now() + 50 * 60000 }); });
+    } catch (_) {}
+    preAssinando = false;
+}
+// áudios que eu já ouvi (só os que recebi; fica neste aparelho)
+const audiosOuvidos = (() => { try { return new Set(JSON.parse(lsGet('pulso-audios-ouvidos') || '[]')); } catch (_) { return new Set(); } })();
+function marcarAudioOuvido(mid) {
+    if (audiosOuvidos.has(mid)) return;
+    audiosOuvidos.add(mid);
+    lsSet('pulso-audios-ouvidos', JSON.stringify([...audiosOuvidos].slice(-400)));
+    document.querySelectorAll(`.cmsg-audio[data-msg="${mid}"]`).forEach(b => b.classList.remove('nao-ouvido'));
+}
+const VELOCIDADES_AUDIO = [1, 1.5, 2];
+const audioChat = { el: null, mid: null, raf: 0, player: null, vel: VELOCIDADES_AUDIO.includes(Number(lsGet('pulso-audio-vel'))) ? Number(lsGet('pulso-audio-vel')) : 1 };
+const txtVel = v => String(v).replace('.', ',') + 'x';
+// um player só, reaproveitado: depois do primeiro toque o iPhone deixa ele tocar de novo sem bloquear
+function playerAudio() {
+    if (audioChat.player) return audioChat.player;
+    const a = new Audio(); a.preload = 'auto';
+    a.onended = () => { if (audioChat.el === a) pararAudioChat(); };
+    a.onerror = () => { if (audioChat.el === a && a.getAttribute('src')) { pararAudioChat(); toast('Não deu pra tocar esse áudio', 'err'); } };
+    a.onplay = a.onpause = () => sincronizarAudioChat();
+    a.onplaying = () => { audioChat.carregando = false; sincronizarAudioChat(); };
+    a.onloadedmetadata = () => { a.playbackRate = audioChat.vel; };
+    audioChat.player = a;
+    return a;
+}
+// Desliga o player de vez: sem isso o iPhone deixa o controle do áudio na tela bloqueada
+function soltarPlayerAudio() {
+    const a = audioChat.player; if (!a) return;
+    try { a.pause(); a.removeAttribute('src'); a.load(); } catch (_) {}
+    if ('mediaSession' in navigator) { try { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = 'none'; } catch (_) {} }
+}
 function pararAudioChat() {
-    if (audioChat.el) { audioChat.el.pause(); audioChat.el = null; }
+    if (audioChat.el) audioChat.el.pause();
+    soltarPlayerAudio();
+    audioChat.el = null; audioChat.carregando = false;
     cancelAnimationFrame(audioChat.raf); audioChat.mid = null; sincronizarAudioChat();
+}
+function trocarVelocidadeAudio() {
+    const i = VELOCIDADES_AUDIO.indexOf(audioChat.vel);
+    audioChat.vel = VELOCIDADES_AUDIO[(i + 1) % VELOCIDADES_AUDIO.length];
+    lsSet('pulso-audio-vel', String(audioChat.vel));
+    if (audioChat.el) { audioChat.el.defaultPlaybackRate = audioChat.vel; audioChat.el.playbackRate = audioChat.vel; }
+    vibrar(5); sincronizarAudioChat();
 }
 function tocarAudioChat(btn) {
     const mid = btn.dataset.au;
@@ -1894,29 +2037,43 @@ function tocarAudioChat(btn) {
         sincronizarAudioChat(); return;
     }
     pararAudioChat();
-    const el = new Audio(btn.dataset.src);
-    el.preload = 'auto';
-    audioChat.el = el; audioChat.mid = mid; audioChat.seg = Number(btn.dataset.seg) || 0;
-    el.onended = () => { pararAudioChat(); };
-    el.onerror = () => { if (audioChat.el === el) { pararAudioChat(); toast('Não deu pra tocar esse áudio', 'err'); } };
-    el.onplay = el.onpause = () => sincronizarAudioChat();
-    el.play().catch(() => { pararAudioChat(); toast('Não deu pra tocar esse áudio', 'err'); });
-    const passo = () => { if (audioChat.el !== el) return; sincronizarAudioChat(); audioChat.raf = requestAnimationFrame(passo); };
+    const el = playerAudio();
+    audioChat.el = el; audioChat.mid = mid; audioChat.carregando = true;
+    marcarAudioOuvido(mid);
+    const ir = url => {
+        if (audioChat.mid !== mid) return;
+        el.src = url; el.defaultPlaybackRate = audioChat.vel; el.playbackRate = audioChat.vel;
+        el.play().then(() => { el.playbackRate = audioChat.vel; }).catch(err => {
+            if (audioChat.mid !== mid) return;
+            pararAudioChat();
+            toast(err && err.name === 'NotAllowedError' ? 'Toque de novo pra ouvir' : 'Não deu pra tocar esse áudio', err && err.name === 'NotAllowedError' ? '' : 'err');
+        });
+    };
+    const pronta = urlAudioPronta(btn.dataset.src);
+    if (pronta) ir(pronta);
+    else { sincronizarAudioChat(); urlAudioAssinada(btn.dataset.src).then(ir); }
+    const passo = () => { if (audioChat.el !== el || audioChat.mid !== mid) return; sincronizarAudioChat(); audioChat.raf = requestAnimationFrame(passo); };
     audioChat.raf = requestAnimationFrame(passo);
 }
-// a lista de mensagens é redesenhada a cada mensagem nova: devolve o estado do player
+// a lista de mensagens pode ser redesenhada: devolve o estado do player
 function sincronizarAudioChat() {
     document.querySelectorAll('.cmsg-audio').forEach(b => {
         const btn = b.querySelector('[data-au]'); if (!btn) return;
-        const ativo = audioChat.el && audioChat.mid === btn.dataset.au;
+        const ativo = !!(audioChat.el && audioChat.mid === btn.dataset.au);
         const tocando = ativo && !audioChat.el.paused;
-        b.classList.toggle('tocando', !!tocando);
+        b.classList.toggle('tocando', tocando);
+        b.classList.toggle('ativo', ativo);
+        b.classList.toggle('carregando', ativo && !!audioChat.carregando);
         const total = (ativo && isFinite(audioChat.el.duration) && audioChat.el.duration) || Number(btn.dataset.seg) || 0;
         const t = ativo ? audioChat.el.currentTime : 0;
         b.style.setProperty('--au-p', total ? Math.min(1, t / total) : 0);
         const d = b.querySelector('.au-dur'); if (d) d.textContent = ativo && t > 0 ? fmtSeg(t) : fmtSeg(Number(btn.dataset.seg) || 0);
+        const v = b.querySelector('.au-vel'); if (v) v.textContent = txtVel(audioChat.vel);
     });
 }
+// saiu do app ou trancou a tela: para o áudio e tira o controle da tela bloqueada
+document.addEventListener('visibilitychange', () => { if (document.hidden && audioChat.player) pararAudioChat(); });
+window.addEventListener('pagehide', () => { if (audioChat.player) pararAudioChat(); });
 const MAX_AUDIO_SEG = 60;
 function ligarMicDoChat(conv) {
     const mic = $('#chatMic'); if (!mic) return;
@@ -2006,14 +2163,19 @@ async function enviarAudioNoChat(conv, blob, seg) {
     try {
         const uid = state.session.user.id;
         const ext = /webm/.test(blob.type) ? 'webm' : /ogg/.test(blob.type) ? 'ogg' : 'm4a';
-        const caminho = `${uid}/${Date.now()}.${ext}`;
+        const caminho = `${uid}/${conv}/${Date.now()}.${ext}`;
         const { error: eu } = await sb.storage.from('chat-audio').upload(caminho, blob, { contentType: blob.type.split(';')[0] || 'audio/mp4', upsert: false });
         if (eu) throw eu;
         const url = sb.storage.from('chat-audio').getPublicUrl(caminho).data.publicUrl;
         const { data, error } = await sb.from('messages').insert({ conversation_id: conv, sender_id: uid, body: MARCA_AUDIO + url + '|' + seg }).select().single();
         if (error) throw error;
         if (data && !state.chatMessages.some(m => m.id === data.id)) { state.chatMessages.push(data); paintChatMessages(); }
-    } catch (err) { toast(msgErro(err), 'err'); }
+    } catch (err) {
+        if (aviso) aviso.remove();
+        // o áudio continua guardado aqui: dá pra tentar de novo sem gravar outra vez
+        toastComAcao(!navigator.onLine || ehErroDeRede(err) ? 'Sem internet. Áudio não enviado' : 'O áudio não foi enviado', 'Tentar de novo', () => enviarAudioNoChat(conv, blob, seg));
+        return;
+    }
     finally { if (aviso) aviso.remove(); }
 }
 function verFotoChat(url) {
@@ -4853,7 +5015,7 @@ async function updateUnreadBadge() {
 let chatChannel = null;
 
 function stopChatSync() {
-    if (typeof pararAudioChat === 'function' && audioChat.el) pararAudioChat();
+    if (audioChat.player) pararAudioChat();
     if (chatChannel) { sb.removeChannel(chatChannel); chatChannel = null; }
     if (state.chatPoll) { clearInterval(state.chatPoll); state.chatPoll = null; }
 }
@@ -4903,6 +5065,7 @@ async function renderChat(conversationId, otherUser) {
 
     state.chatRespondendo = null;
     state.chatTema = null;
+    state.chatLimite = CHAT_JANELA;
     sb.rpc('chat_tema', { cid: conversationId }).then(({ data }) => {
         if (state.chatConversationId !== conversationId || !data) return;
         state.chatTema = data; aplicarTemaChat(data.tema); pintarAvisoTema();
@@ -4926,7 +5089,7 @@ async function renderChat(conversationId, otherUser) {
         const agora = Date.now();
         if (chatChannel && agora - ultimoAviso > 2000) {
             ultimoAviso = agora;
-            chatChannel.send({ type: 'broadcast', event: 'typing', payload: { uid: me } });
+            try { chatChannel.send({ type: 'broadcast', event: 'typing', payload: { uid: me } }); } catch (_) {}
         }
     });
     input.addEventListener('keydown', e => {
@@ -4941,6 +5104,7 @@ async function renderChat(conversationId, otherUser) {
     $('#chatFoto').addEventListener('change', e => { const fl = e.target.files && e.target.files[0]; e.target.value = ''; if (fl) enviarFotoNoChat(fl); });
     $('#chatMessages').addEventListener('click', e => {
         const f = e.target.closest('[data-ver-foto]'); if (f) { verFotoChat(f.dataset.verFoto); return; }
+        if (e.target.closest('[data-au-vel]')) { trocarVelocidadeAudio(); return; }
         const a = e.target.closest('[data-au]'); if (a) tocarAudioChat(a);
     });
     restaurarRascunho('chatInput');
@@ -4971,12 +5135,18 @@ async function renderChat(conversationId, otherUser) {
             state.chatMessages = state.chatMessages.filter(m => m.id !== gone);
             paintChatMessages();
         })
-        .subscribe();
+        .subscribe(st => { state.chatAoVivo = st === 'SUBSCRIBED'; });
+    state.chatAoVivo = false;
+    enviarFilaChat();
 
-    // Plano B: se o tempo real falhar por qualquer motivo, sincroniza a cada 4s
+    // Plano B: se o tempo real falhar, sincroniza a cada 4s. Com o tempo real ok, confere só a cada 20s.
     const sig = arr => arr.map(m => m.id).join(',');
+    let voltas = 0;
     state.chatPoll = setInterval(async () => {
         if (state.view !== 'chat' || state.chatConversationId !== conversationId) { stopChatSync(); return; }
+        if (document.hidden) return;
+        if (state.chatAoVivo && ++voltas % 5) return;
+        if (filaChatDa(conversationId).length) enviarFilaChat();
         try {
             const fresh = await loadChatMessages(conversationId);
             const antesReac = JSON.stringify(state.chatReacoes || {});
@@ -5011,25 +5181,30 @@ function mostrarDigitando() {
     }, 3500);
 }
 
-function paintChatMessages() {
+function paintChatMessages(opts = {}) {
     const box = $('#chatMessages');
     if (!box) return;
     const digitando = document.getElementById('typingBubble');
     const ocultas = state.chatOcultas || new Set();
-    const lista = state.chatMessages.filter(m => !ocultas.has(m.id) && !(state.chatSumindo && state.chatSumindo.has(m.id)));
+    const fila = filaChatDa(state.chatConversationId);
+    const lista = state.chatMessages.filter(m => !ocultas.has(m.id) && !(state.chatSumindo && state.chatSumindo.has(m.id)) && !fila.some(f => f.id === m.id)).concat(fila);
     if (lista.length === 0) {
         box.innerHTML = `<div class="coach-empty"><span class="ce-emo">👋</span><p>Comece a conversa!</p></div>`;
     } else {
+        // só as últimas mensagens vão pra tela; as antigas aparecem quando a pessoa pede
+        const ini = Math.max(0, lista.length - (state.chatLimite || CHAT_JANELA));
         const eu = state.session.user.id;
         const reac = state.chatReacoes || {};
         let diaAnterior = '';
         const juntos = (a, b) => a && b && a.sender_id === b.sender_id && a.created_at && b.created_at
             && Math.abs(new Date(b.created_at) - new Date(a.created_at)) < 3 * 60000 && isoDe(new Date(a.created_at)) === isoDe(new Date(b.created_at));
-        box.innerHTML = lista.map((m, idx) => {
+        const itens = ini > 0 ? [['__mais', `<button type="button" class="chat-mais" data-chat-mais>Ver mensagens anteriores</button>`]] : [];
+        lista.forEach((m, idx) => { if (idx < ini) return; itens.push([m.id, (() => {
             const mine = m.sender_id === eu;
             const comAnt = juntos(lista[idx - 1], m), comProx = juntos(m, lista[idx + 1]);
             const grupo = comAnt && comProx ? ' g-meio' : comAnt ? ' g-fim' : comProx ? ' g-ini' : '';
-            const hora = !comProx && m.created_at ? `<span class="cmsg-hora">${new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
+            const hora = m.pendente ? `<span class="cmsg-hora cmsg-pend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Envia quando a internet voltar</span>`
+                : !comProx && m.created_at ? `<span class="cmsg-hora">${new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>` : '';
             // separador de dia
             let sep = '';
             if (m.created_at) {
@@ -5065,17 +5240,35 @@ function paintChatMessages() {
             }
             const r = reac[m.id] || [];
             const reacHTML = r.length ? `<span class="cmsg-reac">${[...new Set(r.map(x => x.emoji))].join('')}${r.length > 1 ? `<small>${r.length}</small>` : ''}</span>` : '';
-            return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${grupo}${r.length ? ' com-reac' : ''}" data-mid="${m.id}">
+            return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${grupo}${r.length ? ' com-reac' : ''}${m.pendente ? ' pendente' : ''}" data-mid="${m.id}">
                 ${topo}
-                ${au ? `<div class="cmsg-bubble cmsg-audio" data-msg="${m.id}">${htmlAudioChat(au, m.id)}${reacHTML}</div>` : corpo || (!ft && !pp) ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
+                ${au ? `<div class="cmsg-bubble cmsg-audio${!mine && !audiosOuvidos.has(m.id) ? ' nao-ouvido' : ''}" data-msg="${m.id}">${htmlAudioChat(au, m.id)}${reacHTML}</div>` : corpo || (!ft && !pp) ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
                 ${hora}
             </div>`;
-        }).join('');
+        })()]); });
+        reconciliarChat(box, itens);
         if (digitando) box.appendChild(digitando);
     }
     pintarAvisoTema();
     sincronizarAudioChat();
-    box.scrollTop = box.scrollHeight;
+    if (box.querySelector('.cmsg-audio')) preAssinarAudios();
+    if (opts.manterScroll == null) box.scrollTop = box.scrollHeight;
+    else box.scrollTop = box.scrollHeight - opts.manterScroll;
+}
+const CHAT_JANELA = 60;
+// Troca só o que mudou: mensagem nova entra no fim, o resto fica parado (sem piscar foto nem recarregar áudio)
+function reconciliarChat(box, itens) {
+    const velhos = new Map();
+    [...box.children].forEach(c => { if (c.dataset && c.dataset.k) velhos.set(c.dataset.k, c); else if (c.id !== 'typingBubble') c.remove(); });
+    const nos = itens.map(([k, html]) => {
+        const v = velhos.get(k);
+        if (v && v._h === html) { velhos.delete(k); return v; }
+        const n = document.createElement('div');
+        n.className = 'cm-item'; n.dataset.k = k; n.innerHTML = html; n._h = html;
+        return n;
+    });
+    velhos.forEach(v => v.remove());
+    nos.forEach((n, i) => { if (box.children[i] !== n) box.insertBefore(n, box.children[i] || null); });
 }
 
 // ---- Reações, respostas, excluir pra você e cancelar envio ----
@@ -5136,14 +5329,24 @@ function ligarGestosDoChat(conv) {
     box.addEventListener('pointerup', soltar); box.addEventListener('pointercancel', soltar); box.addEventListener('pointerleave', soltar);
     box.addEventListener('contextmenu', e => { if (e.target.closest('.cmsg-bubble')) e.preventDefault(); });
     box.addEventListener('click', e => {
+        if (e.target.closest('[data-chat-mais]')) {
+            state.chatLimite = (state.chatLimite || CHAT_JANELA) + CHAT_JANELA;
+            paintChatMessages({ manterScroll: box.scrollHeight - box.scrollTop });
+            return;
+        }
         const cita = e.target.closest('[data-ir-msg]');
         if (cita) {
+            if (!box.querySelector(`[data-msg="${cita.dataset.irMsg}"]`) && state.chatMessages.some(m => m.id === cita.dataset.irMsg)) {
+                const pos = state.chatMessages.findIndex(m => m.id === cita.dataset.irMsg);
+                state.chatLimite = state.chatMessages.length - pos + 10;
+                paintChatMessages({ manterScroll: box.scrollHeight - box.scrollTop });
+            }
             const el = box.querySelector(`[data-msg="${cita.dataset.irMsg}"]`);
             if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('pisca'); setTimeout(() => el.classList.remove('pisca'), 1200); }
             return;
         }
         const b = e.target.closest('.cmsg-bubble[data-msg]');
-        if (!b) return;
+        if (!b || e.target.closest('button')) return;
         const agora = Date.now();
         if (ultimoAlvo === b.dataset.msg && agora - ultimoToque < 320) { reagirMensagem(b.dataset.msg, '❤️', conv, true); ultimoToque = 0; return; }
         ultimoToque = agora; ultimoAlvo = b.dataset.msg;
@@ -5248,6 +5451,43 @@ function abrirMenuMensagem(mid, conv) {
     };
 }
 
+// ---- Mensagens escritas sem internet ----
+const gerarUuid = () => (crypto && crypto.randomUUID) ? crypto.randomUUID()
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+const ehErroDeRede = err => { const m = String((err && (err.message || err.details)) || err || ''); return !navigator.onLine || /Failed to fetch|Load failed|NetworkError|network|fetch/i.test(m); };
+const lerFilaChat = () => { try { return JSON.parse(lsGet('pulso-chat-fila') || '[]'); } catch (_) { return []; } };
+const salvarFilaChat = f => lsSet('pulso-chat-fila', JSON.stringify(f.slice(-50)));
+const filaChatDa = conv => conv ? lerFilaChat().filter(m => m.conversation_id === conv).map(m => ({ ...m, pendente: true })) : [];
+function atualizarAlturaChat() { const i = $('#chatInput'); if (i) { i.style.height = 'auto'; i.style.height = Math.min(120, i.scrollHeight) + 'px'; } }
+function guardarNaFilaChat(msg) {
+    const f = lerFilaChat(); f.push({ ...msg, created_at: new Date().toISOString(), tentativas: 0 }); salvarFilaChat(f);
+    if (state.chatConversationId === msg.conversation_id) paintChatMessages();
+}
+let enviandoFilaChat = false;
+async function enviarFilaChat() {
+    if (enviandoFilaChat || !navigator.onLine || !state.session) return;
+    let f = lerFilaChat(); if (!f.length) return;
+    enviandoFilaChat = true;
+    let mudou = false;
+    try {
+        for (const m of [...f]) {
+            const { data, error } = await sb.from('messages').insert({ id: m.id, conversation_id: m.conversation_id, sender_id: m.sender_id, body: m.body }).select().single();
+            if (error && ehErroDeRede(error)) break; // ainda sem internet: tenta depois
+            f = lerFilaChat().filter(x => x.id !== m.id);
+            // 23505 = já tinha chegado (a resposta é que se perdeu): conta como enviada
+            if (error && error.code !== '23505') {
+                if ((m.tentativas || 0) < 2) f.push({ ...m, tentativas: (m.tentativas || 0) + 1 });
+                else toast('Uma mensagem não pôde ser enviada', 'err');
+            }
+            salvarFilaChat(f); mudou = true;
+            if (data && state.chatConversationId === m.conversation_id && !state.chatMessages.some(x => x.id === data.id)) state.chatMessages.push(data);
+        }
+    } finally { enviandoFilaChat = false; }
+    if (mudou && document.getElementById('chatMessages')) paintChatMessages();
+}
+window.addEventListener('online', () => { if (state.session) enviarFilaChat(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && state.session) enviarFilaChat(); });
+
 async function sendChatMessage(conversationId) {
     if (state.enviandoMsg) return;
     state.enviandoMsg = true;
@@ -5259,19 +5499,24 @@ async function sendChatMessage(conversationId) {
     input.value = ''; input.style.height = 'auto';
 
     let corpoMsg = text;
+    const novoId = gerarUuid();
     if (state.chatRespondendo) {
         corpoMsg = MARCA_RESP + JSON.stringify({ id: state.chatRespondendo.id, txt: state.chatRespondendo.txt }) + '\n' + text;
         state.chatRespondendo = null;
         const barra = $('#chatRespBarra'); if (barra) barra.classList.add('hidden');
     }
     const sendBtn = $('#chatSend'); if (sendBtn) sendBtn.classList.remove('pronto');
-    const { data, error } = await sb.from('messages').insert({
-        conversation_id: conversationId,
-        sender_id: state.session.user.id,
-        body: corpoMsg,
-    }).select().single();
+    const msgNova = { id: novoId, conversation_id: conversationId, sender_id: state.session.user.id, body: corpoMsg };
+    // sem internet: guarda e manda sozinho quando voltar
+    if (!navigator.onLine) { guardarNaFilaChat(msgNova); return; }
+    const { data, error } = await sb.from('messages').insert(msgNova).select().single();
 
-    if (error) { toast('Erro ao enviar: ' + error.message, 'err'); return; }
+    if (error) {
+        if (ehErroDeRede(error)) { guardarNaFilaChat(msgNova); return; }
+        toast('Erro ao enviar: ' + error.message, 'err');
+        input.value = text; atualizarAlturaChat();
+        return;
+    }
     if (!state.chatMessages.some(m => m.id === data.id)) {
         state.chatMessages.push(data);
         paintChatMessages();
@@ -17148,7 +17393,7 @@ async function bootInterno() {
     updateNotifBadge();
     checarConquistas(true);
     checarConvite();
-    enviarFilaOffline();
+    enviarFilaOffline(); setTimeout(() => enviarFilaChat(), 3000);
     setTimeout(enviarRascunhos, 2500);
 
     await carregarBlocked();

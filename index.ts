@@ -1,5 +1,5 @@
 // Pulso: envia as notificações push que estão na fila (push_fila)
-// Chamada a cada minuto pelo pg_cron. Segredos necessários (Edge Functions > Secrets):
+// Chamada a cada minuto pelo pg_cron. Também apaga os arquivos de mensagens apagadas. Segredos necessários (Edge Functions > Secrets):
 //   VAPID_PUBLIC, VAPID_PRIVATE, VAPID_SUBJECT (ex: mailto:seuemail@gmail.com)
 // SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY já existem por padrão.
 import webpush from "npm:web-push@3.6.7";
@@ -13,13 +13,14 @@ const cors = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    await faxinaArquivos(sb);
+
     const pub = Deno.env.get("VAPID_PUBLIC") ?? "";
     const priv = Deno.env.get("VAPID_PRIVATE") ?? "";
     const subj = Deno.env.get("VAPID_SUBJECT") ?? "mailto:contato@pulso.app";
     if (!pub || !priv) return json({ erro: "faltam VAPID_PUBLIC/VAPID_PRIVATE" }, 500);
     webpush.setVapidDetails(subj, pub, priv);
-
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // pega até 200 pendentes (ignora os que já falharam 3x)
     const { data: fila, error } = await sb.from("push_fila")
@@ -77,6 +78,21 @@ Deno.serve(async (req) => {
     return json({ erro: String((e as Error)?.message ?? e) }, 500);
   }
 });
+
+// Faxina: áudios e fotos de mensagens apagadas (a fila arquivos_apagar é preenchida pelo banco)
+async function faxinaArquivos(sb: any) {
+  try {
+    const { data: lixo } = await sb.from("arquivos_apagar").select("id, bucket, caminho").order("id").limit(200);
+    if (!lixo || !lixo.length) return;
+    const porBucket = new Map<string, string[]>();
+    lixo.forEach((x: any) => {
+      if (!porBucket.has(x.bucket)) porBucket.set(x.bucket, []);
+      porBucket.get(x.bucket)!.push(x.caminho);
+    });
+    for (const [b, caminhos] of porBucket) await sb.storage.from(b).remove(caminhos);
+    await sb.from("arquivos_apagar").delete().in("id", lixo.map((x: any) => x.id));
+  } catch (_) { /* a faxina nunca atrapalha o envio das notificações */ }
+}
 
 function json(o: unknown, status = 200) {
   return new Response(JSON.stringify(o), { status, headers: { ...cors, "Content-Type": "application/json" } });
