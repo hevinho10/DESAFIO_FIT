@@ -2474,14 +2474,29 @@ async function alternarSilenciar(uid, nome) {
 })();
 
 // ---- Enviar post pra alguém no chat ----
+// Qualquer post seu (até os antigos) vira story: abre o editor com a foto e o card
+async function adicionarPostAoStory(id) {
+    const { data: post } = await sb.from('posts').select('*').eq('id', id).maybeSingle();
+    if (!post) { toast('Não achei esse post', 'err'); return; }
+    if (post.kind === 'workout') { await publicarStoryTreino(post); return; }
+    const foto = post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
+    if (foto) { await abrirEditorComCard({ card: null, url: foto }); return; }
+    await abrirEditorComCard({ card: null });
+    const t = $('#scText'); if (t && post.caption) { t.value = post.caption; ajustarAlturaTextoStory(); atualizarBotaoPublicarStory(); }
+}
 async function abrirEnviarPost(btn) {
     const ref = { id: btn.dataset.id, img: btn.dataset.img || null, user: btn.dataset.user || '', txt: btn.dataset.txt || '' };
     const old = document.getElementById('enviarPostSheet'); if (old) old.remove();
     const sheet = document.createElement('div');
     sheet.id = 'enviarPostSheet'; sheet.className = 'sheet on';
+    const meuPost = state.profile && ref.user && ref.user === state.profile.username;
     sheet.innerHTML = `<div class="sheet-card">
         <div class="sheet-handle"></div>
-        <h3 class="sheet-title">Enviar pra</h3>
+        ${meuPost ? `<button type="button" class="ep-story" data-ep-story>
+            <span class="ep-st-mini">${ref.img && !ehPrivada(ref.img) ? `<img src="${escapeHTML(ref.img)}" alt="">` : '<i></i>'}</span>
+            <span class="ep-st-txt"><b>Adicionar ao seu story</b><small>Você ajusta foto e card antes de publicar</small></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>` : ''}
+        <h3 class="sheet-title ep-tit">Enviar pra</h3>
         <input type="text" id="epBusca" class="ep-busca" placeholder="Buscar pessoa" autocomplete="off" autocapitalize="off">
         <div class="ep-lista" id="epLista"><div class="spinner"></div></div>
     </div>`;
@@ -2507,6 +2522,7 @@ async function abrirEnviarPost(btn) {
     });
     sheet.addEventListener('click', async e => {
         if (e.target === sheet) { sheet.remove(); return; }
+        if (e.target.closest('[data-ep-story]')) { sheet.remove(); adicionarPostAoStory(ref.id); return; }
         const b = e.target.closest('[data-ep]'); if (!b || b.disabled) return;
         b.disabled = true; b.textContent = '...';
         let conv = b.dataset.conv;
@@ -9081,7 +9097,7 @@ async function imagemResumoSemana(d) {
 }
 async function imagemResumo(r) {
     const d = r;
-    try { await document.fonts.load('700 80px "Space Grotesk"'); } catch (_) {}
+    try { await document.fonts.load('800 80px "Plus Jakarta Sans"'); } catch (_) {}
     const cv = document.createElement('canvas');
     cv.width = 1080; cv.height = 1920;
     const g = cv.getContext('2d');
@@ -9090,7 +9106,7 @@ async function imagemResumo(r) {
     g.fillStyle = bg; g.fillRect(0, 0, 1080, 1920);
     g.fillStyle = 'rgba(53,225,155,.14)';
     g.beginPath(); g.arc(980, 180, 360, 0, Math.PI * 2); g.fill();
-    const F = (peso, tam) => `${peso} ${tam}px "Space Grotesk", Inter, sans-serif`;
+    const F = (peso, tam) => `${peso} ${tam}px "Plus Jakarta Sans", sans-serif`;
     g.fillStyle = '#F1F4F1'; g.font = F(700, 64); g.fillText('Pulso', 90, 170);
     g.fillStyle = '#35E19B'; g.fillText('.', 90 + g.measureText('Pulso').width, 170);
     g.fillStyle = '#F1F4F1'; g.font = F(700, 104); g.fillText(r.titulo, 90, 400);
@@ -9115,7 +9131,7 @@ async function imagemResumo(r) {
         const [texto, ref] = r.versiculo;
         g.textAlign = 'center';
         g.fillStyle = '#C9D0CA';
-        g.font = `italic 500 40px "Space Grotesk", Inter, sans-serif`;
+        g.font = `italic 500 40px "Plus Jakarta Sans", sans-serif`;
         const palavras = ('“' + texto + '”').split(' ');
         const linhas = []; let linha = '';
         palavras.forEach(p => { const t = linha ? linha + ' ' + p : p; if (g.measureText(t).width > 880 && linha) { linhas.push(linha); linha = p; } else linha = t; });
@@ -11095,7 +11111,7 @@ const CORES_DEP = {
     azul: ['95,176,255', '#5FB0FF'], lilas: ['167,139,250', '#A78BFA'], rosa: ['255,143,177', '#FF8FB1'], coral: ['255,122,110', '#FF7A6E'],
     laranja: ['255,159,90', '#FF9F5A'], vinho: ['176,70,100', '#B04664'], neutro: ['160,170,165', '#3A403D'],
 };
-const estiloCorDep = cor => { const c = (CORES_DEP[cor] || CORES_DEP.neutro)[0]; return `--dc:${c}`; };
+const estiloCorDep = cor => { const k = CORES_DEP[cor] || CORES_DEP.neutro; return `--dc:${k[0]}${String(k[1]).startsWith('linear') ? `;--dg:${k[1]}` : ''}`; };
 function abrirEscreverDepoimento(uid, nome, editando = null) {
     let cor = (editando && editando.cor) || 'neutro';
     const primeiro = escapeHTML(String(nome || '').split(' ')[0]);
@@ -13012,6 +13028,7 @@ document.addEventListener('click', async e => {
 
     if (act === 'ia-nota') { btn.classList.toggle('aberta'); return; }
     if (act === 'enviar-post') { abrirEnviarPost(btn); return; }
+    if (act === 'post-ao-story') { hidePostMenu(); adicionarPostAoStory(btn.dataset.id); return; }
     if (act === 'meta-sug-nao') { lsSet(btn.dataset.k, '1'); const c = btn.closest('.meta-sug'); if (c) c.remove(); return; }
     if (act === 'meta-sug-sim') {
         const nova = Number(btn.dataset.meta);
@@ -14222,6 +14239,7 @@ function showPostMenu(postId, anchor) {
     menu.id = 'floatingPostMenu';
     menu.className = 'post-menu';
     menu.innerHTML = `
+        <button class="post-menu-item" data-act="post-ao-story" data-id="${postId}"><svg class="pm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.6"/><path d="M12 8.5v7M8.5 12h7"/></svg>Adicionar ao story</button>
         <button class="post-menu-item" data-act="edit-post" data-id="${postId}">${icon('editar')}Editar</button>
         <button class="post-menu-item" data-act="open-privacy-edit" data-id="${postId}">${icon('olho')}Quem pode ver</button>
         <button class="post-menu-item" data-act="toggle-comentarios-post" data-id="${postId}">${icon('comentario')}${postEl && postEl.dataset.comentOff === '1' ? 'Ativar comentários' : 'Desativar comentários'}</button>
@@ -16664,7 +16682,7 @@ $('#wMuscles').addEventListener('click', e => {
     }
 });
 
-const KIND_TITLES = { workout:'Treino', meal:'Refeição', water:'Água', sleep:'Sono', post:'Novo post' };
+const KIND_TITLES = { workout:'Novo treino', meal:'Refeição', water:'Água', sleep:'Sono', post:'Novo post' };
 
 function abrirComposer() {
     $('#composerSheet').classList.add('on');
@@ -16710,7 +16728,7 @@ async function preencherStatusRegistro() {
     } catch (_) {}
 }
 function limparComposer() {
-    state.wEscolhido = false;
+    state.wEscolhido = false; state.wMais = false; state.composerEdicao = null;
     if ($('#wDuration')) $('#wDuration').value = 45; // não herda o tempo do último registro
     delete $('#mSlot').dataset.tocado;
     $('#pCaption').value = '';
@@ -17141,15 +17159,25 @@ function montarFormTreino() {
     const todas = [...$('#wType').options].map(o => o.value);
     const ordem = [...todas].sort((a, b) => (uso[b] || 0) - (uso[a] || 0) || todas.indexOf(a) - todas.indexOf(b));
     const atual = $('#wType').value;
-    $('#wTypeChips').innerHTML = ordem.map(t => `<button type="button" class="tr-chip${state.wEscolhido && t === atual ? ' on' : ''}" data-tipo="${t}" role="radio" aria-checked="${state.wEscolhido && t === atual}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONES_ATIVIDADE[t] || ICONES_ATIVIDADE.Outro}</svg>${NOME_CURTO_ATIV[t] || t}</button>`).join('');
-    $('#wTypeChips').scrollLeft = 0;
+    const ic = t => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONES_ATIVIDADE[t] || ICONES_ATIVIDADE.Outro}</svg>`;
+    const box = $('#wTypeChips');
+    $('#composerSheet').classList.toggle('tr-escolhido', !!state.wEscolhido);
+    if (!state.wEscolhido) {
+        // ao abrir: grade com as 8 que a pessoa mais usa; o resto fica no "Mais"
+        const lista = state.wMais ? ordem : ordem.slice(0, 8);
+        box.className = 'tr-chips tr-grade';
+        box.innerHTML = lista.map(t => `<button type="button" class="tr-tile" data-tipo="${t}" role="radio" aria-checked="false">${ic(t)}<span>${NOME_CURTO_ATIV[t] || t}</span></button>`).join('')
+            + (state.wMais || ordem.length <= 8 ? '' : `<button type="button" class="tr-tile tr-mais" data-mais="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg><span>Mais</span></button>`);
+    } else {
+        // depois de escolher: vira uma fileira de pílulas, com a escolhida na frente
+        box.className = 'tr-chips tr-pilulas';
+        const fila = [atual, ...ordem.filter(t => t !== atual)];
+        box.innerHTML = fila.map(t => `<button type="button" class="tr-chip${t === atual ? ' on' : ''}" data-tipo="${t}" role="radio" aria-checked="${t === atual}">${ic(t)}${NOME_CURTO_ATIV[t] || t}</button>`).join('');
+        box.scrollLeft = 0;
+    }
     sincronizarDuracao();
     if (!$('#wDistance').value) definirKmPadrao(); else mostrarKm();
-    let dica = document.getElementById('wSugestao');
-    if (!dica) { dica = document.createElement('p'); dica.id = 'wSugestao'; dica.className = 'w-sugestao'; $('#wTypeChips').before(dica); }
-    dica.textContent = '';
-    if (state.treinoSugerir) { state.treinoSugerir = false; sugerirTreinoDoDia(); }
+    state.treinoSugerir = false;
 }
 // Preenche o registro com o que a pessoa costuma fazer hoje
 async function sugerirTreinoDoDia() {
@@ -17194,14 +17222,18 @@ function atualizarFotoLegenda() {
     x.classList.toggle('hidden', !temFoto);
 }
 document.getElementById('wTypeChips').addEventListener('click', e => {
+    if (e.target.closest('[data-mais]')) { state.wMais = true; vibrar(5); montarFormTreino(); return; }
     const b = e.target.closest('[data-tipo]');
     if (!b) return;
+    const primeira = !state.wEscolhido;
     state.wEscolhido = true;
     $('#wType').value = b.dataset.tipo;
     $('#wType').dispatchEvent(new Event('change', { bubbles: true }));
     $$('#wTypeChips .tr-chip').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-checked', String(on)); });
     definirKmPadrao();
     if (typeof atualizarCamposTreino === 'function') atualizarCamposTreino();
+    vibrar(6);
+    if (primeira) montarFormTreino();
     updateDestUI();
 });
 $$('.tr-dur-btn[data-dur-passo]').forEach(b => b.addEventListener('click', () => {
@@ -17211,13 +17243,40 @@ $$('.tr-dur-btn[data-dur-passo]').forEach(b => b.addEventListener('click', () =>
     sincronizarDuracao();
 }));
 $('#wDuration').addEventListener('input', () => { $('#wDurBig').textContent = $('#wDuration').value; });
+// ---- Registrar treino: "Foto" e "Com alguém" lado a lado, e a foto grande depois de escolher ----
+(function extrasRegistroTreino() {
+    const com = document.getElementById('trCom'); if (!com || document.getElementById('trExtras')) return;
+    com.insertAdjacentHTML('beforebegin', `<div class="tr-extras" id="trExtras">
+        <label class="tr-ext" id="trFotoBtn2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Foto</span><input type="file" id="trFotoIn2" accept="image/*" hidden></label>
+    </div>
+    <div class="tr-foto-card hidden" id="trFotoCard"><img alt=""><span class="tfc-tag" id="tfcTag"></span>
+        <button type="button" class="tfc-ed" id="tfcEditar">Editar</button>
+        <button type="button" class="tfc-x" id="tfcX" aria-label="Tirar foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`);
+    const add = document.getElementById('trComAdd');
+    if (add) { add.classList.add('tr-ext'); const sp = add.querySelector('span'); if (sp) sp.textContent = 'Com alguém'; document.getElementById('trExtras').appendChild(add); }
+    document.getElementById('trFotoIn2').addEventListener('change', e => { if (e.target.files && e.target.files[0]) handlePhotoPick(e); e.target.value = ''; });
+    document.getElementById('tfcEditar').onclick = () => abrirEditorFoto();
+    document.getElementById('trFotoCard').querySelector('img').onclick = () => abrirEditorFoto();
+    document.getElementById('tfcX').onclick = () => { const c = $('#pPhotoClear'); if (c) c.click(); setTimeout(updateDestUI, 30); };
+})();
+function pintarFotoRegistro() {
+    const card = document.getElementById('trFotoCard'); if (!card) return;
+    const tem = !!state.composerPhoto && state.composerKind === 'workout';
+    card.classList.toggle('hidden', !tem);
+    $('#composerSheet').classList.toggle('tem-foto', !!state.composerPhoto);
+    const bt = document.getElementById('trFotoBtn2'); if (bt) bt.classList.toggle('hidden', tem);
+    if (!tem) return;
+    const prev = $('#pPhotoPreview'); if (prev && prev.getAttribute('src')) card.querySelector('img').src = prev.src;
+    const ed = state.composerEdicao, nome = ed && ed.filtro !== 'normal' ? (FILTROS_STORY.find(f => f[0] === ed.filtro) || [])[1] : '';
+    const tag = document.getElementById('tfcTag'); tag.textContent = nome || ''; tag.classList.toggle('hidden', !nome);
+}
 // ---- "Treinou com alguém?" no registro de treino ----
 state.treinoCom = [];
 function pintarTreinoCom() {
     const lista = document.getElementById('trComLista');
     if (!lista) return;
     lista.innerHTML = state.treinoCom.map(u => `<span class="tr-com-chip">com ${escapeHTML(String(u.display_name || u.username).split(' ')[0])}<button type="button" data-tirar-com="${u.id}" aria-label="Tirar">×</button></span>`).join('');
-    document.getElementById('trComAdd').querySelector('span').textContent = state.treinoCom.length ? 'Marcar mais alguém' : 'Treinou com alguém?';
+    document.getElementById('trComAdd').querySelector('span').textContent = state.treinoCom.length ? 'Mais alguém' : 'Com alguém';
 }
 document.getElementById('trComLista').addEventListener('click', e => {
     const b = e.target.closest('[data-tirar-com]');
@@ -17304,20 +17363,7 @@ $('#pPhotoUnico').addEventListener('change', e => {
     setTimeout(updateDestUI, 400);
 });
 $('#capFotoX').addEventListener('click', () => { const c = $('#pPhotoClear'); if (c) c.click(); setTimeout(updateDestUI, 50); });
-// "Postar no story" logo abaixo de "Publicar no feed" (só no treino). A escolha fica lembrada.
-(function chaveStoryComposer() {
-    const row = document.getElementById('feedSwitchRow'); if (!row || document.getElementById('storySwitchRow')) return;
-    row.insertAdjacentHTML('afterend', `<div class="feed-switch-row story-switch-row" id="storySwitchRow">
-        <span class="ss-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3.2 2.4"/><path d="M12 8.5v7M8.5 12h7"/></svg></span>
-        <div class="fs-txt"><span>Postar no story</span><small>Abre o editor pra você ajustar antes</small></div>
-        <button type="button" class="nc-sw" id="storySwitch" role="switch" aria-checked="false" aria-label="Postar no story"><i></i></button>
-    </div>`);
-    state.composerStory = lsGet('pulso-cmp-story') === '1';
-    const sw = document.getElementById('storySwitch');
-    const pintar = () => { sw.classList.toggle('on', !!state.composerStory); sw.setAttribute('aria-checked', String(!!state.composerStory)); };
-    pintar();
-    sw.addEventListener('click', () => { state.composerStory = !state.composerStory; lsSet('pulso-cmp-story', state.composerStory ? '1' : '0'); pintar(); vibrar(6); });
-})();
+state.composerStory = false;
 $('#feedSwitch').addEventListener('click', () => {
     if (!state.composerPhoto) { toast('Adicione uma foto pra publicar no feed', 'err'); return; }
     const alvo = state.composerDest === 'feed' ? 'log' : 'feed';
@@ -17482,6 +17528,7 @@ function updateDestUI() {
         $('#feedSwitchHint').textContent = hasPhoto ? (ligado ? 'Aparece no feed e nas fotos do seu perfil' : 'Fica só no seu histórico') : 'Adicione uma foto pra publicar';
     }
     atualizarFotoLegenda();
+    pintarFotoRegistro();
     if (kind === 'meal') atualizarFotoRefeicao();
 
     const btn = $('#composerSubmit');
@@ -17564,6 +17611,9 @@ function caixaFiltrosComposer() {
     return box;
 }
 async function montarFiltrosComposer() {
+    const velho = document.getElementById('cmpFiltros'); if (velho) { velho.classList.add('hidden'); velho.innerHTML = ''; }
+    return;
+    // (antiga fileira de filtros, trocada pelo editor em tela cheia)
     const box = caixaFiltrosComposer();
     const file = state.composerFotoOriginal;
     if (!file || ['story', 'water', 'sleep'].includes(state.composerKind)) { box.classList.add('hidden'); box.innerHTML = ''; return; }
@@ -17580,12 +17630,120 @@ async function montarFiltrosComposer() {
         });
     } catch (_) { box.classList.add('hidden'); }
 }
+// ============================================================
+// EDITOR DE FOTO (tela cheia): filtros, ajustes e ler o print do relógio
+// ============================================================
+const multM = (A, B) => A.map(l => [0, 1, 2, 3].map(j => l[0] * B[0][j] + l[1] * B[1][j] + l[2] * B[2][j] + (j === 3 ? l[3] : 0)));
+function matrizEdicao(ed) {
+    let M = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0]];
+    if (ed.filtro && ed.filtro !== 'normal') M = matrizFiltro(ed.filtro, ed.int);
+    const b = 1 + ed.brilho * 0.35, c = 1 + ed.contraste * 0.4, sa = 1 + ed.saturacao * 0.6;
+    const sat = v => [[0.213 + 0.787 * v, 0.715 - 0.715 * v, 0.072 - 0.072 * v, 0], [0.213 - 0.213 * v, 0.715 + 0.285 * v, 0.072 - 0.072 * v, 0], [0.213 - 0.213 * v, 0.715 - 0.715 * v, 0.072 + 0.928 * v, 0]];
+    if (ed.brilho) M = multM([[b, 0, 0, 0], [0, b, 0, 0], [0, 0, b, 0]], M);
+    if (ed.contraste) M = multM([[c, 0, 0, (1 - c) / 2], [0, c, 0, (1 - c) / 2], [0, 0, c, (1 - c) / 2]], M);
+    if (ed.saturacao) M = multM(sat(sa), M);
+    return M;
+}
+const edicaoNeutra = ed => !ed || ((ed.filtro || 'normal') === 'normal' && !ed.brilho && !ed.contraste && !ed.saturacao);
+async function arquivoEditado(file, ed) {
+    if (edicaoNeutra(ed)) return file;
+    const im = await carregarImagemStory(file);
+    const c = canvasDaImagem(im, 2048), ctx = c.getContext('2d');
+    ctx.putImageData(aplicarMatriz(ctx.getImageData(0, 0, c.width, c.height), matrizEdicao(ed)), 0, 0);
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.9));
+    return blob ? new File([blob], 'foto.jpg', { type: 'image/jpeg' }) : file;
+}
+async function abrirEditorFoto() {
+    const file = state.composerFotoOriginal || state.composerPhoto; if (!file) return;
+    const old = document.getElementById('fotoEd'); if (old) old.remove();
+    const ed = Object.assign({ filtro: 'normal', int: 1, brilho: 0, contraste: 0, saturacao: 0 }, state.composerEdicao || {});
+    const comPrint = state.composerKind === 'workout';
+    const tela = document.createElement('div');
+    tela.id = 'fotoEd'; tela.className = 'fe-tela';
+    tela.innerHTML = `<div class="fe-topo"><button type="button" class="fe-ic" data-fe="fechar" aria-label="Cancelar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+            <button type="button" class="fe-ok" data-fe="pronto">Pronto</button></div>
+        <div class="fe-foto"><canvas id="feCanvas"></canvas><span class="fe-nome" id="feNome"></span></div>
+        <div class="fe-painel" data-painel="filtros">
+            <div class="fe-int"><input type="range" min="0" max="100" value="${Math.round(ed.int * 100)}" id="feInt" aria-label="Intensidade"></div>
+            <div class="fe-lista" id="feLista">${FILTROS_STORY.map(f => `<button type="button" class="fe-fi${f[0] === ed.filtro ? ' on' : ''}" data-f="${f[0]}"><canvas width="128" height="128"></canvas><span>${escapeHTML(f[1])}</span></button>`).join('')}</div>
+        </div>
+        <div class="fe-painel hidden" data-painel="ajustes">
+            ${[['brilho', 'Brilho'], ['contraste', 'Contraste'], ['saturacao', 'Saturação']].map(([k, n]) => `<label class="fe-aj"><span>${n}</span><input type="range" min="-100" max="100" value="${Math.round(ed[k] * 100)}" data-aj="${k}"><b data-ajv="${k}">${Math.round(ed[k] * 100)}</b></label>`).join('')}
+        </div>
+        ${comPrint ? `<div class="fe-painel hidden" data-painel="print"><div class="fe-print"><b>É um print do relógio ou do app?</b><small>O Pulso lê tempo, distância e calorias e preenche o treino pra você.</small><button type="button" class="fe-print-bt" data-fe="ler">Ler dados deste print</button></div></div>` : ''}
+        <div class="fe-abas"><button type="button" class="on" data-aba="filtros">Filtros</button><button type="button" data-aba="ajustes">Ajustes</button>${comPrint ? '<button type="button" data-aba="print">Ler print</button>' : ''}</div>`;
+    document.body.appendChild(tela);
+    requestAnimationFrame(() => tela.classList.add('on'));
+    let base = null, img = null, raf = 0;
+    const cv = tela.querySelector('#feCanvas');
+    const pintar = () => {
+        if (!base) return;
+        const d = new ImageData(new Uint8ClampedArray(base.data), base.width, base.height);
+        if (!edicaoNeutra(ed)) aplicarMatriz(d, matrizEdicao(ed));
+        cv.getContext('2d').putImageData(d, 0, 0);
+        tela.querySelectorAll('.fe-fi').forEach(b => b.classList.toggle('on', b.dataset.f === ed.filtro));
+        tela.querySelector('.fe-int').classList.toggle('off', ed.filtro === 'normal');
+    };
+    const repintar = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(pintar); };
+    const mostrarNome = () => {
+        const n = tela.querySelector('#feNome'); const f = FILTROS_STORY.find(x => x[0] === ed.filtro);
+        n.textContent = f ? f[1] : ''; n.classList.remove('on'); void n.offsetWidth; n.classList.add('on');
+    };
+    try {
+        img = await carregarImagemStory(file);
+        const c = canvasDaImagem(img, 1080);
+        cv.width = c.width; cv.height = c.height;
+        base = c.getContext('2d').getImageData(0, 0, c.width, c.height);
+        pintar();
+        // miniaturas de cada filtro com a própria foto
+        const mini = canvasDaImagem(img, 260), lado = Math.min(mini.width, mini.height);
+        tela.querySelectorAll('.fe-fi').forEach(b => {
+            const k = b.querySelector('canvas'), x = k.getContext('2d');
+            x.drawImage(mini, (mini.width - lado) / 2, (mini.height - lado) / 2, lado, lado, 0, 0, 128, 128);
+            if (b.dataset.f !== 'normal') x.putImageData(aplicarMatriz(x.getImageData(0, 0, 128, 128), matrizFiltro(b.dataset.f, 1)), 0, 0);
+        });
+    } catch (_) { toast('Não consegui abrir essa foto', 'err'); tela.remove(); return; }
+    const trocar = f => { if (f === ed.filtro) return; ed.filtro = f; ed.int = 1; tela.querySelector('#feInt').value = 100; vibrar(5); repintar(); mostrarNome();
+        const on = tela.querySelector(`.fe-fi[data-f="${f}"]`); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); };
+    const fechar = () => { tela.classList.remove('on'); setTimeout(() => tela.remove(), 220); };
+    tela.addEventListener('click', async e => {
+        const fi = e.target.closest('.fe-fi'); if (fi) { trocar(fi.dataset.f); return; }
+        const ab = e.target.closest('[data-aba]');
+        if (ab) { tela.querySelectorAll('[data-aba]').forEach(x => x.classList.toggle('on', x === ab)); tela.querySelectorAll('.fe-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== ab.dataset.aba)); vibrar(4); return; }
+        const a = e.target.closest('[data-fe]'); if (!a) return;
+        if (a.dataset.fe === 'fechar') { fechar(); return; }
+        if (a.dataset.fe === 'pronto' || a.dataset.fe === 'ler') {
+            a.disabled = true;
+            const arq = await arquivoEditado(file, ed).catch(() => file);
+            state.composerEdicao = edicaoNeutra(ed) ? null : { ...ed };
+            state.composerPhoto = arq;
+            $('#pPhotoPreview').src = URL.createObjectURL(arq);
+            updateDestUI();
+            fechar();
+            if (a.dataset.fe === 'ler') setTimeout(() => lerPrintDeTreino(), 250);
+        }
+    });
+    tela.querySelector('#feInt').addEventListener('input', e => { ed.int = Number(e.target.value) / 100; repintar(); });
+    tela.querySelectorAll('[data-aj]').forEach(r => r.addEventListener('input', e => {
+        const k = e.target.dataset.aj; ed[k] = Number(e.target.value) / 100;
+        tela.querySelector(`[data-ajv="${k}"]`).textContent = e.target.value; repintar();
+    }));
+    // deslizar na foto troca o filtro
+    const fotoBox = tela.querySelector('.fe-foto'); let x0 = null;
+    fotoBox.addEventListener('pointerdown', e => { x0 = e.clientX; });
+    fotoBox.addEventListener('pointerup', e => {
+        if (x0 == null) return; const dx = e.clientX - x0; x0 = null; if (Math.abs(dx) < 45) return;
+        const i = FILTROS_STORY.findIndex(f => f[0] === ed.filtro);
+        trocar(FILTROS_STORY[(i + (dx < 0 ? 1 : -1) + FILTROS_STORY.length) % FILTROS_STORY.length][0]);
+    });
+}
 function handlePhotoPick(e) {
     const file = e.target.files[0];
     if (!file) return;
     state.composerPhoto = file;
-    state.composerFotoOriginal = file; state.composerFiltro = 'normal';
-    montarFiltrosComposer();
+    state.composerFotoOriginal = file; state.composerFiltro = 'normal'; state.composerEdicao = null;
+    // treino e post: a foto abre direto no editor (filtros, ajustes e, no treino, ler o print)
+    if (['workout', 'post'].includes(state.composerKind)) setTimeout(() => abrirEditorFoto(), 60);
     const url = URL.createObjectURL(file);
     $('#pPhotoPreview').src = url;
     $('#pPhotoPreview').classList.add('on');
