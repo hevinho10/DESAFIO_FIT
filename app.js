@@ -41,7 +41,8 @@ const initials = n => String(n||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0])
 const avatarHTML = (p, size='md') => {
     const cls = size==='sm'?'avatar-sm':size==='lg'?'avatar-lg':'avatar-md';
     const bg = colorFor(String(p?.id || p?.username || 'x'));
-    if (p?.avatar_url) return `<span class="avatar ${cls}" style="background:${bg}"><img src="${p.avatar_url}" onerror="this.remove()"></span>`;
+    // se a foto não abrir (ex: formato do iPhone no Android), mostra a inicial em vez de um círculo vazio
+    if (p?.avatar_url) return `<span class="avatar ${cls}" style="background:${bg}"><img src="${p.avatar_url}" data-ini="${initials(p?.display_name || p?.username || '?').replace(/[^\p{L}\p{N}]/gu, '')}" onerror="this.dataset.semFoto='1';this.replaceWith(document.createTextNode(this.dataset.ini||''))"></span>`;
     return `<span class="avatar ${cls}" style="background:${bg}">${initials(p?.display_name || p?.username || '?')}</span>`;
 };
 // Ícones de traço fino usados nos menus
@@ -4018,6 +4019,7 @@ function renderSettings() {
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Sua conta</div>
                 ${linhaConfig('open-edit-profile', 'editar', 'Editar perfil')}
+                ${linhaConfig('trocar-usuario', 'perfil', 'Nome de usuário', '@' + escapeHTML(p.username || ''))}
                 ${linhaConfig('trocar-senha', 'chave', 'Trocar senha')}
             </div>
 
@@ -8593,6 +8595,59 @@ function dicaDoMais() {
 })();
 
 // Converte fotos em HEIC (formato do iPhone/alguns Android) pra JPEG, pra abrirem no Android e no PC.
+// Trocar o @usuário (Configurações › Conta): no máximo 1 vez a cada 30 dias
+function abrirTrocarUsuario() {
+    const p = state.profile;
+    const ultima = p.username_alterado_em ? new Date(p.username_alterado_em) : null;
+    const libera = ultima ? new Date(ultima.getTime() + 30 * 86400000) : null;
+    const bloqueado = libera && libera > new Date();
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Nome de usuário</h3>
+        <p class="dep-sub">É por ele que as pessoas te acham e você pode entrar com ele no lugar do email. Dá pra trocar 1 vez a cada 30 dias.</p>
+        <div class="un-campo"><span>@</span><input id="unNovo" value="${escapeHTML(p.username || '')}" maxlength="30" autocapitalize="off" autocomplete="off" ${bloqueado ? 'disabled' : ''}></div>
+        <p class="un-st" id="unSt">${bloqueado ? `Você trocou há pouco. Libera em ${libera.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}.` : ''}</p>
+        <div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Cancelar</button><button class="btn x1-btn" id="unOk" disabled>Salvar</button></div>`, 'unSheet');
+    if (bloqueado) return;
+    const campo = f.querySelector('#unNovo'), st = f.querySelector('#unSt'), ok = f.querySelector('#unOk');
+    let timer = null, livre = false;
+    campo.addEventListener('input', () => {
+        clearTimeout(timer); livre = false; ok.disabled = true;
+        const val = campo.value.trim().toLowerCase().replace(/^@/, '');
+        st.className = 'un-st';
+        if (val === (p.username || '').toLowerCase()) { st.textContent = ''; return; }
+        if (val.length < 3) { st.textContent = 'Muito curto'; st.className = 'un-st err'; return; }
+        if (!/^[a-z0-9_]+$/.test(val) || !/[a-z]/.test(val)) { st.textContent = 'Use só letras, números e _ (com pelo menos 1 letra)'; st.className = 'un-st err'; return; }
+        st.textContent = 'Verificando…';
+        timer = setTimeout(async () => {
+            const { data } = await sb.rpc('check_username_available', { uname: val });
+            livre = !!data; ok.disabled = !livre;
+            st.textContent = livre ? '✓ Disponível' : '✗ Já está em uso'; st.className = 'un-st ' + (livre ? 'ok' : 'err');
+        }, 400);
+    });
+    setTimeout(() => campo.focus(), 250);
+    ok.onclick = async () => {
+        const val = campo.value.trim().toLowerCase().replace(/^@/, '');
+        if (!livre) return;
+        ok.disabled = true; ok.textContent = 'Salvando…';
+        const { error } = await sb.from('profiles').update({ username: val }).eq('id', state.session.user.id);
+        if (error) { ok.disabled = false; ok.textContent = 'Salvar'; st.textContent = String(error.message || '').includes('usuario_30_dias') ? 'Dá pra trocar só 1 vez a cada 30 dias.' : msgErro(error); st.className = 'un-st err'; return; }
+        state.profile.username = val; state.profile.username_alterado_em = new Date().toISOString();
+        fechar(); toast(`Agora você é @${val}`, 'ok');
+        if (document.querySelector('.cfg-view')) renderSettings();
+    };
+}
+// Sua própria foto de perfil em HEIC (só abre no iPhone): o seu iPhone converte pra JPEG sem você perceber
+async function converterMeuAvatarHeic() {
+    try {
+        const p = state.profile; if (!p || !p.avatar_url || !/\.hei[cf](\?|$)/i.test(p.avatar_url) || tipoAparelho() !== 'iphone') return;
+        const resp = await fetch(p.avatar_url); if (!resp.ok) return;
+        const arquivo = new File([await resp.blob()], 'avatar.heic', { type: 'image/heic' });
+        const jpg = await compressImage(arquivo, 600, 0.85);
+        if (!jpg || jpg === arquivo || jpg.type !== 'image/jpeg') return;
+        const url = await uploadImage('avatars', new File([jpg], 'avatar.jpg', { type: 'image/jpeg' }), { maxSide: 600, fixedName: 'avatar' }) + '?t=' + Date.now();
+        const { error } = await sb.from('profiles').update({ avatar_url: url }).eq('id', state.session.user.id);
+        if (!error) state.profile.avatar_url = url;
+    } catch (_) {}
+}
 // Roda SÓ no iPhone do admin (é o aparelho que consegue ler o HEIC), em segundo plano, pra fotos de qualquer usuário.
 // Leve: 20s depois de abrir, até 10 fotos por vez; sem pendência, confere no máximo 1 vez por dia.
 async function converterFotosHeic() {
@@ -9944,7 +9999,7 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     const eu = state.session.user.id;
     const meu = uid === eu;
     const { data, error } = await sb.from('depoimentos')
-        .select('id, author_id, target_id, texto, status, created_at, published_at, autor:profiles!author_id (id, username, display_name, avatar_url)')
+        .select('id, author_id, target_id, texto, cor, status, created_at, published_at, autor:profiles!author_id (id, username, display_name, avatar_url)')
         .eq('target_id', uid).order('created_at', { ascending: false }).limit(60);
     if (!document.getElementById('profileTabBody')) return;
     if (error) { body.innerHTML = `<p class="faixa-nota">Não consegui carregar: ${escapeHTML(msgErro(error))}</p>`; return; }
@@ -9957,19 +10012,20 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     const cartao = (x, pendente) => {
         const a = x.autor || {};
         const podeApagar = meu || x.author_id === eu;
-        return `<div class="dep-item${pendente ? ' pendente' : ''}">
+        return `<div class="dep-item dep-vidro${pendente ? ' pendente' : ''}" style="${estiloCorDep(x.cor)}">
+            <p class="dep-texto">${escapeHTML(x.texto)}</p>
             <div class="dep-topo">
                 <span data-act="view-user" data-uid="${a.id}">${avatarHTML(a, 'sm')}</span>
-                <div class="dep-quem" data-act="view-user" data-uid="${a.id}"><b>${escapeHTML(a.display_name || '')}</b><small>@${escapeHTML(a.username || '')} · ${timeAgo(x.published_at || x.created_at)}</small></div>
-                ${!pendente && podeApagar ? `<button class="dep-mini" data-act="dep-apagar" data-id="${x.id}">Apagar</button>` : ''}
-                ${!pendente && !podeApagar ? `<button class="dep-mini" data-act="report-user" data-uid="${a.id}" data-name="${escapeHTML(a.display_name || '')}">Denunciar</button>` : ''}
+                <div class="dep-quem" data-act="view-user" data-uid="${a.id}"><b>${escapeHTML(a.display_name || a.username || '')}</b></div>
+                <small class="dep-data">${new Date(x.published_at || x.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small>
+                ${!pendente && podeApagar ? `<button class="dep-mini" data-act="dep-apagar" data-id="${x.id}" aria-label="Apagar">${SVG_X('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}</button>` : ''}
+                ${!pendente && !podeApagar ? `<button class="dep-mini" data-act="report-user" data-uid="${a.id}" data-name="${escapeHTML(a.display_name || '')}" aria-label="Denunciar">${SVG_X('<path d="M5 21V4M5 5h11l-1.5 3L16 11H5"/>')}</button>` : ''}
             </div>
-            <p class="dep-texto">“${escapeHTML(x.texto)}”</p>
             ${pendente && !meu ? `<div class="dep-meu-pend">
                 <span class="dep-tag-pend">Aguardando aprovação</span>
                 <div class="dep-bts">
                     <button class="btn-ghost btn-xs" data-act="dep-apagar" data-id="${x.id}">Apagar</button>
-                    <button class="btn-secondary btn-xs" data-act="dep-editar" data-id="${x.id}" data-texto="${escapeHTML(x.texto)}" data-uid="${uid}">Editar</button>
+                    <button class="btn-secondary btn-xs" data-act="dep-editar" data-id="${x.id}" data-texto="${escapeHTML(x.texto)}" data-cor="${escapeHTML(x.cor || 'neutro')}" data-uid="${uid}">Editar</button>
                 </div>
             </div>` : ''}
             ${pendente && meu ? `<div class="dep-decidir">
@@ -10000,42 +10056,45 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     `;
 }
 
+// Cores do cartão de depoimento (quem escreve escolhe)
+const CORES_DEP = {
+    dourado: ['226,190,110', 'linear-gradient(135deg,#F6DE9A,#B8913F)'], prata: ['205,211,219', 'linear-gradient(135deg,#F3F5F7,#98A1AB)'],
+    bronze: ['205,140,95', 'linear-gradient(135deg,#E9B48C,#9A5C35)'], verde: ['53,225,155', '#35E19B'], menta: ['120,230,210', '#78E6D2'],
+    azul: ['95,176,255', '#5FB0FF'], lilas: ['167,139,250', '#A78BFA'], rosa: ['255,143,177', '#FF8FB1'], coral: ['255,122,110', '#FF7A6E'],
+    laranja: ['255,159,90', '#FF9F5A'], vinho: ['176,70,100', '#B04664'], neutro: ['160,170,165', '#3A403D'],
+};
+const estiloCorDep = cor => { const c = (CORES_DEP[cor] || CORES_DEP.neutro)[0]; return `--dc:${c}`; };
 function abrirEscreverDepoimento(uid, nome, editando = null) {
-    const old = document.getElementById('depSheet');
-    if (old) old.remove();
-    const sheet = document.createElement('div');
-    sheet.id = 'depSheet';
-    sheet.className = 'sheet on';
-    sheet.innerHTML = `<div class="sheet-card">
-        <div class="sheet-handle"></div>
-        <h3 class="sheet-title">${editando ? 'Editar depoimento' : `Depoimento pra ${escapeHTML(String(nome || '').split(' ')[0])}`}</h3>
-        <p class="sheet-sub">Ela lê e decide se publica no perfil. Seja gentil e verdadeiro.</p>
-        <textarea id="depTexto" class="obj-input dep-campo" maxlength="140" rows="4" placeholder="O que te inspira nessa pessoa?">${editando ? escapeHTML(editando.texto) : ''}</textarea>
-        <div class="dep-contador"><span id="depConta">${editando ? editando.texto.length : 0}</span>/140</div>
-        <div class="sheet-footer">
-            <button class="btn-ghost" id="depCancelar">Cancelar</button>
-            <button class="btn-primary" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar'}</button>
+    let cor = (editando && editando.cor) || 'neutro';
+    const primeiro = escapeHTML(String(nome || '').split(' ')[0]);
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${editando ? 'Editar depoimento' : `Depoimento pra ${primeiro}`}</h3>
+        <p class="dep-sub">Ela lê e decide se publica no perfil. Seja gentil e verdadeiro.</p>
+        <div class="dep-vidro dep-redigir" id="depCard" style="${estiloCorDep(cor)}">
+            <textarea id="depTexto" maxlength="140" rows="3" placeholder="O que te inspira em ${primeiro}?">${editando ? escapeHTML(editando.texto) : ''}</textarea>
+            <span class="dep-conta"><b id="depConta">${editando ? editando.texto.length : 0}</b>/140</span>
         </div>
-    </div>`;
-    document.body.appendChild(sheet);
-    const campo = sheet.querySelector('#depTexto'), enviar = sheet.querySelector('#depEnviar');
-    campo.addEventListener('input', () => {
-        const n = campo.value.length;
-        sheet.querySelector('#depConta').textContent = n;
-        enviar.disabled = !campo.value.trim();
+        <div class="dep-cores" id="depCores">${Object.entries(CORES_DEP).map(([k, v]) => `<button type="button" class="dep-cor${k === cor ? ' on' : ''}" data-cor="${k}" style="background:${v[1]}" aria-label="${k}"></button>`).join('')}</div>
+        <button class="btn x1-btn" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar'}</button>`, 'depSheet');
+    const campo = f.querySelector('#depTexto'), enviar = f.querySelector('#depEnviar'), card = f.querySelector('#depCard');
+    const ajustar = () => { campo.style.height = 'auto'; campo.style.height = Math.min(160, campo.scrollHeight) + 'px'; };
+    campo.addEventListener('input', () => { f.querySelector('#depConta').textContent = campo.value.length; enviar.disabled = !campo.value.trim(); ajustar(); });
+    setTimeout(() => { campo.focus(); ajustar(); }, 250);
+    f.querySelector('#depCores').addEventListener('click', e => {
+        const b = e.target.closest('[data-cor]'); if (!b) return;
+        cor = b.dataset.cor; card.setAttribute('style', estiloCorDep(cor));
+        f.querySelectorAll('.dep-cor').forEach(x => x.classList.toggle('on', x === b)); vibrar(5);
     });
-    setTimeout(() => campo.focus(), 80);
-    sheet.querySelector('#depCancelar').onclick = () => sheet.remove();
-    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
     enviar.onclick = async () => {
         const texto = campo.value.trim();
         if (textoOfensivo(texto)) { toast('Esse texto tem palavras que não combinam com um depoimento. Que tal reescrever?', 'err'); return; }
         enviar.disabled = true; enviar.textContent = 'Enviando...';
-        const { error } = editando
+        const { data: novoId, error } = editando
             ? await sb.rpc('editar_depoimento', { did: editando.id, texto })
             : await sb.rpc('enviar_depoimento', { alvo: uid, texto });
         if (error) { toast(msgErro(error), 'err'); enviar.disabled = false; enviar.textContent = editando ? 'Salvar' : 'Enviar'; return; }
-        sheet.remove();
+        const did = editando ? editando.id : novoId;
+        if (did) await sb.rpc('depoimento_cor', { did, p_cor: cor }).then(() => {}, () => {});
+        fechar();
         toast(editando ? 'Depoimento atualizado' : 'Depoimento enviado. Agora é com ela!', 'ok');
         const aba = document.querySelector('.ig-tab[data-tab="depoimentos"]');
         if (aba) aba.click();
@@ -11618,21 +11677,15 @@ async function renderEditProfile() {
             </div>
 
             <div class="edit-avatar-section">
-                <div id="editAvatarPreview">${avatarHTML(p, 'lg')}</div>
-                <label class="btn-ghost avatar-upload-btn">
-                    Alterar foto
-                    <input type="file" id="editAvatarFile" accept="image/*" style="display:none">
-                </label>
+                <button type="button" class="ed-av-btn" id="edAvatarBtn" aria-label="Foto do perfil"><span id="editAvatarPreview">${avatarHTML(p, 'lg')}</span><i>${SVG_X('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}</i></button>
+                <button type="button" class="ia-link" id="edAvatarTxt">Alterar foto</button>
+                <input type="file" id="editAvatarFile" accept="image/*" style="display:none">
+                <input type="file" id="editAvatarCam" accept="image/*" capture="user" style="display:none">
             </div>
 
             <div class="field">
                 <label>Nome de exibição</label>
                 <input type="text" id="edName" value="${escapeHTML(p.display_name || '')}" maxlength="60">
-            </div>
-            <div class="field">
-                <label>Usuário <span id="edUserStatus" class="uname-status"></span></label>
-                <input type="text" id="edUsername" value="${escapeHTML(p.username || '')}" minlength="3" maxlength="30" autocapitalize="off" autocomplete="off">
-                <p class="field-hint">É por ele que as pessoas te acham. Você também pode entrar com ele no lugar do email.</p>
             </div>
             <div class="field">
                 <label>Bio</label>
@@ -11655,29 +11708,29 @@ async function renderEditProfile() {
     // Preview do avatar novo
     let newAvatarFile = null;
 
-    // Confere se o usuário novo está livre
-    let userOk = true, userTimer = null;
-    const campoUser = $('#edUsername');
-    campoUser.addEventListener('input', () => {
-        clearTimeout(userTimer);
-        const val = campoUser.value.trim().toLowerCase();
-        const st = $('#edUserStatus');
-        if (val === (p.username || '').toLowerCase()) { st.textContent = ''; st.className = 'uname-status'; userOk = true; return; }
-        if (val.length < 3) { st.textContent = 'muito curto'; st.className = 'uname-status err'; userOk = false; return; }
-        if (!/^[a-z0-9_]+$/.test(val)) { st.textContent = 'só letras, números e _'; st.className = 'uname-status err'; userOk = false; return; }
-        if (!/[a-z]/.test(val)) { st.textContent = 'precisa de pelo menos 1 letra'; st.className = 'uname-status err'; userOk = false; return; }
-        st.textContent = 'verificando...'; st.className = 'uname-status checking'; userOk = false;
-        userTimer = setTimeout(async () => {
-            const { data: livre } = await sb.rpc('check_username_available', { uname: val });
-            userOk = !!livre;
-            st.textContent = livre ? '✓ disponível' : '✗ já em uso';
-            st.className = 'uname-status ' + (livre ? 'ok' : 'err');
-        }, 400);
-    });
+    let removerFoto = false;
+    const abrirFotoMenu = () => {
+        const tem = (state.profile.avatar_url && !removerFoto) || newAvatarFile;
+        const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Foto do perfil</h3>
+            <button class="x1-op" data-fp="cam">Tirar foto</button>
+            <button class="x1-op" data-fp="gal">Escolher da galeria</button>
+            ${tem ? '<button class="x1-op perigo" data-fp="tirar">Remover foto</button>' : ''}
+            <button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'edFotoMenu');
+        f.addEventListener('click', e => {
+            const b = e.target.closest('[data-fp]'); if (!b) return;
+            fechar();
+            if (b.dataset.fp === 'cam') $('#editAvatarCam').click();
+            else if (b.dataset.fp === 'gal') $('#editAvatarFile').click();
+            else { removerFoto = true; newAvatarFile = null; $('#editAvatarPreview').innerHTML = avatarHTML({ ...state.profile, avatar_url: null }, 'lg'); vibrar(6); }
+        });
+    };
+    $('#edAvatarBtn').addEventListener('click', abrirFotoMenu);
+    $('#edAvatarTxt').addEventListener('click', abrirFotoMenu);
+    $('#editAvatarCam').addEventListener('change', e => { const dt = new DataTransfer(); if (e.target.files[0]) { dt.items.add(e.target.files[0]); $('#editAvatarFile').files = dt.files; $('#editAvatarFile').dispatchEvent(new Event('change')); } });
     $('#editAvatarFile').addEventListener('change', e => {
         const file = e.target.files[0];
         if (!file) return;
-        newAvatarFile = file;
+        newAvatarFile = file; removerFoto = false;
         const url = URL.createObjectURL(file);
         $('#editAvatarPreview').innerHTML = `<span class="avatar avatar-lg" style="overflow:hidden"><img src="${url}" style="width:100%;height:100%;object-fit:cover"></span>`;
     });
@@ -11687,20 +11740,13 @@ async function renderEditProfile() {
         btn.disabled = true; btn.textContent = 'Salvando...';
 
         try {
-            let avatarUrl = state.profile.avatar_url;
+            let avatarUrl = removerFoto ? null : state.profile.avatar_url;
             if (newAvatarFile) {
                 avatarUrl = await uploadImage('avatars', newAvatarFile, { maxSide: 600, fixedName: 'avatar' }) + '?t=' + Date.now();
             }
 
-            const novoUser = $('#edUsername').value.trim().toLowerCase();
-            if (novoUser !== (p.username || '').toLowerCase() && !userOk) {
-                toast('Escolha um usuário disponível antes de salvar', 'err');
-                return;
-            }
-
             const updates = {
                 display_name: $('#edName').value.trim(),
-                username: novoUser,
                 bio: $('#edBio').value.trim() || null,
                 city: $('#edCity').value.trim() || null,
                 avatar_url: avatarUrl,
@@ -12292,7 +12338,7 @@ document.addEventListener('click', async e => {
         const info = document.getElementById('backupInfo');
         if (info) info.textContent = `Backup gerado (${Math.round(texto.length / 1024)} KB). Guarde o arquivo ${nome} num lugar seguro.`;
     } else if (act === 'dep-editar') {
-        abrirEscreverDepoimento(btn.dataset.uid, '', { id: btn.dataset.id, texto: btn.dataset.texto });
+        abrirEscreverDepoimento(btn.dataset.uid, '', { id: btn.dataset.id, texto: btn.dataset.texto, cor: btn.dataset.cor });
     } else if (act === 'dep-escrever') {
         abrirEscreverDepoimento(btn.dataset.uid, btn.dataset.nome);
     } else if (act === 'dep-responder') {
@@ -12938,6 +12984,8 @@ document.addEventListener('click', async e => {
         if (error) { toast(msgErro(error), 'err'); return; }
         btn.dataset.on = ocultar ? '1' : '0';
         btn.querySelector('.cfg-check').classList.toggle('on', ocultar);
+    } else if (act === 'trocar-usuario') {
+        abrirTrocarUsuario();
     } else if (act === 'open-edit-profile') {
         switchView('edit-profile');
     } else if (act === 'meta-renovar') {
@@ -14728,7 +14776,7 @@ function showCurrentStory() {
     const resp = document.getElementById('svResp');
     const podeResponder = !souDonoDoStory && !ehDestaque;
     resp.classList.toggle('hidden', !podeResponder);
-    const reac = document.getElementById('svReacoes'); if (reac) reac.classList.toggle('hidden', !podeResponder);
+
     if (podeResponder) {
         state.storyResp = { item, user: group.user };
         const nome = String(group.user.display_name || group.user.username || '').split(' ')[0];
@@ -15267,8 +15315,10 @@ document.getElementById('svRespEnviar').addEventListener('click', e => { e.stopP
 (function reacoesStory() {
     const box = document.getElementById('svReacoes'); if (!box) return;
     ['click', 'pointerdown', 'pointerup'].forEach(ev => box.addEventListener(ev, e => e.stopPropagation()));
-    box.addEventListener('click', e => {
+    // pointerdown (e não click): o campo de resposta não perde o foco antes do toque contar
+    box.addEventListener('pointerdown', e => {
         const b = e.target.closest('[data-reacao]'); if (!b) return;
+        e.preventDefault();
         const emo = b.dataset.reacao; vibrar(12);
         const v = document.getElementById('storyViewer');
         for (let k = 0; k < 6; k++) {
@@ -15277,6 +15327,7 @@ document.getElementById('svRespEnviar').addEventListener('click', e => { e.stopP
             v.appendChild(f); setTimeout(() => f.remove(), 1700);
         }
         enviarRespostaStory(emo);
+        setTimeout(() => respInput.blur(), 60);
     });
 })();
 
@@ -15385,17 +15436,6 @@ document.getElementById('svAdd').addEventListener('click', e => {
     v.addEventListener('touchmove', e => {
         if (!ativo) return;
         const dx = e.touches[0].clientX - x0, dy = e.touches[0].clientY - y0;
-        // arrastar pro lado: gira como um cubo pra próxima pessoa
-        if (lateral || (!puxando && Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy) * 1.3)) {
-            if (!lateral) { lateral = true; state.storyArrastou = true; if (!v.classList.contains('paused')) pausarStoryNoPonto(); }
-            const pc = palco(); if (!pc) return;
-            const w = window.innerWidth, ang = Math.max(-70, Math.min(70, dx / w * 90));
-            pc.style.transition = 'none';
-            pc.style.transformOrigin = dx < 0 ? 'right center' : 'left center';
-            pc.style.transform = `perspective(1000px) rotateY(${ang}deg)`;
-            pc.style.filter = `brightness(${1 - Math.min(0.45, Math.abs(dx) / w * 0.6)})`;
-            return;
-        }
         if (!puxando) {
             if (dy > 12 && dy > Math.abs(dx) * 1.3) {
                 puxando = true; state.storyArrastou = true;
@@ -15411,27 +15451,6 @@ document.getElementById('svAdd').addEventListener('click', e => {
     v.addEventListener('touchend', e => {
         if (!ativo) return;
         const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
-        if (lateral) {
-            lateral = false;
-            const pc = palco(), dir = dx < 0 ? 1 : -1, w = window.innerWidth;
-            const vai = Math.abs(dx) > w * 0.22 || (Math.abs(dx) > 40 && Math.abs(dx) / Math.max(1, Date.now() - t0) > 0.5);
-            const temDestino = dir > 0 || state.storyIdx > 0;
-            if (pc) { pc.style.transition = 'transform .22s ease, filter .22s ease'; }
-            if (vai && temDestino) {
-                if (pc) { pc.style.transform = `perspective(1000px) rotateY(${dir > 0 ? -88 : 88}deg)`; pc.style.filter = 'brightness(.5)'; }
-                setTimeout(() => {
-                    if (!trocarPessoaStory(dir)) return;
-                    const novo = palco(); if (!novo || !$('#storyViewer').classList.contains('on')) return;
-                    novo.style.transition = 'none'; novo.style.transformOrigin = dir > 0 ? 'left center' : 'right center';
-                    novo.style.transform = `perspective(1000px) rotateY(${dir > 0 ? 88 : -88}deg)`; novo.style.filter = 'brightness(.5)';
-                    requestAnimationFrame(() => requestAnimationFrame(() => { novo.style.transition = 'transform .24s ease-out, filter .24s ease-out'; novo.style.transform = ''; novo.style.filter = ''; }));
-                }, 200);
-            } else {
-                if (pc) { pc.style.transform = ''; pc.style.filter = ''; }
-                setTimeout(() => retomarStoryDoPonto(), 220);
-            }
-            return;
-        }
         if (!puxando) {
             if (dy < -60 && Math.abs(dy) > Math.abs(dx) * 1.5 && state.storyAtual) { state.storyArrastou = true; abrirQuemViuStory(); }
             return;
@@ -16861,6 +16880,7 @@ async function bootInterno() {
     setTimeout(checarQuedaCoach, 8000);
     setTimeout(carregarCopoAgua, 5000);
     setTimeout(converterFotosHeic, 20000);
+    setTimeout(converterMeuAvatarHeic, 8000);
     setTimeout(tentarAnalisesPendentes, 12000);
     setTimeout(manterPushAtivo, 4000);
     setTimeout(limparStoriesAntigos, 15000);
@@ -17733,7 +17753,13 @@ const novoExercicio = (nome, series = 3, reps = null, grupo = null) => {
     return { nome, tipo: t, grupo, series: Array.from({ length: series }, () => ({ kg, reps: String(rp), ok: false })) };
 };
 const CHAVE_TREINO = () => 'pulso-treino-vivo-' + (state.session ? state.session.user.id : '');
-const trGet = () => { try { return JSON.parse(lsGet(CHAVE_TREINO()) || 'null'); } catch (_) { return null; } };
+const TREINO_PRONTO_VALE = 30 * 60000; // treino montado e não começado some depois de 30 min
+const trGet = () => {
+    let t = null;
+    try { t = JSON.parse(lsGet(CHAVE_TREINO()) || 'null'); } catch (_) { return null; }
+    if (t && !t.inicio && t.pronto && Date.now() - (t.prontoEm || 0) > TREINO_PRONTO_VALE) { try { localStorage.removeItem(CHAVE_TREINO()); } catch (_) {} return null; }
+    return t;
+};
 const trSet = t => { try { if (t) lsSet(CHAVE_TREINO(), JSON.stringify(t)); else { localStorage.removeItem(CHAVE_TREINO()); trSyncPushDescanso(null); } } catch (_) {} };
 const trTempo = ms => { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(ss).padStart(2, '0'); };
 let trRelogio = null, trAudio = null, trLuz = null;
@@ -18018,7 +18044,7 @@ async function abrirModoTreino(preset = null, editar = false) {
                 const atual = trGet(); if (atual) { atual.exercicios = m.exercicios; trSet(atual); }
                 x1FecharTela('treinoInicio'); setTimeout(abrirTreinoVivo, 190); return;
             }
-            const sessao = { inicio: null, pronto: true, ativ: m.ativ, grupos: musc() ? m.grupos : [], doCoach: m.doCoach, exercicios: musc() ? m.exercicios : [], descansoAte: null,
+            const sessao = { inicio: null, pronto: true, prontoEm: Date.now(), ativ: m.ativ, grupos: musc() ? m.grupos : [], doCoach: m.doCoach, exercicios: musc() ? m.exercicios : [], descansoAte: null,
                 modeloId: m.modeloId || null, modeloSig: m.modeloId ? JSON.stringify(m.exercicios.map(x => [x.nome, x.series.length])) : null };
             if (m.modeloId) sb.from('treino_modelos').update({ usado_em: new Date().toISOString() }).eq('id', m.modeloId).then(() => {}, () => {});
             trSet(sessao); trSom();

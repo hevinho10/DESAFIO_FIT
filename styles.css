@@ -4468,11 +4468,10 @@ body:has(#treinoVivo) .toast{ bottom:calc(132px + env(safe-area-inset-bottom)); 
 .story-content img.sv-foto{ position:relative; }
 .story-content .sv-enq{ z-index:5; }
 .story-viewer.carregando .story-progress-bar.active .fill{ animation-play-state:paused; }
-.sv-reacoes{ position:absolute; left:0; right:0; bottom:calc(74px + env(safe-area-inset-bottom)); z-index:6; display:flex; justify-content:center; gap:18px; }
-.sv-reacoes.hidden{ display:none; }
-.sv-reacoes button{ width:48px; height:48px; border-radius:50%; border:0; background:rgba(0,0,0,.28); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); font-size:24px; display:grid; place-items:center; transition:transform .15s; }
+.sv-reacoes{ position:absolute; left:0; right:0; bottom:100%; display:none; justify-content:center; gap:16px; padding-bottom:6px; }
+.sv-resp:has(#svRespInput:focus) .sv-reacoes{ display:flex; animation:trDica .2s ease; }
+.sv-reacoes button{ width:46px; height:46px; border-radius:50%; border:0; background:rgba(0,0,0,.32); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); font-size:23px; display:grid; place-items:center; transition:transform .15s; }
 .sv-reacoes button:active{ transform:scale(1.25); }
-.story-viewer:has(#svRespInput:focus) .sv-reacoes{ display:none; }
 .sv-voa{ position:absolute; bottom:22%; z-index:20; pointer-events:none; animation:svVoa 1.5s ease-out forwards; }
 @keyframes svVoa{ 0%{ transform:translateY(0) scale(.6); opacity:0; } 15%{ opacity:1; transform:translateY(-30px) scale(1.1); } 100%{ transform:translateY(-55vh) scale(1); opacity:0; } }
 
@@ -4498,3 +4497,35 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 .enq-col b small{ color:var(--ink-faint); font-weight:600; margin-left:4px; }
 .enq-pessoa{ display:flex; align-items:center; gap:8px; padding:5px 0; font-size:13.5px; }
 .enq-ninguem{ color:var(--ink-faint); font-size:12.5px; }
+
+/* Depoimentos em vidro, com a cor que quem escreveu escolheu */
+.dep-vidro{ --dc:160,170,165; position:relative; padding:18px 16px 14px; border-radius:22px; background:linear-gradient(160deg, rgba(var(--dc), .18), rgba(255,255,255,.015) 62%); border:1px solid rgba(var(--dc), .38); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.dep-item.dep-vidro{ margin-bottom:12px; }
+.dep-vidro .dep-texto{ margin:0 0 14px; font-size:17px; line-height:1.38; font-weight:600; font-style:normal; letter-spacing:-.01em; color:var(--ink); }
+.dep-vidro .dep-topo{ display:flex; align-items:center; gap:9px; }
+.dep-vidro .dep-quem b{ font-size:13.5px; }
+.dep-vidro .dep-data{ margin-left:auto; font-size:11.5px; color:var(--ink-faint); }
+.dep-vidro .dep-mini{ width:30px; height:30px; padding:0; display:grid; place-items:center; border:0; border-radius:10px; background:rgba(255,255,255,.04); color:var(--ink-faint); }
+.dep-vidro .dep-mini svg{ width:15px; height:15px; }
+.dep-sub{ margin:-4px 0 12px; font-size:13px; color:var(--ink-dim); }
+.dep-redigir{ padding:16px 16px 30px; margin-bottom:14px; }
+.dep-redigir textarea{ width:100%; min-height:72px; border:0; outline:none; resize:none; background:none; color:var(--ink); font-family:inherit; font-size:17px; font-weight:600; line-height:1.38; padding:0; }
+.dep-redigir textarea::placeholder{ color:var(--ink-faint); font-weight:500; }
+.dep-conta{ position:absolute; right:14px; bottom:10px; font-size:11.5px; color:var(--ink-faint); }
+.dep-conta b{ color:var(--ink-dim); font-weight:700; }
+.dep-cores{ display:flex; gap:12px; overflow-x:auto; padding:4px 4px 10px; margin:0 -4px 6px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+.dep-cores::-webkit-scrollbar{ display:none; }
+.dep-cor{ flex:none; width:34px; height:34px; border-radius:50%; border:0; box-shadow:inset 0 0 0 1px rgba(255,255,255,.12); transition:transform .15s; }
+.dep-cor.on{ box-shadow:0 0 0 2px var(--bg-elev), 0 0 0 4px var(--ink); transform:scale(1.05); }
+:root[data-theme="light"] .dep-vidro{ background:linear-gradient(160deg, rgba(var(--dc), .2), rgba(255,255,255,.7) 62%); }
+:root[data-theme="light"] .dep-vidro .dep-mini{ background:rgba(0,0,0,.04); }
+/* Editar perfil: foto com menu; @usuário em Configurações */
+.ed-av-btn{ position:relative; border:0; background:none; padding:0; display:block; margin:0 auto 8px; }
+.ed-av-btn i{ position:absolute; right:0; bottom:2px; width:30px; height:30px; border-radius:50%; background:var(--vital); color:#04120B; display:grid; place-items:center; border:3px solid var(--bg); }
+.ed-av-btn i svg{ width:15px; height:15px; }
+.edit-avatar-section{ display:flex; flex-direction:column; align-items:center; }
+.un-campo{ display:flex; align-items:center; gap:4px; padding:0 14px; border-radius:14px; background:var(--bg); border:1px solid var(--line); }
+.un-campo span{ color:var(--ink-faint); font-weight:700; }
+.un-campo input{ flex:1; height:48px; border:0; outline:none; background:none; color:var(--ink); font-family:inherit; font-size:16px; }
+.un-st{ min-height:18px; margin:6px 2px 12px; font-size:12.5px; color:var(--ink-faint); }
+.un-st.ok{ color:var(--vital); } .un-st.err{ color:#EF5A5A; }
