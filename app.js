@@ -7508,7 +7508,7 @@ async function hydrateMapaCorpo() {
         const [, r] = await Promise.all([carregarCorpo(),
             sb.from('posts').select('created_at, muscle_groups, meta, activity_type').eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', desde).order('created_at', { ascending: false }).limit(120)]);
         treinos = (r.data || []).filter(t => t.activity_type === 'Musculação' || (t.muscle_groups || []).length || (t.meta && (t.meta.exercicios || []).length));
-    } catch (_) { box.innerHTML = '<p class="faixa-nota">Não consegui carregar o mapa agora.</p>'; return; }
+    } catch (_) { box.innerHTML = '<p class="faixa-nota">Não consegui carregar o mapa agora.</p>'; const t = document.getElementById('corpoTeaser'); if (t) t.classList.add('vazio'); return; }
     if (!document.getElementById('mapaCorpoBox')) return;
     const M = calcularMapaMuscular(treinos);
     state.mapaMusc = M;
@@ -7517,7 +7517,8 @@ async function hydrateMapaCorpo() {
 }
 // na aba Hoje: o corpo pequeno, com atalho pro mapa completo
 function pintarTeaserCorpo(M) {
-    const el = document.getElementById('corpoTeaser'); if (!el || !Object.keys(M).length) return;
+    const el = document.getElementById('corpoTeaser'); if (!el) return;
+    if (!Object.keys(M).length) { el.classList.add('vazio'); return; }
     const { ints, quentes, frios } = resumoMapa(M);
     el.innerHTML = `<button class="mc-teaser" data-act="evo-aba" data-aba="treinos">
         <span class="mc-teaser-corpo">${svgCorpo(sexoCorpo(state.profile), 'F', ints)}</span>
@@ -7610,10 +7611,8 @@ async function abrirMusculo(slug, M) {
 }
 async function postarCorpoNoStory(M) {
     const { ints, quentes, frios } = resumoMapa(M);
-    if (!(await confirmar('Postar seu mapa de calor no story?', 'Postar'))) return;
-    const r = await publicarStoryPronto({ caption: 'Meu corpo esta semana', style: { card: { tipo: 'corpo', sexo: sexoCorpo(state.profile), ints: intsCompactas(ints),
-        quentes: quentes.slice(0, 3), frios: frios.slice(0, 2).map(s => NOME_MUSC[s]) } } });
-    if (r) toast(r.pts > 0 ? `Story publicado · +${r.pts} pts` : 'Story publicado', 'ok');
+    abrirEditorComCard({ card: { tipo: 'corpo', sexo: sexoCorpo(state.profile), ints: intsCompactas(ints),
+        quentes: quentes.slice(0, 3), frios: frios.slice(0, 2).map(s => NOME_MUSC[s]) } });
 }
 
 // ============================================================
@@ -7747,15 +7746,10 @@ async function abrirSemana() {
 }
 async function postarSemanaNoStory(btn) {
     const r = state.semana; if (!r) return;
-    btnCarregando(btn, true);
     const { ints } = resumoMapa(r.M);
-    const ok = await publicarStoryPronto({ caption: 'Minha semana no Pulso', style: { card: { tipo: 'semana', treinos: r.treinos, minutos: r.minutos, recordes: r.recordes.length,
-        ofensiva: r.ofensiva, frase: r.frase, sexo: sexoCorpo(state.profile), ints: intsCompactas(ints), ini: isoDe(r.sem.ini), fim: isoDe(r.sem.fim) } } });
-    btnCarregando(btn, false);
-    if (ok) {
-        const t = document.getElementById('semTela'); if (t) t.remove(); document.body.style.overflow = '';
-        toast(ok.pts > 0 ? `Story publicado · +${ok.pts} pts` : 'Story publicado', 'ok');
-    }
+    const t = document.getElementById('semTela'); if (t) t.remove(); document.body.style.overflow = '';
+    abrirEditorComCard({ card: { tipo: 'semana', treinos: r.treinos, minutos: r.minutos, recordes: r.recordes.length,
+        ofensiva: r.ofensiva, frase: r.frase, sexo: sexoCorpo(state.profile), ints: intsCompactas(ints), ini: isoDe(r.sem.ini), fim: isoDe(r.sem.fim) } });
 }
 // aviso no feed: domingo a partir das 17h e segunda/terça, até ver
 async function hydrateSemanaFeed() {
@@ -7990,9 +7984,9 @@ async function renderProgress() {
             <div id="evoPeriodos" class="${aba === 'coach' ? 'hidden' : ''}">${ev.periodosHTML}</div>
 
             ${abaHTML('coach', `
+                <div id="corpoTeaser"></div>
                 ${sugestaoMetaHTML(aSeries || [])}
                 <div id="iaSlot"></div>
-                <div id="corpoTeaser"></div>
                 <div id="proteinaSlot"></div>
                 <p class="coach-rodape">O coach usa seus <button class="ia-link" data-act="m-go" data-view="objetivos">objetivos</button> e o seu <button class="ia-link" data-act="m-go" data-view="jeito-treino">jeito de treinar</button>.</p>
             `)}
@@ -13936,14 +13930,9 @@ document.addEventListener('click', async e => {
         const sl = document.getElementById('retroSlot'); if (sl) sl.innerHTML = '';
     } else if (act === 'retro-story') {
         const r = state.retro; if (!r) return;
-        btnCarregando(btn, true);
-        const ok = await publicarStoryPronto({ caption: `Meu ${NOME_MES[r.mes]} no Pulso`, style: { card: { tipo: 'retro', mes: r.mes, treinos: r.treinos, minutos: r.minutos, dias: r.dias, km: r.km, seq: r.melhorSeq, frase: r.frase } } });
-        btnCarregando(btn, false);
-        if (ok) {
-            const { ano, mes } = mesPassado(); lsSet(`pulso-retro-${state.session.user.id}-${ano}-${mes}`, 'fim');
-            const t = document.getElementById('retroTela'); if (t) t.remove(); document.body.style.overflow = '';
-            toast(ok.pts > 0 ? `Story publicado · +${ok.pts} pts` : 'Story publicado', 'ok');
-        }
+        const { ano, mes } = mesPassado(); lsSet(`pulso-retro-${state.session.user.id}-${ano}-${mes}`, 'fim');
+        const t = document.getElementById('retroTela'); if (t) t.remove(); document.body.style.overflow = '';
+        abrirEditorComCard({ card: { tipo: 'retro', mes: r.mes, treinos: r.treinos, minutos: r.minutos, dias: r.dias, km: r.km, seq: r.melhorSeq, frase: r.frase } });
     } else if (act === 'coach-memoria') {
         abrirMemoriaCoach();
     } else if (act === 'aprovar-todos') {
@@ -14842,33 +14831,29 @@ async function compartilharConquista(code, onde) {
         const grupo = NIVEIS_CONQ.find(g => g.codes.includes(code));
         const nivel = grupo ? NOMES_NIVEL[grupo.codes.indexOf(code)] : null;
         const nome = grupo ? grupo.nome : conq.nome;
-        const r = await publicarStoryPronto({
-            caption: `${conq.emo} ${nome}${nivel ? ' · ' + nivel : ''}`,
-            style: { card: { tipo: 'conquista', emo: conq.emo, nome, desc: conq.desc, nivel } },
-        });
-        okStory = !!r;
+        if (okFeed) toast('Conquista no feed! Agora ajuste o story.', 'ok');
+        await abrirEditorComCard({ card: { tipo: 'conquista', emo: conq.emo, nome, desc: conq.desc, nivel } });
+        if (document.getElementById('profileTabBody') && state.view === 'profile') renderAchievements();
+        return;
     }
     toast(okFeed && okStory ? 'Conquista no feed e no story!' : okStory ? 'Conquista no seu story!' : 'Conquista compartilhada!', 'ok');
     if (document.getElementById('profileTabBody') && state.view === 'profile') renderAchievements();
 }
-// Treino: story pronto em um toque
-async function publicarStoryTreino(post) {
-    const { data: of } = await sb.from('daily_streaks').select('current_streak').eq('user_id', state.session.user.id).maybeSingle();
-    const km = Number(post.distance_km || 0);
-    const card = {
-        tipo: 'treino', atividade: post.activity_type || 'Treino', min: post.duration_min || null,
-        km: km || null, ritmo: km && post.duration_min && ['Corrida', 'Caminhada'].includes(post.activity_type) ? formatarPace(post.duration_min, km) : null,
-        grupos: post.activity_type === 'Musculação' ? (post.muscle_groups || []) : [],
-        ofensiva: (of && of.current_streak) || 0,
-    };
-    const foto = post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
-    const r = await publicarStoryPronto({ caption: `${card.atividade}${card.min ? ' · ' + card.min + ' min' : ''}`, image_url: foto, style: { card } });
-    if (!r) return;
-    toastComAcao(r.pts > 0 ? `Story publicado · +${r.pts} pts` : 'Story publicado', 'Desfazer', async () => {
-        await sb.from('stories').delete().eq('id', r.story.id).eq('user_id', state.session.user.id);
-        loadScore(); if (state.view === 'feed') renderFeed();
-        toast('Story desfeito', 'ok');
-    });
+// Treino: abre o editor com o card do treino (e a foto, se tiver). card = outro card no lugar (ex.: recorde)
+async function publicarStoryTreino(post, file = null, cardOutro = null) {
+    let card = cardOutro;
+    if (!card) {
+        const { data: of } = await sb.from('daily_streaks').select('current_streak').eq('user_id', state.session.user.id).maybeSingle();
+        const km = Number(post.distance_km || 0);
+        card = {
+            tipo: 'treino', atividade: post.activity_type || 'Treino', min: post.duration_min || null,
+            km: km || null, ritmo: km && post.duration_min && ['Corrida', 'Caminhada'].includes(post.activity_type) ? formatarPace(post.duration_min, km) : null,
+            grupos: post.activity_type === 'Musculação' ? (post.muscle_groups || []) : [],
+            ofensiva: (of && of.current_streak) || 0,
+        };
+    }
+    const foto = post && post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
+    await abrirEditorComCard({ card, file, url: file ? null : foto });
 }
 // Copia a foto pra um arquivo novo seu (assim o repost não some se o original for apagado)
 async function copiarFotoStory(url) {
@@ -14886,12 +14871,8 @@ async function copiarFotoStory(url) {
 async function abrirRepostStory(item, deQuem = null) {
     const st = JSON.parse(JSON.stringify(item.style || {}));
     delete st.mencoes; delete st.resumo_semana;
-    if (st.card) {
-        if (!(await confirmar('Postar este story de novo? Repostagem não vale pontos.', 'Postar'))) return;
-        const url = item.image_url ? await copiarFotoStory(item.image_url) : null;
-        const r = await publicarStoryPronto({ caption: item.caption, image_url: url, background_color: item.background_color || CARD_STORY_BG,
-            style: { ...st, repost: true, ...(deQuem ? { repost_de: deQuem } : {}) } });
-        if (r) toast('Story publicado de novo', 'ok');
+    if (st.card && !st.cardPos) {
+        await abrirEditorComCard({ card: st.card, url: item.image_url || null, repost: true, repostDe: deQuem, bg: item.background_color || CARD_STORY_BG });
         return;
     }
     openStoryCreator();
@@ -14919,6 +14900,7 @@ async function abrirRepostStory(item, deQuem = null) {
         if (!sc.adesivoPos) sc.adesivoPos = { x: 50, y: 70 };
         posicionar(el, sc.adesivoPos); transformarItem(el); el.classList.remove('hidden');
     }
+    if (st.card) { sc.card = st.card; sc.cardPos = st.cardPos || null; sc.cardEsc = Number(st.cardScale) || 1; sc.cardRot = Number(st.cardRot) || 0; pintarCardCriador(); }
     atualizarBotaoPublicarStory();
 }
 
@@ -15047,6 +15029,8 @@ function adicionarMencaoStory(p) {
 
 function openStoryCreator() {
     Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 });
+    sc.card = null; sc.cardPos = null; sc.cardEsc = 1; sc.cardRot = 0; sc.semFoco = false;
+    { const cd = elCardCriador(); cd.classList.add('hidden'); cd.innerHTML = ''; cd.style.transform = ''; }
     $('#scText').style.transform = ''; $('#scSticker').style.transform = '';
     $('#storyCreator').classList.remove('arrastando');
     document.querySelectorAll('#scStage .sc-mencao, #scStage .sc-enquete').forEach(x => x.remove());
@@ -15086,6 +15070,8 @@ function openStoryCreator() {
 
 function closeStoryCreator() {
     state.storyResumoSemana = null;
+    const depois = state.depoisDoStory; state.depoisDoStory = null;
+    if (depois) setTimeout(depois, 700);
     $('#storyCreator').classList.remove('on');
     document.body.style.overflow = '';
     sincronizarModoTela();
@@ -15101,7 +15087,7 @@ function ajustarAlturaTextoStory() {
 }
 function atualizarBotaoPublicarStory() {
     const temTexto = $('#scText').value.trim().length > 0;
-    const pronto = (sc.mode === 'photo' && (sc.file || sc.repostUrl)) || (sc.mode === 'text' && (temTexto || sc.adesivo || sc.enquete || (sc.mencoes || []).length));
+    const pronto = (sc.mode === 'photo' && (sc.file || sc.repostUrl)) || (sc.mode === 'text' && (temTexto || sc.adesivo || sc.enquete || sc.card || (sc.mencoes || []).length));
     $('#scPublish').classList.add('hidden'); // o botão redondo grande publica nos dois modos
     $('#scPublicarGrande').disabled = !pronto;
 }
@@ -15173,7 +15159,8 @@ function entrarModoTexto() {
     aplicarFonteStory();
     aplicarAlinhamento();
     aplicarFundoTexto();
-    setTimeout(() => t.focus(), 60);
+    if (!sc.semFoco) setTimeout(() => t.focus(), 60);
+    if (sc.card) pintarCardCriador();
     atualizarBotaoPublicarStory();
 }
 
@@ -15207,14 +15194,54 @@ function entrarModoFoto(file, url = null) {
     t.readOnly = true;
     aplicarFonteStory();
     aplicarFundoTexto();
+    if (sc.card) pintarCardCriador();
+    atualizarBotaoPublicarStory();
+}
+// ---- Card (treino, recorde, X1, conquista, corpo...) dentro do editor ----
+function elCardCriador() {
+    let el = document.getElementById('scCard');
+    if (!el) { $('#scSticker').insertAdjacentHTML('afterend', '<div id="scCard" class="sc-card hidden"></div>'); el = document.getElementById('scCard'); }
+    return el;
+}
+function pintarCardCriador() {
+    const el = elCardCriador();
+    if (!sc.card) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+    el.innerHTML = htmlCardStory({ card: sc.card }, sc.mode === 'photo');
+    if (!sc.cardPos) sc.cardPos = { x: 50, y: sc.mode === 'photo' ? 68 : 50 };
+    el.classList.remove('hidden');
+    posicionar(el, sc.cardPos); transformarItem(el);
+}
+// foto que já está no servidor vira arquivo (pra dar pra usar os filtros)
+async function arquivoDeUrl(url) {
+    const r = await fetch(url, { mode: 'cors' }); if (!r.ok) throw new Error('foto');
+    const b = await r.blob();
+    return new File([b], 'foto.jpg', { type: b.type || 'image/jpeg' });
+}
+// Abre o editor de story com o card pronto (e a foto, se tiver). Só publica quando a pessoa tocar em Publicar.
+async function abrirEditorComCard({ card, file = null, url = null, repost = false, repostDe = null, bg = null, pos = null, esc = 1, rot = 0 }) {
+    openStoryCreator();
+    sc.card = card; sc.cardPos = pos; sc.cardEsc = Number(esc) || 1; sc.cardRot = Number(rot) || 0;
+    if (repost) { sc.repost = true; sc.repostDe = repostDe; $('#scRepostAviso').classList.remove('hidden'); }
+    let arq = file;
+    if (!arq && url && !repost) { try { arq = await arquivoDeUrl(url); } catch (_) { arq = null; } }
+    if (!document.getElementById('storyCreator').classList.contains('on')) return; // fechou enquanto carregava
+    if (arq) entrarModoFoto(arq);
+    else if (url) entrarModoFoto(null, repost ? await copiarFotoStory(url) : url);
+    else {
+        sc.bg = bg || CARD_STORY_BG; sc.semFoco = true;
+        entrarModoTexto();
+        sc.semFoco = false;
+        const t = $('#scText'); t.placeholder = 'Toque pra escrever';
+    }
+    pintarCardCriador();
     atualizarBotaoPublicarStory();
 }
 
 // Arrastar texto e adesivo (toque curto no texto = editar), com guias de centro e lixeira
 function transformarItem(el) {
-    const ehTexto = el.id === 'scText';
+    const ehTexto = el.id === 'scText', ehCard = el.id === 'scCard';
     if (ehTexto && sc.mode !== 'photo') { el.style.transform = ''; return; }
-    const esc = ehTexto ? sc.txtEsc : sc.adEsc, rot = ehTexto ? sc.txtRot : sc.adRot;
+    const esc = ehCard ? sc.cardEsc : ehTexto ? sc.txtEsc : sc.adEsc, rot = ehCard ? sc.cardRot : ehTexto ? sc.txtRot : sc.adRot;
     el.style.transform = `translate(-50%, -50%) scale(${esc}) rotate(${rot}deg)`;
 }
 function apagarItemStory(el) {
@@ -15223,6 +15250,12 @@ function apagarItemStory(el) {
         sc.mencoes = (sc.mencoes || []).filter(m => m.id !== el.dataset.uid);
         delete sc['men_' + el.dataset.uid];
         el.remove();
+        atualizarBotaoPublicarStory();
+        return;
+    }
+    if (el.id === 'scCard') {
+        sc.card = null; sc.cardPos = null; sc.cardEsc = 1; sc.cardRot = 0;
+        el.classList.add('hidden'); el.innerHTML = ''; el.style.transform = '';
         atualizarBotaoPublicarStory();
         return;
     }
@@ -15288,7 +15321,7 @@ function tornarArrastavel(el, campoPos, aoTocar) {
     const stage = document.getElementById('scStage');
     let g = null;
     const alvo = (cx, cy) => {
-        const cands = [$('#scSticker'), $('#scText')].filter(el => !el.classList.contains('hidden') && (el.id !== 'scText' || sc.mode === 'photo'));
+        const cands = [$('#scSticker'), elCardCriador(), $('#scText')].filter(el => !el.classList.contains('hidden') && (el.id !== 'scText' || sc.mode === 'photo'));
         if (!cands.length) return null;
         if (sc.itemAtivo && cands.includes(sc.itemAtivo)) {
             const r = sc.itemAtivo.getBoundingClientRect();
@@ -15303,10 +15336,10 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         const el = alvo((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
         if (!el) return;
         sc.doisDedos = true;
-        const ehTexto = el.id === 'scText';
+        const ehTexto = el.id === 'scText', ehCard = el.id === 'scCard';
         if (ehTexto) { el.readOnly = true; el.blur(); }
-        g = { el, ehTexto, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX),
-              esc0: ehTexto ? sc.txtEsc : sc.adEsc, rot0: ehTexto ? sc.txtRot : sc.adRot };
+        g = { el, ehTexto, ehCard, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX),
+              esc0: ehCard ? sc.cardEsc : ehTexto ? sc.txtEsc : sc.adEsc, rot0: ehCard ? sc.cardRot : ehTexto ? sc.txtRot : sc.adRot };
         $('#storyCreator').classList.add('arrastando');
     }, { passive: true });
     stage.addEventListener('touchmove', e => {
@@ -15315,10 +15348,10 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         const [a, b] = e.touches;
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
-        const esc = Math.max(0.6, Math.min(2.2, g.esc0 * d / g.d0));
+        const esc = Math.max(g.ehCard ? 0.4 : 0.6, Math.min(g.ehCard ? 1.6 : 2.2, g.esc0 * d / g.d0));
         let rot = g.rot0 + (ang - g.a0) * 180 / Math.PI;
         if (Math.abs(rot % 90) < 4) rot = Math.round(rot / 90) * 90; // gruda reto
-        if (g.ehTexto) { sc.txtEsc = esc; sc.txtRot = rot; } else { sc.adEsc = esc; sc.adRot = rot; }
+        if (g.ehCard) { sc.cardEsc = esc; sc.cardRot = rot; } else if (g.ehTexto) { sc.txtEsc = esc; sc.txtRot = rot; } else { sc.adEsc = esc; sc.adRot = rot; }
         transformarItem(g.el);
     }, { passive: false });
     const fim = e => {
@@ -15336,6 +15369,7 @@ tornarArrastavel($('#scText'), 'pos', () => {
     t.focus();
 });
 tornarArrastavel($('#scSticker'), 'adesivoPos', null);
+tornarArrastavel(elCardCriador(), 'cardPos', null);
 $('#scText').addEventListener('blur', () => {
     if (sc.mode === 'photo') {
         const t = $('#scText');
@@ -15557,7 +15591,7 @@ async function arquivoComFiltroStory(file) {
     const stage = document.getElementById('scStage');
     let ini = null;
     stage.addEventListener('pointerdown', e => {
-        if (sc.mode !== 'photo' || !sc.filtroBase || e.target.closest('.sc-text, .sc-sticker, .sc-mencao, button')) { ini = null; return; }
+        if (sc.mode !== 'photo' || !sc.filtroBase || e.target.closest('.sc-text, .sc-sticker, .sc-card, .sc-mencao, button')) { ini = null; return; }
         ini = { x: e.clientX, y: e.clientY, t: Date.now() };
     });
     stage.addEventListener('pointerup', e => {
@@ -15666,7 +15700,7 @@ $('#scStage').addEventListener('click', e => {
 $('#scPublish').addEventListener('click', async () => {
     if (sc.busy) return;
     const caption = $('#scText').value.trim();
-    if (sc.mode === 'text' && !caption && !sc.adesivo && !(sc.mencoes || []).length && !sc.enquete) return;
+    if (sc.mode === 'text' && !caption && !sc.adesivo && !(sc.mencoes || []).length && !sc.enquete && !sc.card) return;
     if (sc.mode === 'photo' && !sc.file && !sc.repostUrl) return;
     sc.busy = true;
     $('#scPublicarGrande').classList.add('enviando');
@@ -15682,6 +15716,12 @@ $('#scPublish').addEventListener('click', async () => {
         style.sticker = sc.adesivo; style.stickerPos = sc.adesivoPos;
         if (sc.adEsc !== 1) style.stickerScale = Math.round(sc.adEsc * 100) / 100;
         if (sc.adRot) style.stickerRot = Math.round(sc.adRot);
+    }
+    if (sc.card) {
+        style.card = sc.card;
+        style.cardPos = { x: Math.round((sc.cardPos || {}).x || 50), y: Math.round((sc.cardPos || {}).y || 50) };
+        if (sc.cardEsc !== 1) style.cardScale = Math.round(sc.cardEsc * 100) / 100;
+        if (sc.cardRot) style.cardRot = Math.round(sc.cardRot);
     }
     if (sc.enquete) style.enquete = { p: sc.enquete.p, a: sc.enquete.a, b: sc.enquete.b, x: Math.round((sc.enqPos || {}).x || 50), y: Math.round((sc.enqPos || {}).y || 64) };
     if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
@@ -15951,7 +15991,9 @@ function showCurrentStory() {
     const st = item.style || {};
     const adesivoHTML = st.sticker
         ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${htmlAdesivo(st.sticker)}</div>` : '';
-    if (st.card) {
+    // card feito no editor (com posição): entra junto com o resto do story
+    const cardPosHTML = st.card && st.cardPos ? `<div class="sv-card" style="left:${Number(st.cardPos.x) || 50}%;top:${Number(st.cardPos.y) || 50}%;transform:translate(-50%, -50%) scale(${Number(st.cardScale) || 1}) rotate(${Number(st.cardRot) || 0}deg)">${htmlCardStory(st, !!item.image_url)}</div>` : '';
+    if (st.card && !st.cardPos) {
         content.className = 'story-content' + (item.image_url ? '' : ' text-story card-fundo');
         content.style.background = item.image_url ? '#000' : (item.background_color || CARD_STORY_BG);
         content.innerHTML = `${item.image_url ? `<img src="${item.image_url}">` : ''}${htmlCardStory(st, !!item.image_url)}${extrasStoryHTML(st)}
@@ -15963,7 +16005,7 @@ function showCurrentStory() {
         const pos = st.pos || null;
         content.innerHTML = `<div class="sv-fundo" style="background-image:url('${item.image_url}')"></div><img class="sv-foto" src="${item.image_url}">
             ${item.caption ? `<div class="caption-over ${e.cls} fundo-${st.fundo || 'escuro'}${pos ? ' posicionado' : ''}" style="font-size:${e.size}px;${pos ? `left:${pos.x}%;top:${pos.y}%;transform:translate(-50%, -50%) scale(${Number(st.textScale) || 1}) rotate(${Number(st.textRot) || 0}deg)` : ''}">${escapeHTML(item.caption)}</div>` : ''}
-            ${adesivoHTML}${extrasStoryHTML(st)}
+            ${adesivoHTML}${cardPosHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     } else {
         // Story de texto puro
@@ -15974,7 +16016,7 @@ function showCurrentStory() {
         const alin = st.align || 'center';
         const marca = st.fundo && st.fundo !== 'nenhum' ? st.fundo : null;
         content.innerHTML = `${item.caption ? `<div class="text-body ${e.cls}" style="color:${st.color || corDeTextoPara(fundo)};font-size:${e.size}px;text-align:${alin}">${marca ? `<span class="marcador-${marca}">${escapeHTML(item.caption)}</span>` : escapeHTML(item.caption)}</div>` : ''}
-            ${adesivoHTML}${extrasStoryHTML(st)}
+            ${adesivoHTML}${cardPosHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
     }
 
@@ -16678,6 +16720,8 @@ function limparComposer() {
     $('#pPhotoClear').classList.add('hidden');
     $('#lerPrintBtn').classList.add('hidden');
     state.composerPhoto = null;
+    state.composerFotoOriginal = null; state.composerFiltro = 'normal';
+    { const cf = document.getElementById('cmpFiltros'); if (cf) { cf.classList.add('hidden'); cf.innerHTML = ''; } }
     state.composerDest = 'log';
     $('#wDistance').value = '';
     $$('#wMuscles .chip').forEach(x => x.classList.remove('on'));
@@ -17260,6 +17304,20 @@ $('#pPhotoUnico').addEventListener('change', e => {
     setTimeout(updateDestUI, 400);
 });
 $('#capFotoX').addEventListener('click', () => { const c = $('#pPhotoClear'); if (c) c.click(); setTimeout(updateDestUI, 50); });
+// "Postar no story" logo abaixo de "Publicar no feed" (só no treino). A escolha fica lembrada.
+(function chaveStoryComposer() {
+    const row = document.getElementById('feedSwitchRow'); if (!row || document.getElementById('storySwitchRow')) return;
+    row.insertAdjacentHTML('afterend', `<div class="feed-switch-row story-switch-row" id="storySwitchRow">
+        <span class="ss-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3.2 2.4"/><path d="M12 8.5v7M8.5 12h7"/></svg></span>
+        <div class="fs-txt"><span>Postar no story</span><small>Abre o editor pra você ajustar antes</small></div>
+        <button type="button" class="nc-sw" id="storySwitch" role="switch" aria-checked="false" aria-label="Postar no story"><i></i></button>
+    </div>`);
+    state.composerStory = lsGet('pulso-cmp-story') === '1';
+    const sw = document.getElementById('storySwitch');
+    const pintar = () => { sw.classList.toggle('on', !!state.composerStory); sw.setAttribute('aria-checked', String(!!state.composerStory)); };
+    pintar();
+    sw.addEventListener('click', () => { state.composerStory = !state.composerStory; lsSet('pulso-cmp-story', state.composerStory ? '1' : '0'); pintar(); vibrar(6); });
+})();
 $('#feedSwitch').addEventListener('click', () => {
     if (!state.composerPhoto) { toast('Adicione uma foto pra publicar no feed', 'err'); return; }
     const alvo = state.composerDest === 'feed' ? 'log' : 'feed';
@@ -17474,10 +17532,60 @@ $('#pCaption').addEventListener('input', () => {
     if (state.composerKind === 'story') atualizarPreviaStory();
 });
 
+// Filtros na foto do post (os mesmos do story). O filtro fica gravado na foto que sobe.
+async function arquivoComFiltro(file, filtro, int = 1) {
+    if (!file || !filtro || filtro === 'normal') return file;
+    const im = await carregarImagemStory(file);
+    const c = canvasDaImagem(im, 2048), ctx = c.getContext('2d');
+    ctx.putImageData(aplicarMatriz(ctx.getImageData(0, 0, c.width, c.height), matrizFiltro(filtro, int)), 0, 0);
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.9));
+    return blob ? new File([blob], 'foto.jpg', { type: 'image/jpeg' }) : file;
+}
+function caixaFiltrosComposer() {
+    let box = document.getElementById('cmpFiltros');
+    if (!box) {
+        box = document.createElement('div'); box.id = 'cmpFiltros'; box.className = 'cmp-filtros hidden';
+        box.addEventListener('click', async e => {
+            const b = e.target.closest('[data-cf]'); if (!b || !state.composerFotoOriginal) return;
+            const f = b.dataset.cf; if (f === state.composerFiltro) return;
+            state.composerFiltro = f; vibrar(5);
+            box.querySelectorAll('[data-cf]').forEach(x => x.classList.toggle('on', x === b));
+            const orig = state.composerFotoOriginal;
+            const arq = await arquivoComFiltro(orig, f).catch(() => orig);
+            if (state.composerFotoOriginal !== orig || state.composerFiltro !== f) return;
+            state.composerPhoto = arq;
+            const url = URL.createObjectURL(arq);
+            $('#pPhotoPreview').src = url; atualizarFotoLegenda();
+        });
+    }
+    // fica perto da foto: no treino, embaixo da linha da foto; nos outros, embaixo da foto grande
+    const ancora = state.composerKind === 'workout' ? document.getElementById('feedSwitchRow') : document.querySelector('#composerSheet .file-drop');
+    if (ancora && box.previousElementSibling !== ancora) ancora.after(box);
+    return box;
+}
+async function montarFiltrosComposer() {
+    const box = caixaFiltrosComposer();
+    const file = state.composerFotoOriginal;
+    if (!file || ['story', 'water', 'sleep'].includes(state.composerKind)) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    box.classList.remove('hidden');
+    box.innerHTML = `<small>Filtro</small><div class="cmp-fi-lista">${FILTROS_STORY.map(f => `<button type="button" class="cmp-fi${f[0] === state.composerFiltro ? ' on' : ''}" data-cf="${f[0]}"><canvas width="96" height="96"></canvas><span>${escapeHTML(f[1])}</span></button>`).join('')}</div>`;
+    try {
+        const im = await carregarImagemStory(file);
+        if (state.composerFotoOriginal !== file) return;
+        const base = canvasDaImagem(im, 200), lado = Math.min(base.width, base.height);
+        box.querySelectorAll('.cmp-fi').forEach(b => {
+            const c = b.querySelector('canvas'), ctx = c.getContext('2d');
+            ctx.drawImage(base, (base.width - lado) / 2, (base.height - lado) / 2, lado, lado, 0, 0, 96, 96);
+            if (b.dataset.cf !== 'normal') ctx.putImageData(aplicarMatriz(ctx.getImageData(0, 0, 96, 96), matrizFiltro(b.dataset.cf, 1)), 0, 0);
+        });
+    } catch (_) { box.classList.add('hidden'); }
+}
 function handlePhotoPick(e) {
     const file = e.target.files[0];
     if (!file) return;
     state.composerPhoto = file;
+    state.composerFotoOriginal = file; state.composerFiltro = 'normal';
+    montarFiltrosComposer();
     const url = URL.createObjectURL(file);
     $('#pPhotoPreview').src = url;
     $('#pPhotoPreview').classList.add('on');
@@ -17491,6 +17599,7 @@ $('#pPhotoCam').addEventListener('change', handlePhotoPick);
 $('#lerPrintBtn').addEventListener('click', lerPrintDeTreino);
 $('#pPhotoClear').addEventListener('click', () => {
     state.composerPhoto = null;
+    state.composerFotoOriginal = null; state.composerFiltro = 'normal'; montarFiltrosComposer();
     $('#pPhotoCam').value = '';
     $('#pPhotoGal').value = '';
     $('#pPhotoPreview').classList.remove('on');
@@ -17824,9 +17933,17 @@ $('#composerSubmit').addEventListener('click', async () => {
             } catch (_) {}
         }
         limparRascunho('pCaption');
+        const querStory = eraTreino && created && state.composerStory;
+        const fotoStory = state.composerPhoto || null;
         closeComposer();
-        setTimeout(() => checarConquistas(false), 1200);
-        if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
+        if (querStory) {
+            // o editor abre agora; conquistas e a pergunta do esforço esperam ele fechar
+            state.depoisDoStory = () => { checarConquistas(false); setTimeout(() => perguntarEsforco(created.id), 900); };
+            setTimeout(() => publicarStoryTreino(created, fotoStory), 250);
+        } else {
+            setTimeout(() => checarConquistas(false), 1200);
+            if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
+        }
         if (created) setTimeout(efeitoNoDesafio, 3200);
         if (created && imageUrl && state.composerDest === 'feed') checarFotoDepois(created.id, imageUrl);
         // melhor hora pra pedir as notificações: logo depois de registrar algo
@@ -17849,6 +17966,8 @@ $('#composerSubmit').addEventListener('click', async () => {
                 ? 'Refeição registrada. Só as com foto analisada pela IA valem ponto.'
                 : 'Registrado! Hoje um treino seu já valeu mais pontos que esse.';
             toast(semFoto, 'ok');
+        } else if (querStory) {
+            toast(msg, 'ok');
         } else if (eraTreino && created) {
             const feito = created;
             toqueAbreExtrato(toastComAcao(msg, 'Postar no story', () => publicarStoryTreino(feito)));
@@ -18454,11 +18573,8 @@ function abrirPlacarX1(x) {
         else if (a === 'agua') { x1FecharTela('x1Placar'); limparComposer(); setComposerKind('water'); abrirComposer(); }
         else if (a === 'revanche') { x1FecharTela('x1Placar'); abrirCriarX1(ele, { tipo: x.tipo, duracao: x.duracao, prenda: x.prenda }); }
         else if (a === 'story') {
-            b.disabled = true;
-            const r = await publicarStoryPronto({ caption: `X1 ${tp.nome}: ${x1Num(euPts)} x ${x1Num(elePts)}`,
-                style: { card: { tipo: 'x1', modalidade: tp.nome, eu: eu.nome, ele: ele.nome, a: euPts, b: elePts, venci: ganhei, empate } } });
-            b.disabled = false;
-            if (r) toast('Story publicado', 'ok');
+            x1FecharTela('x1Placar');
+            abrirEditorComCard({ card: { tipo: 'x1', modalidade: tp.nome, eu: eu.nome, ele: ele.nome, a: euPts, b: elePts, venci: ganhei, empate } });
         }
     });
 }
@@ -19546,7 +19662,7 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
             : distancia ? `<label><small>Distância (km)</small><input class="tr-in" id="trKm" inputmode="decimal" placeholder="0,0"></label>` : ''}
         </div>
         ${musc && feitas.length ? '<div class="trf-coach" id="trCoach"><span>✦</span><p>O coach está olhando seu treino…</p></div>' : ''}
-        ${recordes.length ? `<div class="tr-pr tr-pr-fim"><span>🏆 ${recordes.length === 1 ? `Novo recorde no ${escapeHTML(recordes[0].ex.toLowerCase())}: ${br(recordes[0].kg, Number.isInteger(recordes[0].kg) ? 0 : 1)} kg` : `${recordes.length} recordes novos hoje`}</span><button type="button" id="trPrStory">Postar no story</button></div>` : ''}
+        ${recordes.length ? `<div class="tr-pr tr-pr-fim"><span>🏆 ${recordes.length === 1 ? `Novo recorde no ${escapeHTML(recordes[0].ex.toLowerCase())}: ${br(recordes[0].kg, Number.isInteger(recordes[0].kg) ? 0 : 1)} kg` : `${recordes.length} recordes novos hoje`}</span></div>` : ''}
         <div class="trf-foto">
             <div class="trf-add2" id="trFotoBtn">
                 <label class="trf-add">${SVG_X('<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>')}<span>Tirar foto</span><input type="file" accept="image/*" capture="environment" class="trFotoIn" hidden></label>
@@ -19556,6 +19672,7 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
         </div>
         <div class="trf-leg"><textarea id="trLegenda" rows="1" maxlength="2200" placeholder="Legenda (opcional)"></textarea><div class="cm-sugestoes hidden" id="trLegSug"></div></div>
         <button type="button" class="x1-sw trf-pub" id="trPub"><span><b>Publicar no feed</b><small>Sem foto, vai como card do treino</small></span><i class="x1-tg" id="trPubTg"></i></button>
+        <button type="button" class="x1-sw trf-pub" id="trStory"><span><b>Postar no story</b><small>${recordes.length ? 'Com o card do recorde. Você ajusta antes de publicar' : 'Você ajusta foto, filtro e card antes de publicar'}</small></span><i class="x1-tg" id="trStoryTg"></i></button>
         <p class="tr-erro" id="trErro" hidden></p>
         <div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Voltar</button><button class="btn x1-btn" id="trSalvar">Salvar treino</button></div>
         ${musc && s.exercicios.length ? '<button class="trf-modelo" id="trModeloBtn">☆ Salvar estes exercícios como modelo</button>' : ''}
@@ -19581,12 +19698,10 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
     ligarMencoes(leg, f.querySelector('#trLegSug'));
     if (musc && feitas.length) comentarioCoachTreino(s, hist, feitas).then(t => { const c = f.querySelector('#trCoach'); if (c && t) { c.querySelector('p').textContent = t; c.classList.add('ok'); } else if (c) c.remove(); });
     const bm = f.querySelector('#trModeloBtn'); if (bm) bm.onclick = () => salvarModeloTreino(s);
-    const prS = f.querySelector('#trPrStory'); if (prS) prS.onclick = async () => {
-        const melhor = recordes.slice().sort((a, b) => (b.kg - (b.antes || 0)) - (a.kg - (a.antes || 0)))[0];
-        prS.disabled = true;
-        const r = await publicarStoryPronto({ caption: `Novo recorde: ${melhor.ex} ${br(melhor.kg, Number.isInteger(melhor.kg) ? 0 : 1)} kg`, style: { card: { tipo: 'recorde', ex: melhor.ex, kg: melhor.kg, antes: melhor.antes ?? null } } });
-        if (r) { prS.textContent = 'No story ✓'; toast(r.pts > 0 ? `Story publicado · +${r.pts} pts` : 'Story publicado', 'ok'); } else prS.disabled = false;
-    };
+    let praStory = lsGet('pulso-tr-story') === '1';
+    const pintarStory = () => f.querySelector('#trStoryTg').classList.toggle('on', praStory);
+    pintarStory();
+    f.querySelector('#trStory').onclick = () => { praStory = !praStory; lsSet('pulso-tr-story', praStory ? '1' : '0'); pintarStory(); vibrar(6); };
     f.querySelector('#trSalvar').onclick = async ev => {
         const b = ev.currentTarget; if (b.disabled) return;
         const dur = Math.max(1, Math.min(600, parseInt(f.querySelector('#trMin').value) || min));
@@ -19641,10 +19756,20 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
         const t = await iaGuardado('treino', hojeISO()).catch(() => null);
         if (t && t.status !== 'feito') { t.status = 'feito'; iaGuardar('treino', hojeISO(), t).catch(() => {}); }
         vibrar([10, 40, 14]);
-        toastComAcao(`+${Number(pts || 0)} pts · ${s.ativ} de ${dur} min${publicar ? ' · no feed' : ''}${recordes.length ? ' · 🏆 recorde' : ''}`, 'Postar no story', () => publicarStoryTreino(criado));
+        const melhorRec = recordes.slice().sort((a, b) => (b.kg - (b.antes || 0)) - (a.kg - (a.antes || 0)))[0];
+        const cardRec = melhorRec ? { tipo: 'recorde', ex: melhorRec.ex, kg: melhorRec.kg, antes: melhorRec.antes ?? null } : null;
+        const resumoTr = `+${Number(pts || 0)} pts · ${s.ativ} de ${dur} min${publicar ? ' · no feed' : ''}${recordes.length ? ' · 🏆 recorde' : ''}`;
         setTimeout(efeitoNoDesafio, 2500);
-        setTimeout(checarConquistasNovas, 2500);
-        setTimeout(() => perguntarEsforco(criado.id), 2200);
+        if (praStory) {
+            // vai pro editor; o resto (conquistas e esforço) espera o editor fechar
+            toast(resumoTr, 'ok');
+            state.depoisDoStory = () => { checarConquistasNovas(); setTimeout(() => perguntarEsforco(criado.id), 900); };
+            publicarStoryTreino(criado, foto, cardRec);
+        } else {
+            toastComAcao(resumoTr, 'Postar no story', () => publicarStoryTreino(criado, null, cardRec));
+            setTimeout(checarConquistasNovas, 2500);
+            setTimeout(() => perguntarEsforco(criado.id), 2200);
+        }
         if (state.view === 'progress') renderProgress(); else if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile();
     };
 }

@@ -4857,3 +4857,29 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 .mc-teaser-txt b{ font-size:15px; }
 .mc-teaser-txt span{ font-size:13px; color:#AEB6C4; }
 .mc-teaser-txt em{ font-style:normal; font-size:13px; color:#67E8F9; margin-top:4px; }
+
+/* =================== CARD DENTRO DO EDITOR / NO STORY =================== */
+.sc-card, .sv-card{ position:absolute; width:min(82%, 340px); z-index:3; }
+.sc-card{ touch-action:none; cursor:grab; transition:filter .15s; }
+.sc-card.hidden{ display:none; }
+.sc-card.vai-apagar{ filter:brightness(.6) saturate(.4); opacity:.7; }
+.sc-card .card-story, .sv-card .card-story{ position:static; left:auto; top:auto; bottom:auto; transform:none; width:100%; }
+.sv-card{ pointer-events:none; }
+
+/* =================== POSTAR NO STORY (registrar treino) =================== */
+.story-switch-row{ display:none; }
+#composerSheet.modo-treino .story-switch-row{ display:grid; grid-template-columns:48px 1fr auto; gap:12px; align-items:center; padding:4px 0 6px; }
+.ss-ic{ width:48px; height:48px; border-radius:14px; display:grid; place-items:center; color:var(--vital); background:rgba(53,225,155,.1); border:1px solid rgba(53,225,155,.25); }
+.ss-ic svg{ width:26px; height:26px; }
+
+/* =================== FILTROS NA FOTO DO FEED =================== */
+.cmp-filtros{ margin:6px 0 10px; }
+.cmp-filtros.hidden{ display:none; }
+.cmp-filtros > small{ display:block; font-size:12px; color:var(--ink-faint); margin-bottom:6px; }
+.cmp-fi-lista{ display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; }
+.cmp-fi-lista::-webkit-scrollbar{ display:none; }
+.cmp-fi{ flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:4px; border:0; background:none; padding:0; cursor:pointer; color:var(--ink-dim); font:inherit; font-size:11px; }
+.cmp-fi canvas{ width:58px; height:58px; border-radius:12px; border:2px solid transparent; }
+.cmp-fi.on canvas{ border-color:var(--vital); }
+.cmp-fi.on{ color:var(--ink); font-weight:600; }
+#corpoTeaser:empty:not(.vazio){ height:176px; margin-bottom:14px; border-radius:22px; background:linear-gradient(180deg,#0E1118,#090A0F); border:1px solid rgba(255,255,255,.07); animation:esqPulsa 1.4s ease-in-out infinite; }
