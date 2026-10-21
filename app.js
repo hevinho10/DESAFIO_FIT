@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261240';
+const APP_VERSAO = '20261241';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -3011,7 +3011,7 @@ async function hydrateLembretes() {
             faltas.push(h ? { emo: WORKOUT_EMOJI[h.a] || '💪', txt: `Hoje é dia de ${textoItemSemana(h)}`, kind: 'workout' }
                           : { emo: '💪', txt: 'Você ainda não registrou treino hoje', kind: 'workout' });
         }
-        const ontemISO = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const ontemISO = ontemLocalISO();
         const { data: sonoOntem } = await sb.from('sleep_logs')
             .select('hours').eq('user_id', uid).eq('slept_on', ontemISO).maybeSingle();
         if (!sonoOntem) faltas.push({ emo: '🌙', txt: 'Registre seu sono da noite passada', kind: 'sleep' });
@@ -3676,7 +3676,7 @@ function openSleepSheet() {
     const old = document.getElementById('sleepSheet');
     if (old) old.remove();
     const atual = (state.sleep && state.sleep.ontem != null) ? Number(state.sleep.ontem) : 7.5;
-    const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const ontem = ontemLocalISO();
     const sheet = document.createElement('div');
     sheet.id = 'sleepSheet';
     sheet.className = 'sheet on';
@@ -6678,6 +6678,9 @@ const REGRAS_SEGURAS = `REGRAS FIXAS:
 - Respeite limitações informadas. Se houver dor ou lesão, prefira exercícios leves e recomende um profissional.
 - Nunca invente números: use só os dados fornecidos.`;
 
+// data no horário do aparelho (Brasil), nunca pelo UTC (depois das 21h o UTC já é amanhã)
+const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const ontemLocalISO = () => { const d = new Date(); d.setDate(d.getDate() - 1); return isoLocal(d); };
 const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const isoDe = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -9184,7 +9187,7 @@ async function dadosDaSemana() {
         sb.from('posts').select('kind, water_ml, duration_min, distance_km, activity_type, meal_score, created_at').eq('user_id', uid)
             .in('kind', ['workout', 'water', 'meal']).gte('created_at', iniAnt.toISOString()).lt('created_at', fim.toISOString()),
         sb.from('sleep_logs').select('hours, slept_on').eq('user_id', uid)
-            .gte('slept_on', ini.toISOString().split('T')[0]).lt('slept_on', fim.toISOString().split('T')[0]),
+            .gte('slept_on', isoLocal(ini)).lt('slept_on', isoLocal(fim)),
         sb.from('points_ledger').select('amount, earned_at').eq('user_id', uid)
             .gte('earned_at', iniAnt.toISOString()).lt('earned_at', fim.toISOString()),
     ]);
@@ -11452,7 +11455,7 @@ async function renderChallengeVitrine(ch) {
 function openNewChallengeSheet() {
     const old = document.getElementById('newChallengeSheet');
     if (old) old.remove();
-    const iso = d => d.toISOString().split('T')[0];
+    const iso = d => isoLocal(d);
     const hoje = new Date();
     const ic = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
     const sheet = document.createElement('div');
@@ -15349,7 +15352,8 @@ function openStoryCreator() {
     const txt = $('#scText');
     txt.value = ''; txt.classList.add('hidden'); txt.style.height = ''; txt.style.left = ''; txt.style.top = '';
     txt.readOnly = false;
-    $('#scImg').classList.add('hidden'); $('#scImg').removeAttribute('src');
+    $('#scImg').classList.add('hidden'); $('#scImg').removeAttribute('src'); $('#scImg').removeAttribute('style');
+    sc.foto = { x: 0, y: 0, s: 1, r: 0 }; sc.fotoBase = null; fundoFotoStory(null);
     sc.filtro = 'normal'; sc.filtroInt = 1; sc.filtroBase = null; sc.filtroImg = null;
     { const cv = document.getElementById('scFiltroCanvas'); if (cv) cv.remove(); const fp = document.getElementById('scFiltros'); if (fp) fp.classList.add('hidden'); const fl = document.getElementById('scFiltroLista'); if (fl) { fl.innerHTML = ''; delete fl.dataset.feito; } $('#storyCreator').classList.remove('filtros-on'); }
     $('#scSticker').classList.add('hidden'); $('#scSticker').style.left = ''; $('#scSticker').style.top = '';
@@ -15466,6 +15470,7 @@ function entrarModoTexto() {
     if (!sc.semFoco) setTimeout(() => t.focus(), 60);
     if (sc.card) pintarCardCriador();
     atualizarBotaoPublicarStory();
+    if (window.mostrarNomesFerramentas) mostrarNomesFerramentas();
 }
 
 function entrarModoFoto(file, url = null) {
@@ -15477,8 +15482,12 @@ function entrarModoFoto(file, url = null) {
     $('#scChoose').classList.add('hidden');
     $('#scStage').style.background = '#000';
     const img = $('#scImg');
-    img.src = url || URL.createObjectURL(file);
+    sc.foto = { x: 0, y: 0, s: 1, r: 0 };
+    const src = url || URL.createObjectURL(file);
+    img.onload = () => ajustarFotoQuadro();
+    img.src = src;
     img.classList.remove('hidden');
+    fundoFotoStory(src);
     prepararFiltrosStory(url ? null : file);
     $('#scBottom').classList.remove('hidden');
     $('#scAddText').classList.remove('hidden');
@@ -15500,7 +15509,65 @@ function entrarModoFoto(file, url = null) {
     aplicarFundoTexto();
     if (sc.card) pintarCardCriador();
     atualizarBotaoPublicarStory();
+    if (window.mostrarNomesFerramentas) mostrarNomesFerramentas();
 }
+// ---- Foto no quadro do story: abre preenchendo a tela; pinça diminui, arrasta e gira ----
+const elFotoStory = () => { const cv = document.getElementById('scFiltroCanvas'); return cv || $('#scImg'); };
+function fundoFotoStory(src) {
+    let f = document.getElementById('scFotoFundo');
+    if (!src) { if (f) f.remove(); return; }
+    if (!f) { f = document.createElement('div'); f.id = 'scFotoFundo'; f.className = 'sc-foto-fundo'; $('#scStage').prepend(f); }
+    f.style.backgroundImage = `url("${src}")`;
+}
+function ajustarFotoQuadro() {
+    if (sc.mode !== 'photo') return;
+    const el = elFotoStory(), st = $('#scStage'); if (!el || !st) return;
+    const nw = el.tagName === 'CANVAS' ? el.width : el.naturalWidth, nh = el.tagName === 'CANVAS' ? el.height : el.naturalHeight;
+    if (!nw || !nh) return;
+    const W = st.clientWidth, H = st.clientHeight, a = nw / nh;
+    const w = a > W / H ? H * a : W, h = a > W / H ? H : W / a; // cobre o quadro todo (como no Instagram)
+    sc.fotoBase = { w, h, W, H };
+    const f = sc.foto || (sc.foto = { x: 0, y: 0, s: 1, r: 0 });
+    Object.assign(el.style, { position: 'absolute', left: '50%', top: '50%', width: w + 'px', height: h + 'px', maxWidth: 'none', maxHeight: 'none',
+        transform: `translate(-50%, -50%) translate(${f.x * W / 100}px, ${f.y * H / 100}px) scale(${f.s}) rotate(${f.r}deg)` });
+    el.classList.toggle('sc-foto-solta', f.s < 0.98 || Math.abs(f.r) > 0.5);
+}
+window.addEventListener('resize', () => { if (sc.mode === 'photo') ajustarFotoQuadro(); });
+const fotoMexida = () => { const f = sc.foto || {}; return Math.abs(f.x || 0) > 0.3 || Math.abs(f.y || 0) > 0.3 || Math.abs((f.s || 1) - 1) > 0.01 || Math.abs(f.r || 0) > 0.5; };
+// junta fundo desfocado + foto do jeito que ficou no quadro, numa imagem 1080x1920
+async function comporQuadroStory(file) {
+    const b = sc.fotoBase; if (!b || !file) return file;
+    const im = await carregarImagemStory(file);
+    const W = 1080, H = 1920, k = W / b.W, f = sc.foto || { x: 0, y: 0, s: 1, r: 0 };
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    // fundo: a própria foto bem pequena e esticada (fica desfocada em qualquer celular)
+    const p = document.createElement('canvas'); p.width = 12; p.height = 21;
+    const pg = p.getContext('2d'), a = im.width / im.height;
+    const cw = a > 12 / 21 ? 21 * a : 12, ch = a > 12 / 21 ? 21 : 12 / a;
+    pg.drawImage(im, (12 - cw) / 2, (21 - ch) / 2, cw, ch);
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(p, 0, 0, W, H);
+    g.fillStyle = 'rgba(0,0,0,.38)'; g.fillRect(0, 0, W, H);
+    g.save();
+    g.translate(W / 2 + f.x * W / 100, H / 2 + f.y * H / 100);
+    g.rotate((f.r || 0) * Math.PI / 180); g.scale(f.s || 1, f.s || 1);
+    g.drawImage(im, -b.w * k / 2, -b.h * k / 2, b.w * k, b.h * k);
+    g.restore();
+    const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', 0.9));
+    return blob ? new File([blob], 'story.jpg', { type: 'image/jpeg' }) : file;
+}
+// toque duplo na foto: volta ao enquadramento inicial
+(function toqueDuploFoto() {
+    const stage = document.getElementById('scStage'); let ult = 0, ini = null;
+    stage.addEventListener('pointerdown', e => { ini = sc.mode === 'photo' && !e.target.closest('.sc-text, .sc-sticker, .sc-card, .sc-mencao, .sc-enquete, button') ? { x: e.clientX, y: e.clientY } : null; });
+    stage.addEventListener('pointerup', e => {
+        if (!ini || sc.doisDedos || Math.hypot(e.clientX - ini.x, e.clientY - ini.y) > 10) { ini = null; return; }
+        ini = null; const agora = Date.now();
+        if (agora - ult < 300 && fotoMexida()) { sc.foto = { x: 0, y: 0, s: 1, r: 0 }; ajustarFotoQuadro(); vibrar(8); ult = 0; return; }
+        ult = agora;
+    });
+})();
 // ---- Card (treino, recorde, X1, conquista, corpo...) dentro do editor ----
 function elCardCriador() {
     let el = document.getElementById('scCard');
@@ -15658,6 +15725,7 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         // guias: gruda no centro
         const nx = Math.abs(x - 50) < 2.5, ny = Math.abs(y - 50) < 2.5;
         if (nx) x = 50; if (ny) y = 50;
+        if ((nx && !$('#scGuiaV').classList.contains('on')) || (ny && !$('#scGuiaH').classList.contains('on'))) vibrar(6); // encostou na guia do centro
         $('#scGuiaV').classList.toggle('on', nx); $('#scGuiaH').classList.toggle('on', ny);
         sc[campoPos] = { x, y };
         posicionar(el, sc[campoPos]);
@@ -15690,6 +15758,12 @@ function tornarArrastavel(el, campoPos, aoTocar) {
     const alvo = (cx, cy) => {
         const cands = [$('#scSticker'), elCardCriador(), $('#scText')].filter(el => !el.classList.contains('hidden') && !el.classList.contains('sc-poster') && (el.id !== 'scText' || sc.mode === 'photo'));
         const poster = ehPoster(sc.card) ? elCardCriador() : null;
+        const foto = sc.mode === 'photo' && !sc.repostUrl ? elFotoStory() : null;
+        if (foto && !(poster && dentroDoPoster(cx, cy))) {
+            // a foto é o alvo, a não ser que os dedos estejam em cima de um texto, adesivo ou card
+            const perto = cands.find(el => { const r = el.getBoundingClientRect(); return cx > r.left - 20 && cx < r.right + 20 && cy > r.top - 20 && cy < r.bottom + 20; });
+            return perto || foto;
+        }
         if (poster) {
             // o pôster é o alvo, a não ser que os dedos estejam em cima de outro item
             const perto = cands.find(el => { const r = el.getBoundingClientRect(); return cx > r.left - 30 && cx < r.right + 30 && cy > r.top - 30 && cy < r.bottom + 30; });
@@ -15709,6 +15783,13 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         const el = alvo((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
         if (!el) return;
         sc.doisDedos = true;
+        if (el.id === 'scImg' || el.id === 'scFiltroCanvas') {
+            const f = sc.foto || (sc.foto = { x: 0, y: 0, s: 1, r: 0 });
+            g = { el, ehFoto: true, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX),
+                  m0: [(a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2], f0: { ...f } };
+            $('#storyCreator').classList.add('arrastando');
+            return;
+        }
         const ehTexto = el.id === 'scText', ehCard = el.id === 'scCard';
         if (ehTexto) { el.readOnly = true; el.blur(); }
         g = { el, ehTexto, ehCard, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX),
@@ -15721,6 +15802,14 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         const [a, b] = e.touches;
         const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const ang = Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX);
+        if (g.ehFoto) {
+            const st = $('#scStage'), W = st.clientWidth, H = st.clientHeight;
+            let r = g.f0.r + (ang - g.a0) * 180 / Math.PI; if (Math.abs(r % 90) < 4) r = Math.round(r / 90) * 90;
+            sc.foto = { s: Math.max(0.3, Math.min(4, g.f0.s * d / g.d0)), r,
+                x: g.f0.x + (((a.clientX + b.clientX) / 2) - g.m0[0]) / W * 100, y: g.f0.y + (((a.clientY + b.clientY) / 2) - g.m0[1]) / H * 100 };
+            ajustarFotoQuadro();
+            return;
+        }
         const pst = g.ehCard && ehPoster(sc.card);
         const esc = Math.max(pst ? 0.3 : g.ehCard ? 0.4 : 0.6, Math.min(pst ? 1 : g.ehCard ? 1.6 : 2.2, g.esc0 * d / g.d0));
         let rot = g.rot0 + (ang - g.a0) * 180 / Math.PI;
@@ -15840,8 +15929,14 @@ $('#scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrir
         if (e.type === 'pointercancel') { focar(null); return; }
         if (era.mexeu) { const b = foco; focar(null); if (b) b.click(); return; }
         if (!era.item) return;
-        if (era.aberta) { clearTimeout(timer); col.classList.remove('aberta'); era.item.click(); }
-        else abrirNomes();
+        clearTimeout(timer); col.classList.remove('aberta');
+        era.item.click(); // um toque já abre a ferramenta
+    };
+    // nas primeiras vezes os nomes aparecem sozinhos por 2s, pra pessoa conhecer as ferramentas
+    window.mostrarNomesFerramentas = () => {
+        const n = Number(lsGet('pulso-nomes-ferr') || 0); if (n >= 3) return;
+        lsSet('pulso-nomes-ferr', String(n + 1));
+        setTimeout(() => { col.classList.add('aberta'); clearTimeout(timer); timer = setTimeout(() => col.classList.remove('aberta'), 2200); }, 350);
     };
     col.addEventListener('pointerup', fim);
     col.addEventListener('pointercancel', fim);
@@ -15959,6 +16054,7 @@ async function prepararFiltrosStory(file) {
         c.id = 'scFiltroCanvas'; c.className = 'sc-img sc-filtro-canvas';
         $('#scImg').after(c);
         $('#scImg').classList.add('hidden');
+        ajustarFotoQuadro();
     } catch (_) { sc.filtroBase = null; }
 }
 function pintarFiltroStory() {
@@ -16169,6 +16265,8 @@ $('#scPublish').addEventListener('click', async () => {
     if (sc.repostDe) style.repost_de = sc.repostDe;
     let arquivo = null;
     try { arquivo = sc.mode === 'photo' && !sc.repostUrl ? await arquivoComFiltroStory(sc.file) : null; } catch (_) { arquivo = sc.file; }
+    // foto enquadrada no formato de story: quem assistir vê igual ao que ficou aqui
+    if (arquivo && sc.fotoBase) { try { arquivo = await comporQuadroStory(arquivo); style.quadro = 1; } catch (_) {} }
     const dados = { caption: caption || null, arquivo, repostUrl: sc.mode === 'photo' ? sc.repostUrl : null, bg: sc.bg, style, resumo: state.storyResumoSemana || null };
     state.storyResumoSemana = null;
     sc.busy = false;
@@ -16444,7 +16542,7 @@ function showCurrentStory() {
         content.style.background = '#000';
         const e = estiloTextoStory(st, (item.caption || '').length, true);
         const pos = st.pos || null;
-        content.innerHTML = `<div class="sv-fundo" style="background-image:url('${item.image_url}')"></div><img class="sv-foto" src="${item.image_url}">${posterHTML}
+        content.innerHTML = `${st.quadro ? `<img class="sv-foto sv-quadro" src="${item.image_url}">` : `<div class="sv-fundo" style="background-image:url('${item.image_url}')"></div><img class="sv-foto" src="${item.image_url}">`}${posterHTML}
             ${item.caption ? `<div class="caption-over ${e.cls} fundo-${st.fundo || 'escuro'}${pos ? ' posicionado' : ''}" style="font-size:${e.size}px;${pos ? `left:${pos.x}%;top:${pos.y}%;transform:translate(-50%, -50%) scale(${Number(st.textScale) || 1}) rotate(${Number(st.textRot) || 0}deg)` : ''}">${escapeHTML(item.caption)}</div>` : ''}
             ${adesivoHTML}${cardPosHTML}${extrasStoryHTML(st)}
             <div class="story-nav-zones"><div id="svPrev"></div><div id="svNext"></div></div>`;
