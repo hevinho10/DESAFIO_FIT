@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261248';
+const APP_VERSAO = '20261249';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -2911,7 +2911,7 @@ async function checkDailyReminder() {
 
         if (janela === 'manha') {
             const { data: sono } = await sb.rpc('sleep_summary');
-            const temSono = sono && sono[0] && sono[0].hoje != null;
+            const temSono = sono && sono[0] && (sono[0].ontem != null || sono[0].hoje != null);
             if (!temSono) corpo = 'Quantas horas você dormiu essa noite? Registre agora, leva 5 segundos.';
         } else if (janela === 'meiodia') {
             if ((w.total_ml || 0) === 0) corpo = 'Nenhuma água registrada até agora. Bora começar o dia hidratado?';
@@ -8565,7 +8565,12 @@ async function renderChallengeDetail(cid) {
     const geral = (ranking || []).map(u => ({ ...u, sub: diasPorPessoa[u.user_id] != null ? plural(diasPorPessoa[u.user_id], 'dia treinado', 'dias treinados') : '' }));
     const rankGeralHTML = rankHTML(geral, true, 'pts');
     const rankSemanaHTML = rankHTML(semanaRank, false, 'pts');
-    const totalDias = Math.max(1, Math.ceil((new Date(ch.ends_at) - new Date(ch.starts_at)) / 86400000));
+    const diaLocal = d => { const [a, m, dd] = String(d).slice(0, 10).split('-').map(Number); return new Date(a, m - 1, dd); };
+    const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
+    const totalDias = Math.max(1, Math.round((diaLocal(ch.ends_at) - diaLocal(ch.starts_at)) / 86400000) + 1);
+    const diaAtual = Math.min(totalDias, Math.max(1, Math.round((hoje0 - diaLocal(ch.starts_at)) / 86400000) + 1));
+    const diasRest = Math.max(0, totalDias - diaAtual);
+    const pctDia = ch.status === 'ativo' ? Math.round(diaAtual / totalDias * 100) : ch.status === 'futuro' ? 0 : 100;
     const pctPassou = ch.status === 'ativo' ? Math.min(100, Math.max(0, Math.round((1 - diasFim / totalDias) * 100))) : ch.status === 'futuro' ? 0 : 100;
 
     let saudeHTML;
@@ -8598,15 +8603,25 @@ async function renderChallengeDetail(cid) {
             </div>
 
             <div class="ch-hero">
-                <div class="ch-anel" style="--p:${pctPassou}%"><span>${ch.status === 'ativo' ? `<b>${diasFim}</b><small>${diasFim === 1 ? 'dia<br>restante' : 'dias<br>restantes'}</small>` : ch.status === 'futuro' ? '<b>⏳</b><small>em breve</small>' : '<b>🏁</b><small>acabou</small>'}</span></div>
-                <span class="ch-status ${ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim'}">
-                    ${ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado'}
-                </span>
+                <div class="ch-topo">
+                    <span class="ch-status ${ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim'}">${ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado'}</span>
+                    <div class="ch-ics">
+                        <button class="ch-ic" data-act="ver-regras-desafio" aria-label="Regras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg></button>
+                        ${ch.im_member ? `<button class="ch-ic" data-act="leave-challenge" data-id="${cid}" aria-label="Sair do desafio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 8l-4 4 4 4M6 12h9"/></svg></button>` : ''}
+                    </div>
+                </div>
                 <h1 class="ch-hero-name">${escapeHTML(ch.name)}</h1>
                 ${ch.description ? `<p class="ch-hero-desc">${escapeHTML(ch.description)}</p>` : ''}
+                <div class="ch-prog">
+                    <div class="ch-prog-lin">
+                        <span>${ch.status === 'ativo' ? `Dia ${diaAtual} de ${totalDias}` : ch.status === 'futuro' ? `${totalDias} dias de desafio` : 'Desafio encerrado'}</span>
+                        ${ch.status === 'ativo' ? `<span class="ch-prog-rest"><b>${diasRest}</b> ${diasRest === 1 ? 'dia restante' : 'dias restantes'}</span>` : ch.status === 'futuro' ? `<span class="ch-prog-rest">começa ${dataBR(ch.starts_at)}</span>` : ''}
+                    </div>
+                    <div class="ch-prog-bar"><i style="width:${pctDia}%"></i></div>
+                </div>
                 <div class="ch-hero-meta">
                     <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
-                    <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg>${ch.members} participantes</span>
+                    <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg>${plural(Number(ch.members) || 0, "participante", "participantes")}</span>
                 </div>
                 <div class="ch-actions">
                     ${podeEntrar ? `<button class="btn-primary-sm" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
@@ -8614,10 +8629,8 @@ async function renderChallengeDetail(cid) {
                     ${podePedir && !meuPedido ? `<button class="btn-primary-sm" data-act="pedir-acesso" data-id="${cid}">Solicitar acesso</button>` : ''}
                     ${meuPedido === 'pendente' ? '<span class="ch-pedido-tag">Pedido enviado, aguardando resposta</span>' : ''}
                     ${meuPedido === 'recusado' ? '<span class="ch-pedido-tag recusado">Pedido não aceito</span>' : ''}
-                    ${ch.im_member ? `<button class="btn-secondary" data-act="leave-challenge" data-id="${cid}">Sair</button>` : ''}
-                    ${souDono ? `<button class="btn-secondary" data-act="invite-challenge" data-id="${cid}">Convidar</button>` : ''}
-                    <button class="btn-secondary" data-act="ver-regras-desafio">Regras</button>
-                    ${souDono ? `<button class="btn-danger" data-act="delete-challenge" data-id="${cid}">Apagar</button>` : ''}
+                    ${souDono ? `<button class="ch-mini" data-act="invite-challenge" data-id="${cid}">Convidar</button>` : ''}
+                    ${souDono ? `<button class="ch-mini perigo" data-act="delete-challenge" data-id="${cid}">Apagar</button>` : ''}
                 </div>
                 <div id="chRegrasMembro" class="hidden">${regrasDesafioHTML(ch)}</div>
             </div>
@@ -10523,13 +10536,13 @@ function atualizarTelaDesafio(cid) {
 
 // O que vale ponto (mostrado no desafio)
 const TABELA_PONTOS = [
-    ['💪', 'Treino', 'até 15 pontos, +3 com foto'],
-    ['🔥', 'Ofensiva', 'até 20 pontos'],
-    ['🎯', 'Meta da semana batida', '10 pontos'],
-    ['⚡', 'Story', '3 pontos por dia'],
-    ['⚖️', 'Pesagem', '3 pontos por semana'],
-    ['📉', 'Perda de peso', '25 pontos por 1%'],
-    ['🍽️', 'Refeição com foto', '1 ponto'],
+    ['💪', 'Treino', 'até 15 pts · +3 com foto'],
+    ['🔥', 'Ofensiva', 'até 20 pts'],
+    ['🎯', 'Meta da semana batida', '10 pts'],
+    ['⚡', 'Story', '3 pts por dia'],
+    ['⚖️', 'Pesagem', '3 pts por semana'],
+    ['📉', 'Perda de peso', '25 pts por 1%'],
+    ['🍽️', 'Refeição com foto', '1 pt'],
 ];
 function regrasDesafioHTML(ch) {
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -13648,6 +13661,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'ver-regras-desafio') {
         const el = document.getElementById('chRegrasMembro');
         if (el) el.classList.toggle('hidden');
+        if (btn.classList.contains('ch-ic')) btn.classList.toggle('on', !!el && !el.classList.contains('hidden'));
     } else if (act === 'ia-treino-fiz') {
         const t = state.iaTreino;
         if (!t) return;
@@ -15202,7 +15216,7 @@ function extrasStoryHTML(st) {
     if (st.enquete && st.enquete.p != null) h += `<div class="sv-enq" style="left:${Number(st.enquete.x) || 50}%;top:${Number(st.enquete.y) || 64}%">${htmlEnquete(st.enquete)}</div>`;
     if (st.repost_de && st.repost_de.username) h += `<button type="button" class="sv-repost-de" data-sv-uid="${st.repost_de.id}">↻ Repostado de @${escapeHTML(st.repost_de.username)}</button>`;
     (st.mencoes || []).forEach(m => {
-        h += `<button type="button" class="sv-mencao" data-sv-uid="${m.id}" style="left:${Number(m.x) || 50}%;top:${Number(m.y) || 40}%">@${escapeHTML(m.username || '')}</button>`;
+        h += `<button type="button" class="sv-mencao" data-sv-uid="${m.id}" style="left:${Number(m.x) || 50}%;top:${Number(m.y) || 40}%${(Number(m.s) && Number(m.s) !== 1) || Number(m.r) ? `;transform:translate(-50%,-50%) scale(${Math.max(0.2, Math.min(2.5, Number(m.s) || 1))}) rotate(${Number(m.r) || 0}deg)` : ''}">@${escapeHTML(m.username || '')}</button>`;
     });
     return h;
 }
@@ -15327,7 +15341,21 @@ async function abrirRepostStory(item, deQuem = null) {
         posicionar(el, sc.adesivoPos); transformarItem(el); el.classList.remove('hidden');
     }
     if (st.card) { sc.card = st.card; sc.cardPos = st.cardPos || null; sc.cardEsc = Number(st.cardScale) || 1; sc.cardRot = Number(st.cardRot) || 0; pintarCardCriador(); }
+    sc.repostQuadro = st.quadro ? 1 : null;
+    travarOriginaisRepost({ texto: !!(item.caption || '').trim() });
     atualizarBotaoPublicarStory();
+}
+// Repost: o que veio do story original fica fixo (sem arrastar, pinçar, editar ou apagar).
+// A pessoa ainda pode pôr menção, filtro e (se o original não tinha texto) o próprio texto.
+function travarOriginaisRepost({ texto = false } = {}) {
+    if (!sc.repost) return;
+    const ad = $('#scSticker'), cd = elCardCriador(), t = $('#scText');
+    if (sc.adesivo && !ad.classList.contains('hidden')) ad.classList.add('travado');
+    if (sc.card) cd.classList.add('travado');
+    if (texto) { t.classList.add('travado'); t.readOnly = true; t.blur(); }
+    const temOriginal = sc.adesivo || sc.card;
+    document.getElementById('scColTreino').classList.toggle('desativado', !!temOriginal);
+    document.getElementById('scColTexto').classList.toggle('desativado', !!texto);
 }
 
 // ---- Arquivo de stories (só você vê) ----
@@ -15463,7 +15491,9 @@ function openStoryCreator() {
     document.querySelectorAll('#scStage .sc-mencao, #scStage .sc-enquete').forEach(x => x.remove());
     sc.enquete = null; sc.enqPos = null;
     Object.keys(sc).filter(k => k.startsWith('men_')).forEach(k => delete sc[k]);
-    sc.mencoes = []; sc.repost = false; sc.repostDe = null; sc.repostUrl = null;
+    sc.mencoes = []; sc.repost = false; sc.repostDe = null; sc.repostUrl = null; sc.repostArq = null; sc.repostQuadro = null;
+    document.querySelectorAll('#storyCreator .travado').forEach(x => x.classList.remove('travado'));
+    { const ad = document.getElementById('scColTreino'); if (ad) ad.classList.remove('desativado'); }
     $('#scRepostAviso').classList.add('hidden');
     $('#scPaleta').classList.add('hidden');
     $('#scColuna').classList.remove('recolhida', 'aberta', 'deslizando');
@@ -15609,6 +15639,8 @@ function entrarModoFoto(file, url = null) {
     img.classList.remove('hidden');
     fundoFotoStory(src);
     prepararFiltrosStory(url ? null : file);
+    // repost: baixa a foto pra dar pra aplicar filtro por cima (o original continua intacto)
+    if (url && sc.repost) arquivoDeUrl(url).then(f => { if (sc.repostUrl !== url) return; sc.repostArq = f; prepararFiltrosStory(f, true); }).catch(() => {});
     $('#scBottom').classList.remove('hidden');
     $('#scAddText').classList.remove('hidden');
     $('#scFundoTxt').classList.remove('hidden');
@@ -15758,6 +15790,7 @@ function pintarEstilosPoster() {
     if (on) bar.innerHTML = ESTILOS_POSTER.map(([k, n]) => `<button type="button" class="${sc.card.estilo === k ? 'on' : ''}" data-estilo="${k}">${n}</button>`).join('');
 }
 function trocarEstiloPoster(k) {
+    if (elCardCriador().classList.contains('travado')) return;
     if (!ehPoster(sc.card) || sc.card.estilo === k) return;
     sc.card = { ...sc.card, estilo: k }; lsSet('pulso-poster-estilo', k); vibrar(5);
     pintarCardCriador();
@@ -15812,6 +15845,7 @@ async function abrirEditorComCard({ card, file = null, url = null, repost = fals
         const t = $('#scText'); t.placeholder = 'Toque pra escrever';
     }
     pintarCardCriador();
+    if (repost) travarOriginaisRepost();
     atualizarBotaoPublicarStory();
     dicaEditorStory();
 }
@@ -15866,6 +15900,7 @@ function tornarArrastavel(el, campoPos, aoTocar) {
     let ini = null, movendo = false, sobre = false;
     const cr = $('#storyCreator'), lix = $('#scLixeira');
     el.addEventListener('pointerdown', e => {
+        if (el.classList.contains('travado')) return;
         if (sc.mode !== 'photo' && el.id === 'scText') return;
         if (el.id === 'scText' && !el.readOnly) return; // editando: deixa o cursor funcionar
         if (sc.doisDedos) return;
@@ -15915,8 +15950,8 @@ function tornarArrastavel(el, campoPos, aoTocar) {
     const stage = document.getElementById('scStage');
     let g = null;
     const alvo = (cx, cy) => {
-        const cands = [$('#scSticker'), elCardCriador(), $('#scText')].filter(el => !el.classList.contains('hidden') && !el.classList.contains('sc-poster') && (el.id !== 'scText' || sc.mode === 'photo'));
-        const poster = ehPoster(sc.card) ? elCardCriador() : null;
+        const cands = [$('#scSticker'), elCardCriador(), $('#scText'), ...document.querySelectorAll('#scStage .sc-mencao')].filter(el => !el.classList.contains('hidden') && !el.classList.contains('sc-poster') && !el.classList.contains('travado') && (el.id !== 'scText' || sc.mode === 'photo'));
+        const poster = ehPoster(sc.card) && !elCardCriador().classList.contains('travado') ? elCardCriador() : null;
         const foto = sc.mode === 'photo' && !sc.repostUrl ? elFotoStory() : null;
         if (foto && !(poster && dentroDoPoster(cx, cy))) {
             // a foto é o alvo, a não ser que os dedos estejam em cima de um texto, adesivo ou card
@@ -15949,6 +15984,12 @@ function tornarArrastavel(el, campoPos, aoTocar) {
             $('#storyCreator').classList.add('arrastando');
             return;
         }
+        if (el.classList.contains('sc-mencao')) {
+            const m = sc['men_' + el.dataset.uid] || {};
+            g = { el, ehMen: true, chave: 'men_' + el.dataset.uid, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX), esc0: m.s || 1, rot0: m.r || 0 };
+            $('#storyCreator').classList.add('arrastando');
+            return;
+        }
         const ehTexto = el.id === 'scText', ehCard = el.id === 'scCard';
         if (ehTexto) { el.readOnly = true; el.blur(); }
         g = { el, ehTexto, ehCard, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX),
@@ -15967,6 +16008,14 @@ function tornarArrastavel(el, campoPos, aoTocar) {
             sc.foto = { s: Math.max(0.3, Math.min(4, g.f0.s * d / g.d0)), r,
                 x: g.f0.x + (((a.clientX + b.clientX) / 2) - g.m0[0]) / W * 100, y: g.f0.y + (((a.clientY + b.clientY) / 2) - g.m0[1]) / H * 100 };
             ajustarFotoQuadro();
+            return;
+        }
+        if (g.ehMen) {
+            const m = sc[g.chave]; if (!m) return;
+            m.s = Math.max(0.2, Math.min(2.5, g.esc0 * d / g.d0));
+            let rr = g.rot0 + (ang - g.a0) * 180 / Math.PI; if (Math.abs(rr % 90) < 4) rr = Math.round(rr / 90) * 90;
+            m.r = rr;
+            g.el.style.transform = `translate(-50%, -50%) scale(${m.s}) rotate(${m.r}deg)`;
             return;
         }
         const pst = g.ehCard && ehPoster(sc.card);
@@ -15996,7 +16045,7 @@ tornarArrastavel(elCardCriador(), 'cardPos', null);
     // pôster em tela cheia: deslizar pro lado troca o estilo. Pôster menor: um dedo arrasta. Toque duplo volta pra tela cheia.
     const stage = document.getElementById('scStage'); let ini = null, ultimoToque = 0;
     stage.addEventListener('pointerdown', e => {
-        ini = ehPoster(sc.card) && !sc.doisDedos && !e.target.closest('.sc-text:not([readonly]), .sc-sticker, .sc-mencao, .sc-enquete, button, .sc-card:not(.sc-poster)')
+        ini = ehPoster(sc.card) && !sc.doisDedos && !elCardCriador().classList.contains('travado') && !e.target.closest('.sc-text:not([readonly]), .sc-sticker, .sc-mencao, .sc-enquete, button, .sc-card:not(.sc-poster)')
             ? { x: e.clientX, y: e.clientY, pos: { ...(sc.cardPos || { x: 50, y: 50 }) }, solto: posterSolto(sc.cardPos, sc.cardEsc, sc.cardRot), mexeu: false } : null;
         // com foto, só mexe no pôster quem começa em cima dele (fora dele o dedo troca o filtro)
         if (ini && sc.mode === 'photo' && !dentroDoPoster(e.clientX, e.clientY)) ini = null;
@@ -16024,6 +16073,7 @@ tornarArrastavel(elCardCriador(), 'cardPos', null);
         trocarEstiloPoster(ESTILOS_POSTER[(i + (dx < 0 ? 1 : -1) + ESTILOS_POSTER.length) % ESTILOS_POSTER.length][0]);
     });
 })();
+$('#scText').addEventListener('focus', e => { if (e.target.classList.contains('travado')) { e.target.readOnly = true; e.target.blur(); } });
 $('#scText').addEventListener('blur', () => {
     if (sc.mode === 'photo') {
         const t = $('#scText');
@@ -16043,6 +16093,7 @@ $('#scClose').addEventListener('click', closeStoryCreator);
 $('#scText').addEventListener('input', () => { ajustarAlturaTextoStory(); atualizarBotaoPublicarStory(); });
 $('#scAddText').addEventListener('click', () => {
     const t = $('#scText');
+    if (t.classList.contains('travado')) return;
     t.classList.remove('hidden');
     t.readOnly = false;
     ajustarAlturaTextoStory();
@@ -16058,8 +16109,8 @@ $('#scColAlinhar').addEventListener('click', e => {
     aplicarAlinhamento();
 });
 $('#scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
-$('#scColTreino').addEventListener('click', e => { e.stopPropagation(); abrirAdesivosStory(); });
-$('#scColTexto').addEventListener('click', e => { e.stopPropagation(); $('#scAddText').click(); });
+$('#scColTreino').addEventListener('click', e => { e.stopPropagation(); if (e.currentTarget.classList.contains('desativado')) { toast('No repost o card original fica fixo'); return; } abrirAdesivosStory(); });
+$('#scColTexto').addEventListener('click', e => { e.stopPropagation(); if (e.currentTarget.classList.contains('desativado')) { toast('No repost o texto original fica fixo'); return; } $('#scAddText').click(); });
 $('#scColFoto').addEventListener('click', e => { e.stopPropagation(); $('#scGal').click(); });
 $('#scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrirMencionarStory(); });
 // Ferramentas do story: tocar mostra os nomes por 3s; deslizar o dedo foca uma ferramenta e soltar em cima abre
@@ -16200,13 +16251,13 @@ function canvasDaImagem(im, lado) {
     c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
     return c;
 }
-async function prepararFiltrosStory(file) {
+async function prepararFiltrosStory(file, doRepost = false) {
     sc.filtro = 'normal'; sc.filtroInt = 1; sc.filtroBase = null; sc.filtroImg = null;
     const cv = document.getElementById('scFiltroCanvas'); if (cv) cv.remove();
     if (!file) return;
     try {
         const im = await carregarImagemStory(file);
-        if (sc.file !== file) return;
+        if (doRepost ? sc.repostArq !== file : sc.file !== file) return;
         sc.filtroImg = im;
         const c = canvasDaImagem(im, 1280);
         sc.filtroBase = c.getContext('2d').getImageData(0, 0, c.width, c.height);
@@ -16439,14 +16490,20 @@ $('#scPublish').addEventListener('click', async () => {
     }
     if (sc.enquete) style.enquete = { p: sc.enquete.p, a: sc.enquete.a, b: sc.enquete.b, x: Math.round((sc.enqPos || {}).x || 50), y: Math.round((sc.enqPos || {}).y || 64) };
     if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
-    if ((sc.mencoes || []).length) style.mencoes = sc.mencoes.map(m => ({ id: m.id, username: m.username, x: Math.round((sc[m.chave] || {}).x || 50), y: Math.round((sc[m.chave] || {}).y || 40) }));
+    if ((sc.mencoes || []).length) style.mencoes = sc.mencoes.map(m => ({ id: m.id, username: m.username, x: Math.round((sc[m.chave] || {}).x || 50), y: Math.round((sc[m.chave] || {}).y || 40), s: Math.round(((sc[m.chave] || {}).s || 1) * 100) / 100, r: Math.round((sc[m.chave] || {}).r || 0) }));
     if (sc.repost) style.repost = true;
     if (sc.repostDe) style.repost_de = sc.repostDe;
     let arquivo = null;
     try { arquivo = sc.mode === 'photo' && !sc.repostUrl ? await arquivoComFiltroStory(sc.file) : null; } catch (_) { arquivo = sc.file; }
     // foto enquadrada no formato de story: quem assistir vê igual ao que ficou aqui
     if (arquivo && sc.fotoBase) { try { arquivo = await comporQuadroStory(arquivo); style.quadro = 1; } catch (_) {} }
-    const dados = { caption: caption || null, arquivo, repostUrl: sc.mode === 'photo' ? sc.repostUrl : null, bg: sc.bg, style, resumo: state.storyResumoSemana || null };
+    // repost com filtro: sobe a foto filtrada no lugar da cópia
+    let repostFinal = sc.mode === 'photo' ? sc.repostUrl : null;
+    if (repostFinal && sc.repostArq && sc.filtro && sc.filtro !== 'normal') {
+        try { arquivo = await arquivoComFiltroStory(sc.repostArq); repostFinal = null; } catch (_) { arquivo = null; }
+    }
+    if (sc.repost && sc.repostQuadro) style.quadro = 1;
+    const dados = { caption: caption || null, arquivo, repostUrl: repostFinal, bg: sc.bg, style, resumo: state.storyResumoSemana || null };
     state.storyResumoSemana = null;
     sc.busy = false;
     $('#scPublicarGrande').classList.remove('enviando');
@@ -17270,6 +17327,24 @@ document.getElementById('svMenu').addEventListener('click', e => {
     e.stopPropagation();
     document.getElementById('svMenu').classList.add('hidden');
 });
+// Tocar fora do menu ⋯ fecha o menu e o story continua (sem passar de story)
+(function fecharMenuStoryFora() {
+    const v = document.getElementById('storyViewer');
+    let engolir = false;
+    v.addEventListener('pointerdown', e => {
+        const m = document.getElementById('svMenu');
+        if (m.classList.contains('hidden') || e.target.closest('#svMenu, #svMais')) return;
+        e.stopPropagation(); e.preventDefault();
+        engolir = true;
+        m.classList.add('hidden');
+        retomarStory();
+    }, true);
+    ['pointerup', 'click', 'touchstart', 'touchend'].forEach(t => v.addEventListener(t, e => {
+        if (!engolir) return;
+        e.stopPropagation();
+        if (t === 'pointerup') setTimeout(() => { engolir = false; }, 350);
+    }, true));
+})();
 document.getElementById('svAdd').addEventListener('click', e => {
     e.stopPropagation();
     closeStoryViewer();

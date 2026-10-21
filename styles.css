@@ -5507,3 +5507,35 @@ details.ch-rel:not([open]) > summary{ margin-bottom:0; }
 .grupo-sem{ background:rgba(253,224,71,.07) !important; border-color:rgba(253,224,71,.25) !important; cursor:pointer; }
 .gs-quem{ display:flex; align-items:center; gap:6px; } .gs-quem .avatar{ width:22px !important; height:22px !important; font-size:9px !important; }
 .mc-per-txt{ display:block; margin-top:2px; font-size:12px; color:var(--ink-faint); }
+
+/* ONDA 49: topo do desafio enxuto + regras alinhadas */
+.ch-hero:has(.ch-topo){ text-align:left; }
+.ch-topo{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.ch-ics{ display:flex; gap:8px; }
+.ch-ic{ width:34px; height:34px; border-radius:50%; display:grid; place-items:center; background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.08); color:var(--ink-dim); padding:0; cursor:pointer; transition:background .15s, color .15s; }
+.ch-ic svg{ width:17px; height:17px; }
+.ch-ic:active{ background:rgba(255,255,255,.07); color:var(--ink); }
+.ch-ic.on{ color:var(--vital); border-color:rgba(16,185,129,.35); }
+.ch-hero:has(.ch-topo) .ch-hero-name{ margin-top:14px; font-size:24px; }
+.ch-prog{ margin-top:18px; }
+.ch-prog-lin{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-size:13px; color:var(--ink-dim); margin-bottom:8px; }
+.ch-prog-rest{ color:var(--ink-dim); }
+.ch-prog-rest b{ font-family:var(--ff-display); font-size:22px; font-weight:700; color:var(--ink); letter-spacing:-.02em; margin-right:2px; }
+.ch-prog-bar{ height:5px; border-radius:5px; background:rgba(255,255,255,.06); overflow:hidden; }
+.ch-prog-bar i{ display:block; height:100%; border-radius:5px; background:linear-gradient(90deg, #10B981, #5EEAD4); }
+.ch-hero:has(.ch-topo) .ch-hero-meta{ justify-content:flex-start; margin-top:12px; }
+.ch-hero:has(.ch-topo) .ch-actions{ justify-content:flex-start; margin-top:12px; }
+.ch-hero:has(.ch-topo) .ch-actions:not(:has(*)){ display:none; }
+.ch-mini{ font:inherit; font-size:12px; padding:6px 12px; border-radius:20px; background:rgba(255,255,255,.025); border:1px solid rgba(255,255,255,.08); color:var(--ink-dim); cursor:pointer; }
+.ch-mini.perigo{ color:#F87171; border-color:rgba(248,113,113,.25); }
+:root[data-theme="light"] .ch-ic, :root[data-theme="light"] .ch-mini{ background:rgba(16,21,18,.03); border-color:rgba(16,21,18,.1); }
+:root[data-theme="light"] .ch-prog-bar{ background:rgba(16,21,18,.08); }
+.ch-ponto{ grid-template-columns:28px minmax(0,1fr) auto; min-height:44px; padding:0; gap:10px; }
+.ch-ponto > span{ font-size:16px; text-align:center; }
+.ch-ponto b{ text-align:left; font-weight:500; }
+.ch-ponto em{ text-align:right; white-space:nowrap; font-weight:600; font-size:12.5px; }
+/* repost: itens originais fixos e ferramenta desativada */
+.sc-col-item.desativado{ opacity:.32; }
+.sc-col-item.desativado .sc-col-ico{ filter:grayscale(1); }
+#storyCreator .travado{ touch-action:none; cursor:default; }
+#storyCreator:has(.sc-card.travado) #scEstilos{ display:none !important; }
