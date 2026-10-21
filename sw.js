@@ -4,8 +4,8 @@
 // o "Instalar aplicativo" do Chrome no Android e no computador.
 // ============================================================
 
-const CACHE = 'pulso-v38';
-const V = '20261239'; // mesma versão do ?v= do index.html
+const CACHE = 'pulso-v39';
+const V = '20261240'; // mesma versão do ?v= do index.html
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
 const ESTATICOS = [
   './',
@@ -29,33 +29,60 @@ const EXTERNOS_PERMITIDOS = [
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE)
-      .then(c => Promise.all([c.addAll(ESTATICOS), c.add(SUPABASE_JS).catch(() => {})]))
+      .then(c => Promise.all([c.addAll(ESTATICOS.map(u => new Request(u, { cache: 'reload' }))), c.add(SUPABASE_JS).catch(() => {})]))
       .then(() => self.skipWaiting())
       .catch(() => self.skipWaiting())
   );
 });
 
-// Limpa versões antigas do cache
+// Troca de versão: traz os arquivos com ?v= do cache antigo (a versão anterior fica guardada,
+// pra um index antigo ainda achar o app que combina com ele) e apaga o resto
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(nomes => Promise.all(nomes.filter(n => n !== CACHE && n !== 'pulso-badge').map(n => caches.delete(n))))
-      .then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    try {
+      const novo = await caches.open(CACHE);
+      const nomes = await caches.keys();
+      for (const n of nomes) {
+        if (n === CACHE || n === 'pulso-badge') continue;
+        try {
+          const velho = await caches.open(n);
+          for (const k of await velho.keys()) {
+            const u = new URL(k.url);
+            if (u.origin === self.location.origin && u.searchParams.has('v') && !(await novo.match(k))) {
+              const r = await velho.match(k); if (r) await novo.put(k, r);
+            }
+          }
+        } catch (e) {}
+        await caches.delete(n);
+      }
+      await podar(novo);
+    } catch (e) {}
+    await self.clients.claim();
+  })());
 });
+
+// Guarda no máximo as 2 versões mais novas de cada arquivo (app.min.js?v=..., styles.css?v=...)
+async function podar(c) {
+  try {
+    const grupos = {};
+    for (const k of await c.keys()) {
+      const u = new URL(k.url);
+      if (u.origin !== self.location.origin || !u.searchParams.has('v')) continue;
+      (grupos[u.pathname] = grupos[u.pathname] || []).push([Number(u.searchParams.get('v')) || 0, k]);
+    }
+    for (const lista of Object.values(grupos)) {
+      lista.sort((a, b) => b[0] - a[0]);
+      await Promise.all(lista.slice(2).map(([, k]) => c.delete(k)));
+    }
+  } catch (e) {}
+}
 
 // Guarda a resposta e apaga versões antigas do mesmo arquivo (ex: app.js?v=antigo)
 async function guardar(req, res) {
   try {
     const c = await caches.open(CACHE);
     await c.put(req, res);
-    const url = new URL(req.url);
-    if (url.origin === self.location.origin && url.search) {
-      const chaves = await c.keys();
-      await Promise.all(chaves
-        .filter(k => { const u = new URL(k.url); return u.pathname === url.pathname && u.search !== url.search; })
-        .map(k => c.delete(k)));
-    }
+    if (new URL(req.url).searchParams.has('v')) await podar(c);
   } catch (e) {}
 }
 
@@ -72,14 +99,18 @@ self.addEventListener('fetch', event => {
   // Páginas: rede primeiro (pra pegar atualização), mas se a internet demorar mais de 1,5s
   // abre com a página guardada (e a nova fica guardada pra próxima vez)
   if (proprio && (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html'))) {
-    const rede = fetch(req).then(res => {
+    // sempre pede o index ao servidor de verdade (sem cópia guardada no caminho)
+    const fresca = new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' });
+    const rede = fetch(fresca).then(res => {
+      if (res && res.redirected) return Response.redirect(res.url, 302); // navegação não aceita resposta redirecionada
       if (res && res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put('./index.html', copia)).catch(() => {}); }
       return res;
     });
     event.waitUntil(rede.catch(() => {}));
     event.respondWith((async () => {
       const guardada = await caches.match('./index.html') || await caches.match('./');
-      if (!guardada) return rede.catch(() => Response.error());
+      // o app pediu pra recarregar por causa de versão (?_r=): espera a rede
+      if (!guardada || url.searchParams.has('_r')) return rede.catch(() => guardada || Response.error());
       const prazo = new Promise(r => setTimeout(() => r(null), 1500));
       const res = await Promise.race([rede.catch(() => null), prazo]);
       return res || guardada;

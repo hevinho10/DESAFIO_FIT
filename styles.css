@@ -5290,3 +5290,57 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
   border:1px solid rgba(16,21,18,.06) !important; box-shadow:0 1px 2px rgba(16,21,18,.03), 0 8px 22px -18px rgba(16,21,18,.25) !important; }
 :root[data-theme="light"] .cfg-grupo:last-child{ border:1px solid rgba(16,21,18,.06) !important; }
 :root[data-theme="light"] .cfg-titulo{ padding-top:8px; }
+
+/* =================== FERRAMENTAS DO STORY: círculos de vidro (estilo Instagram) =================== */
+#scColFechar{ display:none !important; }
+.sc-coluna{ right:14px; gap:12px; touch-action:none; user-select:none; -webkit-user-select:none; }
+.sc-col-item{ gap:12px !important; padding:0 !important; -webkit-tap-highlight-color:transparent; }
+.sc-col-ico{ width:46px !important; height:46px !important; border-radius:50% !important; background:rgba(20,22,26,.42) !important;
+  -webkit-backdrop-filter:blur(16px) saturate(1.5) !important; backdrop-filter:blur(16px) saturate(1.5) !important;
+  border:1px solid rgba(255,255,255,.1); color:#fff; transition:transform .2s cubic-bezier(.2,1.4,.4,1), background .2s; }
+.sc-col-ico svg{ width:23px !important; height:23px !important; }
+.sc-col-ico .sc-aa{ font-size:19px !important; font-weight:600; letter-spacing:-.02em; }
+.sc-col-nome, .sc-coluna.recolhida .sc-col-nome{ font-size:14.5px !important; font-weight:600 !important; letter-spacing:-.01em; text-shadow:0 1px 8px rgba(0,0,0,.55) !important;
+  opacity:0; transform:translateX(8px); transition:opacity .2s, transform .25s cubic-bezier(.2,1.2,.4,1); pointer-events:none; }
+.sc-coluna.aberta .sc-col-nome{ opacity:1; transform:none; }
+.sc-coluna.aberta .sc-col-item:nth-child(2) .sc-col-nome{ transition-delay:.03s } .sc-coluna.aberta .sc-col-item:nth-child(3) .sc-col-nome{ transition-delay:.06s }
+.sc-coluna.aberta .sc-col-item:nth-child(4) .sc-col-nome{ transition-delay:.09s } .sc-coluna.aberta .sc-col-item:nth-child(5) .sc-col-nome{ transition-delay:.12s }
+.sc-coluna.aberta .sc-col-item:nth-child(n+6) .sc-col-nome{ transition-delay:.15s }
+.sc-coluna.deslizando .sc-col-nome{ transition-delay:0s !important; }
+.sc-col-item.foco .sc-col-ico{ transform:scale(1.15); background:rgba(255,255,255,.24) !important; }
+.sc-col-item.foco .sc-col-nome{ opacity:1; transform:none; }
+.sc-top #scClose{ width:46px; height:46px; background:rgba(20,22,26,.42); -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,.1); }
+@media (prefers-reduced-motion: reduce){ .sc-col-nome, .sc-col-ico{ transition:none !important; } }
+
+/* =================== MEU QR CODE =================== */
+.ed-qr-ic{ width:40px; height:40px; border-radius:50%; display:grid; place-items:center; border:1px solid var(--line); background:rgba(255,255,255,.04); color:var(--ink); }
+.ed-qr-ic svg{ width:21px; height:21px; }
+:root[data-theme="light"] .ed-qr-ic{ border-color:rgba(16,21,18,.08); background:rgba(16,21,18,.04); }
+.qr-tela{ position:fixed; inset:0; z-index:1200; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; padding:24px;
+  background:radial-gradient(60% 40% at 50% 38%, rgba(16,185,129,.28), transparent 70%), radial-gradient(70% 50% at 50% 100%, rgba(96,239,255,.12), transparent 70%), #07080C;
+  opacity:0; transition:opacity .22s; font-family:var(--ff-body); }
+.qr-tela.on{ opacity:1; }
+.qr-x{ position:absolute; left:16px; top:calc(16px + env(safe-area-inset-top)); width:44px; height:44px; border-radius:50%; display:grid; place-items:center;
+  border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); color:#fff; }
+.qr-x svg{ width:20px; height:20px; }
+.qr-card{ position:relative; width:min(84vw, 320px); padding:58px 26px 22px; border-radius:32px; background:#fff; text-align:center;
+  box-shadow:0 30px 70px -20px rgba(16,185,129,.45), 0 0 0 1px rgba(255,255,255,.4); transform:translateY(12px) scale(.97); transition:transform .35s cubic-bezier(.2,1.2,.4,1); }
+.qr-tela.on .qr-card{ transform:none; }
+.qr-av{ position:absolute; left:50%; top:-38px; transform:translateX(-50%); width:76px; height:76px; border-radius:50%; padding:3px; background:linear-gradient(135deg,#00FF87,#60EFFF); }
+.qr-av .avatar{ width:100% !important; height:100% !important; border:3px solid #fff; font-size:24px; color:#0A0C0B; }
+.qr-card b{ display:block; font-size:19px; color:#0A0C0B; letter-spacing:-.02em; } .qr-card small{ display:block; font-size:13.5px; color:#71717A; margin-top:2px; }
+.qr-cod{ margin:18px auto 10px; width:100%; aspect-ratio:1; } .qr-cod svg{ width:100%; height:100%; display:block; }
+.qr-marca{ font-weight:800; font-size:15px; color:#0A0C0B; } .qr-marca i{ color:#10B981; font-style:normal; }
+.qr-dica{ color:rgba(255,255,255,.7); font-size:13.5px; text-align:center; margin:0; }
+.qr-bts{ display:flex; gap:10px; width:min(84vw, 320px); }
+.qr-bts button{ flex:1; height:50px; border-radius:999px; font:700 15px var(--ff-body); border:0; }
+.qr-p{ background:#10B981; color:#04140C; } .qr-g{ background:rgba(255,255,255,.06); color:#fff; border:1px solid rgba(255,255,255,.1) !important; }
+
+/* valor à direita nas linhas do menu não passa por cima do nome */
+.cfg-row .cfg-val{ flex:0 1 auto; min-width:0; max-width:52%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
+/* seguir de volta na lista de seguidores */
+.follow-row{ align-items:center; }
+.follow-row > div:not(.avatar){ flex:1; min-width:0; }
+.fl-volta{ flex:none; margin-left:auto; height:32px; padding:0 14px; border-radius:10px; border:0; background:var(--vital); color:#04140C; font:700 13px var(--ff-body); }
+.fl-volta.feito{ background:rgba(255,255,255,.06); color:var(--ink); }
+:root[data-theme="light"] .fl-volta.feito{ background:rgba(16,21,18,.06); }

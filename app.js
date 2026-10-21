@@ -1,3 +1,18 @@
+// Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
+// recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
+const APP_VERSAO = '20261240';
+(function conferirVersao() {
+    try {
+        const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
+        if (!v || v === APP_VERSAO) return;
+        const chave = 'pulso-recarga-' + APP_VERSAO;
+        if (sessionStorage.getItem(chave)) return; // já tentou: segue assim mesmo
+        sessionStorage.setItem(chave, '1');
+        const u = new URL(location.href); u.searchParams.set('_r', Date.now());
+        location.replace(u.toString());
+        throw new Error('pulso: recarregando pra atualizar a versão');
+    } catch (e) { if (String(e && e.message).startsWith('pulso: recarregando')) throw e; }
+})();
 // ============================================================
 // CONFIG (mesmo projeto Supabase do FIT)
 // ============================================================
@@ -3178,7 +3193,6 @@ function showUserMenu(anchor) {
     menu.dataset.menuType = 'user';
     menu.className = 'post-menu';
     menu.innerHTML = `
-        ${anchor.dataset.username ? `<button class="post-menu-item" data-act="copiar-link-perfil" data-username="${escapeHTML(anchor.dataset.username)}">${icon('chave')}Copiar link do perfil</button>` : ''}
         <button class="post-menu-item" data-act="silenciar" data-uid="${uid}" data-name="${escapeHTML(nome)}">${icon('olho')}${estaSilenciado(uid) ? 'Deixar de silenciar' : 'Silenciar posts e stories'}</button>
         <button class="post-menu-item" data-act="report-user" data-uid="${uid}" data-name="${escapeHTML(nome)}">${icon('bandeira')}Denunciar</button>
         <button class="post-menu-item danger" data-act="toggle-block" data-uid="${uid}" data-name="${escapeHTML(nome)}" data-blocked="${bloqueado ? '1' : '0'}">
@@ -4867,9 +4881,15 @@ async function openFollowList(uid, type) {
             : vazioAcao('perfil', 'Você ainda não segue ninguém', 'Siga pessoas pra ver os treinos delas no feed.', 'Ver sugestões', 'data-act="m-go" data-view="search"');
         return;
     }
+    // nos meus seguidores: quem eu ainda não sigo ganha o botão "Seguir de volta"
+    let sigo = null;
+    if (type === 'followers' && uid === state.session.user.id) {
+        try { const { data: f } = await sb.from('follows').select('following_id').eq('follower_id', uid).limit(2000); sigo = new Set((f || []).map(x => x.following_id)); } catch (_) {}
+    }
     body.innerHTML = data.map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
         ${avatarHTML(u, 'sm')}
         <div><div class="follow-name">${escapeHTML(u.display_name)}</div><div class="follow-uname">@${escapeHTML(u.username)}</div></div>
+        ${sigo && !sigo.has(u.id) && u.id !== uid ? `<button class="fl-volta" data-act="seguir-de-volta" data-uid="${u.id}" data-nome="${escapeHTML(u.display_name || '')}">Seguir de volta</button>` : ''}
     </div>`).join('');
 }
 
@@ -6548,6 +6568,80 @@ function abrirPreviaImagem(blob, nomeArquivo, semanaResumo = null) {
     document.getElementById('pvPulso').onclick = () => { fechar(); state.storyResumoSemana = semanaResumo; openStoryCreator(); entrarModoFoto(arquivo); };
     document.getElementById('pvCompartilhar').onclick = () => compartilharImagem(arquivo);
     document.getElementById('pvSalvar').onclick = () => salvarImagem(blob, nomeArquivo);
+}
+// ===== Meu QR code: leva pro perfil (e conta como convite pra quem ainda não tem conta) =====
+let qrCarregando = null;
+function carregarQR() {
+    if (window.qrcode) return Promise.resolve();
+    if (!qrCarregando) qrCarregando = new Promise((ok, erro) => {
+        const sc = document.createElement('script'); sc.src = 'qr.js?v=1'; sc.onload = ok; sc.onerror = () => { qrCarregando = null; erro(new Error('qr')); };
+        document.head.appendChild(sc);
+    });
+    return qrCarregando;
+}
+const linkMeuPerfil = () => `${location.origin}${location.pathname}?u=${encodeURIComponent(state.profile.username || '')}`;
+function matrizQR(txt) { const q = qrcode(0, 'M'); q.addData(txt); q.make(); const n = q.getModuleCount(); return { n, dark: (r, c) => q.isDark(r, c) }; }
+const ehOlhoQR = (n, r, c) => (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+function svgQR(txt) {
+    const { n, dark } = matrizQR(txt); let d = '';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (dark(r, c) && !ehOlhoQR(n, r, c)) d += `<rect x="${c + .08}" y="${r + .08}" width=".84" height=".84" rx=".32"/>`;
+    const olho = (x, y) => `<rect x="${x + .5}" y="${y + .5}" width="6" height="6" rx="1.9" fill="none" stroke="#0A0C0B" stroke-width="1"/><rect x="${x + 2}" y="${y + 2}" width="3" height="3" rx=".9"/>`;
+    return `<svg viewBox="-1 -1 ${n + 2} ${n + 2}" fill="#0A0C0B" aria-label="QR code">${d}${olho(0, 0)}${olho(n - 7, 0)}${olho(0, n - 7)}</svg>`;
+}
+async function abrirMeuQR() {
+    try { await carregarQR(); } catch (_) { toast('Não consegui abrir o QR agora. Tenta de novo com internet.', 'err'); return; }
+    const p = state.profile || {}, link = linkMeuPerfil();
+    const old = document.getElementById('qrTela'); if (old) old.remove();
+    const t = document.createElement('div'); t.id = 'qrTela'; t.className = 'qr-tela';
+    t.innerHTML = `<button type="button" class="qr-x" aria-label="Fechar">${SVG_X('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+        <div class="qr-card"><div class="qr-av">${avatarHTML(p, 'lg')}</div>
+            <b>${escapeHTML(p.display_name || p.username || '')}</b><small>@${escapeHTML(p.username || '')}</small>
+            <div class="qr-cod">${svgQR(link)}</div><div class="qr-marca">Pulso<i>.</i></div></div>
+        <p class="qr-dica">Aponte a câmera pra me seguir no Pulso</p>
+        <div class="qr-bts"><button type="button" class="qr-g" id="qrSalvar">Salvar imagem</button><button type="button" class="qr-p" id="qrComp">Compartilhar</button></div>`;
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('on'));
+    const fechar = () => { t.classList.remove('on'); setTimeout(() => t.remove(), 220); };
+    t.querySelector('.qr-x').onclick = fechar;
+    const gerar = async () => new File([await imagemMeuQR(p, link)], `pulso-${p.username || 'qr'}.png`, { type: 'image/png' });
+    t.querySelector('#qrSalvar').onclick = async () => { const f = await gerar(); salvarImagem(f, f.name); };
+    t.querySelector('#qrComp').onclick = async () => { const f = await gerar(); compartilharImagem(f); };
+}
+// a imagem pra salvar/compartilhar (tamanho de story)
+async function imagemMeuQR(p, link) {
+    const W = 1080, H = 1920, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#07080C'; g.fillRect(0, 0, W, H);
+    let rg = g.createRadialGradient(W / 2, H * .4, 0, W / 2, H * .4, W * .75); rg.addColorStop(0, 'rgba(16,185,129,.32)'); rg.addColorStop(1, 'rgba(16,185,129,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, H);
+    const cw = 820, ch = 1080, cx = (W - cw) / 2, cy = 470;
+    const ret = (x, y, w, h, r) => { g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); };
+    g.save(); g.shadowColor = 'rgba(16,185,129,.45)'; g.shadowBlur = 90; g.fillStyle = '#fff'; ret(cx, cy, cw, ch, 80); g.fill(); g.restore();
+    // foto
+    const ar = 100, ax = W / 2, ay = cy;
+    const ag = g.createLinearGradient(ax - ar, ay - ar, ax + ar, ay + ar); ag.addColorStop(0, '#00FF87'); ag.addColorStop(1, '#60EFFF');
+    g.fillStyle = ag; g.beginPath(); g.arc(ax, ay, ar, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(ax, ay, ar - 8, 0, Math.PI * 2); g.fill();
+    let foto = null;
+    if (p.avatar_url) foto = await new Promise(ok => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => ok(null); im.src = p.avatar_url; });
+    g.save(); g.beginPath(); g.arc(ax, ay, ar - 16, 0, Math.PI * 2); g.clip();
+    if (foto) { const s = Math.max((ar * 2) / foto.width, (ar * 2) / foto.height); g.drawImage(foto, ax - foto.width * s / 2, ay - foto.height * s / 2, foto.width * s, foto.height * s); }
+    else { g.fillStyle = colorFor(String(p.id || p.username || 'x')); g.fillRect(ax - ar, ay - ar, ar * 2, ar * 2); g.fillStyle = '#0A0C0B'; g.font = '800 64px "Plus Jakarta Sans", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(initials(p.display_name || p.username || '?'), ax, ay + 2); }
+    g.restore();
+    g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.fillStyle = '#0A0C0B'; g.font = '800 52px "Plus Jakarta Sans", sans-serif'; g.fillText(p.display_name || p.username || '', W / 2, cy + 170);
+    g.fillStyle = '#71717A'; g.font = '500 38px "Plus Jakarta Sans", sans-serif'; g.fillText('@' + (p.username || ''), W / 2, cy + 225);
+    // QR
+    const { n, dark } = matrizQR(link), lado = 640, m = lado / (n + 2), qx = (W - lado) / 2 + m, qy = cy + 270 + m;
+    g.fillStyle = '#0A0C0B';
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (dark(r, c) && !ehOlhoQR(n, r, c)) { ret(qx + (c + .08) * m, qy + (r + .08) * m, .84 * m, .84 * m, .32 * m); g.fill(); }
+    [[0, 0], [n - 7, 0], [0, n - 7]].forEach(([c, r]) => {
+        g.lineWidth = m; g.strokeStyle = '#0A0C0B'; ret(qx + (c + .5) * m, qy + (r + .5) * m, 6 * m, 6 * m, 1.9 * m); g.stroke();
+        ret(qx + (c + 2) * m, qy + (r + 2) * m, 3 * m, 3 * m, .9 * m); g.fill();
+    });
+    g.font = '800 40px "Plus Jakarta Sans", sans-serif'; g.fillStyle = '#0A0C0B';
+    const mw = g.measureText('Pulso').width; g.fillText('Pulso', W / 2 - 8, cy + ch - 60); g.fillStyle = '#10B981'; g.fillText('.', W / 2 + mw / 2 - 2, cy + ch - 60);
+    g.fillStyle = 'rgba(255,255,255,.75)'; g.font = '500 40px "Plus Jakarta Sans", sans-serif'; g.fillText('Aponte a câmera pra me seguir no Pulso', W / 2, cy + ch + 110);
+    return new Promise(ok => cv.toBlob(ok, 'image/png'));
 }
 async function compartilharImagem(arquivo) {
     try {
@@ -11646,7 +11740,7 @@ async function renderProfile() {
                 </div>
             </div>
             <div class="ig-profile-info">
-                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}${typeof segueVoce !== 'undefined' && segueVoce ? '<span class="tag-segue">segue você</span>' : ''}</div>
+                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}</div>
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
@@ -12772,7 +12866,7 @@ async function renderUserProfile(uid) {
                 </div>
             </div>
             <div class="ig-profile-info">
-                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}${typeof segueVoce !== 'undefined' && segueVoce ? '<span class="tag-segue">segue você</span>' : ''}</div>
+                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}</div>
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
@@ -12859,7 +12953,7 @@ async function renderEditProfile() {
             <div class="user-topbar">
                 <button class="topbar-back" data-act="back">←</button>
                 <div class="topbar-title">Editar perfil</div>
-                <div style="width:28px"></div>
+                <button type="button" class="ed-qr-ic" data-act="meu-qr" aria-label="Meu QR code">${SVG_X('<rect x="3.5" y="3.5" width="6.5" height="6.5" rx="1.6"/><rect x="14" y="3.5" width="6.5" height="6.5" rx="1.6"/><rect x="3.5" y="14" width="6.5" height="6.5" rx="1.6"/><path d="M14 14h2.5v2.5M20.5 14v.01M14 20.5h.01M17.2 17.2h3.3v3.3h-3.3z"/>')}</button>
             </div>
 
             <div class="edit-avatar-section">
@@ -13528,6 +13622,8 @@ document.addEventListener('click', async e => {
         const tg = document.getElementById('depFeed-' + btn.dataset.id); if (tg) { tg.classList.toggle('on'); vibrar(6); }
     } else if (act === 'dep-editar') {
         abrirEscreverDepoimento(btn.dataset.uid, '', { id: btn.dataset.id, texto: btn.dataset.texto, cor: btn.dataset.cor });
+    } else if (act === 'meu-qr') {
+        abrirMeuQR();
     } else if (act === 'dep-story') {
         const x = (state.depsCache || {})[btn.dataset.id]; if (!x) return;
         const a = x.autor || {}, k = CORES_DEP[corDep(x.cor)];
@@ -15247,7 +15343,7 @@ function openStoryCreator() {
     sc.mencoes = []; sc.repost = false; sc.repostDe = null; sc.repostUrl = null;
     $('#scRepostAviso').classList.add('hidden');
     $('#scPaleta').classList.add('hidden');
-    $('#scColuna').classList.remove('recolhida');
+    $('#scColuna').classList.remove('recolhida', 'aberta', 'deslizando');
     $('#scText').style.textAlign = '';
     $('#scCam').value = ''; $('#scGal').value = '';
     const txt = $('#scText');
@@ -15718,6 +15814,38 @@ $('#scColTreino').addEventListener('click', e => { e.stopPropagation(); abrirAde
 $('#scColTexto').addEventListener('click', e => { e.stopPropagation(); $('#scAddText').click(); });
 $('#scColFoto').addEventListener('click', e => { e.stopPropagation(); $('#scGal').click(); });
 $('#scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrirMencionarStory(); });
+// Ferramentas do story: tocar mostra os nomes por 3s; deslizar o dedo foca uma ferramenta e soltar em cima abre
+(function gestosColunaStory() {
+    const col = document.getElementById('scColuna'); if (!col) return;
+    let ini = null, foco = null, timer = null;
+    const itens = () => [...col.querySelectorAll('.sc-col-item')].filter(b => b.offsetParent && b.id !== 'scColFechar');
+    const sob = (x, y) => itens().find(b => { const r = b.getBoundingClientRect(); return y >= r.top - 6 && y <= r.bottom + 6 && x >= r.left - 140; });
+    const focar = b => { if (b === foco) return; if (foco) foco.classList.remove('foco'); foco = b; if (b) { b.classList.add('foco'); vibrar(4); } };
+    const abrirNomes = () => { col.classList.add('aberta'); clearTimeout(timer); timer = setTimeout(() => col.classList.remove('aberta'), 3000); };
+    // os cliques de verdade passam por aqui: quem decide é o gesto
+    col.addEventListener('click', e => { if (e.isTrusted) { e.stopPropagation(); e.preventDefault(); } }, true);
+    col.addEventListener('pointerdown', e => {
+        ini = { x: e.clientX, y: e.clientY, aberta: col.classList.contains('aberta'), item: sob(e.clientX, e.clientY), mexeu: false };
+        try { col.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    col.addEventListener('pointermove', e => {
+        if (!ini) return;
+        if (!ini.mexeu && Math.hypot(e.clientX - ini.x, e.clientY - ini.y) < 8) return;
+        ini.mexeu = true; col.classList.add('deslizando');
+        focar(sob(e.clientX, e.clientY));
+    });
+    const fim = e => {
+        if (!ini) return;
+        const era = ini; ini = null; col.classList.remove('deslizando');
+        if (e.type === 'pointercancel') { focar(null); return; }
+        if (era.mexeu) { const b = foco; focar(null); if (b) b.click(); return; }
+        if (!era.item) return;
+        if (era.aberta) { clearTimeout(timer); col.classList.remove('aberta'); era.item.click(); }
+        else abrirNomes();
+    };
+    col.addEventListener('pointerup', fim);
+    col.addEventListener('pointercancel', fim);
+})();
 $('#scColFechar').addEventListener('click', e => {
     e.stopPropagation();
     const col = $('#scColuna');
