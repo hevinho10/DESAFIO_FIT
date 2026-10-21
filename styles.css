@@ -5360,3 +5360,40 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 /* nomes das ferramentas não ocupam espaço (senão a área invisível tapa a foto) */
 .sc-col-item{ position:relative; width:46px; justify-content:center; }
 .sc-col-nome{ position:absolute; right:58px; top:50%; margin-top:-10px; line-height:20px; white-space:nowrap; }
+
+/* =================== ADESIVO DO X1: duelo frente a frente =================== */
+.sc-sticker:has(.ad-x1), .sv-sticker:has(.ad-x1){ display:block !important; padding:0 !important; background:none !important; border:0 !important; box-shadow:none !important;
+  -webkit-backdrop-filter:none; backdrop-filter:none; white-space:normal !important; }
+.ad-x1{ position:relative; display:block; width:300px; padding:14px 14px 11px; border-radius:24px; color:#fff; overflow:hidden; isolation:isolate; text-align:left;
+  background:linear-gradient(160deg, rgba(14,16,22,.84), rgba(10,12,16,.72)); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  box-shadow:0 18px 40px -12px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.09); font-family:var(--ff-body); }
+.ad-x1::before{ content:''; position:absolute; inset:0; z-index:-1; background:radial-gradient(50% 90% at 0% 50%, rgba(16,185,129,.32), transparent 70%), radial-gradient(50% 90% at 100% 50%, rgba(249,115,22,.32), transparent 70%); }
+.ax-topo{ display:flex; justify-content:space-between; gap:8px; font-size:9.5px; font-weight:800; letter-spacing:.14em; color:rgba(255,255,255,.6); white-space:nowrap; }
+.ax-topo b{ color:#FDE047; font-weight:800; }
+.ax-duelo{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; margin:12px 0 10px; }
+.ax-lado{ display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; }
+.ax-av{ position:relative; width:56px; height:56px; border-radius:50%; padding:3px; background:linear-gradient(135deg,#FFD700,#FF6A00,#FF007A); }
+.ax-av.lider{ background:linear-gradient(135deg,#00FF87,#60EFFF); box-shadow:0 0 20px rgba(0,255,135,.55); }
+.ax-av.empate{ background:linear-gradient(135deg,#FDE047,#F97316); }
+.ax-av > span{ position:relative; display:grid; place-items:center; width:100%; height:100%; border-radius:50%; overflow:hidden; border:2px solid #0A0C0B; }
+.ax-av img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.ax-av em{ font-style:normal; font-weight:800; font-size:18px; color:#0A0C0B; }
+.ax-coroa{ position:absolute; top:-13px; left:50%; transform:translateX(-50%) rotate(-12deg); font-style:normal; font-size:17px; z-index:1; }
+.ax-nome{ max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12.5px; font-weight:700; }
+.ax-pts{ font-family:var(--ff-display); font-size:24px; font-weight:800; letter-spacing:-.03em; line-height:1; color:rgba(255,255,255,.85); }
+.ax-pts.lider{ background:linear-gradient(135deg,#00FF87,#60EFFF); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.ax-vs{ width:42px; height:42px; border-radius:50%; display:grid; place-items:center; margin:0 4px; font-weight:900; font-style:italic; font-size:15px; color:#0A0C0B;
+  background:linear-gradient(135deg,#FDE047,#F97316); box-shadow:0 0 0 4px rgba(253,224,71,.14), 0 0 24px rgba(249,115,22,.7); transform:rotate(-8deg); }
+.ax-barra{ position:relative; display:block; height:7px; border-radius:99px; background:linear-gradient(90deg,#FF007A,#FF6A00); overflow:hidden; }
+.ax-barra i{ position:absolute; left:0; top:0; bottom:0; border-radius:99px; background:linear-gradient(90deg,#00FF87,#60EFFF); box-shadow:0 0 12px rgba(0,255,135,.7); }
+.ax-pe{ display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:rgba(255,255,255,.65); }
+.ax-pe .ad-marca{ font-size:12.5px; }
+
+/* quadro do story vai até logo acima do Publicar / da resposta (sem faixa grande embaixo) */
+:root{ --q-banda:calc(72px + env(safe-area-inset-bottom, 0px));
+  --q-h:calc(100vh - var(--q-top) - var(--q-banda)); --q-w:min(100vw, calc(var(--q-h) * .62)); }
+@supports (height:100dvh){ :root{ --q-h:calc(100dvh - var(--q-top) - var(--q-banda)); } }
+.sc-publicar-grande{ bottom:calc(env(safe-area-inset-bottom, 0px) + 9px) !important; }
+/* lixeira dentro da foto, perto da borda de baixo */
+.sc-lixeira{ bottom:calc(var(--q-banda) + 16px) !important; }
+.sc-text.vai-apagar, .sc-sticker.vai-apagar, .sc-mencao.vai-apagar, .sc-enquete.vai-apagar, .sc-card.vai-apagar{ scale:.55; opacity:.55; transition:scale .15s, opacity .15s; }

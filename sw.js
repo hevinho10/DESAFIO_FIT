@@ -4,8 +4,8 @@
 // o "Instalar aplicativo" do Chrome no Android e no computador.
 // ============================================================
 
-const CACHE = 'pulso-v40';
-const V = '20261241'; // mesma versão do ?v= do index.html
+const CACHE = 'pulso-v41';
+const V = '20261242'; // mesma versão do ?v= do index.html
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
 const ESTATICOS = [
   './',
@@ -151,12 +151,15 @@ self.addEventListener('push', event => {
   let dados = { title: 'Pulso', body: 'Você tem algo pra registrar hoje.' };
   try { if (event.data) dados = event.data.json(); } catch (e) {}
 
+  // aviso da ofensiva: ícone da chama e, no Android, a imagem grande
+  const ofensiva = String(dados.tag || '').startsWith('ofensiva');
   event.waitUntil(Promise.all([
     somarBadge(),
     self.registration.showNotification(dados.title || 'Pulso', {
       body: dados.body || '',
-      icon: dados.icon || './icon-192.png',
+      icon: dados.icon || (ofensiva ? './chama-192.png' : './icon-192.png'),
       badge: dados.badge || './icon-192.png',
+      ...(ofensiva && !String(dados.tag).startsWith('ofensiva-manha') ? { image: './ofensiva-banner.jpg' } : {}),
       tag: dados.tag || 'pulso',
       renotify: false,
       data: { url: dados.url || './' },

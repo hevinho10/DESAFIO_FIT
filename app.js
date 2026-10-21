@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261241';
+const APP_VERSAO = '20261242';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -15538,7 +15538,7 @@ const fotoMexida = () => { const f = sc.foto || {}; return Math.abs(f.x || 0) > 
 async function comporQuadroStory(file) {
     const b = sc.fotoBase; if (!b || !file) return file;
     const im = await carregarImagemStory(file);
-    const W = 1080, H = 1920, k = W / b.W, f = sc.foto || { x: 0, y: 0, s: 1, r: 0 };
+    const W = 1080, H = Math.round(W * b.H / b.W), k = W / b.W, f = sc.foto || { x: 0, y: 0, s: 1, r: 0 };
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
     const g = cv.getContext('2d');
     // fundo: a própria foto bem pequena e esticada (fica desfocada em qualquer celular)
@@ -15730,8 +15730,9 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         sc[campoPos] = { x, y };
         posicionar(el, sc[campoPos]);
         // lixeira
-        const lr = lix.querySelector('.sc-lix-circ').getBoundingClientRect();
-        const agora = Math.hypot(e.clientX - (lr.left + lr.width / 2), e.clientY - (lr.top + lr.height / 2)) < 60;
+        // só apaga se o próprio item estiver em cima da lixeira (não importa onde está o dedo)
+        const lr = lix.querySelector('.sc-lix-circ').getBoundingClientRect(), er = el.getBoundingClientRect();
+        const agora = Math.hypot((er.left + er.width / 2) - (lr.left + lr.width / 2), (er.top + er.height / 2) - (lr.top + lr.height / 2)) < lr.width / 2 + 16;
         if (agora !== sobre) {
             sobre = agora;
             lix.classList.toggle('sobre', sobre);
@@ -16154,8 +16155,25 @@ function htmlAdesivoPulso(txt) {
     const marca = '<i class="ad-marca">Pulso.</i>';
     if (tipo === 'ofensiva') return `<span class="ad-ic ad-emo" style="--c:255,138,61">🔥</span><span class="ad-txt"><b>${escapeHTML(d[0])} ${Number(d[0]) === 1 ? 'dia' : 'dias'} seguidos</b><span>sem quebrar a sequência</span></span>${marca}`;
     if (tipo === 'pontos') return `<span class="ad-ic ad-emo" style="--c:53,225,155">⚡</span><span class="ad-txt"><b>+${escapeHTML(d[0])} pts hoje</b><span>${escapeHTML(d[1] || 'no Pulso')}</span></span>${marca}`;
+    if (tipo === 'x1b') return htmlAdesivoX1(d);
     if (tipo === 'x1') return `<span class="ad-ic ad-emo" style="--c:255,194,75">⚔️</span><span class="ad-txt"><b>X1 · ${escapeHTML(d[0])} <em class="ad-pl">${escapeHTML(d[1])} x ${escapeHTML(d[2])}</em> ${escapeHTML(d[3])}</b><span>${escapeHTML(d[4] || 'ao vivo')}</span></span>${marca}`;
     return '';
+}
+// X1 no story: os dois frente a frente, VS no meio, placar e barra de quem está na frente
+// dados: euNome|euPts|elePts|eleNome|tipo|restante|euAvatar|eleAvatar|euId|eleId
+function htmlAdesivoX1(d) {
+    const [aN, aP, bP, bN, tipo, rest, aAv, bAv, aId, bId] = d;
+    const na = Number(String(aP).replace(',', '.')) || 0, nb = Number(String(bP).replace(',', '.')) || 0;
+    const lider = na === nb ? 0 : na > nb ? 1 : 2, pct = na + nb > 0 ? Math.round(na / (na + nb) * 100) : 50;
+    const av = (nome, url, id, lado) => `<span class="ax-av ${lider === lado ? 'lider' : lider ? 'atras' : 'empate'}">${lider === lado ? '<i class="ax-coroa">👑</i>' : ''}<span style="background:${colorFor(String(id || nome || 'x'))}">${url ? `<img src="${escapeHTML(url)}" alt="" onerror="this.remove()">` : ''}<em>${escapeHTML(initials(nome))}</em></span></span>`;
+    const dif = Math.abs(na - nb), difTxt = String(Math.round(dif * 10) / 10).replace('.', ',');
+    const frase = lider ? `${escapeHTML(lider === 1 ? aN : bN)} na frente por ${difTxt}` : 'Empatados';
+    return `<span class="ad-x1"><span class="ax-topo"><span>⚔️ X1 · ${escapeHTML(String(tipo || '').toUpperCase())}</span><b>${escapeHTML(String(rest || '').toUpperCase())}</b></span>
+        <span class="ax-duelo"><span class="ax-lado">${av(aN, aAv, aId, 1)}<b class="ax-nome">${escapeHTML(aN)}</b><b class="ax-pts ${lider === 1 ? 'lider' : ''}">${escapeHTML(aP)}</b></span>
+        <span class="ax-vs">VS</span>
+        <span class="ax-lado">${av(bN, bAv, bId, 2)}<b class="ax-nome">${escapeHTML(bN)}</b><b class="ax-pts ${lider === 2 ? 'lider' : ''}">${escapeHTML(bP)}</b></span></span>
+        <span class="ax-barra"><i style="width:${pct}%"></i></span>
+        <span class="ax-pe"><span>${frase}</span><i class="ad-marca">Pulso.</i></span></span>`;
 }
 function colocarAdesivoStory(txt) {
     const st = $('#scSticker');
@@ -16198,7 +16216,9 @@ async function abrirAdesivosStory() {
         else if (a.startsWith('x1:')) {
             const x = ativos.find(i => i.id === a.slice(3)); if (!x) return;
             const { eu, ele, euPts, elePts } = x1Lados(x);
-            colocarAdesivoStory(`pulso:x1|${(eu && eu.nome) || 'Eu'}|${x1Num(euPts)}|${x1Num(elePts)}|${ele.nome}|${(X1_TIPOS[x.tipo] || X1_TIPOS.perfeito).nome} · ${x1Restante(x.fim).toLowerCase()}`);
+            const lp = v => String(v || '').replace(/\|/g, ' ');
+            const rest = 'faltam ' + x1RestanteCurto(x.fim);
+            colocarAdesivoStory(`pulso:x1b|${lp((eu && eu.nome) || 'Eu')}|${x1Num(euPts)}|${x1Num(elePts)}|${lp(ele.nome)}|${lp((X1_TIPOS[x.tipo] || X1_TIPOS.perfeito).nome)}|${lp(rest)}|${lp(eu && eu.avatar)}|${lp(ele && ele.avatar)}|${lp(eu && eu.id)}|${lp(ele && ele.id)}`);
         }
     });
 }
