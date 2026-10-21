@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261249';
+const APP_VERSAO = '20261250';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -3038,6 +3038,39 @@ document.addEventListener('click', e => {
     const sh = b.closest('.sheet'); if (sh && sh.id !== 'composerSheet') setTimeout(() => { sh.remove(); document.body.style.overflow = ''; }, 0);
 });
 // Tela vazia com o próximo passo (ícone discreto, frase curta e um botão)
+const ICO_ABA_PERFIL = {
+    'Posts': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M4 9.3h16M4 14.7h16M9.3 4v16M14.7 4v16"/></svg>',
+    'Treinos': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>',
+    'Refeições': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="12.5" r="6"/><circle cx="13.5" cy="12.5" r="2.6"/><path d="M3.5 4v4.5a1.8 1.8 0 0 0 1.8 1.8M7 4v4.5a1.8 1.8 0 0 1-1.8 1.8M5.3 10.3V20"/></svg>',
+    'Depoimentos': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 5h15a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1H9.5L5 20v-3.5h-.5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M8.5 9.5h7M8.5 12.5h4.5"/></svg>',
+    'Conquistas': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0zM16 5.5h3v1.5a3 3 0 0 1-3 3M8 5.5H5v1.5a3 3 0 0 0 3 3M12 13v4M8.5 20h7M10 17h4"/></svg>'
+};
+// tracinho verde da aba do perfil desliza até a aba escolhida
+function marcarAbaPerfil() {
+    const box = document.querySelector('.ig-tabs'); if (!box) return;
+    const abas = [...box.querySelectorAll('.ig-tab')];
+    box.style.setProperty('--n', abas.length);
+    box.style.setProperty('--i', Math.max(0, abas.findIndex(t => t.classList.contains('on'))));
+}
+// blocos cinza no formato do conteúdo enquanto carrega
+function esqueletoAba(tipo) {
+    const b = (w, h, extra = '') => `<span class="esq" style="width:${w};height:${h}px;${extra}"></span>`;
+    if (tipo === 'workouts') return `<div class="esq-wrap esq-aba">${b('40%', 16)}<div class="esq-cal">${Array.from({ length: 35 }, () => b('100%', 0, 'aspect-ratio:1;height:auto;border-radius:10px')).join('')}</div></div>`;
+    if (tipo === 'badges') return `<div class="esq-wrap esq-aba"><div class="esq-cal" style="grid-template-columns:repeat(3,1fr);gap:12px">${Array.from({ length: 6 }, () => b('100%', 96, 'border-radius:16px')).join('')}</div></div>`;
+    return `<div class="esq-wrap esq-aba">${[1, 2, 3].map(() => `<div class="esq-linha" style="margin-top:14px">${b('56px', 56, 'border-radius:14px')}<div style="flex:1">${b('60%', 13)}${b('35%', 11, 'margin-top:8px')}</div></div>`).join('')}</div>`;
+}
+function esqueletoDesafio(lista = false) {
+    const b = (w, h, extra = '') => `<span class="esq" style="width:${w};height:${h}px;${extra}"></span>`;
+    const linha = () => `<div class="esq-linha" style="margin-top:16px">${b('18px', 14)}${b('40px', 40, 'border-radius:50%')}<div style="flex:1">${b('45%', 13)}${b('28%', 10, 'margin-top:7px')}</div>${b('34px', 14)}</div>`;
+    if (lista) return `<div class="view esq-wrap"><h1 class="screen-title">Desafios</h1>${b('100%', 42, 'border-radius:14px;margin-top:6px')}${[1, 2].map(() => `<div class="esq-cartao">${b('40%', 16)}${b('25%', 11, 'margin-top:8px')}${linha()}${linha()}${linha()}</div>`).join('')}</div>`;
+    return `<div class="view esq-wrap">
+        <div class="esq-cartao"><div class="esq-linha" style="justify-content:space-between">${b('96px', 24, 'border-radius:12px')}<div class="esq-linha" style="gap:8px">${b('34px', 34, 'border-radius:50%')}${b('34px', 34, 'border-radius:50%')}</div></div>
+            ${b('55%', 26, 'margin-top:16px')}${b('40%', 13, 'margin-top:10px')}${b('100%', 5, 'margin-top:26px;border-radius:5px')}${b('60%', 12, 'margin-top:14px')}</div>
+        <div class="esq-cartao">${b('30%', 15)}${b('100%', 38, 'margin-top:14px;border-radius:12px')}
+            <div class="esq-linha" style="justify-content:center;align-items:flex-end;gap:14px;margin-top:22px">${b('64px', 64, 'border-radius:50%')}${b('76px', 76, 'border-radius:50%')}${b('64px', 64, 'border-radius:50%')}</div>
+            ${linha()}${linha()}${linha()}</div>
+    </div>`;
+}
 function vazioAcao(ic, titulo, texto, botao = '', attrs = '') {
     return `<div class="grid-empty grid-empty-cta vazio-acao">${ic ? icon(ic) : ''}<b>${titulo}</b>${texto ? `<span>${texto}</span>` : ''}${botao ? `<button class="btn-mini" ${attrs}>${botao}</button>` : ''}</div>`;
 }
@@ -3048,7 +3081,7 @@ async function renderAchievements(uid) {
     const ehMeu = alvo === state.session.user.id;
     const body = $('#profileTabBody');
     if (!body) return;
-    body.innerHTML = '<div class="spinner"></div>';
+    body.innerHTML = esqueletoAba('badges');
     const [{ data, error }, { data: jaCompartilhadas }] = await Promise.all([
         sb.rpc('user_achievements', { alvo }),
         ehMeu ? sb.rpc('shared_achievements') : Promise.resolve({ data: [] }),
@@ -4530,7 +4563,7 @@ const MEAL_SLOT_NAME = { cafe:'Café da manhã', almoco:'Almoço', jantar:'Janta
 async function renderMealHistory(uid) {
     const body = $('#profileTabBody');
     if (!body) return;
-    body.innerHTML = '<div class="spinner"></div>';
+    body.innerHTML = esqueletoAba('meals');
     const isMe = uid === state.session.user.id;
 
     let qRef = sb.from('posts')
@@ -4726,7 +4759,7 @@ async function renderWorkoutHistory(uid, ano, mes) {
     const hoje = new Date();
     if (ano == null) { ano = hoje.getFullYear(); mes = hoje.getMonth(); }
     state.calTreino = { uid, ano, mes };
-    if (!body.querySelector('.calt')) body.innerHTML = '<div class="spinner"></div>';
+    if (!body.querySelector('.calt, .esq-aba')) body.innerHTML = esqueletoAba('workouts');
     const ehMeuPerfil = uid === state.session.user.id;
     const ini = new Date(ano, mes, 1), fim = new Date(ano, mes + 1, 1);
     const filtro = q => ehMeuPerfil ? q : q.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
@@ -8311,7 +8344,7 @@ async function renderProgress() {
 
 async function renderChallenges() {
     const c = $('#viewContainer');
-    c.innerHTML = '<div class="view"><h1 class="screen-title">Desafios</h1><div class="spinner"></div></div>';
+    c.innerHTML = esqueletoDesafio(true);
 
     const [{ lista: challenges, amigos: amigosCh, pedidos: pedidosCh }, { data: summaryData }, { data: top }, { data: myRk }] = await Promise.all([
         dadosDesafios(),
@@ -8412,7 +8445,7 @@ async function renderChallenges() {
 // ---- Detalhe do desafio ----
 async function renderChallengeDetail(cid) {
     const c = $('#viewContainer');
-    c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
+    c.innerHTML = esqueletoDesafio();
 
     const { data: all } = await sb.rpc('list_challenges');
     const ch = (all || []).find(x => x.id === cid);
@@ -8656,6 +8689,12 @@ async function renderChallengeDetail(cid) {
         </div>
     `;
     const rk = document.getElementById('chRanking');
+    setTimeout(conferirMinhaLinhaRanking, 80);
+    { // subiu de posição desde ontem: vibra de leve (uma vez por dia em cada desafio)
+        const meuI = geral.findIndex(u => u.user_id === state.session.user.id), antes = ontemPos[state.session.user.id];
+        const chave = 'pulso-subiu-' + cid + '-' + isoLocal(new Date());
+        if (meuI >= 0 && antes && antes > meuI + 1 && !lsGet(chave)) { lsSet(chave, '1'); setTimeout(() => vibrar([10, 50, 14]), 500); }
+    }
     if (rk) rk.addEventListener('click', e => { const b = e.target.closest('[data-rk]'); if (!b) return;
         rk.querySelectorAll('[data-rk]').forEach(x => x.classList.toggle('on', x === b));
         rk.querySelectorAll('[data-rk-p]').forEach(p => p.classList.toggle('hidden', p.dataset.rkP !== b.dataset.rk)); vibrar(5); });
@@ -8690,8 +8729,39 @@ function htmlRankingDesafio(lista, { ontemPos = {}, unidade = 'pts', limite = 10
     return podio + `<div class="cw-rank-list">${visiveis.map(u => linha(u)).join('')}
         ${euEscondido ? `<div class="rk-sep rk-so-fechado">···</div>${linha(lista[meuIdx], ' rk-so-fechado')}` : ''}
         ${resto.length ? `<div class="rk-resto hidden">${resto.map(u => linha(u)).join('')}</div>
-            <button type="button" class="rk-mais" data-rk-mais data-total="${lista.length}">Ver todos (${lista.length})</button>` : ''}</div>`;
+            <button type="button" class="rk-mais" data-rk-mais data-total="${lista.length}">Ver todos (${lista.length})</button>` : ''}</div>`
+        + (meuIdx >= 0 && lista.length > 5 ? `<button type="button" class="rk-fixo" data-rk-fixo><span class="rk-fixo-pos">${meuIdx + 1}º</span>${avatarHTML(lista[meuIdx], 'sm')}<b>Você</b>${seta(eu, meuIdx + 1)}<span class="rk-fixo-pts">${Math.round(lista[meuIdx].points)} ${unidade}</span></button>` : '');
 }
+// sua linha fica presa embaixo quando você sai da tela rolando o ranking
+const conferirMinhaLinhaRanking = (() => {
+    let pendente = false;
+    const rodar = () => {
+        pendente = false;
+        const topo = 64, base = window.innerHeight - 96;
+        document.querySelectorAll('[data-rk-fixo]').forEach(f => {
+            const painel = f.parentElement;
+            if (!painel || !painel.offsetParent) { f.classList.remove('on'); return; }
+            const pr = painel.getBoundingClientRect();
+            const minhas = [...painel.querySelectorAll('.me')].filter(el => el !== f && !f.contains(el) && el.offsetParent);
+            const aparece = minhas.some(el => { const r = el.getBoundingClientRect(); return r.bottom > topo + 10 && r.top < base - 10; });
+            const ligar = pr.top < base - 60 && pr.bottom > topo + 120 && !aparece;
+            if (ligar !== f.classList.contains('on')) f.classList.toggle('on', ligar);
+        });
+    };
+    const agendar = () => { if (!pendente) { pendente = true; requestAnimationFrame(rodar); } };
+    window.addEventListener('scroll', agendar, { passive: true });
+    window.addEventListener('resize', agendar);
+    document.addEventListener('click', e => {
+        const f = e.target.closest('[data-rk-fixo]');
+        if (f) {
+            const minha = [...f.parentElement.querySelectorAll('.me')].find(el => el !== f && el.offsetParent);
+            if (minha) { minha.scrollIntoView({ behavior: 'smooth', block: 'center' }); minha.classList.remove('rk-pisca'); void minha.offsetWidth; minha.classList.add('rk-pisca'); }
+            vibrar(5);
+        }
+        setTimeout(agendar, 60);
+    });
+    return agendar;
+})();
 // abre/fecha o "ver todos" de qualquer ranking
 document.addEventListener('click', e => {
     const b = e.target.closest('[data-rk-mais]'); if (!b) return;
@@ -11318,7 +11388,7 @@ function textoOfensivo(t) {
 async function renderDepoimentos(uid, euSigo, nomeAlvo) {
     const body = $('#profileTabBody');
     if (!body) return;
-    body.innerHTML = '<div class="spinner"></div>';
+    body.innerHTML = esqueletoAba('depoimentos');
     const eu = state.session.user.id;
     const meu = uid === eu;
     const { data, error } = await sb.from('depoimentos')
@@ -11378,7 +11448,8 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
         ${meuPendente ? `<div class="dep-secao">Seu depoimento</div>${cartao(meuPendente, true)}` : ''}
         ${pendentes.length ? `<div class="dep-secao">Esperando sua aprovação (${pendentes.length})</div>${pendentes.map(x => cartao(x, true)).join('')}` : ''}
         ${publicados.length ? `${pendentes.length ? '<div class="dep-secao">Publicados</div>' : ''}${publicados.map(x => cartao(x, false)).join('')}`
-            : (meuPendente ? '' : `<div class="grid-empty">${meu ? 'Quando alguém deixar um depoimento pra você, ele aparece aqui pra você aprovar.' : 'Nenhum depoimento ainda.'}</div>`)}
+            : (meuPendente ? '' : (meu ? vazioAcao('comentario', 'Nenhum depoimento ainda', 'Quando um amigo deixar um depoimento pra você, ele aparece aqui pra você aprovar.', 'Pedir um depoimento', 'data-act="dep-pedir"')
+                : (euSigo && !jaMandei ? '' : '<div class="grid-empty">Nenhum depoimento ainda.</div>')))}
     `;
 }
 
@@ -11788,7 +11859,7 @@ async function renderProfile() {
     // tudo que o perfil precisa sai junto (antes era um pedido depois do outro)
     const pegar = x => Promise.resolve(x).then(r => r, () => ({ data: null }));
     const [{ count: postCount }, { data: streak }, { data: followersCount }, { data: followingCount }, { data: myPosts }, { data: goalData },
-           { data: diasSem }, { data: rkProf }, meusDestaques, { data: meusStoriesAtivos }] = await Promise.all([
+           { data: diasSem }, { data: rkProf }, meusDestaques, { data: meusStoriesAtivos }, { count: totalStoriesArq }] = await Promise.all([
         pegar(sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uidP).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true)),
         pegar(sb.from('daily_streaks').select('*').eq('user_id', uidP).maybeSingle()),
         pegar(sb.rpc('my_followers_count')),
@@ -11805,6 +11876,7 @@ async function renderProfile() {
         pegar(sb.rpc('my_weekly_rank')),
         carregarDestaques(uidP).catch(() => []),
         pegar(sb.from('stories').select('id').eq('user_id', uidP).gt('expires_at', new Date().toISOString())),
+        pegar(sb.from('stories').select('id', { count: 'exact', head: true }).eq('user_id', uidP)),
     ]);
 
     // Meta de peso
@@ -11871,30 +11943,31 @@ async function renderProfile() {
                 <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
                 <div class="prof-pill">
                     <div class="weekly-pill">
-                        <button class="wp-anel" data-act="go-progress" aria-label="Sua semana"><svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
+                        <button class="wp-anel" data-l="semana" data-act="go-progress" aria-label="Sua semana"><svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
                         <span id="wpDays">${diasSemana}/${metaSemana}</span></button>
-                        <button class="wp-flame" data-act="ver-ofensiva" aria-label="Sua ofensiva"><svg class="wp-fogo" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-3.3-2.2-5.6-4-7.4.1 2-1 3.4-2.3 3.4C11 11.4 12.5 7 10 3 9 7 5 9 5 15.4 5 19.3 8 22 12 22z"/></svg><b id="wpStreak">${streak?.current_streak || 0}</b></button>
+                        <button class="wp-flame" data-l="ofensiva" data-act="ver-ofensiva" aria-label="Sua ofensiva"><svg class="wp-fogo" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-3.3-2.2-5.6-4-7.4.1 2-1 3.4-2.3 3.4C11 11.4 12.5 7 10 3 9 7 5 9 5 15.4 5 19.3 8 22 12 22z"/></svg><b id="wpStreak">${streak?.current_streak || 0}</b></button>
                     </div>
-                    <button class="topbar-score" data-act="go-rules" aria-label="Como ganhar pontos">
+                    <button class="topbar-score" data-l="pontos" data-act="go-rules" aria-label="Como ganhar pontos">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg>
                         <span id="topScore">${Math.round(state.score)}</span>
                         <span id="topRank" class="top-rank${rankTxt === '-' ? ' hidden' : ''}">🏆<b id="topRankN">${rankTxt}</b></span>
                     </button>
                 </div>
             </div>
-            ${destaquesHTML(meusDestaques, state.session.user.id)}
+            ${destaquesHTML(meusDestaques, state.session.user.id, { temArquivo: (totalStoriesArq || 0) > 0 })}
             ${metasHTML}
             <div class="ig-tabs">
-                <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}">Treinos</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${state.session.user.id}">Refeições</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="depoimentos" data-uid="${state.session.user.id}">Depoimentos</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${state.session.user.id}">Conquistas</button>
+                <button class="ig-tab on" data-act="profile-tab" data-tab="posts" aria-label="Posts" title="Posts">${ICO_ABA_PERFIL['Posts']}</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${state.session.user.id}" aria-label="Treinos" title="Treinos">${ICO_ABA_PERFIL['Treinos']}</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${state.session.user.id}" aria-label="Refeições" title="Refeições">${ICO_ABA_PERFIL['Refeições']}</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="depoimentos" data-uid="${state.session.user.id}" aria-label="Depoimentos" title="Depoimentos">${ICO_ABA_PERFIL['Depoimentos']}</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${state.session.user.id}" aria-label="Conquistas" title="Conquistas">${ICO_ABA_PERFIL['Conquistas']}</button>
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>
         </div>
     `;
 
+    marcarAbaPerfil();
     $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
     if (state.abrirAbaPerfil) {
         const aba = document.querySelector(`.ig-tab[data-tab="${state.abrirAbaPerfil}"]`);
@@ -13013,15 +13086,16 @@ async function renderUserProfile(uid) {
                 <b>Esta conta é privada</b>
                 <span>${pedi ? 'Seu pedido está aguardando aprovação.' : 'Siga pra ver os posts e treinos.'}</span>
             </div>` : `<div class="ig-tabs">
-                <button class="ig-tab on" data-act="profile-tab" data-tab="posts">Posts</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}">Treinos</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}">Refeições</button>
-                <button class="ig-tab" data-act="profile-tab" data-tab="depoimentos" data-uid="${uid}" data-segue="${iFollow ? '1' : '0'}" data-nome="${escapeHTML(p.display_name)}">Depoimentos</button>
-                ${mostraBadges ? `<button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${uid}">Conquistas</button>` : ''}
+                <button class="ig-tab on" data-act="profile-tab" data-tab="posts" aria-label="Posts" title="Posts">${ICO_ABA_PERFIL['Posts']}</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}" aria-label="Treinos" title="Treinos">${ICO_ABA_PERFIL['Treinos']}</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}" aria-label="Refeições" title="Refeições">${ICO_ABA_PERFIL['Refeições']}</button>
+                <button class="ig-tab" data-act="profile-tab" data-tab="depoimentos" data-uid="${uid}" data-segue="${iFollow ? '1' : '0'}" data-nome="${escapeHTML(p.display_name)}" aria-label="Depoimentos" title="Depoimentos">${ICO_ABA_PERFIL['Depoimentos']}</button>
+                ${mostraBadges ? `<button class="ig-tab" data-act="profile-tab" data-tab="badges" data-uid="${uid}" aria-label="Conquistas" title="Conquistas">${ICO_ABA_PERFIL['Conquistas']}</button>` : ''}
             </div>
             <div id="profileTabBody"><div class="ig-grid">${gridHTML}</div></div>`}
         </div>
     `;
+    marcarAbaPerfil();
 }
 
 // Folha do "Seguindo ⌄" no perfil de outra pessoa
@@ -13594,7 +13668,16 @@ document.addEventListener('click', async e => {
         }
         switchView('chat', { conversationId: convId, otherUser: { id: otherUid, display_name: otherName, username: otherUsername, avatar_url: otherAvatar } });
     } else if (act === 'profile-tab') {
-        $$('.ig-tab').forEach(t => t.classList.toggle('on', t === btn));
+        const abasP = [...document.querySelectorAll('.ig-tab')], iAntes = abasP.findIndex(t => t.classList.contains('on')), iNova = abasP.indexOf(btn);
+        abasP.forEach(t => t.classList.toggle('on', t === btn));
+        marcarAbaPerfil();
+        const corpoAba = $('#profileTabBody');
+        if (corpoAba && iAntes >= 0 && iAntes !== iNova) {
+            corpoAba.classList.remove('entra-dir', 'entra-esq'); void corpoAba.offsetWidth;
+            corpoAba.classList.add(iNova > iAntes ? 'entra-dir' : 'entra-esq');
+            vibrar(5);
+        }
+        if (corpoAba && btn.dataset.tab !== 'posts') corpoAba.innerHTML = esqueletoAba(btn.dataset.tab);
         if (btn.dataset.tab === 'workouts') renderWorkoutHistory(btn.dataset.uid);
         else if (btn.dataset.tab === 'meals') renderMealHistory(btn.dataset.uid);
         else if (btn.dataset.tab === 'badges') renderAchievements(btn.dataset.uid);
@@ -13606,6 +13689,13 @@ document.addEventListener('click', async e => {
         openNewChallengeSheet();
     } else if (act === 'invite-challenge') {
         openInviteSheet(btn.dataset.id);
+    } else if (act === 'dep-pedir') {
+        const link = `${location.origin}${location.pathname}?u=${encodeURIComponent(state.profile.username)}`;
+        const texto = `Me deixa um depoimento lá no meu perfil do Pulso? ${link}`;
+        try {
+            if (navigator.share) await navigator.share({ title: 'Pulso', text: texto, url: link });
+            else { await navigator.clipboard.writeText(texto); toast('Pedido copiado, é só mandar pra alguém', 'ok'); }
+        } catch (e) {}
     } else if (act === 'compartilhar-perfil') {
         const link = `${location.origin}${location.pathname}?u=${encodeURIComponent(state.profile.username)}`;
         const texto = `Me segue no Pulso: ${link}`;
@@ -15695,7 +15785,9 @@ function ajustarFotoQuadro() {
     const nw = el.tagName === 'CANVAS' ? el.width : el.naturalWidth, nh = el.tagName === 'CANVAS' ? el.height : el.naturalHeight;
     if (!nw || !nh) return;
     const W = st.clientWidth, H = st.clientHeight, a = nw / nh;
-    const w = a > W / H ? H * a : W, h = a > W / H ? H : W / a; // cobre o quadro todo (como no Instagram)
+    // foto em pé cobre o quadro todo; foto deitada abre inteira com o fundo desfocado (como no Instagram)
+    const deitada = a > 1.05;
+    const w = deitada ? W : (a > W / H ? H * a : W), h = deitada ? W / a : (a > W / H ? H : W / a);
     sc.fotoBase = { w, h, W, H };
     const f = sc.foto || (sc.foto = { x: 0, y: 0, s: 1, r: 0 });
     Object.assign(el.style, { position: 'absolute', left: '50%', top: '50%', width: w + 'px', height: h + 'px', maxWidth: 'none', maxHeight: 'none',
@@ -16172,7 +16264,7 @@ $('#scPaletaCores').addEventListener('click', e => {
     aplicarCorStory();
 });
 $('#scPaleta').addEventListener('click', e => e.stopPropagation());
-$('#scPublicarGrande').addEventListener('click', () => $('#scPublish').click());
+$('#scPublicarGrande').addEventListener('click', () => { vibrar(12); $('#scPublish').click(); });
 $('#scFonte').addEventListener('click', () => {
     const i = FONTES_STORY.findIndex(f => f[0] === sc.fonte);
     sc.fonte = FONTES_STORY[(i + 1) % FONTES_STORY.length][0];
@@ -16878,10 +16970,10 @@ async function carregarDestaques(uid) {
         .eq('user_id', uid).order('created_at', { ascending: true });
     return (data || []).filter(h => (h.story_highlight_items || []).length);
 }
-function destaquesHTML(lista, uid) {
+function destaquesHTML(lista, uid, { temArquivo = true } = {}) {
     const meu = uid === state.session.user.id;
-    if ((!lista || !lista.length) && !meu) return '';
-    const novo = meu ? `<button class="destaque" data-act="novo-destaque">
+    if ((!lista || !lista.length) && (!meu || !temArquivo)) return '';
+    const novo = meu && temArquivo ? `<button class="destaque" data-act="novo-destaque">
             <span class="destaque-capa destaque-novo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></span>
             <span class="destaque-nome">Novo</span>
         </button>` : '';
