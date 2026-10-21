@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261253';
+const APP_VERSAO = '20261254';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1566,7 +1566,7 @@ async function enviarRascunhos() {
         for (const r of lista) {
             if (r.uid !== state.session.user.id) continue;
             try {
-                await enviarPostLivre(r.fotos, r.legenda, r.vis);
+                await enviarPostLivre(r.fotos, r.legenda, r.vis, r.musica || null);
                 await rascunhoOp('readwrite', st => st.delete(r.id));
                 ok++;
             } catch (e) { if (ehFalhaDeRede(e)) break; await rascunhoOp('readwrite', st => st.delete(r.id)); }
@@ -6321,10 +6321,13 @@ function renderPost(p) {
         else body += `<p class="post-caption${longa ? ' longa' : ''}">${comMencoes(escapeHTML(p.caption))}</p>${mais}`;
     }
     const fotos = (p.meta && Array.isArray(p.meta.fotos) && p.meta.fotos.length > 1) ? p.meta.fotos.slice(0, 5) : null;
+    const musPost = p.meta && p.meta.musica && p.meta.musica.id && (p.image_url || fotos) ? p.meta.musica : null;
+    if (musPost) body += '<div class="post-midia-mus">';
     if (fotos) {
         body += `<div class="post-carrossel" data-n="${fotos.length}"><div class="pc-trilho">${fotos.map(u => `<img class="post-photo pc-foto" src="${escapeHTML(u)}" loading="lazy" decoding="async">`).join('')}</div>
             <span class="pc-cont">1/${fotos.length}</span><div class="pc-pontos">${fotos.map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div></div>`;
     } else if (p.image_url) body += `<img class="post-photo" src="${p.image_url}"${estiloProporcao(p.meta)} loading="lazy" decoding="async">`;
+    if (musPost) body += `<button type="button" class="post-som${state.feedMudo ? ' mudo' : ''}" data-act="feed-som" aria-label="Som da música"><svg class="som-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 9a4 4 0 0 1 0 6"/></svg><svg class="som-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 10l4 4M21 10l-4 4"/></svg></button></div>`;
 
     const isMine = p.user_id === state.session.user.id;
     const autorDoDepoimento = p.meta && p.meta.depoimento && p.meta.depoimento.autor_id === state.session.user.id;
@@ -6337,12 +6340,13 @@ function renderPost(p) {
            </button>`;
 
     return `
-        <article class="post" data-post-id="${p.id}" data-visibility="${p.visibility || 'public'}" data-coment-off="${p.comments_off ? '1' : '0'}" data-fixado="${p.pinned_at ? '1' : '0'}">
+        <article class="post" data-post-id="${p.id}"${musPost ? ` data-mus-id="${escapeHTML(String(musPost.id))}" data-mus-ini="${Number(musPost.ini) || 0}" data-mus-dur="${Number(musPost.dur) || MUSICA_TRECHO}"` : ''} data-visibility="${p.visibility || 'public'}" data-coment-off="${p.comments_off ? '1' : '0'}" data-fixado="${p.pinned_at ? '1' : '0'}">
             <div class="post-head">
                 <span data-act="view-user" data-uid="${p.user_id}" class="post-head-link">${avatarHTML(user, 'sm')}</span>
                 <div class="post-meta" data-act="view-user" data-uid="${p.user_id}">
                     <div class="post-name">${escapeHTML(user.display_name)}</div>
                     <div class="post-time">@${escapeHTML(user.username)} · ${timeAgo(p.created_at)} <span class="post-privacy-badge" data-privacy-badge>${privacyIcon} ${privacyLabel}</span></div>
+                    ${musPost ? `<button type="button" class="post-musica" data-act="usar-musica" data-mus='${escapeHTML(JSON.stringify({ id: musPost.id, titulo: musPost.titulo, artista: musPost.artista, capa: musPost.capa || '', ini: musPost.ini, dur: musPost.dur }))}'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>${escapeHTML(musPost.titulo || '')} · ${escapeHTML(musPost.artista || '')}</span></button>` : ''}
                 </div>
                 ${menuBtn}
             </div>
@@ -13355,6 +13359,7 @@ document.addEventListener('change', e => { if (e.target && e.target.type === 'fi
 document.addEventListener('visibilitychange', () => { if (!document.hidden) sincronizarModoTela(); });
 
 async function switchView(v, params = {}) {
+    try { musicaFeed.parar(); } catch (_) {}
     const viewAnterior = state.view;
     const paramsAnteriores = state.viewParams || {};
     if (viewAnterior === 'feed' && v !== 'feed') state.feedScroll = window.scrollY; // lembra onde parou
@@ -13741,6 +13746,20 @@ document.addEventListener('click', async e => {
         openNewChallengeSheet();
     } else if (act === 'invite-challenge') {
         openInviteSheet(btn.dataset.id);
+    } else if (act === 'feed-som') {
+        e.stopPropagation();
+        state.feedMudo = !(state.feedMudo || state.feedMudoAuto) ? true : false;
+        state.feedMudoAuto = false;
+        lsSet('pulso-feed-mudo', state.feedMudo ? '1' : '0');
+        document.querySelectorAll('.post-som').forEach(b => b.classList.toggle('mudo', state.feedMudo));
+        tocadorMusica.mudo(state.feedMudo);
+        if (!state.feedMudo && tocadorMusica.dono === 'feed' && !tocadorMusica.tocando) tocadorMusica.el.play().catch(() => {});
+        if (!state.feedMudo && tocadorMusica.dono !== 'feed') musicaFeed.agendar();
+        vibrar(5);
+    } else if (act === 'usar-musica') {
+        e.stopPropagation();
+        let m = null; try { m = JSON.parse(btn.dataset.mus); } catch (_) {}
+        if (m) abrirUsarMusica(m);
     } else if (act === 'dep-pedir') {
         abrirPedirDepoimento();
     } else if (act === 'compartilhar-perfil') {
@@ -16589,6 +16608,56 @@ const tocadorMusica = (() => {
         get dono() { return dono; },
     };
 })();
+// ---- Música nos posts do feed: toca o trecho do post que está na tela (um por vez) ----
+state.feedMudo = lsGet('pulso-feed-mudo') === '1';
+const musicaFeed = (() => {
+    let atual = null, pendente = false;
+    const ocupado = () => document.querySelector('.story-viewer.on, .sc.on, #novoPostTela, #scMusModo, .x1-veu');
+    const escolher = () => {
+        pendente = false;
+        if (ocupado() || document.hidden) { if (atual) { tocadorMusica.parar('feed'); atual = null; } return; }
+        const H = window.innerHeight; let melhor = null, mv = 0;
+        document.querySelectorAll('.post[data-mus-id]').forEach(p => {
+            const m = p.querySelector('.post-midia-mus'); if (!m || !m.offsetParent) return;
+            const r = m.getBoundingClientRect(), vis = Math.max(0, Math.min(r.bottom, H - 70) - Math.max(r.top, 60)) / Math.max(1, r.height);
+            if (vis > mv) { mv = vis; melhor = p; }
+        });
+        if (!melhor || mv < 0.6) { if (atual) { tocadorMusica.parar('feed'); marcar(null); atual = null; } return; }
+        if (melhor === atual && tocadorMusica.dono === 'feed') return;
+        atual = melhor; marcar(melhor);
+        const id = melhor.dataset.musId, ini = Number(melhor.dataset.musIni) || 0, dur = Number(melhor.dataset.musDur) || MUSICA_TRECHO;
+        previewMusica(id).then(async fr => {
+            if (atual !== melhor || !fr) return;
+            const ok = await tocadorMusica.tocar(fr.preview, ini, 'feed', state.feedMudo, dur);
+            if (!ok && atual === melhor) { state.feedMudoAuto = true; melhor.querySelectorAll('.post-som').forEach(b => b.classList.add('mudo')); }
+        });
+    };
+    const marcar = p => { document.querySelectorAll('.post.mus-tocando').forEach(x => { if (x !== p) x.classList.remove('mus-tocando'); }); if (p) p.classList.add('mus-tocando'); };
+    const agendar = () => { if (!pendente) { pendente = true; setTimeout(() => requestAnimationFrame(escolher), 120); } };
+    window.addEventListener('scroll', agendar, { passive: true });
+    document.addEventListener('scroll', agendar, { passive: true, capture: true });
+    document.addEventListener('visibilitychange', agendar);
+    new MutationObserver(agendar).observe(document.body, { childList: true, subtree: false });
+    setInterval(() => { if (document.querySelector('.post[data-mus-id]') || atual) agendar(); }, 1500);
+    return { agendar, parar() { tocadorMusica.parar('feed'); atual = null; } };
+})();
+// tocou no nome da música de um post: usar no story ou num post seu
+function abrirUsarMusica(m) {
+    const capa = m.capa ? `<img src="${escapeHTML(m.capa)}" alt="">` : '';
+    const { f, fechar } = x1Folha(`<div class="mus-item sel"><span class="mus-capa">${capa}</span><div class="pd-nome"><b>${escapeHTML(m.titulo)}</b><small>${escapeHTML(m.artista)}</small></div></div>
+        <button class="x1-op" data-um="story">Usar no story</button><button class="x1-op" data-um="post">Usar num post</button><button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'usarMusicaSheet');
+    f.addEventListener('click', async e => {
+        const b = e.target.closest('[data-um]'); if (!b) return;
+        const fr = await previewMusica(m.id);
+        if (!fr) { toast('Essa música não tem trecho disponível agora', 'err'); return; }
+        const mus = { ...m, preview: fr.preview, ini: Number(m.ini) || 0, dur: Number(m.dur) || MUSICA_TRECHO };
+        fechar(); musicaFeed.parar();
+        if (b.dataset.um === 'story') {
+            openStoryCreator(); entrarModoTexto();
+            setTimeout(() => { $('#scText').blur(); abrirModoTrecho(mus); }, 120);
+        } else { state.musicaPendente = mus; abrirPostDireto(); }
+    });
+}
 function htmlAdesivoMusica(m) {
     const capa = m.capa ? `<img src="${escapeHTML(m.capa)}" alt="">` : '<i class="mus-capa-vazia"></i>';
     return `<span class="mus-capa">${capa}</span><span class="mus-txt"><b>${escapeHTML(m.titulo || '')}</b><small>${escapeHTML(m.artista || '')}</small></span><span class="mus-eq"><i></i><i></i><i></i><i></i></span>`;
@@ -16638,19 +16707,20 @@ function guardarMusicaRecente(m) {
 }
 const storyDeTreino = () => !!((sc.card && sc.card.tipo === 'treino') || (sc.adesivo && /treino/.test(String(sc.adesivo.tipo || sc.adesivo))));
 
-async function abrirMusicaStory() {
+async function abrirMusicaStory(destino = 'story') {
+    const ehPost = destino === 'post', atual = ehPost ? (state.novoPost || {}).musica : sc.musica;
     tocadorMusica.liberar();
     const lupa = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>';
     const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Música</h3>
         <label class="pd-busca">${lupa}<input id="musBusca" type="search" placeholder="Buscar música ou artista" autocomplete="off" autocapitalize="off" enterkeyhint="search"></label>
         <div class="mus-chips no-puxar" id="musChips">${MUS_CHIPS.map(([k, n], i) => `<button type="button" class="${i ? '' : 'on'}" data-chip="${k}">${n}</button>`).join('')}</div>
         <div class="mus-lista" id="musLista">${esqueletoAba('depoimentos')}</div>
-        ${sc.musica ? '<button class="x1-op perigo" data-mus="tirar">Tirar música</button>' : ''}
+        ${atual ? '<button class="x1-op perigo" data-mus="tirar">Tirar música</button>' : ''}
         <p class="mus-fonte">Trechos fornecidos pelo Deezer</p>`, 'scMusicaSheet');
     const veu = f, lista = f.querySelector('#musLista'), campo = f.querySelector('#musBusca'), chips = f.querySelector('#musChips');
     let itens = [], tocando = null, seq = 0;
     const pararPrevia = () => { tocadorMusica.parar('previa'); tocando = null; lista.querySelectorAll('.mus-play.on').forEach(b => b.classList.remove('on')); };
-    new MutationObserver((_, ob) => { if (!document.body.contains(veu)) { ob.disconnect(); pararPrevia(); if (sc.musica && $('#storyCreator').classList.contains('on') && !document.getElementById('scMusModo')) tocarMusicaEditor(); } }).observe(document.body, { childList: true });
+    new MutationObserver((_, ob) => { if (!document.body.contains(veu)) { ob.disconnect(); pararPrevia(); if (!ehPost && sc.musica && $('#storyCreator').classList.contains('on') && !document.getElementById('scMusModo')) tocarMusicaEditor(); } }).observe(document.body, { childList: true });
     const linha = m => { const i = itens.push(m) - 1;
         return `<div class="mus-item" data-i="${i}">
             <span class="mus-capa">${m.capa ? `<img src="${escapeHTML(m.capa)}" alt="" loading="lazy">` : ''}</span>
@@ -16664,7 +16734,7 @@ async function abrirMusicaStory() {
         lista.innerHTML = esqueletoAba('depoimentos');
         try {
             if (k === 'voce') {
-                const treino = storyDeTreino();
+                const treino = !ehPost && storyDeTreino();
                 const [alta, top, tre] = await Promise.all([
                     sb.rpc('musicas_em_alta').then(r => r.data || [], () => []),
                     listaMusicas('top').catch(() => []),
@@ -16703,7 +16773,7 @@ async function abrirMusicaStory() {
     });
     const comPreview = async m => { if (m.preview) return m; const fr = await previewMusica(m.id); return fr ? { ...m, preview: fr.preview } : null; };
     f.addEventListener('click', async e => {
-        if (e.target.closest('[data-mus="tirar"]')) { pararPrevia(); tirarMusicaStory(); fechar(); return; }
+        if (e.target.closest('[data-mus="tirar"]')) { pararPrevia(); if (ehPost) { state.novoPost.musica = null; atualizarMusicaComposer(); } else tirarMusicaStory(); fechar(); return; }
         const pl = e.target.closest('[data-play]');
         if (pl) {
             e.stopPropagation();
@@ -16722,38 +16792,39 @@ async function abrirMusicaStory() {
             const m = await comPreview(itens[Number(it.dataset.i)]);
             if (!m) { toast('Essa música não tem trecho disponível', 'err'); return; }
             fechar();
-            abrirModoTrecho(m);
+            abrirModoTrecho(m, ehPost ? { post: true } : {});
         }
     });
 }
 
 // ajustar o trecho em cima da própria foto (a janela fica parada no meio e a onda desliza)
 const MUS_PPS = 12; // pixels por segundo na onda
-function abrirModoTrecho(m) {
-    const cr = $('#storyCreator');
-    const antes = sc.musica ? { ...sc.musica } : null, posAntes = sc.musicaPos ? { ...sc.musicaPos } : null;
+function abrirModoTrecho(m, opts = {}) {
+    const post = !!opts.post, alvo = post ? (state.novoPost || {}) : sc;
+    const cr = post ? document.body : $('#storyCreator');
+    const antes = alvo.musica ? { ...alvo.musica } : null, posAntes = sc.musicaPos ? { ...sc.musicaPos } : null;
     const mesma = antes && String(antes.id) === String(m.id);
     let ini = mesma ? Number(antes.ini) || 0 : 0, dur = mesma ? Number(antes.dur) || MUSICA_TRECHO : MUSICA_TRECHO, estilo = (antes && antes.estilo) || 'card';
-    sc.musica = { id: m.id, titulo: m.titulo, artista: m.artista, capa: m.capa || '', preview: m.preview, ini, dur, estilo };
-    if (!sc.musicaPos) sc.musicaPos = { x: 50, y: 42, s: 1, r: 0 };
-    pintarMusicaCriador();
+    alvo.musica = { id: m.id, titulo: m.titulo, artista: m.artista, capa: m.capa || '', preview: m.preview, ini, dur, estilo };
+    if (!post) { if (!sc.musicaPos) sc.musicaPos = { x: 50, y: 42, s: 1, r: 0 }; pintarMusicaCriador(); }
     const semente = Number(String(m.id).slice(-4)) || 7;
     const barras = Array.from({ length: 60 }, (_, k) => 26 + Math.round(Math.abs(Math.sin(k * 1.37 + semente) * Math.cos(k * .21 + semente / 3)) * 70));
     const htmlBarras = barras.map(h => `<i style="height:${h}%"></i>`).join('');
     const pp = { play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>', pause: '<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>' };
     const modo = document.createElement('div');
-    modo.id = 'scMusModo'; modo.className = 'mm';
+    modo.id = 'scMusModo'; modo.className = 'mm' + (post ? ' mm-post' : '');
     const miniEst = { card: '<i class="mm-mini card"></i>', vidro: '<i class="mm-mini vidro"></i>', mini: '<i class="mm-mini mini"></i>' };
     modo.innerHTML = `<div class="mm-top"><button type="button" data-mm="cancelar">Cancelar</button><button type="button" class="ok" data-mm="ok">Concluir</button></div>
+        ${post ? `<div class="mm-fundo" style="background-image:url('${state.novoPost && state.novoPost.url ? state.novoPost.url : ''}')"></div><div class="mm-previa"><div class="sv-musica est-mini">${htmlAdesivoMusica(m)}</div></div>` : ''}
         <div class="mm-painel">
-            <div class="mm-seg">${[['card', 'Card'], ['vidro', 'Vidro'], ['mini', 'Mini']].map(([k, n]) => `<button type="button" data-est="${k}" class="${k === estilo ? 'on' : ''}">${miniEst[k]}${n}</button>`).join('')}</div>
+            ${post ? '' : `<div class="mm-seg">${[['card', 'Card'], ['vidro', 'Vidro'], ['mini', 'Mini']].map(([k, n]) => `<button type="button" data-est="${k}" class="${k === estilo ? 'on' : ''}">${miniEst[k]}${n}</button>`).join('')}</div>`}
             <div class="mm-ctrl"><button type="button" class="mm-dur" data-mm="dur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg><b>${dur}</b> s</button><span class="mm-tempo" id="mmTempo"></span><button type="button" class="mm-pp" data-mm="pp">${pp.pause}</button></div>
             <div class="mm-onda-box" id="mmBox"><div class="mm-onda" id="mmOnda">${htmlBarras}</div><div class="mm-janela" id="mmJanela"><div class="mm-fill" id="mmFill"></div><div class="mm-onda mm-onda-dentro" id="mmOndaD">${htmlBarras}</div></div></div>
             <p class="mm-dica">Arraste a onda pra escolher o trecho</p>
         </div>
         <div class="mm-roda hidden" id="mmRoda"><div class="mm-roda-folha"><h3>Duração do trecho</h3><div class="mm-roda-lista" id="mmRodaLista">${Array.from({ length: 11 }, (_, k) => k + 5).map(n => `<button type="button" data-seg="${n}">${n} segundos</button>`).join('')}</div><button type="button" class="mm-roda-ok" data-mm="roda-ok">Concluir</button></div></div>`;
     cr.appendChild(modo);
-    cr.classList.add('mus-modo');
+    if (!post) cr.classList.add('mus-modo');
     fecharBalaoMusica();
     { const st = document.getElementById('scMusica'); if (st) st.classList.add('editando'); }
     const box = modo.querySelector('#mmBox'), onda = modo.querySelector('#mmOnda'), ondaD = modo.querySelector('#mmOndaD'), jan = modo.querySelector('#mmJanela'), fill = modo.querySelector('#mmFill'), tempo = modo.querySelector('#mmTempo');
@@ -16777,10 +16848,10 @@ function abrirModoTrecho(m) {
     box.addEventListener('pointermove', e => { if (!arr) return; ini = Math.max(0, Math.min(30 - dur, arr.ini0 - (e.clientX - arr.x) / MUS_PPS)); pintar(); });
     const soltar = () => { if (!arr) return; arr = null; ini = Math.round(ini * 2) / 2; pintar(); tocar(); vibrar(5); };
     box.addEventListener('pointerup', soltar); box.addEventListener('pointercancel', soltar);
-    const fechar = () => { cancelAnimationFrame(raf); modo.remove(); cr.classList.remove('mus-modo'); const st = document.getElementById('scMusica'); if (st) st.classList.remove('editando'); };
+    const fechar = () => { cancelAnimationFrame(raf); modo.remove(); if (post) { tocadorMusica.parar('editor'); } cr.classList.remove('mus-modo'); const st = document.getElementById('scMusica'); if (st) st.classList.remove('editando'); };
     modo.addEventListener('click', e => {
         const est = e.target.closest('[data-est]');
-        if (est) { estilo = est.dataset.est; sc.musica.estilo = estilo; modo.querySelectorAll('[data-est]').forEach(b => b.classList.toggle('on', b === est)); pintarMusicaCriador(); vibrar(5); return; }
+        if (est) { estilo = est.dataset.est; alvo.musica.estilo = estilo; modo.querySelectorAll('[data-est]').forEach(b => b.classList.toggle('on', b === est)); pintarMusicaCriador(); vibrar(5); return; }
         const seg = e.target.closest('[data-seg]');
         if (seg) { modo.querySelectorAll('[data-seg]').forEach(b => b.classList.toggle('on', b === seg)); seg.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
         const a = (e.target.closest('[data-mm]') || {}).dataset; if (!a) return;
@@ -16791,17 +16862,20 @@ function abrirModoTrecho(m) {
             setTimeout(() => atual && atual.scrollIntoView({ block: 'center' }), 30);
         } else if (a.mm === 'roda-ok') {
             const on = modo.querySelector('[data-seg].on');
-            dur = on ? Number(on.dataset.seg) : dur; ini = Math.min(ini, 30 - dur); sc.musica.dur = dur;
+            dur = on ? Number(on.dataset.seg) : dur; ini = Math.min(ini, 30 - dur); alvo.musica.dur = dur;
             modo.querySelector('#mmRoda').classList.add('hidden'); pintar(); tocar();
         } else if (a.mm === 'cancelar') {
             fechar();
-            sc.musica = antes; sc.musicaPos = posAntes;
+            alvo.musica = antes;
+            if (post) { atualizarMusicaComposer(); return; }
+            sc.musicaPos = posAntes;
             pintarMusicaCriador();
             if (sc.musica) tocarMusicaEditor(); else tocadorMusica.parar('editor');
             atualizarBotaoPublicarStory();
         } else if (a.mm === 'ok') {
-            sc.musica = { ...sc.musica, ini, dur, estilo };
-            guardarMusicaRecente(sc.musica);
+            alvo.musica = { ...alvo.musica, ini, dur, estilo };
+            guardarMusicaRecente(alvo.musica);
+            if (post) { fechar(); atualizarMusicaComposer(); vibrar(10); return; }
             fechar(); pintarMusicaCriador(); tocarMusicaEditor(); atualizarBotaoPublicarStory(); vibrar(10);
         }
     });
@@ -17351,6 +17425,35 @@ async function carregarDestaques(uid) {
         .eq('user_id', uid).order('created_at', { ascending: true });
     return (data || []).filter(h => (h.story_highlight_items || []).length);
 }
+// ---- Capa dos destaques: foto (com enquadramento), cor do story, ou cor + ícone ----
+const CAPA_CORES = { verde: 'linear-gradient(135deg,#10B981,#0E7490)', laranja: 'linear-gradient(135deg,#F59E0B,#EF4444)', roxo: 'linear-gradient(135deg,#8B5CF6,#EC4899)',
+    azul: 'linear-gradient(135deg,#0EA5E9,#6366F1)', grafite: '#1F2937', claro: '#F1F4F1' };
+const CAPA_ICONES = {
+    treino: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
+    refeicao: '<circle cx="13.5" cy="12.5" r="6"/><path d="M3.5 4v4.5a1.8 1.8 0 0 0 1.8 1.8M7 4v4.5a1.8 1.8 0 0 1-1.8 1.8M5.3 10.3V20"/>',
+    corrida: '<circle cx="14" cy="4.5" r="1.8"/><path d="M9 21l2.5-6-3-3 3.5-4 3 3.5h3.5M11.5 15l3 2.5V21"/>',
+    coracao: '<path d="M12 20.5s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7.5 2.6c0 5.7-7.5 10.3-7.5 10.3z"/>',
+    trofeu: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM16 5.5h3v1.5a3 3 0 0 1-3 3M8 5.5H5v1.5a3 3 0 0 0 3 3M12 13v4M8.5 20h7"/>',
+    evolucao: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
+    viagem: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    estrela: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
+    fogo: '<path d="M12 21.5c4 0 7-2.7 7-6.6 0-3.3-2.2-5.6-4-7.4.1 2-1 3.4-2.3 3.4C11 10.9 12.5 6.5 10 2.5 9 6.5 5 8.5 5 14.9 5 18.8 8 21.5 12 21.5z"/>',
+    cruz: '<path d="M12 3v18M6 8.5h12"/>',
+    sino: '<path d="M17.5 9a5.5 5.5 0 1 0-11 0c0 6.5-2.5 8.5-2.5 8.5h16s-2.5-2-2.5-8.5M10 20.5a2 2 0 0 0 4 0"/>',
+    musica: '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+};
+const capaBase = c => String(c || '').split('#q=')[0];
+const capaEnq = c => { const m = String(c || '').match(/#q=([\d.]+),([\d.]+),([\d.]+)/); return m ? { x: +m[1], y: +m[2], s: +m[3] } : { x: 50, y: 50, s: 1 }; };
+const svgCapa = (ic, claro) => `<svg viewBox="0 0 24 24" fill="none" stroke="${claro ? '#0A0C0B' : '#fff'}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${CAPA_ICONES[ic] || CAPA_ICONES.estrela}</svg>`;
+// devolve o fundo e o conteúdo do círculo da capa
+function visualCapa(c, reserva = STORY_BG_PADRAO) {
+    if (!c) return { fundo: `background:${reserva}`, dentro: '' };
+    if (c.startsWith('cor:')) return { fundo: `background:${c.slice(4)}`, dentro: '' };
+    if (c.startsWith('ic:')) { const [, ic, cor] = c.split(':'); return { fundo: `background:${CAPA_CORES[cor] || CAPA_CORES.verde}`, dentro: `<span class="capa-ic">${svgCapa(ic, cor === 'claro')}</span>` }; }
+    const q = capaEnq(c);
+    return { fundo: '', dentro: `<img src="${capaBase(c)}" alt="" style="object-position:${q.x}% ${q.y}%;transform:scale(${q.s})">` };
+}
+
 function destaquesHTML(lista, uid, { temArquivo = true } = {}) {
     const meu = uid === state.session.user.id;
     if ((!lista || !lista.length) && (!meu || !temArquivo)) return '';
@@ -17360,11 +17463,16 @@ function destaquesHTML(lista, uid, { temArquivo = true } = {}) {
         </button>` : '';
     return `<div class="destaques">${(lista || []).map(h => {
         const itens = [...h.story_highlight_items].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        if (h.cover_url && h.cover_url.startsWith('ic:')) {
+            const vc = visualCapa(h.cover_url);
+            return `<button class="destaque" data-act="abrir-destaque" data-id="${h.id}" data-uid="${uid}"><span class="destaque-capa" style="${vc.fundo}">${vc.dentro}</span><span class="destaque-nome">${escapeHTML(h.title)}</span></button>`;
+        }
         const corCapa = h.cover_url && h.cover_url.startsWith('cor:') ? h.cover_url.slice(4) : null;
         const fotos = [...new Set([corCapa ? null : h.cover_url, ...itens.map(i => i.image_url)].filter(Boolean))];
         const cor = corCapa || (itens.find(i => !i.image_url) || {}).background_color || STORY_BG_PADRAO;
         // se a foto da capa não existir mais, tenta a próxima do destaque; sem nenhuma, fica a cor
-        const img = !corCapa && fotos.length ? `<img src="${fotos[0]}" alt="" data-alt="${fotos.slice(1).join('|')}" onerror="capaFalhou(this)">` : '';
+        const q = fotos[0] === h.cover_url && String(h.cover_url).includes('#q=') ? capaEnq(h.cover_url) : null;
+        const img = !corCapa && fotos.length ? `<img src="${capaBase(fotos[0])}" alt="" data-alt="${fotos.slice(1).join('|')}" onerror="capaFalhou(this)"${q ? ` style="object-position:${q.x}% ${q.y}%;transform:scale(${q.s})"` : ''}>` : '';
         return `<button class="destaque" data-act="abrir-destaque" data-id="${h.id}" data-uid="${uid}">
             <span class="destaque-capa" style="background:${cor}">${img}</span>
             <span class="destaque-nome">${escapeHTML(h.title)}</span>
@@ -17375,7 +17483,8 @@ function capaFalhou(img) {
     const resto = (img.dataset.alt || '').split('|').filter(Boolean);
     if (!resto.length) { img.remove(); return; }
     img.dataset.alt = resto.slice(1).join('|');
-    img.src = resto[0];
+    img.style.cssText = '';
+    img.src = capaBase(resto[0]);
 }
 // ---- Editor de destaque (criar ou editar, escolhendo vários stories) ----
 function miniStoryHTML(x, marcado) {
@@ -17419,6 +17528,12 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null, modo = nul
     const capasQuebradas = new Set();
     // capa que não é de nenhum story do destaque = foto da galeria escolhida antes
     const urlsItens = new Set((itensAtuais || []).map(i => i.image_url).filter(Boolean));
+    // enquadramento da foto (arrastar e zoom) fica guardado junto do link da capa
+    let enq = capa && !capa.startsWith('cor:') && !capa.startsWith('ic:') ? capaEnq(capa) : { x: 50, y: 50, s: 1 };
+    let icCapa = capa && capa.startsWith('ic:') ? capa : null;
+    let abaCapa = icCapa ? 'icone' : 'fotos';
+    if (capa) capa = capaBase(capa);
+    if (icCapa) capa = null;
     let capaPropria = capa && !capa.startsWith('cor:') && !urlsItens.has(capa) && !(arquivo || []).some(st => st.image_url === capa) ? capa : null;
 
     // ---------- passo 1: escolher ----------
@@ -17455,36 +17570,57 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null, modo = nul
         const valida = capa && (capa === capaPropria || opsCapa.includes(capa)) && !capasQuebradas.has(capa);
         if (!valida) capa = opsCapa.find(c => !c.startsWith('cor:') && !capasQuebradas.has(c)) || opsCapa[0] || null;
         const estiloCapa = c => !c ? `background:${STORY_BG_PADRAO}` : c.startsWith('cor:') ? `background:${c.slice(4)}` : `background-image:url('${c}')`;
-        const fundoCapa = estiloCapa(capa);
+        const [, icSel = 'treino', corSel = 'verde'] = (icCapa || 'ic:treino:verde').split(':');
+        const final = () => abaCapa === 'icone' ? `ic:${icSel}:${corSel}` : (capa && !capa.startsWith('cor:') && (Math.abs(enq.x - 50) > .5 || Math.abs(enq.y - 50) > .5 || Math.abs(enq.s - 1) > .01) ? `${capa}#q=${Math.round(enq.x)},${Math.round(enq.y)},${enq.s.toFixed(2)}` : capa);
+        const vc = visualCapa(final());
         const lista = [...new Set([...(capaPropria ? [capaPropria] : []), ...opsCapa])].filter(c => !capasQuebradas.has(c));
+        const ehFoto = abaCapa === 'fotos' && capa && !capa.startsWith('cor:');
         v.innerHTML = `<div class="pv-topo">
                 <button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button>
                 <div class="topbar-title">${hid ? 'Editar destaque' : 'Novo destaque'}</div>
                 <button class="ed-salvar" id="edSalvar">${hid ? 'Salvar' : 'Criar'}</button>
             </div>
             <div class="pv-lista ed-passo2">
-                <span class="ed-capa" style="${fundoCapa}"></span>
-                <p class="ed-capa-dica">Escolha a capa</p>
+                <span class="ed-capa${ehFoto ? ' arrastavel' : ''}" id="edCapaGrande" style="${vc.fundo}">${vc.dentro}</span>
+                ${ehFoto ? `<p class="ed-capa-dica">Arraste pra enquadrar</p><input type="range" class="ed-zoom" id="edZoom" min="1" max="3" step="0.02" value="${enq.s}" aria-label="Zoom">` : ''}
+                <div class="ed-abas-capa"><button type="button" data-aba-capa="fotos" class="${abaCapa === 'fotos' ? 'on' : ''}">Fotos</button><button type="button" data-aba-capa="icone" class="${abaCapa === 'icone' ? 'on' : ''}">Cor e ícone</button></div>
+                ${abaCapa === 'fotos' ? `
                 <div class="ed-capas">${lista.map(c => `<button type="button" class="ed-capa-op${c === capa ? ' on' : ''}" data-capa="${c}" style="${estiloCapa(c)}"></button>`).join('')}<label class="ed-capa-op ed-capa-gal" aria-label="Foto da galeria">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}<input type="file" accept="image/*" id="edCapaGal" hidden></label></div>
-                <p class="ed-capa-dica ed-capa-dica2">ou use uma foto da galeria</p>
+                <p class="ed-capa-dica ed-capa-dica2">um story do destaque ou uma foto da galeria</p>` : `
+                <div class="ed-cores">${Object.entries(CAPA_CORES).map(([k, c]) => `<button type="button" data-cor-capa="${k}" class="${k === corSel ? 'on' : ''}" style="background:${c}" aria-label="${k}"></button>`).join('')}</div>
+                <div class="ed-icones">${Object.keys(CAPA_ICONES).map(k => `<button type="button" data-ic-capa="${k}" class="${k === icSel ? 'on' : ''}" aria-label="${k}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${CAPA_ICONES[k]}</svg></button>`).join('')}</div>`}
                 <input type="text" id="edNome" class="obj-input ed-nome" maxlength="20" placeholder="Nome do destaque (opcional)" value="${escapeHTML(nome)}">
                 ${hid ? '<button class="cfg-row cfg-perigo ed-excluir" id="edExcluir"><span class="cfg-txt">Excluir destaque</span></button>' : ''}
             </div>`;
+        const guardarNome = () => { const el = document.getElementById('edNome'); if (el) nome = el.value; };
+        v.querySelectorAll('[data-aba-capa]').forEach(b => b.onclick = () => { guardarNome(); abaCapa = b.dataset.abaCapa; if (abaCapa === 'icone' && !icCapa) icCapa = 'ic:treino:verde'; passo2(); vibrar(5); });
+        v.querySelectorAll('[data-cor-capa]').forEach(b => b.onclick = () => { guardarNome(); icCapa = `ic:${icSel}:${b.dataset.corCapa}`; passo2(); vibrar(5); });
+        v.querySelectorAll('[data-ic-capa]').forEach(b => b.onclick = () => { guardarNome(); icCapa = `ic:${b.dataset.icCapa}:${corSel}`; passo2(); vibrar(5); });
+        // enquadrar a foto: arrastar move, a barra dá zoom
+        if (ehFoto) {
+            const g = document.getElementById('edCapaGrande'), im = g.querySelector('img'), zoom = document.getElementById('edZoom');
+            const aplicar = () => { im.style.objectPosition = `${enq.x}% ${enq.y}%`; im.style.transform = `scale(${enq.s})`; };
+            let ar = null;
+            g.addEventListener('pointerdown', e => { ar = { x: e.clientX, y: e.clientY, x0: enq.x, y0: enq.y }; g.setPointerCapture(e.pointerId); });
+            g.addEventListener('pointermove', e => { if (!ar) return; const k = 100 / (g.clientWidth * enq.s); enq.x = Math.max(0, Math.min(100, ar.x0 - (e.clientX - ar.x) * k)); enq.y = Math.max(0, Math.min(100, ar.y0 - (e.clientY - ar.y) * k)); aplicar(); });
+            const fim = () => { ar = null; }; g.addEventListener('pointerup', fim); g.addEventListener('pointercancel', fim);
+            zoom.addEventListener('input', () => { enq.s = Number(zoom.value); aplicar(); });
+        }
         v.querySelector('.pv-voltar').onclick = () => { nome = document.getElementById('edNome').value; passo1(); };
-        v.querySelectorAll('[data-capa]').forEach(b => b.onclick = () => { nome = document.getElementById('edNome').value; capa = b.dataset.capa; passo2(); });
+        v.querySelectorAll('[data-capa]').forEach(b => b.onclick = () => { nome = document.getElementById('edNome').value; if (b.dataset.capa !== capa) enq = { x: 50, y: 50, s: 1 }; capa = b.dataset.capa; passo2(); });
         // foto da capa que não abre mais (foi apagada): some da lista e a capa troca sozinha
         lista.filter(c => !c.startsWith('cor:')).forEach(c => {
             const t = new Image();
             t.onerror = () => { if (capasQuebradas.has(c)) return; capasQuebradas.add(c); if (document.getElementById('edNome')) { nome = document.getElementById('edNome').value; passo2(); } };
             t.src = c;
         });
-        document.getElementById('edCapaGal').onchange = async e => {
+        if (document.getElementById('edCapaGal')) document.getElementById('edCapaGal').onchange = async e => {
             const f = e.target.files && e.target.files[0]; if (!f) return;
             nome = document.getElementById('edNome').value;
             const capaEl = v.querySelector('.ed-capa'); if (capaEl) capaEl.classList.add('carregando');
             try {
                 capaPropria = await uploadImage('post-images', f, { maxSide: 600, quality: 0.82 });
-                capa = capaPropria; passo2();
+                capa = capaPropria; enq = { x: 50, y: 50, s: 1 }; passo2();
             } catch (err) { toast(msgErro(err), 'err'); if (capaEl) capaEl.classList.remove('carregando'); }
         };
         const exc = document.getElementById('edExcluir');
@@ -17497,17 +17633,18 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null, modo = nul
         };
         document.getElementById('edSalvar').onclick = async () => {
             const titulo = document.getElementById('edNome').value.trim() || 'Destaque';
+            const capaFinal = final();
             const btn = document.getElementById('edSalvar');
             btnCarregando(btn, true);
             try {
                 let id = hid;
                 if (!id) {
                     const { data: h, error } = await sb.from('story_highlights')
-                        .insert({ user_id: state.session.user.id, title: titulo, cover_url: capa }).select().single();
+                        .insert({ user_id: state.session.user.id, title: titulo, cover_url: capaFinal }).select().single();
                     if (error) throw error;
                     id = h.id;
                 } else {
-                    const { error } = await sb.from('story_highlights').update({ title: titulo, cover_url: capa }).eq('id', id);
+                    const { error } = await sb.from('story_highlights').update({ title: titulo, cover_url: capaFinal }).eq('id', id);
                     if (error) throw error;
                 }
                 const remover = opcoes.filter(o => o.tipo === 'item' && !o.on).map(o => o.id);
@@ -18113,7 +18250,8 @@ function abrirNovoPost(file, destino = 'post') {
     const extras = Array.isArray(file) ? file.slice(1) : [];
     if (Array.isArray(file)) file = file[0];
     const url = URL.createObjectURL(file);
-    state.novoPost = { file, url, vis: state.defaultPrivacy || 'public', destino };
+    state.novoPost = { file, url, vis: state.defaultPrivacy || 'public', destino, musica: state.musicaPendente || null };
+    state.musicaPendente = null;
     const tela = document.createElement('div');
     tela.id = 'novoPostTela';
     tela.className = 'np-tela';
@@ -18130,11 +18268,13 @@ function abrirNovoPost(file, destino = 'post') {
                 <label class="np-trocar np-troca-1">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}Trocar<input type="file" accept="image/*" id="npTrocar" hidden></label></div>
             <div class="np-minis" id="npMinis"></div>
             <div class="np-leg">${avatarHTML(p, 'sm')}<textarea id="npLegenda" rows="2" maxlength="2200" placeholder="Escreva uma legenda..."></textarea></div>
+            <button type="button" class="np-linha np-musica" data-np="musica">${SVG_C('<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>')}<span>Música</span><span class="np-val" id="npMusica">Adicionar</span>${SVG_C('<path d="M9 6l6 6-6 6"/>')}</button>
             <button type="button" class="np-linha" data-np="vis">${SVG_C('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>')}<span>Quem vê</span><span class="np-val" id="npVis">${VIS_NOME[state.novoPost.vis]}</span>${SVG_C('<path d="M9 6l6 6-6 6"/>')}</button>
         </div>`;
     document.body.appendChild(tela);
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(() => tela.classList.add('on'));
+    setTimeout(atualizarMusicaComposer, 0);
     const setDest = d => {
         state.novoPost.destino = d;
         tela.classList.toggle('dest-story', d === 'story');
@@ -18193,23 +18333,38 @@ function abrirNovoPost(file, destino = 'post') {
             state.novoPost.vis = ordem[(ordem.indexOf(state.novoPost.vis) + 1) % 3];
             tela.querySelector('#npVis').textContent = VIS_NOME[state.novoPost.vis];
             vibrar(6);
+        } else if (a === 'musica') {
+            abrirMusicaStory('post');
         } else if (a === 'publicar') {
             if (state.novoPost.destino === 'story') {
-                const f = state.novoPost.file;
+                const f = state.novoPost.file, mus = state.novoPost.musica;
                 tela.remove(); document.body.style.overflow = '';
                 openStoryCreator(); entrarModoFoto(f);
+                if (mus) { sc.musica = { ...mus }; pintarMusicaCriador(); tocarMusicaEditor(); atualizarBotaoPublicarStory(); }
             } else publicarNovoPost(b);
         }
     });
 }
 // Sobe as fotos e cria o post (usado na hora e pelos rascunhos guardados)
-async function enviarPostLivre(files, legenda, vis) {
+// mostra a música escolhida no criar post (linha e etiqueta na foto)
+function atualizarMusicaComposer() {
+    const tela = document.getElementById('novoPostTela'); if (!tela || !state.novoPost) return;
+    const m = state.novoPost.musica, val = tela.querySelector('#npMusica');
+    if (val) { val.textContent = m ? m.titulo : 'Adicionar'; val.classList.toggle('on', !!m); }
+    let chip = tela.querySelector('.np-mus-chip');
+    const foto = tela.querySelector('.np-foto');
+    if (!m) { if (chip) chip.remove(); return; }
+    if (!chip && foto) { chip = document.createElement('button'); chip.type = 'button'; chip.className = 'np-mus-chip'; chip.dataset.np = 'musica'; foto.appendChild(chip); }
+    if (chip) chip.innerHTML = `<span class="mus-capa">${m.capa ? `<img src="${escapeHTML(m.capa)}" alt="">` : ''}</span>${escapeHTML(m.titulo)} · ${escapeHTML(m.artista)}`;
+}
+const musicaParaSalvar = m => m && m.id ? { id: m.id, titulo: m.titulo, artista: m.artista, capa: m.capa || '', ini: Math.round((Number(m.ini) || 0) * 2) / 2, dur: Math.max(5, Math.min(MUSICA_TRECHO, Number(m.dur) || MUSICA_TRECHO)) } : null;
+async function enviarPostLivre(files, legenda, vis, musica = null) {
     const [urls, thumbUrl, dims] = await Promise.all([Promise.all(files.map(f => uploadImage('post-images', f))), uploadMiniatura(files[0]), medirFoto(files[0])]);
     const imageUrl = urls[0];
     const { data: criado, error } = await sb.from('posts').insert({
         user_id: state.session.user.id, kind: 'text', caption: legenda || null,
         image_url: imageUrl, thumb_url: thumbUrl, visibility: vis, is_public: vis === 'public', in_feed: true,
-        meta: { ...(urls.length > 1 ? { fotos: urls } : {}), ...(dims || {}) },
+        meta: { ...(urls.length > 1 ? { fotos: urls } : {}), ...(dims || {}), ...(musicaParaSalvar(musica) ? { musica: musicaParaSalvar(musica) } : {}) },
     }).select('id').single();
     if (error) {
         // não deixa foto solta no armazenamento
@@ -18227,7 +18382,7 @@ async function publicarNovoPost(btn) {
     const fecharTela = () => { const tela = document.getElementById('novoPostTela'); if (tela) tela.remove(); document.body.style.overflow = ''; };
     try {
         if (!navigator.onLine) throw new Error('offline');
-        await enviarPostLivre(fs, legenda, np.vis);
+        await enviarPostLivre(fs, legenda, np.vis, np.musica);
         fecharTela();
         vibrar([10, 40, 14]);
         toast('Publicado no feed', 'ok');
@@ -18235,7 +18390,7 @@ async function publicarNovoPost(btn) {
     } catch (e) {
         const t = String((e && e.message) || '');
         if (t.includes('limite_por_hora')) toast('Você postou bastante na última hora. Dá um tempinho e volte.', 'err');
-        else if (ehFalhaDeRede(e) && await guardarRascunho({ fotos: fs, legenda, vis: np.vis })) {
+        else if (ehFalhaDeRede(e) && await guardarRascunho({ fotos: fs, legenda, vis: np.vis, musica: musicaParaSalvar(np.musica) })) {
             fecharTela();
             toast('Sem conexão agora. Seu post ficou guardado e sai sozinho quando a internet voltar.', 'ok');
         } else toast(msgErro(e), 'err');
