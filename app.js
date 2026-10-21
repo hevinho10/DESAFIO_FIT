@@ -1,18 +1,22 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261251';
+const APP_VERSAO = '20261252';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
         if (!v || v === APP_VERSAO) return;
         const chave = 'pulso-recarga-' + APP_VERSAO;
-        if (sessionStorage.getItem(chave)) return; // já tentou: segue assim mesmo
+        if (sessionStorage.getItem(chave)) { window.PULSO_VERSAO_MISTA = v; return; } // já tentou: segue assim mesmo
         sessionStorage.setItem(chave, '1');
         const u = new URL(location.href); u.searchParams.set('_r', Date.now());
         location.replace(u.toString());
         throw new Error('pulso: recarregando pra atualizar a versão');
     } catch (e) { if (String(e && e.message).startsWith('pulso: recarregando')) throw e; }
 })();
+// Botão que não existe na tela (versão misturada) nunca trava o app
+const ELEM_NULO = { addEventListener() {}, removeEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; }, style: {}, dataset: {},
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } } };
+const el$ = id => document.getElementById(id) || ELEM_NULO;
 // ============================================================
 // CONFIG (mesmo projeto Supabase do FIT)
 // ============================================================
@@ -535,7 +539,7 @@ document.addEventListener('click', e => {
 });
 
 // ---- SIGN IN (email OU username) ----
-$('#signinForm').addEventListener('submit', async e => {
+el$('signinForm').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = $('#siBtn'), msg = $('#siMsg');
     const loginInput = $('#siLogin').value.trim();
@@ -580,7 +584,7 @@ let usernameCheckTimer = null;
 let lastCheckedUsername = null;
 let usernameIsAvailable = false;
 
-$('#suUsername').addEventListener('input', e => {
+el$('suUsername').addEventListener('input', e => {
     const val = e.target.value.trim().toLowerCase();
     const status = $('#suUsernameStatus');
 
@@ -612,7 +616,7 @@ $('#suUsername').addEventListener('input', e => {
     }, 400);
 });
 
-$('#signupForm').addEventListener('submit', async e => {
+el$('signupForm').addEventListener('submit', async e => {
     e.preventDefault();
     const btn = $('#suBtn'), msg = $('#suMsg');
     const username = $('#suUsername').value.trim().toLowerCase();
@@ -730,7 +734,7 @@ $('#signupForm').addEventListener('submit', async e => {
 });
 
 // ---- FORGOT PASSWORD: envia link por email ----
-$('#fpSendBtn').addEventListener('click', async () => {
+el$('fpSendBtn').addEventListener('click', async () => {
     const btn = $('#fpSendBtn'), msg = $('#fpMsg1');
     const email = $('#fpEmail').value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -752,7 +756,7 @@ $('#fpSendBtn').addEventListener('click', async () => {
 });
 
 // ---- RESET PASSWORD: após clicar no link, definir nova senha ----
-$('#rpBtn').addEventListener('click', async () => {
+el$('rpBtn').addEventListener('click', async () => {
     const btn = $('#rpBtn'), msg = $('#rpMsg');
     const pw1 = $('#rpPassword').value;
     const pw2 = $('#rpPassword2').value;
@@ -799,7 +803,7 @@ $('#rpBtn').addEventListener('click', async () => {
 });
 
 // ---- REENVIAR EMAIL DE CONFIRMAÇÃO ----
-$('#acResendBtn').addEventListener('click', async () => {
+el$('acResendBtn').addEventListener('click', async () => {
     const btn = $('#acResendBtn'), msg = $('#acMsg');
     const email = $('#acShowEmail').textContent;
     btn.disabled = true; btn.textContent = 'Enviando...'; msg.innerHTML = '';
@@ -1465,7 +1469,7 @@ function openTermsSheet() {
     const IGNORAR = /ResizeObserver loop|Script error\.?$|AbortError|The operation was aborted|Load failed|Failed to fetch|NetworkError|cancel/i;
     const mandar = (msg, pilha) => {
         try {
-            msg = String(msg || '').slice(0, 500);
+            msg = (window.PULSO_VERSAO_MISTA ? '[versão misturada ' + window.PULSO_VERSAO_MISTA + '] ' : '') + String(msg || '').slice(0, 500);
             if (!msg || IGNORAR.test(msg) || enviados >= 8 || typeof sb === 'undefined') return;
             const chave = msg + '|' + (state && state.view);
             if (vistos.has(chave)) return;
@@ -3640,8 +3644,8 @@ function mostrarDataSono() {
         : dt.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
     el.textContent = `${rel.charAt(0).toUpperCase() + rel.slice(1)} · ${br}`;
 }
-document.getElementById('skDate').addEventListener('change', mostrarDataSono);
-document.getElementById('skDate').addEventListener('input', mostrarDataSono);
+el$('skDate').addEventListener('change', mostrarDataSono);
+el$('skDate').addEventListener('input', mostrarDataSono);
 
 async function prepararSono() {
     const ontem = isoDe(new Date(Date.now() - 86400000)); // data do Brasil
@@ -15351,7 +15355,7 @@ function extrasStoryHTML(st) {
     if (st.enquete && st.enquete.p != null) h += `<div class="sv-enq" style="left:${Number(st.enquete.x) || 50}%;top:${Number(st.enquete.y) || 64}%">${htmlEnquete(st.enquete)}</div>`;
     if (st.repost_de && st.repost_de.username) h += `<button type="button" class="sv-repost-de" data-sv-uid="${st.repost_de.id}">↻ Repostado de @${escapeHTML(st.repost_de.username)}</button>`;
     if (st.musica && st.musica.id) { const mu = st.musica;
-        h += `<div class="sv-musica" style="left:${Number(mu.x) || 50}%;top:${Number(mu.y) || 70}%;transform:translate(-50%,-50%) scale(${Math.max(0.2, Math.min(2.5, Number(mu.s) || 1))}) rotate(${Number(mu.r) || 0}deg)">${htmlAdesivoMusica(mu)}</div>`; }
+        h += `<div class="sv-musica est-${['card', 'vidro', 'mini'].includes(mu.estilo) ? mu.estilo : 'card'}" style="left:${Number(mu.x) || 50}%;top:${Number(mu.y) || 70}%;transform:translate(-50%,-50%) scale(${Math.max(0.2, Math.min(2.5, Number(mu.s) || 1))}) rotate(${Number(mu.r) || 0}deg)">${htmlAdesivoMusica(mu)}</div>`; }
     (st.mencoes || []).forEach(m => {
         h += `<button type="button" class="sv-mencao" data-sv-uid="${m.id}" style="left:${Number(m.x) || 50}%;top:${Number(m.y) || 40}%${(Number(m.s) && Number(m.s) !== 1) || Number(m.r) ? `;transform:translate(-50%,-50%) scale(${Math.max(0.2, Math.min(2.5, Number(m.s) || 1))}) rotate(${Number(m.r) || 0}deg)` : ''}">@${escapeHTML(m.username || '')}</button>`;
     });
@@ -15670,6 +15674,7 @@ function closeStoryCreator() {
     if (depois) setTimeout(depois, 700);
     $('#storyCreator').classList.remove('on');
     tocadorMusica.parar('editor'); tocadorMusica.parar('previa');
+    { const mm = document.getElementById('scMusModo'); if (mm) mm.remove(); $('#storyCreator').classList.remove('mus-modo'); }
     document.body.style.overflow = '';
     sincronizarModoTela();
     $('#scText').blur();
@@ -16218,8 +16223,8 @@ tornarArrastavel(elCardCriador(), 'cardPos', null);
         trocarEstiloPoster(ESTILOS_POSTER[(i + (dx < 0 ? 1 : -1) + ESTILOS_POSTER.length) % ESTILOS_POSTER.length][0]);
     });
 })();
-$('#scText').addEventListener('focus', e => { if (e.target.classList.contains('travado')) { e.target.readOnly = true; e.target.blur(); } });
-$('#scText').addEventListener('blur', () => {
+el$('scText').addEventListener('focus', e => { if (e.target.classList.contains('travado')) { e.target.readOnly = true; e.target.blur(); } });
+el$('scText').addEventListener('blur', () => {
     if (sc.mode === 'photo') {
         const t = $('#scText');
         t.readOnly = true;
@@ -16231,12 +16236,12 @@ function escolherFotoStory(e) {
     const file = e.target.files && e.target.files[0];
     if (file) entrarModoFoto(file);
 }
-$('#scCam').addEventListener('change', escolherFotoStory);
-$('#scGal').addEventListener('change', escolherFotoStory);
-$('#scTextMode').addEventListener('click', entrarModoTexto);
-$('#scClose').addEventListener('click', closeStoryCreator);
-$('#scText').addEventListener('input', () => { ajustarAlturaTextoStory(); atualizarBotaoPublicarStory(); });
-$('#scAddText').addEventListener('click', () => {
+el$('scCam').addEventListener('change', escolherFotoStory);
+el$('scGal').addEventListener('change', escolherFotoStory);
+el$('scTextMode').addEventListener('click', entrarModoTexto);
+el$('scClose').addEventListener('click', closeStoryCreator);
+el$('scText').addEventListener('input', () => { ajustarAlturaTextoStory(); atualizarBotaoPublicarStory(); });
+el$('scAddText').addEventListener('click', () => {
     const t = $('#scText');
     if (t.classList.contains('travado')) return;
     t.classList.remove('hidden');
@@ -16244,21 +16249,21 @@ $('#scAddText').addEventListener('click', () => {
     ajustarAlturaTextoStory();
     t.focus();
 });
-$('#scColorBtn').addEventListener('click', () => $('#scSwatches').classList.toggle('hidden'));
-$('#scColEstilo').addEventListener('click', e => { e.stopPropagation(); $('#scFonte').click(); });
-$('#scColCor').addEventListener('click', e => { e.stopPropagation(); $('#scPaleta').classList.toggle('hidden'); montarPaletaTexto(); });
-$('#scColAlinhar').addEventListener('click', e => {
+el$('scColorBtn').addEventListener('click', () => $('#scSwatches').classList.toggle('hidden'));
+el$('scColEstilo').addEventListener('click', e => { e.stopPropagation(); $('#scFonte').click(); });
+el$('scColCor').addEventListener('click', e => { e.stopPropagation(); $('#scPaleta').classList.toggle('hidden'); montarPaletaTexto(); });
+el$('scColAlinhar').addEventListener('click', e => {
     e.stopPropagation();
     const ordem = ['center', 'left', 'right'];
     sc.alinhar = ordem[(ordem.indexOf(sc.alinhar) + 1) % 3];
     aplicarAlinhamento();
 });
-$('#scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
-$('#scColMusica').addEventListener('click', e => { e.stopPropagation(); abrirMusicaStory(); });
-$('#scColTreino').addEventListener('click', e => { e.stopPropagation(); if (e.currentTarget.classList.contains('desativado')) { toast('No repost o card original fica fixo'); return; } abrirAdesivosStory(); });
-$('#scColTexto').addEventListener('click', e => { e.stopPropagation(); if (e.currentTarget.classList.contains('desativado')) { toast('No repost o texto original fica fixo'); return; } $('#scAddText').click(); });
-$('#scColFoto').addEventListener('click', e => { e.stopPropagation(); $('#scGal').click(); });
-$('#scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrirMencionarStory(); });
+el$('scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
+el$('scColMusica').addEventListener('click', e => { e.stopPropagation(); abrirMusicaStory(); });
+el$('scColTreino').addEventListener('click', e => { e.stopPropagation(); if (e.currentTarget.classList.contains('desativado')) { toast('No repost o card original fica fixo'); return; } abrirAdesivosStory(); });
+el$('scColTexto').addEventListener('click', e => { e.stopPropagation(); if (e.currentTarget.classList.contains('desativado')) { toast('No repost o texto original fica fixo'); return; } $('#scAddText').click(); });
+el$('scColFoto').addEventListener('click', e => { e.stopPropagation(); $('#scGal').click(); });
+el$('scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrirMencionarStory(); });
 // Ferramentas do story: tocar mostra os nomes por 3s; deslizar o dedo foca uma ferramenta e soltar em cima abre
 (function gestosColunaStory() {
     const col = document.getElementById('scColuna'); if (!col) return;
@@ -16297,7 +16302,7 @@ $('#scColMencionar').addEventListener('click', e => { e.stopPropagation(); abrir
     col.addEventListener('pointerup', fim);
     col.addEventListener('pointercancel', fim);
 })();
-$('#scColFechar').addEventListener('click', e => {
+el$('scColFechar').addEventListener('click', e => {
     e.stopPropagation();
     const col = $('#scColuna');
     col.classList.toggle('recolhida');
@@ -16309,7 +16314,7 @@ document.querySelectorAll('.sc-paleta-alvo button').forEach(b => b.addEventListe
     montarPaletaTexto();
     $('#scColDot').style.background = sc.alvoCor === 'letra' ? (sc.corLetra || corDeTextoPara(sc.bg)) : sc.bg;
 }));
-$('#scPaletaCores').addEventListener('click', e => {
+el$('scPaletaCores').addEventListener('click', e => {
     const b = e.target.closest('.sc-swatch');
     if (!b) return;
     e.stopPropagation();
@@ -16317,14 +16322,14 @@ $('#scPaletaCores').addEventListener('click', e => {
     else sc.bg = b.dataset.color;
     aplicarCorStory();
 });
-$('#scPaleta').addEventListener('click', e => e.stopPropagation());
-$('#scPublicarGrande').addEventListener('click', () => { vibrar(12); $('#scPublish').click(); });
-$('#scFonte').addEventListener('click', () => {
+el$('scPaleta').addEventListener('click', e => e.stopPropagation());
+el$('scPublicarGrande').addEventListener('click', () => { vibrar(12); $('#scPublish').click(); });
+el$('scFonte').addEventListener('click', () => {
     const i = FONTES_STORY.findIndex(f => f[0] === sc.fonte);
     sc.fonte = FONTES_STORY[(i + 1) % FONTES_STORY.length][0];
     aplicarFonteStory();
 });
-$('#scFundoTxt').addEventListener('click', () => {
+el$('scFundoTxt').addEventListener('click', () => {
     const ordem = ['nenhum', 'escuro', 'claro'];
     sc.fundoTxt = ordem[(ordem.indexOf(sc.fundoTxt) + 1) % ordem.length];
     aplicarFundoTexto();
@@ -16567,8 +16572,8 @@ const tocadorMusica = (() => {
     return {
         el: a,
         liberar() { if (a.src) return; try { a.src = SOM_MUDO; a.play().then(() => a.pause(), () => {}); } catch (_) {} },
-        async tocar(url, inicio, quem, mudo = false) {
-            dono = quem; ini = Math.max(0, Number(inicio) || 0); fim = ini + MUSICA_TRECHO;
+        async tocar(url, inicio, quem, mudo = false, dur = MUSICA_TRECHO) {
+            dono = quem; ini = Math.max(0, Number(inicio) || 0); fim = ini + Math.max(5, Math.min(MUSICA_TRECHO, Number(dur) || MUSICA_TRECHO));
             if (a.src !== url) { a.src = url; }
             a.muted = !!mudo;
             const pular = () => { try { a.currentTime = ini; } catch (_) {} };
@@ -16579,6 +16584,8 @@ const tocadorMusica = (() => {
         continuar(quem) { if (quem === dono && a.src) a.play().catch(() => {}); },
         parar(quem) { if (quem && quem !== dono) return; a.pause(); dono = null; },
         mudo(v) { a.muted = v; },
+        get progresso() { return Math.max(0, Math.min(1, (a.currentTime - ini) / Math.max(1, fim - ini))); },
+        get tocando() { return !a.paused; },
         get dono() { return dono; },
     };
 })();
@@ -16600,6 +16607,7 @@ function pintarMusicaCriador() {
     if (!sc.musica) { if (el) el.remove(); tocadorMusica.parar('editor'); return; }
     const m = elMusicaCriador();
     m.innerHTML = htmlAdesivoMusica(sc.musica);
+    m.className = 'sc-musica est-' + (sc.musica.estilo || 'card');
     if (!sc.musicaPos) sc.musicaPos = { x: 50, y: 70, s: 1, r: 0 };
     posicionar(m, sc.musicaPos);
     m.style.transform = `translate(-50%, -50%) scale(${sc.musicaPos.s || 1}) rotate(${sc.musicaPos.r || 0}deg)`;
@@ -16609,95 +16617,195 @@ function tirarMusicaStory() {
     pintarMusicaCriador();
     atualizarBotaoPublicarStory();
 }
+// listas sugeridas (Deezer, guardadas 6 h na função), recentes (no seu celular) e em alta no Pulso
+const MUS_CHIPS = [['voce', 'Pra você'], ['top', 'Em alta'], ['treino', 'Treino'], ['gospel', 'Gospel'], ['sertanejo', 'Sertanejo'], ['pop', 'Pop'], ['funk', 'Funk'], ['rock', 'Rock']];
+const musListaCache = new Map();
+async function listaMusicas(nome) {
+    const c = musListaCache.get(nome);
+    if (c && Date.now() - c.em < 30 * 60000) return c.lista;
+    const { data, error } = await sb.functions.invoke('musica', { body: { lista: nome } });
+    if (error) throw error;
+    const lista = (data && data.lista) || [];
+    musListaCache.set(nome, { em: Date.now(), lista });
+    return lista;
+}
+const musicasRecentes = () => { try { return JSON.parse(lsGet('pulso-musicas-recentes') || '[]'); } catch (_) { return []; } };
+function guardarMusicaRecente(m) {
+    const l = musicasRecentes().filter(x => String(x.id) !== String(m.id));
+    l.unshift({ id: m.id, titulo: m.titulo, artista: m.artista, capa: m.capa || '' });
+    lsSet('pulso-musicas-recentes', JSON.stringify(l.slice(0, 8)));
+}
+const storyDeTreino = () => !!((sc.card && sc.card.tipo === 'treino') || (sc.adesivo && /treino/.test(String(sc.adesivo.tipo || sc.adesivo))));
+
 async function abrirMusicaStory() {
     tocadorMusica.liberar();
     const lupa = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>';
     const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Música</h3>
         <label class="pd-busca">${lupa}<input id="musBusca" type="search" placeholder="Buscar música ou artista" autocomplete="off" autocapitalize="off" enterkeyhint="search"></label>
-        <div class="mus-lista" id="musLista"><p class="pd-vazio">Digite o nome da música ou do artista.</p></div>
-        <div class="mus-escolha hidden" id="musEscolha"></div>
+        <div class="mus-chips no-puxar" id="musChips">${MUS_CHIPS.map(([k, n], i) => `<button type="button" class="${i ? '' : 'on'}" data-chip="${k}">${n}</button>`).join('')}</div>
+        <div class="mus-lista" id="musLista">${esqueletoAba('depoimentos')}</div>
         ${sc.musica ? '<button class="x1-op perigo" data-mus="tirar">Tirar música</button>' : ''}
-        <p class="mus-fonte">Trechos de 30 s fornecidos pelo Deezer</p>`, 'scMusicaSheet');
-    const veu = f, lista = f.querySelector('#musLista'), escolha = f.querySelector('#musEscolha'), campo = f.querySelector('#musBusca');
-    let res = [], tocando = null, seq = 0;
+        <p class="mus-fonte">Trechos fornecidos pelo Deezer</p>`, 'scMusicaSheet');
+    const veu = f, lista = f.querySelector('#musLista'), campo = f.querySelector('#musBusca'), chips = f.querySelector('#musChips');
+    let itens = [], tocando = null, seq = 0;
     const pararPrevia = () => { tocadorMusica.parar('previa'); tocando = null; lista.querySelectorAll('.mus-play.on').forEach(b => b.classList.remove('on')); };
-    // ao fechar a folha, para a prévia e volta a tocar a música escolhida
-    new MutationObserver((_, ob) => { if (!document.body.contains(veu)) { ob.disconnect(); pararPrevia(); if (sc.musica && $('#storyCreator').classList.contains('on')) tocarMusicaEditor(); } }).observe(document.body, { childList: true });
-    const pintar = () => {
-        lista.innerHTML = res.length ? res.map((m, i) => `<div class="mus-item" data-i="${i}">
-            <span class="mus-capa">${m.capa ? `<img src="${escapeHTML(m.capa)}" alt="">` : ''}</span>
-            <div class="pd-nome"><b>${escapeHTML(m.titulo)}</b><small>${escapeHTML(m.artista)}</small></div>
+    new MutationObserver((_, ob) => { if (!document.body.contains(veu)) { ob.disconnect(); pararPrevia(); if (sc.musica && $('#storyCreator').classList.contains('on') && !document.getElementById('scMusModo')) tocarMusicaEditor(); } }).observe(document.body, { childList: true });
+    const linha = m => { const i = itens.push(m) - 1;
+        return `<div class="mus-item" data-i="${i}">
+            <span class="mus-capa">${m.capa ? `<img src="${escapeHTML(m.capa)}" alt="" loading="lazy">` : ''}</span>
+            <div class="pd-nome"><b>${escapeHTML(m.titulo)}</b><small>${escapeHTML(m.artista)}${m.n ? ` · ${plural(Number(m.n), 'story', 'stories')}` : ''}</small></div>
             <button type="button" class="mus-play" data-play="${i}" aria-label="Ouvir"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg></button>
-        </div>`).join('') : '<p class="pd-vazio">Nada encontrado. Tente outro nome.</p>';
-    };
+        </div>`; };
+    const secao = (titulo, extra, ms) => ms.length ? `<div class="mus-sec"><span>${titulo}</span>${extra ? `<b>${extra}</b>` : ''}</div>${ms.map(linha).join('')}` : '';
+    async function mostrarChip(k) {
+        const meu = ++seq; pararPrevia(); itens = [];
+        chips.querySelectorAll('[data-chip]').forEach(b => b.classList.toggle('on', b.dataset.chip === k));
+        lista.innerHTML = esqueletoAba('depoimentos');
+        try {
+            if (k === 'voce') {
+                const treino = storyDeTreino();
+                const [alta, top, tre] = await Promise.all([
+                    sb.rpc('musicas_em_alta').then(r => r.data || [], () => []),
+                    listaMusicas('top').catch(() => []),
+                    listaMusicas('treino').catch(() => []),
+                ]);
+                if (meu !== seq) return;
+                const rec = musicasRecentes();
+                const partes = [secao('Você usou', 'recentes', rec.slice(0, 4))];
+                const tr = secao('Pra treinar', treino ? 'combina com seu treino' : '', tre.slice(0, treino ? 5 : 3));
+                if (treino) partes.unshift(tr); else partes.push(tr);
+                partes.push(secao('Em alta no Pulso', 'mais usadas na semana', alta.slice(0, 5)));
+                partes.push(secao('Em alta no Brasil', '', top.slice(0, 8)));
+                const html = partes.join('');
+                lista.innerHTML = html || '<p class="pd-vazio">Busque uma música pelo nome ou artista.</p>';
+            } else {
+                const l = await listaMusicas(k);
+                if (meu !== seq) return;
+                lista.innerHTML = l.length ? l.map(linha).join('') : '<p class="pd-vazio">Não achei músicas agora. Tente buscar pelo nome.</p>';
+            }
+        } catch (_) { if (meu === seq) lista.innerHTML = '<p class="pd-vazio">Não consegui carregar agora. Tente buscar pelo nome.</p>'; }
+    }
+    mostrarChip('voce');
+    chips.addEventListener('click', e => { const b = e.target.closest('[data-chip]'); if (!b) return; campo.value = ''; mostrarChip(b.dataset.chip); vibrar(5); });
     let timer = null;
     campo.addEventListener('input', () => {
         clearTimeout(timer);
         const q = campo.value.trim();
-        if (q.length < 2) { lista.innerHTML = '<p class="pd-vazio">Digite o nome da música ou do artista.</p>'; return; }
+        if (q.length < 2) { if (!q) mostrarChip(chips.querySelector('.on') ? chips.querySelector('.on').dataset.chip : 'voce'); return; }
         timer = setTimeout(async () => {
-            const meu = ++seq;
+            const meu = ++seq; pararPrevia(); itens = [];
             lista.innerHTML = esqueletoAba('depoimentos');
-            try { const r = await buscarMusicas(q); if (meu !== seq) return; res = r; pintar(); }
+            chips.querySelectorAll('[data-chip]').forEach(b => b.classList.remove('on'));
+            try { const r = await buscarMusicas(q); if (meu !== seq) return; lista.innerHTML = r.length ? r.map(linha).join('') : '<p class="pd-vazio">Nada encontrado. Tente outro nome.</p>'; }
             catch (_) { if (meu === seq) lista.innerHTML = '<p class="pd-vazio">Não consegui buscar agora. Tente de novo.</p>'; }
         }, 380);
     });
+    const comPreview = async m => { if (m.preview) return m; const fr = await previewMusica(m.id); return fr ? { ...m, preview: fr.preview } : null; };
     f.addEventListener('click', async e => {
         if (e.target.closest('[data-mus="tirar"]')) { pararPrevia(); tirarMusicaStory(); fechar(); return; }
         const pl = e.target.closest('[data-play]');
         if (pl) {
             e.stopPropagation();
-            const i = Number(pl.dataset.play), m = res[i];
+            const i = Number(pl.dataset.play);
             if (tocando === i) { pararPrevia(); return; }
             pararPrevia(); tocando = i; pl.classList.add('on');
-            const ok = await tocadorMusica.tocar(m.preview, 0, 'previa');
-            if (!ok) { pl.classList.remove('on'); tocando = null; }
+            const m = await comPreview(itens[i]);
+            if (!m || tocando !== i) { pl.classList.remove('on'); if (!m) toast('Essa música não tem trecho disponível', 'err'); return; }
+            itens[i] = m;
+            if (!(await tocadorMusica.tocar(m.preview, 0, 'previa'))) { pl.classList.remove('on'); tocando = null; }
             return;
         }
         const it = e.target.closest('.mus-item');
-        if (it) { pararPrevia(); escolherTrecho(res[Number(it.dataset.i)]); }
-    });
-    // escolher o trecho de 15 s dentro dos 30 s
-    function escolherTrecho(m) {
-        lista.classList.add('hidden'); campo.closest('.pd-busca').classList.add('hidden');
-        escolha.classList.remove('hidden');
-        let ini = sc.musica && sc.musica.id === m.id ? Number(sc.musica.ini) || 0 : 0;
-        const barras = Array.from({ length: 40 }, (_, k) => `<i style="height:${28 + Math.round(Math.abs(Math.sin(k * 1.7 + m.id % 7)) * 62)}%"></i>`).join('');
-        escolha.innerHTML = `<div class="mus-item sel"><span class="mus-capa">${m.capa ? `<img src="${escapeHTML(m.capa)}" alt="">` : ''}</span><div class="pd-nome"><b>${escapeHTML(m.titulo)}</b><small>${escapeHTML(m.artista)}</small></div></div>
-            <p class="mus-dica">Arraste pra escolher o trecho</p>
-            <div class="mus-trecho" id="musTrecho">${barras}<span class="mus-janela" id="musJanela"></span></div>
-            <div class="x1-duas"><button class="btn x1-btn ghost" data-trecho="voltar">Voltar</button><button class="btn x1-btn" data-trecho="usar">Usar</button></div>`;
-        const trilho = escolha.querySelector('#musTrecho'), jan = escolha.querySelector('#musJanela');
-        const pintarJan = () => { jan.style.left = (ini / 30 * 100) + '%'; jan.style.width = (MUSICA_TRECHO / 30 * 100) + '%'; };
-        pintarJan();
-        tocadorMusica.tocar(m.preview, ini, 'previa');
-        let arr = null;
-        trilho.addEventListener('pointerdown', e => { arr = { x: e.clientX, ini0: ini }; trilho.setPointerCapture(e.pointerId); });
-        trilho.addEventListener('pointermove', e => {
-            if (!arr) return;
-            const W = trilho.clientWidth || 1;
-            ini = Math.max(0, Math.min(30 - MUSICA_TRECHO, arr.ini0 + (e.clientX - arr.x) / W * 30));
-            pintarJan();
-        });
-        const soltar = () => { if (!arr) return; arr = null; ini = Math.round(ini * 2) / 2; pintarJan(); tocadorMusica.tocar(m.preview, ini, 'previa'); vibrar(5); };
-        trilho.addEventListener('pointerup', soltar); trilho.addEventListener('pointercancel', soltar);
-        escolha.querySelector('[data-trecho="voltar"]').onclick = () => {
-            pararPrevia(); escolha.classList.add('hidden'); lista.classList.remove('hidden'); campo.closest('.pd-busca').classList.remove('hidden');
-        };
-        escolha.querySelector('[data-trecho="usar"]').onclick = () => {
+        if (it) {
             pararPrevia();
-            sc.musica = { id: m.id, titulo: m.titulo, artista: m.artista, capa: m.capa || '', preview: m.preview, ini };
-            pintarMusicaCriador();
-            atualizarBotaoPublicarStory();
-            vibrar(10);
+            const m = await comPreview(itens[Number(it.dataset.i)]);
+            if (!m) { toast('Essa música não tem trecho disponível', 'err'); return; }
             fechar();
-        };
-    }
-    setTimeout(() => campo.focus(), 250);
+            abrirModoTrecho(m);
+        }
+    });
+}
+
+// ajustar o trecho em cima da própria foto (a janela fica parada no meio e a onda desliza)
+const MUS_PPS = 12; // pixels por segundo na onda
+function abrirModoTrecho(m) {
+    const cr = $('#storyCreator');
+    const antes = sc.musica ? { ...sc.musica } : null, posAntes = sc.musicaPos ? { ...sc.musicaPos } : null;
+    const mesma = antes && String(antes.id) === String(m.id);
+    let ini = mesma ? Number(antes.ini) || 0 : 0, dur = mesma ? Number(antes.dur) || MUSICA_TRECHO : MUSICA_TRECHO, estilo = (antes && antes.estilo) || 'card';
+    sc.musica = { id: m.id, titulo: m.titulo, artista: m.artista, capa: m.capa || '', preview: m.preview, ini, dur, estilo };
+    if (!sc.musicaPos) sc.musicaPos = { x: 50, y: 42, s: 1, r: 0 };
+    pintarMusicaCriador();
+    const semente = Number(String(m.id).slice(-4)) || 7;
+    const barras = Array.from({ length: 60 }, (_, k) => 26 + Math.round(Math.abs(Math.sin(k * 1.37 + semente) * Math.cos(k * .21 + semente / 3)) * 70));
+    const htmlBarras = barras.map(h => `<i style="height:${h}%"></i>`).join('');
+    const pp = { play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>', pause: '<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>' };
+    const modo = document.createElement('div');
+    modo.id = 'scMusModo'; modo.className = 'mm';
+    modo.innerHTML = `<div class="mm-top"><button type="button" data-mm="cancelar">Cancelar</button><button type="button" class="ok" data-mm="ok">Concluir</button></div>
+        <div class="mm-baixo">
+            <div class="mm-estilos">${[['card', 'Card'], ['vidro', 'Vidro'], ['mini', 'Mini']].map(([k, n]) => `<button type="button" data-est="${k}" class="${k === estilo ? 'on' : ''}">${n}</button>`).join('')}</div>
+            <div class="mm-ctrl"><button type="button" class="mm-dur" data-mm="dur">${dur}</button><span class="mm-tempo" id="mmTempo"></span><button type="button" class="mm-pp" data-mm="pp">${pp.pause}</button></div>
+            <div class="mm-onda-box" id="mmBox"><div class="mm-onda" id="mmOnda">${htmlBarras}</div><div class="mm-janela" id="mmJanela"><div class="mm-fill" id="mmFill"></div><div class="mm-onda mm-onda-dentro" id="mmOndaD">${htmlBarras}</div></div></div>
+            <p class="mm-dica">Arraste a onda pra escolher o trecho</p>
+        </div>
+        <div class="mm-roda hidden" id="mmRoda"><div class="mm-roda-folha"><h3>Duração do trecho</h3><div class="mm-roda-lista" id="mmRodaLista">${Array.from({ length: 11 }, (_, k) => k + 5).map(n => `<button type="button" data-seg="${n}">${n} segundos</button>`).join('')}</div><button type="button" class="mm-roda-ok" data-mm="roda-ok">Concluir</button></div></div>`;
+    cr.appendChild(modo);
+    cr.classList.add('mus-modo');
+    const box = modo.querySelector('#mmBox'), onda = modo.querySelector('#mmOnda'), ondaD = modo.querySelector('#mmOndaD'), jan = modo.querySelector('#mmJanela'), fill = modo.querySelector('#mmFill'), tempo = modo.querySelector('#mmTempo');
+    const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+    const pintar = () => {
+        const W = box.clientWidth, jw = dur * MUS_PPS, x0 = W / 2 - jw / 2 - ini * MUS_PPS;
+        jan.style.width = jw + 'px';
+        onda.style.transform = `translateX(${x0}px)`;
+        ondaD.style.transform = `translateX(${-ini * MUS_PPS}px)`;
+        tempo.textContent = `${fmt(ini)} – ${fmt(ini + dur)}`;
+        modo.querySelector('.mm-dur').textContent = dur;
+    };
+    const tocar = () => { tocadorMusica.tocar(m.preview, ini, 'editor', false, dur); modo.querySelector('.mm-pp').innerHTML = pp.pause; };
+    pintar(); tocar();
+    let raf = 0;
+    const loop = () => { fill.style.width = (tocadorMusica.tocando ? tocadorMusica.progresso * 100 : 0) + '%'; raf = requestAnimationFrame(loop); };
+    loop();
+    // arrastar a onda
+    let arr = null;
+    box.addEventListener('pointerdown', e => { arr = { x: e.clientX, ini0: ini }; box.setPointerCapture(e.pointerId); tocadorMusica.pausar('editor'); });
+    box.addEventListener('pointermove', e => { if (!arr) return; ini = Math.max(0, Math.min(30 - dur, arr.ini0 - (e.clientX - arr.x) / MUS_PPS)); pintar(); });
+    const soltar = () => { if (!arr) return; arr = null; ini = Math.round(ini * 2) / 2; pintar(); tocar(); vibrar(5); };
+    box.addEventListener('pointerup', soltar); box.addEventListener('pointercancel', soltar);
+    const fechar = () => { cancelAnimationFrame(raf); modo.remove(); cr.classList.remove('mus-modo'); };
+    modo.addEventListener('click', e => {
+        const est = e.target.closest('[data-est]');
+        if (est) { estilo = est.dataset.est; sc.musica.estilo = estilo; modo.querySelectorAll('[data-est]').forEach(b => b.classList.toggle('on', b === est)); pintarMusicaCriador(); vibrar(5); return; }
+        const seg = e.target.closest('[data-seg]');
+        if (seg) { modo.querySelectorAll('[data-seg]').forEach(b => b.classList.toggle('on', b === seg)); seg.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+        const a = (e.target.closest('[data-mm]') || {}).dataset; if (!a) return;
+        if (a.mm === 'pp') { if (tocadorMusica.tocando) { tocadorMusica.pausar('editor'); modo.querySelector('.mm-pp').innerHTML = pp.play; } else tocar(); }
+        else if (a.mm === 'dur') {
+            const r = modo.querySelector('#mmRoda'); r.classList.remove('hidden');
+            const atual = r.querySelector(`[data-seg="${dur}"]`); r.querySelectorAll('[data-seg]').forEach(b => b.classList.toggle('on', b === atual));
+            setTimeout(() => atual && atual.scrollIntoView({ block: 'center' }), 30);
+        } else if (a.mm === 'roda-ok') {
+            const on = modo.querySelector('[data-seg].on');
+            dur = on ? Number(on.dataset.seg) : dur; ini = Math.min(ini, 30 - dur); sc.musica.dur = dur;
+            modo.querySelector('#mmRoda').classList.add('hidden'); pintar(); tocar();
+        } else if (a.mm === 'cancelar') {
+            fechar();
+            sc.musica = antes; sc.musicaPos = posAntes;
+            pintarMusicaCriador();
+            if (sc.musica) tocarMusicaEditor(); else tocadorMusica.parar('editor');
+            atualizarBotaoPublicarStory();
+        } else if (a.mm === 'ok') {
+            sc.musica = { ...sc.musica, ini, dur, estilo };
+            guardarMusicaRecente(sc.musica);
+            fechar(); pintarMusicaCriador(); tocarMusicaEditor(); atualizarBotaoPublicarStory(); vibrar(10);
+        }
+    });
+    modo.querySelector('#mmRoda').addEventListener('click', e => { if (e.target.id === 'mmRoda') e.currentTarget.classList.add('hidden'); });
 }
 function tocarMusicaEditor() {
     if (!sc.musica || !sc.musica.preview) return;
-    tocadorMusica.tocar(sc.musica.preview, sc.musica.ini, 'editor');
+    tocadorMusica.tocar(sc.musica.preview, sc.musica.ini, 'editor', false, sc.musica.dur);
 }
 // no visualizador: toca o trecho enquanto o story está na tela
 async function musicaDoStory(item) {
@@ -16710,7 +16818,7 @@ async function musicaDoStory(item) {
     const fresco = await previewMusica(m.id);
     if (state.storyItemAtual !== idAgora || !$('#storyViewer').classList.contains('on')) return;
     if (!fresco) { if (btn) btn.classList.add('hidden'); return; }
-    const ok = await tocadorMusica.tocar(fresco.preview, m.ini, 'viewer', !!state.svMudo);
+    const ok = await tocadorMusica.tocar(fresco.preview, m.ini, 'viewer', !!state.svMudo, m.dur);
     if ($('#storyViewer').classList.contains('paused')) tocadorMusica.pausar('viewer');
     if (!ok && btn) { state.svMudo = true; btn.classList.add('mudo'); }
 }
@@ -16754,7 +16862,7 @@ async function abrirAdesivosStory() {
 }
 
 // Adesivo "Treino de hoje": usa o último treino das últimas 24h
-$('#scAdesivo').addEventListener('click', async () => {
+el$('scAdesivo').addEventListener('click', async () => {
     const st = $('#scSticker');
     if (sc.adesivo) { sc.adesivo = null; st.classList.add('hidden'); atualizarBotaoPublicarStory(); return; }
     const { data } = await sb.from('posts').select('activity_type, duration_min, distance_km')
@@ -16776,13 +16884,13 @@ $('#scAdesivo').addEventListener('click', async () => {
     st.classList.remove('hidden');
     atualizarBotaoPublicarStory();
 });
-$('#scStage').addEventListener('click', e => {
+el$('scStage').addEventListener('click', e => {
     if (sc.mode === 'text' && e.target.id === 'scStage' && Date.now() - (e.currentTarget._deslizou || 0) > 400) $('#scText').focus();
     $('#scSwatches').classList.add('hidden');
     $('#scPaleta').classList.add('hidden');
 });
 
-$('#scPublish').addEventListener('click', async () => {
+el$('scPublish').addEventListener('click', async () => {
     if (sc.busy) return;
     const caption = $('#scText').value.trim();
     if (sc.mode === 'text' && !caption && !sc.adesivo && !(sc.mencoes || []).length && !sc.enquete && !sc.card && !sc.musica) return;
@@ -16811,7 +16919,7 @@ $('#scPublish').addEventListener('click', async () => {
     if (sc.enquete) style.enquete = { p: sc.enquete.p, a: sc.enquete.a, b: sc.enquete.b, x: Math.round((sc.enqPos || {}).x || 50), y: Math.round((sc.enqPos || {}).y || 64) };
     if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
     if ((sc.mencoes || []).length) style.mencoes = sc.mencoes.map(m => ({ id: m.id, username: m.username, x: Math.round((sc[m.chave] || {}).x || 50), y: Math.round((sc[m.chave] || {}).y || 40), s: Math.round(((sc[m.chave] || {}).s || 1) * 100) / 100, r: Math.round((sc[m.chave] || {}).r || 0) }));
-    if (sc.musica) { const mp = sc.musicaPos || {}; style.musica = { id: sc.musica.id, titulo: sc.musica.titulo, artista: sc.musica.artista, capa: sc.musica.capa || '', ini: Math.round((Number(sc.musica.ini) || 0) * 2) / 2,
+    if (sc.musica) { const mp = sc.musicaPos || {}; style.musica = { id: sc.musica.id, titulo: sc.musica.titulo, artista: sc.musica.artista, capa: sc.musica.capa || '', ini: Math.round((Number(sc.musica.ini) || 0) * 2) / 2, dur: Math.max(5, Math.min(MUSICA_TRECHO, Number(sc.musica.dur) || MUSICA_TRECHO)), estilo: sc.musica.estilo || 'card',
         x: Math.round(mp.x || 50), y: Math.round(mp.y || 70), s: Math.round((mp.s || 1) * 100) / 100, r: Math.round(mp.r || 0) }; }
     if (sc.repost) style.repost = true;
     if (sc.repostDe) style.repost_de = sc.repostDe;
@@ -17145,7 +17253,7 @@ function showCurrentStory() {
 
     // Auto-avança em 6 s. Com foto, o tempo só começa quando ela aparece (no máximo 5 s de espera)
     clearTimeout(state.storyTimer); clearTimeout(state.storyEspera);
-    state.storyDur = item.style && item.style.musica && item.style.musica.id ? MUSICA_TRECHO * 1000 : 6000; // com música, dura o trecho todo
+    state.storyDur = item.style && item.style.musica && item.style.musica.id ? Math.max(5, Math.min(MUSICA_TRECHO, Number(item.style.musica.dur) || MUSICA_TRECHO)) * 1000 : 6000; // com música, dura o trecho todo
     if (!(item.style && item.style.musica)) tocadorMusica.parar('viewer');
     const iniciarTempo = () => {
         clearTimeout(state.storyEspera);
@@ -17521,7 +17629,7 @@ const previaMensagem = body => {
     return textoLimpo(body);
 };
 
-document.getElementById('svCurtir').addEventListener('click', async e => {
+el$('svCurtir').addEventListener('click', async e => {
     e.stopPropagation();
     const r = state.storyResp; if (!r) return;
     const btn = e.currentTarget;
@@ -17542,7 +17650,7 @@ respInput.addEventListener('blur', () => {
 });
 respInput.addEventListener('input', () => document.getElementById('svRespEnviar').classList.toggle('hidden', !respInput.value.trim()));
 respInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarRespostaStory(); } });
-document.getElementById('svRespEnviar').addEventListener('click', e => { e.stopPropagation(); enviarRespostaStory(); });
+el$('svRespEnviar').addEventListener('click', e => { e.stopPropagation(); enviarRespostaStory(); });
 ['click', 'pointerdown', 'pointerup'].forEach(ev => document.getElementById('svResp').addEventListener(ev, e => e.stopPropagation()));
 // Reações rápidas aparecem só enquanto a pessoa escreve a resposta
 (function () {
@@ -17645,8 +17753,8 @@ function abrirQuemViuStory() {
     });
 }
 
-document.getElementById('svActivity').addEventListener('click', e => { e.stopPropagation(); abrirQuemViuStory(); });
-document.getElementById('svSom').addEventListener('click', e => {
+el$('svActivity').addEventListener('click', e => { e.stopPropagation(); abrirQuemViuStory(); });
+el$('svSom').addEventListener('click', e => {
     e.stopPropagation();
     state.svMudo = !state.svMudo;
     e.currentTarget.classList.toggle('mudo', state.svMudo);
@@ -17654,14 +17762,14 @@ document.getElementById('svSom').addEventListener('click', e => {
     if (!state.svMudo && tocadorMusica.el.paused && !$('#storyViewer').classList.contains('paused')) tocadorMusica.el.play().catch(() => {});
     vibrar(5);
 });
-document.getElementById('svMais').addEventListener('click', e => {
+el$('svMais').addEventListener('click', e => {
     e.stopPropagation();
     const m = document.getElementById('svMenu');
     const abrir = m.classList.contains('hidden');
     m.classList.toggle('hidden', !abrir);
     if (abrir) pausarStory(); else retomarStory();
 });
-document.getElementById('svMenu').addEventListener('click', e => {
+el$('svMenu').addEventListener('click', e => {
     e.stopPropagation();
     document.getElementById('svMenu').classList.add('hidden');
 });
@@ -17683,7 +17791,7 @@ document.getElementById('svMenu').addEventListener('click', e => {
         if (t === 'pointerup') setTimeout(() => { engolir = false; }, 350);
     }, true));
 })();
-document.getElementById('svAdd').addEventListener('click', e => {
+el$('svAdd').addEventListener('click', e => {
     e.stopPropagation();
     closeStoryViewer();
     openStoryCreator();
@@ -17762,7 +17870,7 @@ function advanceStory(dir) {
     showCurrentStory();
 }
 
-document.getElementById('svClose').onclick = closeStoryViewer;
+el$('svClose').onclick = closeStoryViewer;
 
 // ============================================================
 // COMPOSER
@@ -17779,11 +17887,11 @@ function atualizarCamposTreino() {
     const vel = (tipo === 'Ciclismo' && km > 0 && min > 0) ? (km / (min / 60)).toFixed(1).replace('.', ',') + ' km/h de média' : '';
     $('#wPace').textContent = pace ? 'Ritmo: ' + pace : vel;
 }
-$('#wType').addEventListener('change', atualizarCamposTreino);
-$('#wDistance').addEventListener('input', atualizarCamposTreino);
-$('#wDuration').addEventListener('input', atualizarCamposTreino);
+el$('wType').addEventListener('change', atualizarCamposTreino);
+el$('wDistance').addEventListener('input', atualizarCamposTreino);
+el$('wDuration').addEventListener('input', atualizarCamposTreino);
 document.querySelector('.stepper[data-target="wDuration"]').addEventListener('click', () => setTimeout(atualizarCamposTreino, 0));
-$('#wMuscles').addEventListener('click', e => {
+el$('wMuscles').addEventListener('click', e => {
     const c = e.target.closest('.chip');
     if (!c) return;
     if (c.dataset.m === 'Corpo todo') {
@@ -17862,7 +17970,7 @@ function limparComposer() {
 }
 
 // + central: primeiro só os ícones, o formulário vem depois
-$('#postFab').addEventListener('click', () => {
+el$('postFab').addEventListener('click', () => {
     $('#tileDesafio').classList.toggle('hidden', !podeCriarDesafio());
     limparComposer();
     mostrarEscolhaDeTipo();
@@ -17958,7 +18066,7 @@ function fecharCriar() {
     if (t) t.remove();
     document.body.style.overflow = '';
 }
-$('#feedPostBtn').addEventListener('click', e => { e.stopPropagation(); abrirCriar('post'); });
+el$('feedPostBtn').addEventListener('click', e => { e.stopPropagation(); abrirCriar('post'); });
 
 // ---- Tela "Novo post" (foto + legenda + quem vê) ----
 const VIS_NOME = { public: 'Público', followers: 'Seguidores', private: 'Só eu' };
@@ -18110,12 +18218,12 @@ async function checarFotoDepois(postId, imageUrl) {
     } catch (_) {}
 }
 
-$('#composerBack').addEventListener('click', () => {
+el$('composerBack').addEventListener('click', () => {
     limparComposer();
     mostrarEscolhaDeTipo();
 });
-$('#composerCancel').addEventListener('click', closeComposer);
-$('#composerSheet').addEventListener('click', e => { if (e.target.id === 'composerSheet') closeComposer(); });
+el$('composerCancel').addEventListener('click', closeComposer);
+el$('composerSheet').addEventListener('click', e => { if (e.target.id === 'composerSheet') closeComposer(); });
 
 function closeComposer() {
     $('#composerSheet').classList.remove('on');
@@ -18162,8 +18270,8 @@ async function enviarRegistroIA() {
         btn.disabled = false; btn.classList.remove('girando');
     }
 }
-$('#iaEnviar').addEventListener('click', enviarRegistroIA);
-$('#iaTexto').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarRegistroIA(); } });
+el$('iaEnviar').addEventListener('click', enviarRegistroIA);
+el$('iaTexto').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); enviarRegistroIA(); } });
 (function ligarMicrofone() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return; // no iPhone, o ditado do próprio teclado resolve
@@ -18230,7 +18338,7 @@ function setComposerKind(kind) {
 }
 
 // Privacy chip: abre/fecha popover
-$('#privacyChip').addEventListener('click', e => {
+el$('privacyChip').addEventListener('click', e => {
     e.stopPropagation();
     const menu = $('#privacyMenu');
     const chip = $('#privacyChip');
@@ -18345,7 +18453,7 @@ function atualizarFotoLegenda() {
     if (temFoto) thumb.src = prev.src; else thumb.removeAttribute('src');
     x.classList.toggle('hidden', !temFoto);
 }
-document.getElementById('wTypeChips').addEventListener('click', e => {
+el$('wTypeChips').addEventListener('click', e => {
     if (e.target.closest('[data-mais]')) { state.wMais = true; vibrar(5); montarFormTreino(); return; }
     const b = e.target.closest('[data-tipo]');
     if (!b) return;
@@ -18366,7 +18474,7 @@ $$('.tr-dur-btn[data-dur-passo]').forEach(b => b.addEventListener('click', () =>
     $('#wDuration').dispatchEvent(new Event('input', { bubbles: true }));
     sincronizarDuracao();
 }));
-$('#wDuration').addEventListener('input', () => { $('#wDurBig').textContent = $('#wDuration').value; });
+el$('wDuration').addEventListener('input', () => { $('#wDurBig').textContent = $('#wDuration').value; });
 // ---- Registrar treino: "Foto" e "Com alguém" lado a lado, e a foto grande depois de escolher ----
 (function extrasRegistroTreino() {
     const com = document.getElementById('trCom'); if (!com || document.getElementById('trExtras')) return;
@@ -18402,13 +18510,13 @@ function pintarTreinoCom() {
     lista.innerHTML = state.treinoCom.map(u => `<span class="tr-com-chip">com ${escapeHTML(String(u.display_name || u.username).split(' ')[0])}<button type="button" data-tirar-com="${u.id}" aria-label="Tirar">×</button></span>`).join('');
     document.getElementById('trComAdd').querySelector('span').textContent = state.treinoCom.length ? 'Mais alguém' : 'Com alguém';
 }
-document.getElementById('trComLista').addEventListener('click', e => {
+el$('trComLista').addEventListener('click', e => {
     const b = e.target.closest('[data-tirar-com]');
     if (!b) return;
     state.treinoCom = state.treinoCom.filter(u => u.id !== b.dataset.tirarCom);
     pintarTreinoCom();
 });
-document.getElementById('trComAdd').addEventListener('click', async () => {
+el$('trComAdd').addEventListener('click', async () => {
     if (!state.seguindoCache) {
         const { data } = await sb.from('follows').select('following:profiles!following_id (id, username, display_name, avatar_url)').eq('follower_id', state.session.user.id).limit(300);
         state.seguindoCache = (data || []).map(x => x.following).filter(Boolean);
@@ -18468,14 +18576,14 @@ $$('[data-km-passo]').forEach(b => b.addEventListener('click', () => {
     $('#wDistance').value = v;
     mostrarKm(); atualizarCamposTreino();
 }));
-$('#wKmSem').addEventListener('click', () => {
+el$('wKmSem').addEventListener('click', () => {
     const v = parseFloat(String($('#wDistance').value).replace(',', '.'));
     $('#wDistance').value = v > 0 ? '' : kmPadrao();
     mostrarKm(); atualizarCamposTreino();
 });
 
 // Foto pelo ícone na legenda: o celular oferece câmera ou galeria
-$('#pPhotoUnico').addEventListener('change', e => {
+el$('pPhotoUnico').addEventListener('change', e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     const gal = $('#pPhotoGal');
@@ -18486,9 +18594,9 @@ $('#pPhotoUnico').addEventListener('change', e => {
     e.target.value = '';
     setTimeout(updateDestUI, 400);
 });
-$('#capFotoX').addEventListener('click', () => { const c = $('#pPhotoClear'); if (c) c.click(); setTimeout(updateDestUI, 50); });
+el$('capFotoX').addEventListener('click', () => { const c = $('#pPhotoClear'); if (c) c.click(); setTimeout(updateDestUI, 50); });
 state.composerStory = false;
-$('#feedSwitch').addEventListener('click', () => {
+el$('feedSwitch').addEventListener('click', () => {
     if (!state.composerPhoto) { toast('Adicione uma foto pra publicar no feed', 'err'); return; }
     const alvo = state.composerDest === 'feed' ? 'log' : 'feed';
     const b = document.querySelector(`#destSection [data-dest="${alvo}"]`);
@@ -18560,7 +18668,7 @@ async function carregarSlotsFeitos() {
         pintarSlots();
     } catch (_) {}
 }
-$('#mSlotChips').addEventListener('click', e => {
+el$('mSlotChips').addEventListener('click', e => {
     const b = e.target.closest('[data-slot]');
     if (!b) return;
     $('#mSlot').dataset.tocado = '1';
@@ -18579,7 +18687,7 @@ function atualizarFotoRefeicao() {
     try { const dt = new DataTransfer(); dt.items.add(f); $('#pPhotoMeal').files = dt.files; $('#pPhotoMeal').dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
     e.target.value = '';
 }));
-$('#pPhotoMeal').addEventListener('change', e => {
+el$('pPhotoMeal').addEventListener('change', e => {
     const f = e.target.files && e.target.files[0];
     if (!f) return;
     try {
@@ -18700,7 +18808,7 @@ $$('.bg-color-swatch').forEach(s => s.addEventListener('click', e => {
     $$('.bg-color-swatch').forEach(x => x.classList.toggle('on', x === e.currentTarget));
     atualizarPreviaStory();
 }));
-$('#pCaption').addEventListener('input', () => {
+el$('pCaption').addEventListener('input', () => {
     if (state.composerKind === 'story') atualizarPreviaStory();
 });
 
@@ -18878,9 +18986,9 @@ function handlePhotoPick(e) {
     if (lerBtn) lerBtn.classList.toggle('hidden', !(state.composerKind === 'workout' && state.composerPhoto));
     updateDestUI();
 }
-$('#pPhotoCam').addEventListener('change', handlePhotoPick);
-$('#lerPrintBtn').addEventListener('click', lerPrintDeTreino);
-$('#pPhotoClear').addEventListener('click', () => {
+el$('pPhotoCam').addEventListener('change', handlePhotoPick);
+el$('lerPrintBtn').addEventListener('click', lerPrintDeTreino);
+el$('pPhotoClear').addEventListener('click', () => {
     state.composerPhoto = null;
     state.composerFotoOriginal = null; state.composerFiltro = 'normal'; montarFiltrosComposer();
     $('#pPhotoCam').value = '';
@@ -18891,9 +18999,9 @@ $('#pPhotoClear').addEventListener('click', () => {
     state.composerDest = 'log';
     updateDestUI();
 });
-$('#pPhotoGal').addEventListener('change', handlePhotoPick);
+el$('pPhotoGal').addEventListener('change', handlePhotoPick);
 
-$('#composerSubmit').addEventListener('click', async () => {
+el$('composerSubmit').addEventListener('click', async () => {
     const btn = $('#composerSubmit');
     if (state.publishing) return;
     if (state.composerKind === 'workout' && !state.wEscolhido) { toast('Escolha o que você treinou', 'err'); const c = document.getElementById('wTypeChips'); if (c) c.classList.add('pede'), setTimeout(() => c.classList.remove('pede'), 900); return; }
@@ -19516,7 +19624,45 @@ function x1Folha(html, id = 'x1Folha') {
     requestAnimationFrame(() => f.classList.add('on'));
     const fechar = () => { f.classList.remove('on'); setTimeout(() => f.remove(), 200); };
     f.addEventListener('click', e => { if (e.target === f || e.target.closest('[data-x1f="fechar"]')) fechar(); });
+    puxarPraFechar(f, f.querySelector('.x1-folha'), fechar);
     return { f, fechar };
+}
+// Puxar a folha pra baixo com o dedo fecha (se a lista estiver rolada, primeiro ela rola até o topo)
+function puxarPraFechar(veu, folha, fechar) {
+    if (!folha) return;
+    let y0 = 0, t0 = 0, puxando = false, ativo = false, dy = 0;
+    const rolada = alvo => { for (let el = alvo; el && el !== veu; el = el.parentElement) { if (el.scrollTop > 0) return true; } return false; };
+    folha.addEventListener('touchstart', e => {
+        ativo = e.touches.length === 1 && !e.target.closest('.mus-trecho, .mus-onda, input[type="range"], .no-puxar');
+        y0 = e.touches[0].clientY; t0 = Date.now(); puxando = false; dy = 0;
+        if (ativo && rolada(e.target)) ativo = 'rolada';
+    }, { passive: true });
+    folha.addEventListener('touchmove', e => {
+        if (!ativo) return;
+        const d = e.touches[0].clientY - y0;
+        if (!puxando) {
+            if (ativo === 'rolada') { if (!rolada(e.target)) { ativo = true; y0 = e.touches[0].clientY; } return; }
+            if (d < 8) { if (d < -4) ativo = false; return; }
+            puxando = true; folha.style.transition = 'none';
+        }
+        dy = Math.max(0, d);
+        e.preventDefault();
+        folha.style.transform = `translateY(${dy}px)`;
+        veu.style.opacity = String(Math.max(.25, 1 - dy / (folha.offsetHeight * 1.4)));
+    }, { passive: false });
+    const soltar = () => {
+        if (!puxando) { ativo = false; return; }
+        puxando = false; ativo = false;
+        folha.style.transition = 'transform .22s cubic-bezier(.2,.9,.3,1)';
+        const rapido = dy / Math.max(1, Date.now() - t0) > 0.6;
+        if (dy > folha.offsetHeight / 4 || (rapido && dy > 40)) {
+            folha.style.transform = `translateY(${folha.offsetHeight + 40}px)`;
+            veu.style.transition = 'opacity .22s'; veu.style.opacity = '0';
+            setTimeout(fechar, 180);
+        } else { folha.style.transform = ''; veu.style.opacity = ''; }
+    };
+    folha.addEventListener('touchend', soltar);
+    folha.addEventListener('touchcancel', soltar);
 }
 
 // ---------- Regras ----------

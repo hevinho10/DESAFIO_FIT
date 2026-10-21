@@ -5669,3 +5669,56 @@ details.ch-rel:not([open]) > summary{ margin-bottom:0; }
 :root[data-theme="light"] .mus-trecho > i{ background:rgba(16,21,18,.2); }
 .mus-janela{ position:absolute; top:3px; bottom:3px; border:2px solid #10B981; border-radius:10px; background:rgba(16,185,129,.12); pointer-events:none; transition:left .05s; }
 .mus-fonte{ font-size:11px; color:var(--ink-faint); text-align:center; margin-top:12px; }
+
+/* ONDA 52: música - sugestões, trecho em cima da foto, estilos do adesivo */
+.mus-chips{ display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; margin:4px -18px 6px; padding:0 18px; }
+.mus-chips::-webkit-scrollbar{ display:none; }
+.mus-chips button{ flex:none; height:32px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:none; color:var(--ink-dim); font:600 12.5px var(--ff-body); }
+.mus-chips button.on{ background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.4); color:#34D399; }
+:root[data-theme="light"] .mus-chips button.on{ color:#047857; }
+.mus-sec{ display:flex; justify-content:space-between; align-items:baseline; margin:14px 0 2px; }
+.mus-sec span{ font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint); font-weight:600; }
+.mus-sec b{ font-size:11.5px; color:#34D399; font-weight:600; }
+.mus-lista{ max-height:52vh; }
+
+.sc.mus-modo .sc-coluna, .sc.mus-modo .sc-publicar-grande, .sc.mus-modo .sc-top, .sc.mus-modo #scClose, .sc.mus-modo .sc-paleta{ opacity:0 !important; pointer-events:none !important; }
+.mm{ position:absolute; inset:0; z-index:60; display:flex; flex-direction:column; justify-content:space-between; background:linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.2) 35%, rgba(0,0,0,.55)); pointer-events:none; }
+.mm > *{ pointer-events:auto; }
+.mm-top{ display:flex; justify-content:space-between; padding:calc(env(safe-area-inset-top, 0px) + 16px) 16px 0; }
+.mm-top button{ border:0; background:none; color:#fff; font:600 16px var(--ff-body); padding:8px 4px; text-shadow:0 1px 6px rgba(0,0,0,.4); }
+.mm-top .ok{ color:#34D399; }
+.mm-baixo{ padding:0 0 calc(env(safe-area-inset-bottom, 0px) + 22px); }
+.mm-estilos{ display:flex; justify-content:center; gap:12px; margin-bottom:22px; }
+.mm-estilos button{ width:50px; height:50px; border-radius:50%; border:1px solid rgba(255,255,255,.22); background:rgba(0,0,0,.35); color:#fff; font:700 11px var(--ff-body); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); }
+.mm-estilos button.on{ background:#fff; color:#0A0C0B; border-color:#fff; }
+.mm-ctrl{ display:flex; align-items:center; justify-content:space-between; padding:0 18px; margin-bottom:16px; }
+.mm-dur{ width:46px; height:46px; border-radius:50%; border:1.5px solid rgba(255,255,255,.85); background:rgba(0,0,0,.25); color:#fff; font:700 15px var(--ff-body); }
+.mm-tempo{ font-size:13px; font-weight:600; color:rgba(255,255,255,.8); font-variant-numeric:tabular-nums; }
+.mm-pp{ width:46px; height:46px; border-radius:50%; border:0; background:#fff; color:#0A0C0B; display:grid; place-items:center; }
+.mm-pp svg{ width:17px; height:17px; }
+.mm-onda-box{ position:relative; height:84px; overflow:hidden; touch-action:none; cursor:grab; }
+.mm-onda{ position:absolute; left:0; top:0; bottom:0; display:flex; align-items:center; gap:2px; will-change:transform; }
+.mm-onda i{ width:4px; flex:none; border-radius:3px; background:rgba(255,255,255,.7); }
+.mm-janela{ position:absolute; top:4px; bottom:4px; left:50%; transform:translateX(-50%); border:2.5px solid #fff; border-radius:14px; overflow:hidden; box-shadow:0 0 0 999px rgba(0,0,0,.12); }
+.mm-fill{ position:absolute; left:0; top:0; bottom:0; width:0; background:linear-gradient(90deg, #10B981, #5EEAD4); }
+.mm-onda-dentro{ top:-4px; bottom:-4px; left:-2.5px; }
+.mm-onda-dentro i{ background:#fff; }
+.mm-dica{ text-align:center; font-size:12px; color:rgba(255,255,255,.65); margin-top:10px; }
+.mm-roda{ position:absolute; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:flex-end; z-index:3; }
+.mm-roda.hidden{ display:none; }
+.mm-roda-folha{ width:100%; background:#0F1413; border-radius:26px 26px 0 0; padding:20px 16px calc(env(safe-area-inset-bottom, 0px) + 20px); border-top:1px solid rgba(255,255,255,.07); }
+.mm-roda-folha h3{ text-align:center; font:700 16px var(--ff-body); color:#fff; margin-bottom:12px; }
+.mm-roda-lista{ height:200px; overflow-y:auto; scroll-snap-type:y mandatory; padding:80px 0; scrollbar-width:none; }
+.mm-roda-lista::-webkit-scrollbar{ display:none; }
+.mm-roda-lista button{ display:block; width:100%; height:40px; scroll-snap-align:center; border:1px solid transparent; border-radius:12px; background:none; color:rgba(255,255,255,.4); font:500 18px var(--ff-body); }
+.mm-roda-lista button.on{ color:#fff; font-weight:600; font-size:20px; background:rgba(16,185,129,.1); border-color:rgba(16,185,129,.35); }
+.mm-roda-ok{ display:block; width:100%; height:46px; margin-top:14px; border-radius:14px; border:1px solid rgba(16,185,129,.4); background:rgba(16,185,129,.06); color:#34D399; font:600 15px var(--ff-body); }
+
+/* estilos do adesivo de música */
+.sc-musica.est-vidro, .sv-musica.est-vidro{ background:rgba(12,14,16,.55); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); color:#fff; border:1px solid rgba(255,255,255,.18); }
+.est-vidro .mus-txt small{ color:rgba(255,255,255,.7); }
+.est-vidro .mus-eq i{ background:#34D399; }
+.sc-musica.est-mini, .sv-musica.est-mini{ padding:5px 12px 5px 5px; border-radius:999px; gap:8px; }
+.est-mini .mus-capa{ width:28px; height:28px; border-radius:50%; }
+.est-mini .mus-txt small, .est-mini .mus-eq{ display:none; }
+.est-mini .mus-txt b{ font-size:12.5px; max-width:160px; }
