@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261244';
+const APP_VERSAO = '20261245';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -15357,7 +15357,7 @@ function openStoryCreator() {
     sc.foto = { x: 0, y: 0, s: 1, r: 0 }; sc.fotoBase = null; fundoFotoStory(null);
     sc.filtro = 'normal'; sc.filtroInt = 1; sc.filtroBase = null; sc.filtroImg = null;
     { const cv = document.getElementById('scFiltroCanvas'); if (cv) cv.remove(); const fp = document.getElementById('scFiltros'); if (fp) fp.classList.add('hidden'); const fl = document.getElementById('scFiltroLista'); if (fl) { fl.innerHTML = ''; delete fl.dataset.feito; } $('#storyCreator').classList.remove('filtros-on'); }
-    $('#scSticker').classList.add('hidden'); $('#scSticker').style.left = ''; $('#scSticker').style.top = '';
+    $('#scSticker').classList.add('hidden'); $('#scSticker').innerHTML = ''; $('#scSticker').style.left = ''; $('#scSticker').style.top = ''; sc.adesivoPos = null;
     $('#scChoose').classList.remove('hidden');
     $('#scBottom').classList.add('hidden');
     $('#scSwatches').classList.add('hidden');
@@ -15576,6 +15576,26 @@ async function comporQuadroStory(file) {
     const blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', 0.9));
     return blob ? new File([blob], 'story.jpg', { type: 'image/jpeg' }) : file;
 }
+// foto diminuída, ampliada ou girada: um dedo arrasta (igual ao Instagram)
+(function arrastarFotoUmDedo() {
+    const stage = document.getElementById('scStage'); let g = null;
+    stage.addEventListener('pointerdown', e => {
+        g = sc.mode === 'photo' && !sc.repostUrl && !sc.doisDedos && fotoMexida() && e.target === elFotoStory()
+            ? { x: e.clientX, y: e.clientY, f0: { ...sc.foto }, mexeu: false } : null;
+        if (g) try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    stage.addEventListener('pointermove', e => {
+        if (!g) return;
+        if (sc.doisDedos) { g = null; return; }
+        const dx = e.clientX - g.x, dy = e.clientY - g.y;
+        if (!g.mexeu && Math.hypot(dx, dy) < 5) return;
+        g.mexeu = true; $('#storyCreator').classList.add('arrastando');
+        sc.foto = { ...g.f0, x: g.f0.x + dx / stage.clientWidth * 100, y: g.f0.y + dy / stage.clientHeight * 100 };
+        ajustarFotoQuadro();
+    });
+    const fim = () => { if (g && g.mexeu) { stage._deslizou = Date.now(); $('#storyCreator').classList.remove('arrastando'); } g = null; };
+    stage.addEventListener('pointerup', fim); stage.addEventListener('pointercancel', fim);
+})();
 // toque duplo na foto: volta ao enquadramento inicial
 (function toqueDuploFoto() {
     const stage = document.getElementById('scStage'); let ult = 0, ini = null;
@@ -15717,8 +15737,8 @@ function apagarItemStory(el) {
         sc.txtEsc = 1; sc.txtRot = 0; el.style.transform = '';
         if (sc.mode === 'text') { el.classList.remove('hidden'); el.readOnly = false; }
     } else {
-        sc.adesivo = null; sc.adEsc = 1; sc.adRot = 0;
-        el.classList.add('hidden'); el.style.transform = '';
+        sc.adesivo = null; sc.adEsc = 1; sc.adRot = 0; sc.adesivoPos = null;
+        el.classList.add('hidden'); el.style.transform = ''; el.innerHTML = '';
     }
     ajustarAlturaTextoStory();
     atualizarBotaoPublicarStory();
@@ -16147,6 +16167,7 @@ async function arquivoComFiltroStory(file) {
     let ini = null;
     stage.addEventListener('pointerdown', e => {
         if (sc.mode !== 'photo' || !sc.filtroBase || e.target.closest('.sc-text, .sc-sticker, .sc-card, .sc-mencao, button') || dentroDoPoster(e.clientX, e.clientY)) { ini = null; return; }
+        if (fotoMexida() && e.target === elFotoStory()) { ini = null; return; } // foto solta: o dedo arrasta a foto
         ini = { x: e.clientX, y: e.clientY, t: Date.now() };
     });
     stage.addEventListener('pointerup', e => {
