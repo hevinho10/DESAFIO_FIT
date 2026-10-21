@@ -5397,3 +5397,13 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 /* lixeira dentro da foto, perto da borda de baixo */
 .sc-lixeira{ bottom:calc(var(--q-banda) + 16px) !important; }
 .sc-text.vai-apagar, .sc-sticker.vai-apagar, .sc-mencao.vai-apagar, .sc-enquete.vai-apagar, .sc-card.vai-apagar{ scale:.55; opacity:.55; transition:scale .15s, opacity .15s; }
+/* iPhone: obriga a cortar a foto na borda arredondada do quadro (senão ela vaza por cima da barra de status) */
+.sc .sc-stage, .story-viewer .story-content{ isolation:isolate; -webkit-mask-image:-webkit-radial-gradient(white, black); mask-image:radial-gradient(white, black); transform:translateZ(0); }
+/* ferramentas um pouco menores */
+.sc-coluna{ gap:10px !important; }
+.sc-col-item{ width:40px !important; }
+.sc-col-ico{ width:40px !important; height:40px !important; }
+.sc-col-ico svg{ width:20px !important; height:20px !important; }
+.sc-col-ico .sc-aa{ font-size:16.5px !important; }
+.sc-col-nome{ right:52px !important; }
+.sc-top #scClose{ width:40px; height:40px; }

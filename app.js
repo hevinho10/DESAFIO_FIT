@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261242';
+const APP_VERSAO = '20261243';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -15335,6 +15335,7 @@ function adicionarMencaoStory(p) {
 }
 
 function openStoryCreator() {
+    medirQuadroStory();
     Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 });
     sc.card = null; sc.cardPos = null; sc.cardEsc = 1; sc.cardRot = 0; sc.semFoco = false;
     { const cd = elCardCriador(); cd.classList.add('hidden'); cd.classList.remove('sc-poster', 'solto'); cd.style.removeProperty('--pt-tf'); cd.innerHTML = ''; cd.style.transform = ''; $('#storyCreator').classList.remove('com-card'); const bar = document.getElementById('scEstilos'); if (bar) bar.classList.add('hidden'); }
@@ -15511,6 +15512,24 @@ function entrarModoFoto(file, url = null) {
     atualizarBotaoPublicarStory();
     if (window.mostrarNomesFerramentas) mostrarNomesFerramentas();
 }
+// ---- Tamanho do quadro do story medido na tela de verdade (no iPhone com o app instalado, a medida do CSS vem menor) ----
+function medirQuadroStory() {
+    try {
+        const pr = document.createElement('div');
+        pr.style.cssText = 'position:fixed;left:0;top:0;width:1px;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+        document.body.appendChild(pr);
+        const cs = getComputedStyle(pr), sTop = parseFloat(cs.paddingTop) || 0, sBot = parseFloat(cs.paddingBottom) || 0; pr.remove();
+        const H = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0), W = window.innerWidth || document.documentElement.clientWidth;
+        if (!H || !W) return;
+        const top = sTop + 6, banda = 72 + sBot, qh = Math.max(300, H - top - banda), qw = Math.min(W, qh * 0.62);
+        const r = document.documentElement.style;
+        r.setProperty('--q-top', top + 'px'); r.setProperty('--q-banda', banda + 'px');
+        r.setProperty('--q-h', qh + 'px'); r.setProperty('--q-w', qw + 'px');
+    } catch (_) {}
+}
+medirQuadroStory();
+window.addEventListener('resize', medirQuadroStory);
+window.addEventListener('orientationchange', () => setTimeout(medirQuadroStory, 300));
 // ---- Foto no quadro do story: abre preenchendo a tela; pinça diminui, arrasta e gira ----
 const elFotoStory = () => { const cv = document.getElementById('scFiltroCanvas'); return cv || $('#scImg'); };
 function fundoFotoStory(src) {
@@ -16388,6 +16407,7 @@ function atualizarAneisStory() {
 // STORY VIEWER
 // ============================================================
 async function openStoryViewer(groupIdx) {
+    medirQuadroStory();
     state.storyIdx = groupIdx;
     state.storyItemIdx = primeiroNaoVisto((state.storiesData || [])[groupIdx]);
     $('#storyViewer').classList.add('on');
