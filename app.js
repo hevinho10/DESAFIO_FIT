@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261246';
+const APP_VERSAO = '20261247';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -7127,7 +7127,12 @@ Formato do JSON: {"texto": "2 frases no máximo, falando com quem está lendo no
             await iaGuardar(chave, hojeISO(), n);
         } catch (e) { return; }
     }
-    if (document.getElementById('chNarracao')) slot.innerHTML = `<div class="ia-narracao">🎙️ ${escapeHTML(n.texto || '')}</div>`;
+    if (document.getElementById('chNarracao')) {
+        slot.innerHTML = `<div class="ia-narracao curta">🎙️ ${escapeHTML(n.texto || '')}</div><button class="ia-narr-mais hidden" type="button">ler mais</button>`;
+        const t = slot.querySelector('.ia-narracao'), b = slot.querySelector('.ia-narr-mais');
+        requestAnimationFrame(() => { if (t.scrollHeight > t.clientHeight + 4) b.classList.remove('hidden'); });
+        b.onclick = () => { t.classList.remove('curta'); b.remove(); };
+    }
 }
 
 // ---------- Check-in pós-treino ----------
@@ -8042,7 +8047,8 @@ const TXT_PRONT = {
 };
 function hydrateProntidaoFeed() {
     const slot = document.getElementById('prontSlot'); if (!slot || !state.session) return;
-    if (!prontidaoLigada() || prontidaoHoje() || new Date().getHours() >= 14) { slot.innerHTML = ''; return; }
+    const hr = new Date().getHours();
+    if (!prontidaoLigada() || prontidaoHoje() || hr < 5 || hr >= 14) { slot.innerHTML = ''; return; } // de madrugada a pessoa nem dormiu ainda
     if (lsGet('pulso-pront-pulou') === hojeISO()) return;
     const resp = {};
     const pintar = () => {
@@ -8467,8 +8473,12 @@ async function renderChallengeDetail(cid) {
             ofensiva: 'Maior ofensiva',
         };
         const comValor = (destaques || []).filter(d => Number(d.valor) > 0);
+        // 4º destaque: quem mais pontuou na semana
+        const melhorSem = (semana || []).filter(x => Number(x.pontos_semana) > 0).sort((a, b) => Number(b.pontos_semana) - Number(a.pontos_semana))[0];
+        if (melhorSem) comValor.push({ tipo: 'semana', user_id: melhorSem.user_id, display_name: melhorSem.display_name, avatar_url: melhorSem.avatar_url, valor: Math.round(melhorSem.pontos_semana), unidade: 'pts' });
+        rotulos.semana = 'Destaque da semana';
         if (comValor.length) {
-            const emoDest = { treinos: '💪', agua: '💧', ofensiva: '🔥' };
+            const emoDest = { treinos: '💪', agua: '💧', ofensiva: '🔥', semana: '⚡' };
             destaquesHTML = `<div class="chart-card">
                 <div class="chart-head"><span class="chart-title">Destaques</span></div>
                 <div class="dch-lista">
@@ -8542,30 +8552,7 @@ async function renderChallengeDetail(cid) {
         }
     }
 
-    // ranking: pódio com os 3 primeiros e lista com setas (subiu/caiu desde ontem)
-    const seta = (uid, pos) => {
-        const o = ontemPos[uid]; if (!o) return '';
-        const d = o - pos;
-        return d > 0 ? `<span class="rk-seta up">▲${d}</span>` : d < 0 ? `<span class="rk-seta dn">▼${-d}</span>` : '<span class="rk-seta eq">=</span>';
-    };
-    const rankHTML = (lista, comSeta, unidade) => {
-        if (!lista.length) return '<div class="log-empty">Ninguém pontuou nesse período ainda.</div>';
-        const eu = state.session.user.id;
-        const nome = u => u.user_id === eu ? 'Você' : escapeHTML(String(u.display_name || '').split(' ')[0]);
-        const top = lista.slice(0, 3);
-        const ordem = top.length >= 2 ? [top[1], top[0], top[2]].filter(Boolean) : top;
-        const podio = top.length >= 2 ? `<div class="rk-podio">${ordem.map(u => { const p = lista.indexOf(u) + 1;
-            return `<div class="rk-pd p${p}${u.user_id === eu ? ' me' : ''}" data-act="view-user" data-uid="${u.user_id}">
-                <span class="rk-av">${p === 1 ? '<i class="rk-coroa">👑</i>' : ''}${avatarHTML(u, 'md')}</span>
-                <b>${nome(u)}</b><small>${Math.round(u.points)} ${unidade}${comSeta ? ' ' + seta(u.user_id, p) : ''}</small>
-                <span class="rk-base">${p}</span></div>`; }).join('')}</div>` : '';
-        const resto = (top.length >= 2 ? lista.slice(3) : lista).map(u => { const p = lista.indexOf(u) + 1; const me = u.user_id === eu;
-            return `<div class="cw-rank-item${me ? ' me' : ''}" data-act="view-user" data-uid="${u.user_id}">
-                <span class="cw-rank-medal">${p}</span>${avatarHTML(u, 'sm')}
-                <div class="cw-rank-info"><span class="cw-rank-name">${me ? 'Você' : escapeHTML(u.display_name)}</span>${u.sub ? `<span class="cw-rank-sub">${u.sub}</span>` : ''}</div>
-                ${comSeta ? seta(u.user_id, p) : ''}<span class="cw-rank-pts">${Math.round(u.points)}</span></div>`; }).join('');
-        return podio + `<div class="cw-rank-list">${resto}</div>`;
-    };
+    const rankHTML = (lista, comSeta, unidade) => htmlRankingDesafio(lista, { ontemPos: comSeta ? ontemPos : {}, unidade });
     const diasPorPessoa = {};
     (saude || []).forEach(m => { diasPorPessoa[m.user_id] = m.dias_treinados; });
     const geral = (ranking || []).map(u => ({ ...u, sub: diasPorPessoa[u.user_id] != null ? plural(diasPorPessoa[u.user_id], 'dia treinado', 'dias treinados') : '' }));
@@ -8626,7 +8613,6 @@ async function renderChallengeDetail(cid) {
                     ${souDono ? `<button class="btn-danger" data-act="delete-challenge" data-id="${cid}">Apagar</button>` : ''}
                 </div>
                 <div id="chRegrasMembro" class="hidden">${regrasDesafioHTML(ch)}</div>
-                <div id="chNarracao"></div>
             </div>
 
             ${pedidosHTML}
@@ -8639,6 +8625,7 @@ async function renderChallengeDetail(cid) {
                 ${semanaRank.length ? `<div class="rk-painel hidden" data-rk-p="semana">${rankSemanaHTML}</div>` : ''}
                 <p class="chart-foot" style="text-align:left">Conta só o que cada um ganhou de ${dataBR(ch.starts_at)} em diante.</p>
             </div>
+            <div id="chNarracao"></div>
 
             ${destaquesHTML}
             ${grupoHTML}
@@ -8655,6 +8642,45 @@ async function renderChallengeDetail(cid) {
     // desafio acabou: o encerramento abre sozinho uma vez
     if (ch.status === 'encerrado' && ch.im_member && !lsGet('pulso-fim-desafio-' + cid)) setTimeout(() => abrirEncerramentoDesafio(cid), 500);
 }
+
+// ===== Ranking do desafio: pódio, do 4º ao 10º, "ver todos" e a sua linha sempre à vista =====
+function htmlRankingDesafio(lista, { ontemPos = {}, unidade = 'pts', limite = 10 } = {}) {
+    if (!lista.length) return '<div class="log-empty">Ninguém pontuou nesse período ainda.</div>';
+    const eu = state.session.user.id;
+    const seta = (uid, pos) => { const o = ontemPos[uid]; if (!o || o === pos) return ''; const d = o - pos;
+        return d > 0 ? `<span class="rk-seta up">▲${d}</span>` : `<span class="rk-seta dn">▼${-d}</span>`; };
+    const nome = u => u.user_id === eu ? 'Você' : escapeHTML(String(u.display_name || '').split(' ')[0]);
+    const top = lista.slice(0, 3), temPodio = top.length >= 2;
+    const ordem = temPodio ? [top[1], top[0], top[2]].filter(Boolean) : [];
+    const podio = temPodio ? `<div class="rk-podio">${ordem.map(u => { const p = lista.indexOf(u) + 1;
+        return `<div class="rk-pd p${p}${u.user_id === eu ? ' me' : ''}" data-act="view-user" data-uid="${u.user_id}">
+            <span class="rk-av">${p === 1 ? '<i class="rk-coroa">👑</i>' : ''}${avatarHTML(u, 'md')}</span>
+            <b>${nome(u)}</b><small>${Math.round(u.points)} ${unidade}${seta(u.user_id, p) ? ' ' + seta(u.user_id, p) : ''}</small>
+            <span class="rk-base">${p}</span></div>`; }).join('')}</div>` : '';
+    const linha = (u, extra = '') => { const p = lista.indexOf(u) + 1, me = u.user_id === eu;
+        return `<div class="cw-rank-item${me ? ' me' : ''}${extra}" data-act="view-user" data-uid="${u.user_id}">
+            <span class="cw-rank-medal">${p}</span>${avatarHTML(u, 'sm')}
+            <div class="cw-rank-info"><span class="cw-rank-name">${me ? 'Você' : escapeHTML(u.display_name)}</span>${u.sub ? `<span class="cw-rank-sub">${u.sub}</span>` : ''}</div>
+            ${seta(u.user_id, p)}<span class="cw-rank-pts">${Math.round(u.points)}</span></div>`; };
+    const corpo = temPodio ? lista.slice(3) : lista;
+    const visiveis = corpo.slice(0, Math.max(0, limite - (temPodio ? 3 : 0)));
+    const resto = corpo.slice(visiveis.length);
+    const meuIdx = lista.findIndex(u => u.user_id === eu);
+    const euEscondido = meuIdx >= 0 && resto.includes(lista[meuIdx]);
+    return podio + `<div class="cw-rank-list">${visiveis.map(u => linha(u)).join('')}
+        ${euEscondido ? `<div class="rk-sep rk-so-fechado">···</div>${linha(lista[meuIdx], ' rk-so-fechado')}` : ''}
+        ${resto.length ? `<div class="rk-resto hidden">${resto.map(u => linha(u)).join('')}</div>
+            <button type="button" class="rk-mais" data-rk-mais data-total="${lista.length}">Ver todos (${lista.length})</button>` : ''}</div>`;
+}
+// abre/fecha o "ver todos" de qualquer ranking
+document.addEventListener('click', e => {
+    const b = e.target.closest('[data-rk-mais]'); if (!b) return;
+    const box = b.parentElement, r = box.querySelector('.rk-resto'); if (!r) return;
+    const abrir = r.classList.contains('hidden');
+    r.classList.toggle('hidden', !abrir); box.classList.toggle('rk-aberto', abrir);
+    b.textContent = abrir ? 'Mostrar menos' : `Ver todos (${b.dataset.total})`;
+    vibrar(5);
+});
 
 // ===== Encerramento do desafio em grupo: campeão, números e destaques (3 telas pra deslizar) =====
 const DIAS_SEMANA_NOME = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -10565,10 +10591,16 @@ async function renderPainelDesafio(cidEscolhido) {
     const ch = meus.find(x => x.id === cidEscolhido) || meus[0];
     state.desafioAtual = ch.id;
     const uid = state.session.user.id;
-    const [{ data: ranking }, { data: regrasRow }] = await (adiantado && palpite === ch.id ? adiantado : Promise.all([
-        sb.rpc('challenge_ranking', { cid: ch.id }),
-        sb.from('challenges').select('rules, team_mode, team_count, team_names').eq('id', ch.id).maybeSingle(),
-    ]));
+    const [[{ data: ranking }, { data: regrasRow }], { data: posOntemPd }, { data: saudePd }] = await Promise.all([
+        adiantado && palpite === ch.id ? adiantado : Promise.all([
+            sb.rpc('challenge_ranking', { cid: ch.id }),
+            sb.from('challenges').select('rules, team_mode, team_count, team_names').eq('id', ch.id).maybeSingle(),
+        ]),
+        sb.rpc('challenge_posicoes_ontem', { cid: ch.id }).then(x => x, () => ({ data: [] })),
+        sb.rpc('challenge_health', { cid: ch.id }).then(x => x, () => ({ data: [] })),
+    ]);
+    const ontemPd = {}; (posOntemPd || []).forEach(p => { ontemPd[p.user_id] = p.pos_ontem; });
+    const diasPd = {}; (saudePd || []).forEach(m => { diasPd[m.user_id] = m.dias_treinados; });
     ch.rules = regrasRow ? regrasRow.rules : null;
     ch.team_mode = !!(regrasRow && regrasRow.team_mode);
     ch.team_names = (regrasRow && regrasRow.team_names) || NOMES_TIMES;
@@ -10587,10 +10619,10 @@ async function renderPainelDesafio(cidEscolhido) {
     const eu = i >= 0 ? r[i] : null;
     const pos = i + 1;
 
-    // posição de ontem x hoje (guardada no aparelho)
+    // posição de ontem x hoje (do servidor; se ainda não tiver, a guardada no aparelho)
     const hoje = hojeISO();
     if (pos) { lsSet(posChave(ch.id, hoje), String(pos)); lsSet('pulso-pos-visto-' + ch.id, String(pos)); }
-    const ontem = Number(lsGet(posChave(ch.id, ontemISO())) || 0);
+    const ontem = Number(ontemPd[uid] || lsGet(posChave(ch.id, ontemISO())) || 0);
     let movimento = '';
     if (pos && ontem && ontem !== pos) movimento = ontem > pos ? `▲ subiu ${ontem - pos} ${ontem - pos === 1 ? 'posição' : 'posições'} desde ontem` : `▼ caiu ${pos - ontem} ${pos - ontem === 1 ? 'posição' : 'posições'} desde ontem`;
     atualizarBadgeDesafio();
@@ -10628,7 +10660,7 @@ async function renderPainelDesafio(cidEscolhido) {
             ${meus.length > 1 ? `<button class="pd-voltar" data-act="pd-lista" aria-label="Seus desafios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>` : ''}
             <div class="pd-head-txt"><h1 class="pd-nome">${escapeHTML(ch.name)}</h1>
             <span class="pd-quando${!futuro && diasFaltam <= 3 ? ' reta' : ''}">${futuro ? (diasFaltam <= 1 ? 'Começa amanhã' : `Começa em ${diasFaltam} dias`) : diasFaltam <= 0 ? 'Último dia!' : diasFaltam <= 3 ? `🏁 Reta final: faltam ${diasFaltam} dias` : `Faltam ${diasFaltam} dias`}</span></div>
-            <button class="ia-link" data-act="open-challenge" data-id="${ch.id}">detalhes ›</button>
+            <button class="ia-link" data-act="open-challenge" data-id="${ch.id}">Tudo do desafio ›</button>
         </div>
         <div class="pd-tempo"><i style="width:${pctTempo}%"></i></div>
 
@@ -10650,9 +10682,8 @@ async function renderPainelDesafio(cidEscolhido) {
         </div>` : ''}
 
         ${!futuro && r.length ? `<div class="chart-card">
-            <div class="chart-head"><span class="chart-title">Ranking</span><button class="ia-link" data-act="open-challenge" data-id="${ch.id}">ver completo ›</button></div>
-            ${topo.map(linhaRank).join('')}
-            ${mostraEu ? `<div class="pd-rank-sep">···</div>${linhaRank(eu, i)}` : ''}
+            <div class="chart-head"><span class="chart-title">Ranking</span>${Object.keys(ontemPd).length ? '<span class="chart-legend">▲▼ desde ontem</span>' : ''}</div>
+            ${htmlRankingDesafio(r.map(u => ({ ...u, sub: diasPd[u.user_id] != null ? plural(diasPd[u.user_id], 'dia treinado', 'dias treinados') : '' })), { ontemPos: ontemPd })}
         </div>` : ''}
 
         <div id="pdMarco"></div>

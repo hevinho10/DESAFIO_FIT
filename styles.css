@@ -5475,3 +5475,18 @@ details.ch-rel:not([open]) > summary{ margin-bottom:0; }
 .card-story.podio-cs{ padding:22px 16px 16px; }
 .podio-cs .rk-podio{ width:100%; margin:18px 0 8px; } .podio-cs .rk-av{ box-shadow:0 0 0 3px #0A0C0B, 0 0 0 5px var(--rc); }
 .podio-cs .rk-pd b{ color:#fff; } .podio-cs .rk-pd small{ color:rgba(255,255,255,.7); }
+
+/* ranking: ver todos, sua linha quando está longe, pódio com brilho em você */
+.rk-mais{ display:block; width:100%; margin-top:8px; padding:10px; border:0; border-radius:12px; background:rgba(255,255,255,.04); color:var(--ink-dim); font:700 13px var(--ff-body); }
+:root[data-theme="light"] .rk-mais{ background:rgba(16,21,18,.05); }
+.rk-sep{ text-align:center; color:var(--ink-faint); letter-spacing:.3em; padding:2px 0; }
+.rk-aberto .rk-so-fechado{ display:none !important; }
+.rk-pd.me .rk-base{ box-shadow:0 0 0 2px rgba(16,185,129,.8), 0 0 18px rgba(16,185,129,.45); }
+/* destaques 2 em cima e 2 embaixo */
+.dch-lista{ display:grid !important; grid-template-columns:1fr 1fr; gap:10px; overflow:visible !important; }
+.dch{ width:auto !important; min-width:0; }
+.dch b, .dch-quem{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* narração: 3 linhas e "ler mais" */
+.ia-narracao.curta{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.ia-narr-mais{ margin:6px 0 4px 2px; padding:0; border:0; background:none; color:var(--vital); font:700 13px var(--ff-body); }
+#chNarracao:not(:empty){ margin-bottom:12px; }
