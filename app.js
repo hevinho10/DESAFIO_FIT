@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261247';
+const APP_VERSAO = '20261248';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -7699,13 +7699,15 @@ function pintarTeaserCorpo(M) {
 }
 function pintarMapaCorpo(box, M, animar) {
     const sexo = sexoCorpo(state.profile);
+    // o mapa obedece o seletor de cima da Evolução (7 dias = regra de 7; 30, 3 meses ou Tudo = últimos 30 dias)
+    state.mapaPeriodo = !state.periodo || state.periodo === '7' ? 7 : 30;
     const per = state.mapaPeriodo;
     const { ints, quentes, frios } = resumoMapa(M, per);
     const vazio = !Object.keys(M).some(k => NOME_MUSC[k]);
     const alvo = frios[0];
     const diasAlvo = alvo && M[alvo] && M[alvo].dias;
     box.innerHTML = `<div class="mc-card${animar ? ' scaneando' : ''}">
-        <div class="mc-topo"><div><b>Seu corpo</b>${vazio ? '<small>sem treino de musculação nas últimas semanas</small>' : `<div class="mc-per"><button class="${per === 7 ? 'on' : ''}" data-mc-per="7">7 dias</button><button class="${per === 30 ? 'on' : ''}" data-mc-per="30">30 dias</button></div>`}</div>
+        <div class="mc-topo"><div><b>Seu corpo</b>${vazio ? '<small>sem treino de musculação nas últimas semanas</small>' : `<small class="mc-per-txt">últimos ${per} dias</small>`}</div>
             <div class="mc-seg"><button class="${state.mapaLado === 'F' ? 'on' : ''}" data-mc-lado="F">Frente</button><button class="${state.mapaLado === 'C' ? 'on' : ''}" data-mc-lado="C">Costas</button></div></div>
         <div class="mc-palco">
             <div class="mc-virar${state.mapaLado === 'C' ? ' costas' : ''}">
@@ -8026,11 +8028,13 @@ const PRONT_PERG = [
     ['dor', '💪', 'Dor muscular?', ['Muita', 'Pouca', 'Nenhuma']],
     ['disp', '⚡', 'Disposição?', ['Baixa', 'Média', 'Alta']],
 ];
+// segunda-feira da semana atual (as perguntas valem pra semana inteira)
+const segundaISO = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoLocal(d); };
 const prontidaoLigada = () => !(state.profile && state.profile.prontidao_ligada === false);
 // a de hoje (ou nada)
 function prontidaoHoje() {
     const p = state.profile && state.profile.prontidao;
-    return p && p.dia === hojeISO() ? p : null;
+    return p && p.dia >= segundaISO() ? p : null; // a resposta vale da segunda até domingo
 }
 // 0 a 6: baixa (até 2), normal, ótima (5+ e sem dor forte)
 function nivelProntidao(p) {
@@ -8041,25 +8045,28 @@ function nivelProntidao(p) {
     return 'normal';
 }
 const TXT_PRONT = {
-    baixa: ['Pega leve hoje', 'Treina, mas com uma série a menos por exercício e a mesma carga. Recuperar também é treino.'],
-    normal: ['Dia normal', 'Segue o plano. Se sentir o corpo pesado, corta uma série.'],
-    otima: ['Dia de ir pra cima', 'Corpo descansado e disposto: bom dia pra buscar recorde. 🏆'],
+    baixa: ['Semana de pegar leve', 'O coach tira uma série de cada exercício e mantém a carga. Recuperar também é treino.'],
+    normal: ['Semana normal', 'Segue o plano. Se sentir o corpo pesado em algum dia, corta uma série.'],
+    otima: ['Semana de ir pra cima', 'Corpo descansado e disposto: boa semana pra buscar recorde. 🏆'],
 };
-function hydrateProntidaoFeed() {
-    const slot = document.getElementById('prontSlot'); if (!slot || !state.session) return;
-    const hr = new Date().getHours();
-    if (!prontidaoLigada() || prontidaoHoje() || hr < 5 || hr >= 14) { slot.innerHTML = ''; return; } // de madrugada a pessoa nem dormiu ainda
-    if (lsGet('pulso-pront-pulou') === hojeISO()) return;
+function hydrateProntidaoFeed(forcar = false, alvo = null) {
+    const slot = alvo || document.getElementById('prontSlot'); if (!slot || !state.session) return;
+    const agora = new Date(), hr = agora.getHours();
+    // só na segunda, das 5h às 14h (de madrugada a pessoa nem dormiu ainda); se pular, volta na outra segunda
+    if (!forcar) {
+        if (!prontidaoLigada() || prontidaoHoje() || agora.getDay() !== 1 || hr < 5 || hr >= 14) { slot.innerHTML = ''; return; }
+        if (lsGet('pulso-pront-pulou') === segundaISO()) return;
+    }
     const resp = {};
     const pintar = () => {
         slot.innerHTML = `<div class="pq-card">
-            <div class="pq-topo"><b>Como você está hoje?</b><small>3 toques e o coach ajusta seu treino</small><button class="lb-x" data-pront-x aria-label="Agora não">×</button></div>
+            <div class="pq-topo"><b>${forcar ? 'Como você está hoje?' : 'Como foi sua última semana?'}</b><small>3 toques e o coach ajusta seus treinos da semana</small><button class="lb-x" data-pront-x aria-label="Agora não">×</button></div>
             ${PRONT_PERG.map(([k, emo, txt, ops]) => `<div class="pq-linha"><span>${emo} ${txt}</span><div class="pq-ops">${ops.map((o, i) => `<button class="${resp[k] === i ? 'on' : ''}" data-pront="${k}" data-v="${i}">${o}</button>`).join('')}</div></div>`).join('')}
         </div>`;
     };
     pintar();
     slot.onclick = async e => {
-        if (e.target.closest('[data-pront-x]')) { lsSet('pulso-pront-pulou', hojeISO()); slot.innerHTML = ''; return; }
+        if (e.target.closest('[data-pront-x]')) { if (!forcar) lsSet('pulso-pront-pulou', segundaISO()); slot.innerHTML = ''; if (forcar && slot.closest('.x1-folha-fundo')) slot.closest('.x1-folha-fundo').click(); return; }
         const b = e.target.closest('[data-pront]'); if (!b) return;
         resp[b.dataset.pront] = Number(b.dataset.v); vibrar(5); pintar();
         if (PRONT_PERG.every(([k]) => resp[k] != null)) {
@@ -8076,14 +8083,14 @@ function hydrateProntidaoFeed() {
 function avisoProntidaoTreino(m) {
     const p = prontidaoHoje(), nv = nivelProntidao(p);
     if (!nv || nv === 'normal' || !m.exercicios.length) return '';
-    if (nv === 'otima') return `<div class="pq-tr otima"><span>🔥</span><div><b>Dia de ir pra cima</b><small>Você dormiu bem e está disposto. Bom dia pra buscar recorde.</small></div></div>`;
-    if (m.prontAplicado) return `<div class="pq-tr baixa ok"><span>🌙</span><div><b>Ajustado pro seu dia</b><small>Uma série a menos em cada exercício, mesma carga.</small></div></div>`;
-    return `<div class="pq-tr baixa"><span>🌙</span><div><b>Hoje é dia de pegar leve</b><small>${p.dor === 0 ? 'Com dor forte, ' : p.sono === 0 ? 'Dormiu mal: ' : ''}tira uma série de cada exercício e mantém a carga.</small></div><button data-tr="pront-aplicar">Ajustar</button></div>`;
+    if (nv === 'otima') return `<div class="pq-tr otima"><span>🔥</span><div><b>Semana de ir pra cima</b><small>Você está descansado e disposto. Boa hora pra buscar recorde.</small></div></div>`;
+    if (m.prontAplicado) return `<div class="pq-tr baixa ok"><span>🌙</span><div><b>Ajustado pra sua semana</b><small>Uma série a menos em cada exercício, mesma carga.</small></div></div>`;
+    return `<div class="pq-tr baixa"><span>🌙</span><div><b>Semana de pegar leve</b><small>${p.dor === 0 ? 'Com dor forte, ' : p.sono === 0 ? 'Dormiu mal: ' : ''}tira uma série de cada exercício e mantém a carga.</small></div><button data-tr="pront-aplicar">Ajustar</button></div>`;
 }
 function contextoProntidao() {
     const p = prontidaoHoje(); if (!p) return '';
     const n = (k, i) => PRONT_PERG.find(x => x[0] === k)[3][p[k]].toLowerCase();
-    return `prontidão de hoje: sono ${n('sono')}, dor muscular ${n('dor')}, disposição ${n('disp')}`;
+    return `prontidão desta semana: sono ${n('sono')}, dor muscular ${n('dor')}, disposição ${n('disp')}`;
 }
 
 // ============================================================
@@ -8475,13 +8482,12 @@ async function renderChallengeDetail(cid) {
         const comValor = (destaques || []).filter(d => Number(d.valor) > 0);
         // 4º destaque: quem mais pontuou na semana
         const melhorSem = (semana || []).filter(x => Number(x.pontos_semana) > 0).sort((a, b) => Number(b.pontos_semana) - Number(a.pontos_semana))[0];
-        if (melhorSem) comValor.push({ tipo: 'semana', user_id: melhorSem.user_id, display_name: melhorSem.display_name, avatar_url: melhorSem.avatar_url, valor: Math.round(melhorSem.pontos_semana), unidade: 'pts' });
-        rotulos.semana = 'Destaque da semana';
+        // (o destaque da semana vai dentro do "O grupo junto", pra grade de destaques ficar sempre simétrica)
         if (comValor.length) {
             const emoDest = { treinos: '💪', agua: '💧', ofensiva: '🔥', semana: '⚡' };
             destaquesHTML = `<div class="chart-card">
                 <div class="chart-head"><span class="chart-title">Destaques</span></div>
-                <div class="dch-lista">
+                <div class="dch-lista${comValor.length % 2 ? ' impar' : ''}">
                     ${comValor.map(d => `<div class="dch" data-act="view-user" data-uid="${d.user_id}">
                         <span class="dch-e">${emoDest[d.tipo] || '⭐'}</span>
                         <b>${rotulos[d.tipo] || d.tipo}</b>
@@ -8502,6 +8508,7 @@ async function renderChallengeDetail(cid) {
                     <div class="grupo-item"><b>${String(g.sono_medio).replace('.', ',')}h</b><span>sono médio</span></div>
                     <div class="grupo-item"><b>${String(g.pct_medio).replace('.', ',')}%</b><span>evolução média</span></div>
                 </div>
+                ${melhorSem ? `<div class="grupo-eu grupo-sem" data-act="view-user" data-uid="${melhorSem.user_id}"><span>⚡ Destaque da semana</span><span class="gs-quem">${avatarHTML({ id: melhorSem.user_id, display_name: melhorSem.display_name, avatar_url: melhorSem.avatar_url }, 'sm')}<b>${melhorSem.user_id === state.session.user.id ? 'Você' : escapeHTML(String(melhorSem.display_name || '').split(' ')[0])}</b> · ${Math.round(melhorSem.pontos_semana)} pts</span></div>` : ''}
                 ${(() => { const eu = (saude || []).find(m => m.user_id === state.session.user.id); const pc = eu && eu.pct != null ? Number(eu.pct) : null;
                     return pc != null ? `<div class="grupo-eu"><span>Sua evolução no desafio</span><b class="${pc > 0 ? 'bom' : pc < 0 ? 'ruim' : ''}">${pc > 0 ? '−' : pc < 0 ? '+' : ''}${br(Math.abs(pc))}%</b></div>` : ''; })()}
                 <p class="chart-foot" style="text-align:left">Médias do grupo inteiro, sem identificar ninguém. Cada um vê só a própria evolução.</p>
@@ -10798,14 +10805,17 @@ async function renderListaMeusDesafios(meus, x1s = null) {
         }
         const pos = (r || []).findIndex(u => u.user_id === uid) + 1;
         const visto = Number(lsGet('pulso-pos-visto-' + ch.id) || 0);
-        return { ch, pos, total: (r || []).length, time, cfg: cfg || {}, mudou: pos && visto && pos !== visto };
+        let ontem = 0;
+        try { const { data: po } = await sb.rpc('challenge_posicoes_ontem', { cid: ch.id }); const m = (po || []).find(x => x.user_id === uid); ontem = m ? Number(m.pos_ontem) : 0; } catch (_) {}
+        return { ch, pos, total: (r || []).length, time, cfg: cfg || {}, mudou: pos && visto && pos !== visto, ontem };
     }));
     if (!document.getElementById('viewContainer')) return;
     const agora = Date.now();
     c.innerHTML = `<div class="view painel-desafio">
         <h1 class="pd-nome pd-lista-titulo">${x1s ? 'Desafios' : 'Seus desafios'}</h1>
         ${x1s ? '<div id="x1Slot"></div><div class="x1-sec x1-sec-cab pd-sec-grupo">EM GRUPO</div>' : ''}
-        ${extras.map(({ ch, pos, total, time, cfg, mudou }) => {
+        ${extras.map(({ ch, pos, total, time, cfg, mudou, ontem }) => {
+            const mov = pos && ontem && ontem !== pos ? (ontem > pos ? ` <span class="rk-seta up">▲${ontem - pos}</span>` : ` <span class="rk-seta dn">▼${pos - ontem}</span>`) : '';
             const ini = new Date(ch.starts_at), fim = new Date(ch.ends_at);
             const futuro = ch.status === 'futuro';
             const dias = Math.max(0, Math.ceil(((futuro ? ini : fim) - agora) / 86400000));
@@ -10814,11 +10824,12 @@ async function renderListaMeusDesafios(meus, x1s = null) {
             const linhaTime = time ? ` · <span class="pd-card-time"><i style="background:${corTime(time)}"></i>Time ${escapeHTML(nomeTime(cfg, time))}</span>` : (cfg.team_mode ? '' : ' · individual');
             return `<button class="pd-card" data-act="pd-abrir" data-id="${ch.id}">
                 <div class="pd-card-topo"><b>${escapeHTML(ch.name)}</b><span class="${!futuro && dias <= 3 ? 'reta' : ''}">${quando}</span>${mudou ? '<i class="pd-card-dot"></i>' : ''}</div>
-                <div class="pd-card-sub">${futuro ? `${total} ${total === 1 ? 'participante' : 'participantes'}` : pos ? `Você em <b>${pos}º</b> de ${total}` : `${total} participantes`}${linhaTime}</div>
+                <div class="pd-card-sub">${futuro ? `${total} ${total === 1 ? 'participante' : 'participantes'}` : pos ? `Você em <b>${pos}º</b> de ${total}${mov}` : `${total} participantes`}${linhaTime}</div>
                 <div class="pd-tempo"><i style="width:${pct}%"></i></div>
             </button>`;
         }).join('')}
         <button class="pd-descobrir" data-act="go-challenges-lista">Descobrir desafios <span>›</span></button>
+        ${x1s ? '<div id="x1FimSlot"></div>' : ''}
     </div>`;
     if (x1s) hydrateX1Lista(x1s, true);
 }
@@ -11964,7 +11975,7 @@ function paintCoachChat() {
     const sug = $('#coachSuggestions');
     if (sug) {
         sug.innerHTML = state.coachHistory.length < 2
-            ? COACH_SUGGESTIONS.map(s => `<button class="sug-chip" data-act="coach-suggest" data-q="${escapeHTML(s)}">${escapeHTML(s)}</button>`).join('')
+            ? '<button class="sug-chip sug-pront" data-act="pront-agora">💬 Como estou hoje</button>' + COACH_SUGGESTIONS.map(s => `<button class="sug-chip" data-act="coach-suggest" data-q="${escapeHTML(s)}">${escapeHTML(s)}</button>`).join('')
             : '';
     }
 
@@ -14542,6 +14553,10 @@ document.addEventListener('click', async e => {
             setComposerKind('workout');
             abrirComposer();
         }
+    } else if (act === 'pront-agora') {
+        // no meio da semana (ex: acordou com dor): atualiza as 3 respostas
+        const { f } = x1Folha('<div id="prontFolha"></div>', 'prontFolhaSheet');
+        hydrateProntidaoFeed(true, f.querySelector('#prontFolha'));
     } else if (act === 'coach-suggest') {
         sendCoachMessage(btn.dataset.q);
     } else if (act === 'delete-measurement') {
@@ -19037,6 +19052,9 @@ function x1Expira(q) {
     const h = Math.floor(ms / 3600000); return h >= 1 ? `expira em ${h} h` : `expira em ${Math.max(1, Math.floor(ms / 60000))} min`;
 }
 // versão curta pro card quando o placar é comprido ("3d 5h")
+// revanche só 3 dias depois do fim (pra dar um respiro entre os duelos)
+const REVANCHE_MS = 3 * 86400000;
+const x1RevancheEm = x => { const ms = new Date(x.fim).getTime() + REVANCHE_MS - Date.now(); return ms > 0 ? Math.ceil(ms / 86400000) : 0; };
 function x1RestanteCurto(fim) {
     const ms = new Date(fim) - Date.now(); if (ms <= 0) return 'acabou';
     const d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000);
@@ -19193,12 +19211,16 @@ async function hydrateX1Lista(pronta = null, hub = false) {
         const fa = tot ? Math.max(euPts, tot * 0.06) : 1, fb = tot ? Math.max(elePts, tot * 0.06) : 1;
         return `<button class="x1-card${antes ? ' x1-antes' : ''}" data-x1l="abrir" data-id="${x.id}">
             <span class="x1-duo">${x1Av(x.sou_criador ? x.criador : x.rival)}${x1Av(ele)}</span>
-            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${tp.nome} · ${antes ? x1ComecaEm(x.inicio).toLowerCase() : (x1Num(euPts) + x1Num(elePts)).length > 5 ? x1RestanteCurto(x.fim) : x1Restante(x.fim).toLowerCase()}</small></span>
-            ${antes ? '<span class="x1-pill">⏳ 00h</span>' : `<span class="x1-sc ${cls}">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</span>
+            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${tp.nome} · ${antes ? x1ComecaEm(x.inicio).toLowerCase() : 'faltam ' + x1RestanteCurto(x.fim)}</small></span>
+            ${antes ? '<span class="x1-pill">⏳ 00h</span>' : `<span class="x1-sc ${cls}"><b class="sc-eu${euPts >= elePts ? ' lid' : ''}">${x1Num(euPts)}</b><em>x</em><b class="sc-ele${elePts >= euPts ? ' lid' : ''}">${x1Num(elePts)}</b></span>
             <span class="x1-mb"><i style="flex:${fa}"></i><u style="flex:${fb}"></u></span>`}
         </button>`;
     };
     const vazio = !ativos.length && !convites.length && !enviados.length && !fim.length;
+    const terminadosHTML = `${fim.length ? `<div class="x1-sec x1-sec-l">TERMINADOS</div>${fim.map(x => { const { ele, euPts, elePts } = x1Lados(x); const ganhei = x.vencedor === (x.sou_criador ? x.criador.id : x.rival.id); const emp = !x.vencedor; const espera = x1RevancheEm(x);
+            return `<button class="x1-card x1-fim" data-x1l="abrir" data-id="${x.id}"><span class="x1-res ${ganhei ? 'v' : emp ? 'e' : 'd'}">${ganhei ? 'Venceu' : emp ? 'Empate' : 'Perdeu'}</span>
+            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span>${ganhei ? '' : espera ? `<span class="x1-pill cinza espera">Revanche em ${espera}d</span>` : `<span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span>`}</button>`; }).join('')}` : ''}
+        ${!vazio ? '<button class="x1-hist-link" data-x1l="historico">Ver histórico de X1</button>' : ''}`;
     slot.innerHTML = `<div class="x1-lista${hub ? ' hub' : ''}">
         <div class="x1-cab">${hub ? '<span class="x1-sec x1-sec-cab">X1</span>' : '<h2>Seus X1</h2>'}${ativos.length >= 2 ? `<span class="x1-cont">${ativos.length} de 5 ativos</span>` : ''}</div>
         ${convites.map(x => { const { ele } = x1Lados(x); const tp = X1_TIPOS[x.tipo]; return `<button class="x1-card x1-convite" data-x1l="abrir" data-id="${x.id}">
@@ -19208,11 +19230,10 @@ async function hydrateX1Lista(pronta = null, hub = false) {
             ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>Esperando aceitar · ${x1Expira(x.expira)}</small></span></button>`; }).join('')}
         ${!vazio ? '<button class="x1-desafiar" data-act="x1-escolher">⚡ Desafiar alguém</button>' : ''}
         ${vazio ? `<div class="x1-vazio" data-act="x1-escolher"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X(IC_X1.raio)}</span><div><b>Desafie um amigo</b><small>Toque aqui e escolha alguém que você segue. Vale treino, km, minutos, pontos ou o dia perfeito.</small></div></div>` : ''}
-        ${fim.length ? `<div class="x1-sec x1-sec-l">TERMINADOS</div>${fim.map(x => { const { ele, euPts, elePts } = x1Lados(x); const ganhei = x.vencedor === (x.sou_criador ? x.criador.id : x.rival.id); const emp = !x.vencedor;
-            return `<button class="x1-card x1-fim" data-x1l="abrir" data-id="${x.id}"><span class="x1-res ${ganhei ? 'v' : emp ? 'e' : 'd'}">${ganhei ? 'Venceu' : emp ? 'Empate' : 'Perdeu'}</span>
-            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span>${ganhei ? '' : `<span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span>`}</button>`; }).join('')}` : ''}
-        ${!vazio ? '<button class="x1-hist-link" data-x1l="historico">Ver histórico de X1</button>' : ''}
+        ${hub && document.getElementById('x1FimSlot') ? '' : terminadosHTML}
     </div>`;
+    const slotFim = document.getElementById('x1FimSlot');
+    if (hub && slotFim) slotFim.innerHTML = terminadosHTML ? `<div class="x1-lista hub">${terminadosHTML}</div>` : '';
 }
 function pintarBolinhaX1(n) {
     const nav = document.querySelector('.bottomnav [data-view="desafio"], .nav-btn[data-view="desafio"]');
@@ -19357,7 +19378,7 @@ function abrirPlacarX1(x) {
                 <p>${tp.nome} · ${X1_DUR[x.duracao]}${x.desistiu ? ` · ${x.desistiu === eu.id ? 'você desistiu' : escapeHTML(ele.nome) + ' desistiu'}` : ''}</p>
                 <div class="x1-pt">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</div>
                 ${x.prenda && !empate ? `<div class="x1-prenda">${ganhei ? `${escapeHTML(ele.nome)} te deve: ` : 'Você deve: '}${escapeHTML(x.prenda.replace(/^quem perder\s*/i, ''))}</div>` : ''}
-                ${ganhei ? '<button class="btn x1-btn" data-x1p="story">Postar no story</button>' : '<div class="x1-duas"><button class="btn x1-btn ghost" data-x1p="revanche">Revanche</button><button class="btn x1-btn" data-x1p="story">Postar no story</button></div>'}
+                ${ganhei ? '<button class="btn x1-btn" data-x1p="story">Postar no story</button>' : `<div class="x1-duas">${x1RevancheEm(x) ? `<button class="btn x1-btn ghost" disabled>Revanche em ${x1RevancheEm(x)} ${x1RevancheEm(x) === 1 ? 'dia' : 'dias'}</button>` : '<button class="btn x1-btn ghost" data-x1p="revanche">Revanche</button>'}<button class="btn x1-btn" data-x1p="story">Postar no story</button></div>`}
             </div>` : `<div class="x1-hero">
                 <div class="x1-tipo">${pendente ? '<i class="esp"></i>ESPERANDO ACEITAR' : antes ? '<i class="esp"></i>COMEÇA EM BREVE' : '<i></i>AO VIVO'} · ${tp.nome.toUpperCase()}</div>
                 <div class="x1-vs">
