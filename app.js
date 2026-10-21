@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261254';
+const APP_VERSAO = '20261255';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -2515,14 +2515,76 @@ async function alternarSilenciar(uid, nome) {
 
 // ---- Enviar post pra alguém no chat ----
 // Qualquer post seu (até os antigos) vira story: abre o editor com a foto e o card
+// fundo do story: a própria foto do post bem desfocada e escurecida (1080x1920)
+async function fundoDesfocado(file) {
+    const im = await carregarImagemStory(file);
+    const p = document.createElement('canvas'); p.width = 18; p.height = 32;
+    const a = im.width / im.height, cw = a > 18 / 32 ? 32 * a : 18, ch = a > 18 / 32 ? 32 : 18 / a;
+    p.getContext('2d').drawImage(im, (18 - cw) / 2, (32 - ch) / 2, cw, ch);
+    const c = document.createElement('canvas'); c.width = 1080; c.height = 1920;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+    g.drawImage(p, 0, 0, 1080, 1920); g.fillStyle = 'rgba(0,0,0,.28)'; g.fillRect(0, 0, 1080, 1920);
+    const blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.86));
+    return blob ? new File([blob], 'fundo.jpg', { type: 'image/jpeg' }) : null;
+}
+// "Adicionar ao story": card do post (foto, @, legenda e música) que leva pro post quando tocado
 async function adicionarPostAoStory(id) {
-    const { data: post } = await sb.from('posts').select('*').eq('id', id).maybeSingle();
+    const { data: post } = await sb.from('posts').select('*, user:profiles!user_id (id, username, display_name, avatar_url)').eq('id', id).maybeSingle();
     if (!post) { toast('Não achei esse post', 'err'); return; }
-    if (post.kind === 'workout') { await publicarStoryTreino(post); return; }
+    const eu = state.session.user.id, meu = post.user_id === eu;
+    if (!meu && (post.visibility || 'public') !== 'public') { toast('Só dá pra compartilhar post público', 'err'); return; }
+    if (meu && post.kind === 'workout' && !post.image_url) { await publicarStoryTreino(post); return; }
     const foto = post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
-    if (foto) { await abrirEditorComCard({ card: null, url: foto }); return; }
-    await abrirEditorComCard({ card: null });
-    const t = $('#scText'); if (t && post.caption) { t.value = post.caption; ajustarAlturaTextoStory(); atualizarBotaoPublicarStory(); }
+    if (!foto) {
+        if (!meu) { toast('Esse post não tem foto pra compartilhar', 'err'); return; }
+        await abrirEditorComCard({ card: null });
+        const t = $('#scText'); if (t && post.caption) { t.value = post.caption; ajustarAlturaTextoStory(); atualizarBotaoPublicarStory(); }
+        return;
+    }
+    const u = post.user || {}, mus = post.meta && post.meta.musica && post.meta.musica.id ? post.meta.musica : null;
+    const card = { tipo: 'post', pid: post.id, foto, uid: u.id || post.user_id, user: u.username || '', nome: u.display_name || u.username || '', avatar: u.avatar_url || '',
+        legenda: String(post.caption || '').slice(0, 90), mus: mus ? `${mus.titulo} · ${mus.artista}` : '', est: 'card' };
+    let fundo = null;
+    try { fundo = await fundoDesfocado(await arquivoDeUrl(foto)); } catch (_) { fundo = null; }
+    await abrirEditorComCard({ card, file: fundo, bg: '#0E1113', pos: { x: 50, y: 45 } });
+    if (mus) {
+        const fr = await previewMusica(mus.id);
+        if (fr && $('#storyCreator').classList.contains('on')) {
+            sc.musica = { id: mus.id, titulo: mus.titulo, artista: mus.artista, capa: mus.capa || '', preview: fr.preview, ini: Number(mus.ini) || 0, dur: Number(mus.dur) || MUSICA_TRECHO, estilo: 'mini' };
+            sc.musicaPos = { x: 50, y: 84, s: 1, r: 0 };
+            pintarMusicaCriador(); tocarMusicaEditor(); atualizarBotaoPublicarStory();
+        }
+    }
+}
+// tocou no card do post no editor: trocar o visual
+function abrirBalaoCardPost() {
+    if (!sc.card || sc.card.tipo !== 'post') return;
+    const ant = document.getElementById('scCardBalao'); if (ant) { ant.remove(); return; }
+    const el = elCardCriador(), stage = $('#scStage');
+    const b = document.createElement('div'); b.id = 'scCardBalao'; b.className = 'mus-balao';
+    const est = sc.card.est || 'card';
+    b.innerHTML = [['card', 'Card', '<i class="mm-mini card"></i>'], ['foto', 'Só foto', '<i class="mm-mini foto"></i>'], ['escuro', 'Escuro', '<i class="mm-mini escuro"></i>']]
+        .map(([k, n, ic]) => `<button type="button" data-est-post="${k}" class="${k === est ? 'on' : ''}">${ic}${n}</button>`).join('');
+    stage.appendChild(b);
+    const sr = stage.getBoundingClientRect(), r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2 - sr.left, acima = r.top - sr.top > 90;
+    b.classList.toggle('embaixo', !acima);
+    b.style.left = Math.max(b.offsetWidth / 2 + 8, Math.min(sr.width - b.offsetWidth / 2 - 8, cx)) + 'px';
+    b.style.top = (acima ? r.top - sr.top - 12 : r.bottom - sr.top + 12) + 'px';
+    b.style.setProperty('--seta', (cx - (parseFloat(b.style.left) - b.offsetWidth / 2)) + 'px');
+    vibrar(6);
+    b.addEventListener('pointerdown', e => e.stopPropagation());
+    b.addEventListener('click', e => {
+        e.stopPropagation();
+        const k = e.target.closest('[data-est-post]'); if (!k) return;
+        sc.card = { ...sc.card, est: k.dataset.estPost };
+        b.querySelectorAll('[data-est-post]').forEach(x => x.classList.toggle('on', x === k));
+        pintarCardCriador(); vibrar(5);
+    });
+    setTimeout(() => {
+        const fora = e => { if (!document.getElementById('scCardBalao')) { document.removeEventListener('pointerdown', fora, true); return; } if (e.target.closest('#scCardBalao, #scCard')) return; b.remove(); document.removeEventListener('pointerdown', fora, true); };
+        document.addEventListener('pointerdown', fora, true);
+    }, 0);
 }
 async function abrirEnviarPost(btn) {
     const ref = { id: btn.dataset.id, img: btn.dataset.img || null, user: btn.dataset.user || '', txt: btn.dataset.txt || '' };
@@ -2532,9 +2594,9 @@ async function abrirEnviarPost(btn) {
     const meuPost = state.profile && ref.user && ref.user === state.profile.username;
     sheet.innerHTML = `<div class="sheet-card">
         <div class="sheet-handle"></div>
-        ${meuPost ? `<button type="button" class="ep-story" data-ep-story>
+        ${meuPost || (btn.dataset.vis === 'public' && ref.img && !ehPrivada(ref.img)) ? `<button type="button" class="ep-story" data-ep-story>
             <span class="ep-st-mini">${ref.img && !ehPrivada(ref.img) ? `<img src="${escapeHTML(ref.img)}" alt="">` : '<i></i>'}</span>
-            <span class="ep-st-txt"><b>Adicionar ao seu story</b><small>Você ajusta foto e card antes de publicar</small></span>
+            <span class="ep-st-txt"><b>Adicionar ao seu story</b><small>${meuPost ? 'Você ajusta o card antes de publicar' : 'Quem vir pode tocar e abrir o post'}</small></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>` : ''}
         <h3 class="sheet-title ep-tit">Enviar pra</h3>
         <input type="text" id="epBusca" class="ep-busca" placeholder="Buscar pessoa" autocomplete="off" autocapitalize="off">
@@ -4015,6 +4077,9 @@ async function renderNotifications() {
         } else if (n.kind === 'depoimento') {
             emo = '✍️'; texto = `<b>${quem}</b> deixou um depoimento pra você`;
             act = ` data-act="abrir-depoimentos"`;
+        } else if (n.kind === 'post_no_story') {
+            emo = '↻'; texto = `<b>${quem}</b> compartilhou seu post no story`;
+            act = n.post_id ? ` data-act="view-post" data-id="${n.post_id}"` : ` data-act="view-user" data-uid="${n.actor_id}"`;
         } else if (n.kind === 'pedido_depoimento') {
             emo = '✍️'; texto = `<b>${quem}</b> pediu um depoimento seu`;
             act = ` data-act="abrir-pedido-dep" data-uid="${n.actor_id}" data-nome="${quem}"`;
@@ -6361,7 +6426,7 @@ function renderPost(p) {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     <span>${cCount}</span>
                 </button>
-                ${p.visibility !== 'private' ? `<button class="post-btn" data-act="enviar-post" data-id="${p.id}" data-img="${escapeHTML(p.image_url || '')}" data-user="${escapeHTML(user.username || '')}" data-txt="${escapeHTML(String(p.caption || p.activity_type || '').slice(0, 60))}" aria-label="Enviar">
+                ${p.visibility !== 'private' ? `<button class="post-btn" data-act="enviar-post" data-id="${p.id}" data-img="${escapeHTML(p.image_url || '')}" data-user="${escapeHTML(user.username || '')}" data-txt="${escapeHTML(String(p.caption || p.activity_type || '').slice(0, 60))}" data-vis="${escapeHTML(p.visibility || 'public')}" aria-label="Enviar">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4z"/></svg>
                 </button>` : ''}
                 ${isMine ? `<span class="post-coment-off${p.comments_off ? '' : ' hidden'}">comentários desativados</span>` : ''}
@@ -15273,6 +15338,14 @@ function htmlCardStory(st, comFoto) {
             <div class="rk-podio">${o.map(p => `<div class="rk-pd p${p.pos}"><span class="rk-av">${p.pos === 1 ? '<i class="rk-coroa">👑</i>' : ''}${avatarHTML({ id: p.id, display_name: p.nome, avatar_url: p.avatar || null }, 'md')}</span><b>${escapeHTML(p.nome)}</b><small>${p.pts} pts</small><span class="rk-base">${p.pos}</span></div>`).join('')}</div>
             <b class="cs-marca">Pulso.</b></div>`;
     }
+    if (c.tipo === 'post') {
+        const est = ['card', 'foto', 'escuro'].includes(c.est) ? c.est : 'card';
+        return `<div class="card-story post-cs est-${est}" data-post-card="${escapeHTML(String(c.pid || ''))}">
+            ${est !== 'foto' ? `<div class="pcs-h">${avatarHTML({ id: c.uid, display_name: c.nome || c.user, avatar_url: c.avatar || null }, 'sm')}<b>${escapeHTML(c.user || '')}</b></div>` : ''}
+            <img class="pcs-img" src="${escapeHTML(c.foto || '')}" alt="">
+            ${est !== 'foto' && (c.legenda || c.mus) ? `<div class="pcs-l">${c.legenda ? `<p>${escapeHTML(c.legenda)}</p>` : ''}${c.mus ? `<small><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>${escapeHTML(c.mus)}</small>` : ''}</div>` : ''}
+        </div>`;
+    }
     if (c.tipo === 'depoimento') {
         const k = CORES_DEP[corDep(c.cor)];
         return `<div class="card-story dep-cs${comFoto ? ' sobre-foto' : ''}" style="--dc:${k[0]};--dg:${k[1]}"><span class="dep-brilho"></span>
@@ -15368,6 +15441,64 @@ function htmlCardStory(st, comFoto) {
     }
     return '';
 }
+// card de post no story: toque mostra "Ver post"; tocar no balão abre o post por cima do story
+function mostrarVerPost(card) {
+    const content = card.closest('.story-content'); if (!content) return;
+    const ant = content.querySelector('.sv-verpost'); if (ant) ant.remove();
+    pausarStoryNoPonto();
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'sv-verpost';
+    b.innerHTML = 'Ver post <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+    content.appendChild(b);
+    const cr = content.getBoundingClientRect(), r = card.getBoundingClientRect();
+    const acima = r.top - cr.top > 70;
+    b.classList.toggle('embaixo', !acima);
+    b.style.left = (r.left + r.width / 2 - cr.left) + 'px';
+    b.style.top = (acima ? r.top - cr.top - 12 : r.bottom - cr.top + 12) + 'px';
+    vibrar(6);
+    b.addEventListener('click', async ev => {
+        ev.stopPropagation();
+        const pid = card.dataset.postCard;
+        const { data } = pid ? await sb.from('posts').select('id').eq('id', pid).maybeSingle() : { data: null };
+        if (!data) {
+            b.classList.add('indisp'); b.textContent = 'Esse post não está disponível';
+            setTimeout(() => { if (b.isConnected) { b.remove(); retomarStoryDoPonto(); } }, 1800);
+            return;
+        }
+        b.remove();
+        abrirPostDoStory(pid);
+    });
+}
+async function abrirPostDoStory(pid) {
+    await openPostSheet(pid);
+    const sh = document.getElementById('postViewSheet'); if (!sh) { retomarStoryDoPonto(); return; }
+    sh.classList.add('sobre-story');
+    tocadorMusica.parar('viewer');
+    new MutationObserver((_, ob) => {
+        if (document.body.contains(sh)) return;
+        ob.disconnect();
+        musicaFeed.parar();
+        document.body.style.overflow = 'hidden';
+        if (!$('#storyViewer').classList.contains('on')) return;
+        retomarStoryDoPonto();
+        const g = (state.storiesData || [])[state.storyIdx], it = g && g.items[state.storyItemIdx];
+        if (it && it.style && it.style.musica) musicaDoStory(it);
+    }).observe(document.body, { childList: true });
+}
+// tocar fora do balão "Ver post" fecha e o story continua
+(function fecharVerPostFora() {
+    const v = document.getElementById('storyViewer'); if (!v) return;
+    let engolir = false;
+    v.addEventListener('pointerdown', e => {
+        const b = v.querySelector('.sv-verpost');
+        if (!b || e.target.closest('.sv-verpost, [data-post-card]')) return;
+        e.stopPropagation(); e.preventDefault(); engolir = true;
+        b.remove(); retomarStoryDoPonto();
+    }, true);
+    ['pointerup', 'click', 'touchstart', 'touchend'].forEach(t => v.addEventListener(t, e => {
+        if (!engolir) return; e.stopPropagation();
+        if (t === 'pointerup') setTimeout(() => { engolir = false; }, 350);
+    }, true));
+})();
 // extras do story no visualizador: repostado de @x e menções tocáveis
 function extrasStoryHTML(st) {
     let h = '';
@@ -16209,7 +16340,7 @@ tornarArrastavel($('#scText'), 'pos', () => {
     t.focus();
 });
 tornarArrastavel($('#scSticker'), 'adesivoPos', null);
-tornarArrastavel(elCardCriador(), 'cardPos', null);
+tornarArrastavel(elCardCriador(), 'cardPos', () => { if (sc.card && sc.card.tipo === 'post') abrirBalaoCardPost(); });
 (function deslizarEstiloPoster() {
     // pôster em tela cheia: deslizar pro lado troca o estilo. Pôster menor: um dedo arrasta. Toque duplo volta pra tela cheia.
     const stage = document.getElementById('scStage'); let ini = null, ultimoToque = 0;
@@ -16615,9 +16746,10 @@ const musicaFeed = (() => {
     const ocupado = () => document.querySelector('.story-viewer.on, .sc.on, #novoPostTela, #scMusModo, .x1-veu');
     const escolher = () => {
         pendente = false;
-        if (ocupado() || document.hidden) { if (atual) { tocadorMusica.parar('feed'); atual = null; } return; }
+        const sobre = document.querySelector('#postViewSheet.sobre-story');
+        if ((!sobre && ocupado()) || document.hidden) { if (atual) { tocadorMusica.parar('feed'); atual = null; } return; }
         const H = window.innerHeight; let melhor = null, mv = 0;
-        document.querySelectorAll('.post[data-mus-id]').forEach(p => {
+        (sobre || document).querySelectorAll('.post[data-mus-id]').forEach(p => {
             const m = p.querySelector('.post-midia-mus'); if (!m || !m.offsetParent) return;
             const r = m.getBoundingClientRect(), vis = Math.max(0, Math.min(r.bottom, H - 70) - Math.max(r.top, 60)) / Math.max(1, r.height);
             if (vis > mv) { mv = vis; melhor = p; }
@@ -17033,6 +17165,7 @@ el$('scPublish').addEventListener('click', async () => {
     if ((sc.mencoes || []).length) style.mencoes = sc.mencoes.map(m => ({ id: m.id, username: m.username, x: Math.round((sc[m.chave] || {}).x || 50), y: Math.round((sc[m.chave] || {}).y || 40), s: Math.round(((sc[m.chave] || {}).s || 1) * 100) / 100, r: Math.round((sc[m.chave] || {}).r || 0) }));
     if (sc.musica) { const mp = sc.musicaPos || {}; style.musica = { id: sc.musica.id, titulo: sc.musica.titulo, artista: sc.musica.artista, capa: sc.musica.capa || '', ini: Math.round((Number(sc.musica.ini) || 0) * 2) / 2, dur: Math.max(5, Math.min(MUSICA_TRECHO, Number(sc.musica.dur) || MUSICA_TRECHO)), estilo: sc.musica.estilo || 'card',
         x: Math.round(mp.x || 50), y: Math.round(mp.y || 70), s: Math.round((mp.s || 1) * 100) / 100, r: Math.round(mp.r || 0) }; }
+    if (sc.card && sc.card.tipo === 'post' && sc.card.uid && sc.card.uid !== state.session.user.id) style.avisar_post = sc.card.pid;
     if (sc.repost) style.repost = true;
     if (sc.repostDe) style.repost_de = sc.repostDe;
     let arquivo = null;
@@ -17080,6 +17213,7 @@ async function publicarStoryFundo(d) {
             const se = document.getElementById('semanaEvoSlot'); if (se) se.innerHTML = '';
         }
         if ((d.style.mencoes || []).length) sb.rpc('marcar_story_mencao', { sid: story.id }).then(() => {});
+        if (d.style.avisar_post) sb.rpc('avisar_post_no_story', { pid: d.style.avisar_post }).then(() => {}, () => {});
         updateStreak(hojeISO()).catch(() => {});
         const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id });
         const ganhos = Number(stPts || 0);
@@ -17312,7 +17446,7 @@ function showCurrentStory() {
         ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${htmlAdesivo(st.sticker)}</div>` : '';
     // card feito no editor (com posição): entra junto com o resto do story
     const posterHTML = st.card && ehPoster(st.card) ? (() => { const sl = posterSolto(st.cardPos, st.cardScale, st.cardRot); return `<div class="sv-poster${sl ? ' solto' : ''}"${sl ? ` style="transform:${transformPoster(st.cardPos, st.cardScale, st.cardRot)}"` : ''}>${htmlCardStory(st, false)}</div>`; })() : '';
-    const cardPosHTML = st.card && st.cardPos && !ehPoster(st.card) ? `<div class="sv-card" style="left:${Number(st.cardPos.x) || 50}%;top:${Number(st.cardPos.y) || 50}%;transform:translate(-50%, -50%) scale(${Number(st.cardScale) || 1}) rotate(${Number(st.cardRot) || 0}deg)">${htmlCardStory(st, !!item.image_url)}</div>` : '';
+    const cardPosHTML = st.card && st.cardPos && !ehPoster(st.card) ? `<div class="sv-card${st.card.tipo === 'post' ? ' sv-card-post' : ''}" style="left:${Number(st.cardPos.x) || 50}%;top:${Number(st.cardPos.y) || 50}%;transform:translate(-50%, -50%) scale(${Number(st.cardScale) || 1}) rotate(${Number(st.cardRot) || 0}deg)">${htmlCardStory(st, !!item.image_url)}</div>` : '';
     if (st.card && !st.cardPos) {
         content.className = 'story-content' + (item.image_url ? '' : ' text-story card-fundo');
         content.style.background = item.image_url ? '#000' : (item.background_color || CARD_STORY_BG);
@@ -17341,6 +17475,7 @@ function showCurrentStory() {
     }
 
     hidratarEnqueteStory(content, item, group, souDonoDoStory, ehDestaque);
+    content.querySelectorAll('[data-post-card]').forEach(cd => cd.addEventListener('click', ev => { ev.stopPropagation(); mostrarVerPost(cd); }));
     content.querySelectorAll('[data-sv-uid]').forEach(b => b.addEventListener('click', ev => {
         ev.stopPropagation();
         const uid = b.dataset.svUid;

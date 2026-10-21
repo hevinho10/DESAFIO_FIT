@@ -5802,3 +5802,32 @@ details.ch-rel:not([open]) > summary{ margin-bottom:0; }
 .ed-icones button{ aspect-ratio:1; border-radius:12px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--ink-dim); display:grid; place-items:center; padding:0; }
 .ed-icones button svg{ width:20px; height:20px; }
 .ed-icones button.on{ border-color:rgba(16,185,129,.5); background:rgba(16,185,129,.1); color:#34D399; }
+
+/* ONDA 55: post do feed no story (card que leva pro post) */
+.sc-card:has(.post-cs), .sv-card:has(.post-cs){ width:min(64%, 260px); }
+.card-story.post-cs{ padding:0 !important; gap:0 !important; border-radius:20px !important; overflow:hidden; text-align:left; align-items:stretch; background:#fff !important; color:#0A0C0B; box-shadow:0 20px 50px rgba(0,0,0,.45) !important; border:0 !important; }
+.card-story.post-cs::before, .card-story.post-cs::after{ display:none !important; }
+.post-cs .pcs-h{ display:flex; align-items:center; gap:8px; padding:10px 12px; }
+.post-cs .pcs-h .avatar{ width:26px !important; height:26px !important; font-size:11px; }
+.post-cs .pcs-h b{ font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.post-cs .pcs-img{ display:block; width:100%; aspect-ratio:4 / 5; object-fit:cover; background:#ddd; }
+.post-cs .pcs-l{ padding:9px 12px 11px; }
+.post-cs .pcs-l p{ margin:0; font-size:12px; line-height:1.35; color:#2A302E; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.post-cs .pcs-l small{ display:flex; align-items:center; gap:5px; margin-top:5px; font-size:11px; color:#55605C; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.post-cs .pcs-l small svg{ width:11px; height:11px; flex:none; }
+.card-story.post-cs.est-escuro{ background:#121615 !important; color:#fff; border:1px solid rgba(255,255,255,.1) !important; }
+.post-cs.est-escuro .pcs-l p{ color:rgba(255,255,255,.85); }
+.post-cs.est-escuro .pcs-l small{ color:rgba(255,255,255,.6); }
+.card-story.post-cs.est-foto{ background:transparent !important; border-radius:18px !important; }
+.post-cs.est-foto .pcs-img{ border-radius:18px; }
+.mm-mini.foto{ width:14px; height:18px; border-radius:4px; background:linear-gradient(135deg,#9AA3A0,#5E6764); }
+.mm-mini.escuro{ width:20px; height:13px; border-radius:4px; background:#121615; border:1px solid rgba(255,255,255,.5); }
+.sv-card.sv-card-post{ pointer-events:auto; z-index:7; cursor:pointer; }
+.sv-verpost{ position:absolute; z-index:9; transform:translate(-50%, -100%); display:flex; align-items:center; gap:6px; padding:10px 16px; border-radius:14px; border:1px solid rgba(255,255,255,.14);
+  background:rgba(14,17,17,.88); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); color:#fff; font:600 13.5px var(--ff-body); white-space:nowrap; box-shadow:0 10px 26px rgba(0,0,0,.4); animation:balaoEntra .16s ease-out; }
+.sv-verpost.embaixo{ transform:translate(-50%, 0); }
+.sv-verpost svg{ width:14px; height:14px; color:#34D399; }
+.sv-verpost.indisp{ color:rgba(255,255,255,.8); font-weight:500; }
+.sv-verpost::after{ content:''; position:absolute; left:50%; bottom:-6px; width:12px; height:12px; margin-left:-6px; transform:rotate(45deg); background:rgba(14,17,17,.88); border-right:1px solid rgba(255,255,255,.14); border-bottom:1px solid rgba(255,255,255,.14); }
+.sv-verpost.embaixo::after{ bottom:auto; top:-6px; transform:rotate(225deg); }
+#postViewSheet.sobre-story{ z-index:300; }
