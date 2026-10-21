@@ -5831,3 +5831,10 @@ details.ch-rel:not([open]) > summary{ margin-bottom:0; }
 .sv-verpost::after{ content:''; position:absolute; left:50%; bottom:-6px; width:12px; height:12px; margin-left:-6px; transform:rotate(45deg); background:rgba(14,17,17,.88); border-right:1px solid rgba(255,255,255,.14); border-bottom:1px solid rgba(255,255,255,.14); }
 .sv-verpost.embaixo::after{ bottom:auto; top:-6px; transform:rotate(225deg); }
 #postViewSheet.sobre-story{ z-index:300; }
+/* card de post de outra pessoa: confere se ainda pode ver */
+.post-cs.verificando .pcs-img, .post-cs.verificando .pcs-l{ filter:blur(14px); }
+.post-cs.verificando{ overflow:hidden; }
+.card-story.post-cs.bloqueado{ background:rgba(18,22,21,.82) !important; -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px); border:1px solid rgba(255,255,255,.12) !important; color:#fff; cursor:default; }
+.pcs-bloq{ aspect-ratio:4 / 5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:rgba(255,255,255,.85); }
+.pcs-bloq svg{ width:30px; height:30px; opacity:.8; }
+.pcs-bloq b{ font-size:13.5px; font-weight:600; }

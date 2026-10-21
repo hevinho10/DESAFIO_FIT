@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261255';
+const APP_VERSAO = '20261256';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -15340,7 +15340,7 @@ function htmlCardStory(st, comFoto) {
     }
     if (c.tipo === 'post') {
         const est = ['card', 'foto', 'escuro'].includes(c.est) ? c.est : 'card';
-        return `<div class="card-story post-cs est-${est}" data-post-card="${escapeHTML(String(c.pid || ''))}">
+        return `<div class="card-story post-cs est-${est}" data-post-card="${escapeHTML(String(c.pid || ''))}" data-autor="${escapeHTML(String(c.uid || ''))}">
             ${est !== 'foto' ? `<div class="pcs-h">${avatarHTML({ id: c.uid, display_name: c.nome || c.user, avatar_url: c.avatar || null }, 'sm')}<b>${escapeHTML(c.user || '')}</b></div>` : ''}
             <img class="pcs-img" src="${escapeHTML(c.foto || '')}" alt="">
             ${est !== 'foto' && (c.legenda || c.mus) ? `<div class="pcs-l">${c.legenda ? `<p>${escapeHTML(c.legenda)}</p>` : ''}${c.mus ? `<small><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>${escapeHTML(c.mus)}</small>` : ''}</div>` : ''}
@@ -15467,6 +15467,23 @@ function mostrarVerPost(card) {
         b.remove();
         abrirPostDoStory(pid);
     });
+}
+const acessoPostCache = new Map(); // pid -> { ok, em }
+async function conferirCardPost(cd) {
+    const pid = cd.dataset.postCard; if (!pid) return;
+    const c = acessoPostCache.get(pid);
+    const aplicar = ok => {
+        cd.classList.remove('verificando');
+        if (ok) return;
+        cd.classList.add('bloqueado');
+        cd.innerHTML = `<div class="pcs-bloq"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg><b>Post indisponível</b></div>`;
+    };
+    if (c && Date.now() - c.em < 5 * 60000) { aplicar(c.ok); return; }
+    cd.classList.add('verificando');
+    let ok = false;
+    try { const { data } = await sb.from('posts').select('id').eq('id', pid).maybeSingle(); ok = !!data; } catch (_) { ok = false; }
+    acessoPostCache.set(pid, { ok, em: Date.now() });
+    if (cd.isConnected) aplicar(ok);
 }
 async function abrirPostDoStory(pid) {
     await openPostSheet(pid);
@@ -17475,7 +17492,11 @@ function showCurrentStory() {
     }
 
     hidratarEnqueteStory(content, item, group, souDonoDoStory, ehDestaque);
-    content.querySelectorAll('[data-post-card]').forEach(cd => cd.addEventListener('click', ev => { ev.stopPropagation(); mostrarVerPost(cd); }));
+    content.querySelectorAll('[data-post-card]').forEach(cd => {
+        cd.addEventListener('click', ev => { ev.stopPropagation(); if (cd.classList.contains('bloqueado')) return; mostrarVerPost(cd); });
+        // post de outra pessoa: só mostra se quem assiste ainda pode ver o post (privacidade mudou ou foi apagado)
+        if (cd.dataset.autor && cd.dataset.autor !== group.user.id && cd.dataset.autor !== state.session.user.id) conferirCardPost(cd);
+    });
     content.querySelectorAll('[data-sv-uid]').forEach(b => b.addEventListener('click', ev => {
         ev.stopPropagation();
         const uid = b.dataset.svUid;
