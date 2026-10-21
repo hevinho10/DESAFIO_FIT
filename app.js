@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261250';
+const APP_VERSAO = '20261251';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -4011,6 +4011,9 @@ async function renderNotifications() {
         } else if (n.kind === 'depoimento') {
             emo = '✍️'; texto = `<b>${quem}</b> deixou um depoimento pra você`;
             act = ` data-act="abrir-depoimentos"`;
+        } else if (n.kind === 'pedido_depoimento') {
+            emo = '✍️'; texto = `<b>${quem}</b> pediu um depoimento seu`;
+            act = ` data-act="abrir-pedido-dep" data-uid="${n.actor_id}" data-nome="${quem}"`;
         } else if (n.kind === 'depoimento_publicado') {
             emo = '✨'; texto = `<b>${quem}</b> publicou o seu depoimento no perfil`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
@@ -11577,6 +11580,51 @@ function abrirEscreverDepoimento(uid, nome, editando = null) {
     };
 }
 
+// ---- Pedir depoimento pra um amigo (vocês se seguem) ----
+async function abrirPedirDepoimento() {
+    const lupa = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>';
+    const { f } = x1Folha(`<h3 class="x1-folha-t">Pedir um depoimento</h3>
+        <p class="dep-sub">Só aparecem amigos (vocês se seguem). A pessoa recebe um aviso e escreve direto no seu perfil.</p>
+        <label class="pd-busca">${lupa}<input id="pdBusca" type="search" placeholder="Buscar amigo" autocomplete="off" autocapitalize="off"></label>
+        <div class="pd-lista" id="pdLista">${esqueletoAba('depoimentos')}</div>`, 'pedirDepSheet');
+    const { data, error } = await sb.rpc('amigos_para_depoimento');
+    const box = f.querySelector('#pdLista'); if (!box) return;
+    if (error) { box.innerHTML = `<p class="faixa-nota">Não consegui carregar seus amigos agora.</p>`; return; }
+    const lista = data || [];
+    if (!lista.length) { box.innerHTML = '<p class="pd-vazio">Você ainda não tem amigos que se seguem com você. Quando alguém te seguir de volta, aparece aqui.</p>'; return; }
+    const SETE = 7 * 86400000;
+    const pintar = termo => {
+        const t = String(termo || '').trim().toLowerCase().replace(/^@/, '');
+        const filtrada = !t ? lista : lista.filter(u => (u.display_name || '').toLowerCase().includes(t) || (u.username || '').toLowerCase().includes(t));
+        box.innerHTML = filtrada.length ? filtrada.map(u => {
+            const recente = u.pedido_em && Date.now() - new Date(u.pedido_em).getTime() < SETE;
+            const bt = recente ? '<button class="bt-min cinza" disabled>Pedido ✓</button>'
+                : `<button class="bt-min" data-pd="${u.id}">${u.ja_deixou ? 'Pedir de novo' : 'Pedir'}</button>`;
+            return `<div class="pd-item">${avatarHTML(u, 'sm')}<div class="pd-nome"><b>${escapeHTML(u.display_name || u.username || '')}</b><small>${u.ja_deixou ? 'Já deixou um depoimento' : '@' + escapeHTML(u.username || '')}</small></div>${bt}</div>`;
+        }).join('') : '<p class="pd-vazio">Ninguém com esse nome entre seus amigos.</p>';
+    };
+    pintar('');
+    f.querySelector('#pdBusca').addEventListener('input', e => pintar(e.target.value));
+    box.addEventListener('click', async e => {
+        const b = e.target.closest('[data-pd]'); if (!b) return;
+        b.disabled = true;
+        const { error: er } = await sb.rpc('pedir_depoimento', { alvo: b.dataset.pd });
+        if (er) { toast(msgErro(er), 'err'); b.disabled = false; return; }
+        const u = lista.find(x => x.id === b.dataset.pd); if (u) u.pedido_em = new Date().toISOString();
+        b.outerHTML = '<button class="bt-min cinza" disabled>Pedido ✓</button>';
+        vibrar(8);
+        toast('Pedido enviado ✍️', 'ok');
+    });
+}
+// abre o perfil de quem pediu, na aba de depoimentos, já com a caixa de escrever
+async function abrirPedidoDepoimento(uid, nome) {
+    await switchView('user-profile', { uid });
+    const aba = document.querySelector('.ig-tab[data-tab="depoimentos"]');
+    if (aba) aba.click();
+    if (!nome) { const { data: pf } = await sb.from('profiles').select('display_name, username').eq('id', uid).maybeSingle(); nome = pf ? (pf.display_name || pf.username || '') : ''; }
+    setTimeout(() => abrirEscreverDepoimento(uid, nome || ''), 450);
+}
+
 // ---- Vitrine do desafio (pra quem ainda não participa) ----
 async function renderChallengeVitrine(ch) {
     const c = $('#viewContainer');
@@ -13690,12 +13738,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'invite-challenge') {
         openInviteSheet(btn.dataset.id);
     } else if (act === 'dep-pedir') {
-        const link = `${location.origin}${location.pathname}?u=${encodeURIComponent(state.profile.username)}`;
-        const texto = `Me deixa um depoimento lá no meu perfil do Pulso? ${link}`;
-        try {
-            if (navigator.share) await navigator.share({ title: 'Pulso', text: texto, url: link });
-            else { await navigator.clipboard.writeText(texto); toast('Pedido copiado, é só mandar pra alguém', 'ok'); }
-        } catch (e) {}
+        abrirPedirDepoimento();
     } else if (act === 'compartilhar-perfil') {
         const link = `${location.origin}${location.pathname}?u=${encodeURIComponent(state.profile.username)}`;
         const texto = `Me segue no Pulso: ${link}`;
@@ -13845,6 +13888,8 @@ document.addEventListener('click', async e => {
         const a = x.autor || {}, k = CORES_DEP[corDep(x.cor)];
         abrirEditorComCard({ card: { tipo: 'depoimento', texto: x.texto, cor: corDep(x.cor), nome: a.display_name || a.username || '', uid: a.id || '', avatar: a.avatar_url || '' },
             bg: `radial-gradient(90% 55% at 50% 45%, rgba(${k[0]}, .28), transparent 70%), #07080C` });
+    } else if (act === 'abrir-pedido-dep') {
+        abrirPedidoDepoimento(btn.dataset.uid, btn.dataset.nome);
     } else if (act === 'dep-escrever') {
         abrirEscreverDepoimento(btn.dataset.uid, btn.dataset.nome);
     } else if (act === 'dep-responder') {
@@ -15305,6 +15350,8 @@ function extrasStoryHTML(st) {
     let h = '';
     if (st.enquete && st.enquete.p != null) h += `<div class="sv-enq" style="left:${Number(st.enquete.x) || 50}%;top:${Number(st.enquete.y) || 64}%">${htmlEnquete(st.enquete)}</div>`;
     if (st.repost_de && st.repost_de.username) h += `<button type="button" class="sv-repost-de" data-sv-uid="${st.repost_de.id}">↻ Repostado de @${escapeHTML(st.repost_de.username)}</button>`;
+    if (st.musica && st.musica.id) { const mu = st.musica;
+        h += `<div class="sv-musica" style="left:${Number(mu.x) || 50}%;top:${Number(mu.y) || 70}%;transform:translate(-50%,-50%) scale(${Math.max(0.2, Math.min(2.5, Number(mu.s) || 1))}) rotate(${Number(mu.r) || 0}deg)">${htmlAdesivoMusica(mu)}</div>`; }
     (st.mencoes || []).forEach(m => {
         h += `<button type="button" class="sv-mencao" data-sv-uid="${m.id}" style="left:${Number(m.x) || 50}%;top:${Number(m.y) || 40}%${(Number(m.s) && Number(m.s) !== 1) || Number(m.r) ? `;transform:translate(-50%,-50%) scale(${Math.max(0.2, Math.min(2.5, Number(m.s) || 1))}) rotate(${Number(m.r) || 0}deg)` : ''}">@${escapeHTML(m.username || '')}</button>`;
     });
@@ -15582,6 +15629,7 @@ function openStoryCreator() {
     sc.enquete = null; sc.enqPos = null;
     Object.keys(sc).filter(k => k.startsWith('men_')).forEach(k => delete sc[k]);
     sc.mencoes = []; sc.repost = false; sc.repostDe = null; sc.repostUrl = null; sc.repostArq = null; sc.repostQuadro = null;
+    sc.musica = null; sc.musicaPos = null; { const mu = document.getElementById('scMusica'); if (mu) mu.remove(); } tocadorMusica.parar('editor');
     document.querySelectorAll('#storyCreator .travado').forEach(x => x.classList.remove('travado'));
     { const ad = document.getElementById('scColTreino'); if (ad) ad.classList.remove('desativado'); }
     $('#scRepostAviso').classList.add('hidden');
@@ -15621,6 +15669,7 @@ function closeStoryCreator() {
     const depois = state.depoisDoStory; state.depoisDoStory = null;
     if (depois) setTimeout(depois, 700);
     $('#storyCreator').classList.remove('on');
+    tocadorMusica.parar('editor'); tocadorMusica.parar('previa');
     document.body.style.overflow = '';
     sincronizarModoTela();
     $('#scText').blur();
@@ -15635,7 +15684,7 @@ function ajustarAlturaTextoStory() {
 }
 function atualizarBotaoPublicarStory() {
     const temTexto = $('#scText').value.trim().length > 0;
-    const pronto = (sc.mode === 'photo' && (sc.file || sc.repostUrl)) || (sc.mode === 'text' && (temTexto || sc.adesivo || sc.enquete || sc.card || (sc.mencoes || []).length));
+    const pronto = (sc.mode === 'photo' && (sc.file || sc.repostUrl)) || (sc.mode === 'text' && (temTexto || sc.adesivo || sc.enquete || sc.card || sc.musica || (sc.mencoes || []).length));
     $('#scPublish').classList.add('hidden'); // o botão redondo grande publica nos dois modos
     $('#scPublicarGrande').disabled = !pronto;
 }
@@ -15785,9 +15834,11 @@ function ajustarFotoQuadro() {
     const nw = el.tagName === 'CANVAS' ? el.width : el.naturalWidth, nh = el.tagName === 'CANVAS' ? el.height : el.naturalHeight;
     if (!nw || !nh) return;
     const W = st.clientWidth, H = st.clientHeight, a = nw / nh;
-    // foto em pé cobre o quadro todo; foto deitada abre inteira com o fundo desfocado (como no Instagram)
-    const deitada = a > 1.05;
-    const w = deitada ? W : (a > W / H ? H * a : W), h = deitada ? W / a : (a > W / H ? H : W / a);
+    // foto no formato da tela (em pé, 9:16) cobre o quadro todo; qualquer outro formato abre inteira,
+    // com o fundo desfocado das cores dela (como no Instagram). A pinça amplia se quiser preencher.
+    const cobre = Math.abs(a - W / H) / (W / H) < 0.12;
+    const w = cobre ? (a > W / H ? H * a : W) : (a > W / H ? W : H * a);
+    const h = cobre ? (a > W / H ? H : W / a) : (a > W / H ? W / a : H);
     sc.fotoBase = { w, h, W, H };
     const f = sc.foto || (sc.foto = { x: 0, y: 0, s: 1, r: 0 });
     Object.assign(el.style, { position: 'absolute', left: '50%', top: '50%', width: w + 'px', height: h + 'px', maxWidth: 'none', maxHeight: 'none',
@@ -15962,6 +16013,7 @@ function transformarItem(el) {
     el.style.transform = `translate(-50%, -50%) scale(${esc}) rotate(${rot}deg)`;
 }
 function apagarItemStory(el) {
+    if (el.classList.contains('sc-musica')) { tirarMusicaStory(); return; }
     if (el.classList.contains('sc-enquete')) { sc.enquete = null; sc.enqPos = null; el.remove(); atualizarBotaoPublicarStory(); return; }
     if (el.classList.contains('sc-mencao')) {
         sc.mencoes = (sc.mencoes || []).filter(m => m.id !== el.dataset.uid);
@@ -16012,7 +16064,7 @@ function tornarArrastavel(el, campoPos, aoTocar) {
         if (nx) x = 50; if (ny) y = 50;
         if ((nx && !$('#scGuiaV').classList.contains('on')) || (ny && !$('#scGuiaH').classList.contains('on'))) vibrar(6); // encostou na guia do centro
         $('#scGuiaV').classList.toggle('on', nx); $('#scGuiaH').classList.toggle('on', ny);
-        sc[campoPos] = { x, y };
+        sc[campoPos] = { ...(sc[campoPos] || {}), x, y };
         posicionar(el, sc[campoPos]);
         // lixeira
         // só apaga se o próprio item estiver em cima da lixeira (não importa onde está o dedo)
@@ -16042,7 +16094,7 @@ function tornarArrastavel(el, campoPos, aoTocar) {
     const stage = document.getElementById('scStage');
     let g = null;
     const alvo = (cx, cy) => {
-        const cands = [$('#scSticker'), elCardCriador(), $('#scText'), ...document.querySelectorAll('#scStage .sc-mencao')].filter(el => !el.classList.contains('hidden') && !el.classList.contains('sc-poster') && !el.classList.contains('travado') && (el.id !== 'scText' || sc.mode === 'photo'));
+        const cands = [$('#scSticker'), elCardCriador(), $('#scText'), ...document.querySelectorAll('#scStage .sc-mencao, #scStage .sc-musica')].filter(el => !el.classList.contains('hidden') && !el.classList.contains('sc-poster') && !el.classList.contains('travado') && (el.id !== 'scText' || sc.mode === 'photo'));
         const poster = ehPoster(sc.card) && !elCardCriador().classList.contains('travado') ? elCardCriador() : null;
         const foto = sc.mode === 'photo' && !sc.repostUrl ? elFotoStory() : null;
         if (foto && !(poster && dentroDoPoster(cx, cy))) {
@@ -16076,9 +16128,10 @@ function tornarArrastavel(el, campoPos, aoTocar) {
             $('#storyCreator').classList.add('arrastando');
             return;
         }
-        if (el.classList.contains('sc-mencao')) {
-            const m = sc['men_' + el.dataset.uid] || {};
-            g = { el, ehMen: true, chave: 'men_' + el.dataset.uid, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX), esc0: m.s || 1, rot0: m.r || 0 };
+        if (el.classList.contains('sc-mencao') || el.classList.contains('sc-musica')) {
+            const chaveM = el.classList.contains('sc-musica') ? 'musicaPos' : 'men_' + el.dataset.uid;
+            const m = sc[chaveM] || {};
+            g = { el, ehMen: true, chave: chaveM, d0: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), a0: Math.atan2(b.clientY - a.clientY, b.clientX - a.clientX), esc0: m.s || 1, rot0: m.r || 0 };
             $('#storyCreator').classList.add('arrastando');
             return;
         }
@@ -16201,6 +16254,7 @@ $('#scColAlinhar').addEventListener('click', e => {
     aplicarAlinhamento();
 });
 $('#scColMarcador').addEventListener('click', e => { e.stopPropagation(); $('#scFundoTxt').click(); });
+$('#scColMusica').addEventListener('click', e => { e.stopPropagation(); abrirMusicaStory(); });
 $('#scColTreino').addEventListener('click', e => { e.stopPropagation(); if (e.currentTarget.classList.contains('desativado')) { toast('No repost o card original fica fixo'); return; } abrirAdesivosStory(); });
 $('#scColTexto').addEventListener('click', e => { e.stopPropagation(); if (e.currentTarget.classList.contains('desativado')) { toast('No repost o texto original fica fixo'); return; } $('#scAddText').click(); });
 $('#scColFoto').addEventListener('click', e => { e.stopPropagation(); $('#scGal').click(); });
@@ -16487,6 +16541,180 @@ function colocarAdesivoStory(txt) {
     st.classList.remove('hidden');
     atualizarBotaoPublicarStory();
 }
+// ================= MÚSICA NO STORY (trechos de 30 s do Deezer, nada fica guardado no Pulso) =================
+const MUSICA_TRECHO = 15; // segundos que tocam no story
+const SOM_MUDO = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+const musicaCache = new Map(); // id -> { m, em }
+async function buscarMusicas(q) {
+    const { data, error } = await sb.functions.invoke('musica', { body: { q } });
+    if (error) throw error;
+    return (data && data.lista) || [];
+}
+async function previewMusica(id) {
+    const c = musicaCache.get(String(id));
+    if (c && Date.now() - c.em < 20 * 60000) return c.m;
+    const { data, error } = await sb.functions.invoke('musica', { body: { id } });
+    if (error || !data || !data.musica || !data.musica.preview) return null;
+    musicaCache.set(String(id), { m: data.musica, em: Date.now() });
+    return data.musica;
+}
+// um tocador só pra tudo (no iPhone ele precisa ser "liberado" num toque)
+const tocadorMusica = (() => {
+    const a = new Audio(); a.preload = 'auto'; a.playsInline = true; a.setAttribute('playsinline', '');
+    let ini = 0, fim = 30, dono = null;
+    a.addEventListener('timeupdate', () => { if (a.currentTime >= fim || a.currentTime < ini - 0.5) { a.currentTime = ini; } });
+    a.addEventListener('ended', () => { a.currentTime = ini; a.play().catch(() => {}); });
+    return {
+        el: a,
+        liberar() { if (a.src) return; try { a.src = SOM_MUDO; a.play().then(() => a.pause(), () => {}); } catch (_) {} },
+        async tocar(url, inicio, quem, mudo = false) {
+            dono = quem; ini = Math.max(0, Number(inicio) || 0); fim = ini + MUSICA_TRECHO;
+            if (a.src !== url) { a.src = url; }
+            a.muted = !!mudo;
+            const pular = () => { try { a.currentTime = ini; } catch (_) {} };
+            if (a.readyState >= 1) pular(); else a.addEventListener('loadedmetadata', pular, { once: true });
+            try { await a.play(); return true; } catch (_) { return false; }
+        },
+        pausar(quem) { if (!quem || quem === dono) a.pause(); },
+        continuar(quem) { if (quem === dono && a.src) a.play().catch(() => {}); },
+        parar(quem) { if (quem && quem !== dono) return; a.pause(); dono = null; },
+        mudo(v) { a.muted = v; },
+        get dono() { return dono; },
+    };
+})();
+function htmlAdesivoMusica(m) {
+    const capa = m.capa ? `<img src="${escapeHTML(m.capa)}" alt="">` : '<i class="mus-capa-vazia"></i>';
+    return `<span class="mus-capa">${capa}</span><span class="mus-txt"><b>${escapeHTML(m.titulo || '')}</b><small>${escapeHTML(m.artista || '')}</small></span><span class="mus-eq"><i></i><i></i><i></i><i></i></span>`;
+}
+function elMusicaCriador() {
+    let el = document.getElementById('scMusica');
+    if (!el) {
+        el = document.createElement('div'); el.id = 'scMusica'; el.className = 'sc-musica';
+        $('#scStage').appendChild(el);
+        tornarArrastavel(el, 'musicaPos', null);
+    }
+    return el;
+}
+function pintarMusicaCriador() {
+    const el = document.getElementById('scMusica');
+    if (!sc.musica) { if (el) el.remove(); tocadorMusica.parar('editor'); return; }
+    const m = elMusicaCriador();
+    m.innerHTML = htmlAdesivoMusica(sc.musica);
+    if (!sc.musicaPos) sc.musicaPos = { x: 50, y: 70, s: 1, r: 0 };
+    posicionar(m, sc.musicaPos);
+    m.style.transform = `translate(-50%, -50%) scale(${sc.musicaPos.s || 1}) rotate(${sc.musicaPos.r || 0}deg)`;
+}
+function tirarMusicaStory() {
+    sc.musica = null; sc.musicaPos = null;
+    pintarMusicaCriador();
+    atualizarBotaoPublicarStory();
+}
+async function abrirMusicaStory() {
+    tocadorMusica.liberar();
+    const lupa = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg>';
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Música</h3>
+        <label class="pd-busca">${lupa}<input id="musBusca" type="search" placeholder="Buscar música ou artista" autocomplete="off" autocapitalize="off" enterkeyhint="search"></label>
+        <div class="mus-lista" id="musLista"><p class="pd-vazio">Digite o nome da música ou do artista.</p></div>
+        <div class="mus-escolha hidden" id="musEscolha"></div>
+        ${sc.musica ? '<button class="x1-op perigo" data-mus="tirar">Tirar música</button>' : ''}
+        <p class="mus-fonte">Trechos de 30 s fornecidos pelo Deezer</p>`, 'scMusicaSheet');
+    const veu = f, lista = f.querySelector('#musLista'), escolha = f.querySelector('#musEscolha'), campo = f.querySelector('#musBusca');
+    let res = [], tocando = null, seq = 0;
+    const pararPrevia = () => { tocadorMusica.parar('previa'); tocando = null; lista.querySelectorAll('.mus-play.on').forEach(b => b.classList.remove('on')); };
+    // ao fechar a folha, para a prévia e volta a tocar a música escolhida
+    new MutationObserver((_, ob) => { if (!document.body.contains(veu)) { ob.disconnect(); pararPrevia(); if (sc.musica && $('#storyCreator').classList.contains('on')) tocarMusicaEditor(); } }).observe(document.body, { childList: true });
+    const pintar = () => {
+        lista.innerHTML = res.length ? res.map((m, i) => `<div class="mus-item" data-i="${i}">
+            <span class="mus-capa">${m.capa ? `<img src="${escapeHTML(m.capa)}" alt="">` : ''}</span>
+            <div class="pd-nome"><b>${escapeHTML(m.titulo)}</b><small>${escapeHTML(m.artista)}</small></div>
+            <button type="button" class="mus-play" data-play="${i}" aria-label="Ouvir"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg><svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg></button>
+        </div>`).join('') : '<p class="pd-vazio">Nada encontrado. Tente outro nome.</p>';
+    };
+    let timer = null;
+    campo.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = campo.value.trim();
+        if (q.length < 2) { lista.innerHTML = '<p class="pd-vazio">Digite o nome da música ou do artista.</p>'; return; }
+        timer = setTimeout(async () => {
+            const meu = ++seq;
+            lista.innerHTML = esqueletoAba('depoimentos');
+            try { const r = await buscarMusicas(q); if (meu !== seq) return; res = r; pintar(); }
+            catch (_) { if (meu === seq) lista.innerHTML = '<p class="pd-vazio">Não consegui buscar agora. Tente de novo.</p>'; }
+        }, 380);
+    });
+    f.addEventListener('click', async e => {
+        if (e.target.closest('[data-mus="tirar"]')) { pararPrevia(); tirarMusicaStory(); fechar(); return; }
+        const pl = e.target.closest('[data-play]');
+        if (pl) {
+            e.stopPropagation();
+            const i = Number(pl.dataset.play), m = res[i];
+            if (tocando === i) { pararPrevia(); return; }
+            pararPrevia(); tocando = i; pl.classList.add('on');
+            const ok = await tocadorMusica.tocar(m.preview, 0, 'previa');
+            if (!ok) { pl.classList.remove('on'); tocando = null; }
+            return;
+        }
+        const it = e.target.closest('.mus-item');
+        if (it) { pararPrevia(); escolherTrecho(res[Number(it.dataset.i)]); }
+    });
+    // escolher o trecho de 15 s dentro dos 30 s
+    function escolherTrecho(m) {
+        lista.classList.add('hidden'); campo.closest('.pd-busca').classList.add('hidden');
+        escolha.classList.remove('hidden');
+        let ini = sc.musica && sc.musica.id === m.id ? Number(sc.musica.ini) || 0 : 0;
+        const barras = Array.from({ length: 40 }, (_, k) => `<i style="height:${28 + Math.round(Math.abs(Math.sin(k * 1.7 + m.id % 7)) * 62)}%"></i>`).join('');
+        escolha.innerHTML = `<div class="mus-item sel"><span class="mus-capa">${m.capa ? `<img src="${escapeHTML(m.capa)}" alt="">` : ''}</span><div class="pd-nome"><b>${escapeHTML(m.titulo)}</b><small>${escapeHTML(m.artista)}</small></div></div>
+            <p class="mus-dica">Arraste pra escolher o trecho</p>
+            <div class="mus-trecho" id="musTrecho">${barras}<span class="mus-janela" id="musJanela"></span></div>
+            <div class="x1-duas"><button class="btn x1-btn ghost" data-trecho="voltar">Voltar</button><button class="btn x1-btn" data-trecho="usar">Usar</button></div>`;
+        const trilho = escolha.querySelector('#musTrecho'), jan = escolha.querySelector('#musJanela');
+        const pintarJan = () => { jan.style.left = (ini / 30 * 100) + '%'; jan.style.width = (MUSICA_TRECHO / 30 * 100) + '%'; };
+        pintarJan();
+        tocadorMusica.tocar(m.preview, ini, 'previa');
+        let arr = null;
+        trilho.addEventListener('pointerdown', e => { arr = { x: e.clientX, ini0: ini }; trilho.setPointerCapture(e.pointerId); });
+        trilho.addEventListener('pointermove', e => {
+            if (!arr) return;
+            const W = trilho.clientWidth || 1;
+            ini = Math.max(0, Math.min(30 - MUSICA_TRECHO, arr.ini0 + (e.clientX - arr.x) / W * 30));
+            pintarJan();
+        });
+        const soltar = () => { if (!arr) return; arr = null; ini = Math.round(ini * 2) / 2; pintarJan(); tocadorMusica.tocar(m.preview, ini, 'previa'); vibrar(5); };
+        trilho.addEventListener('pointerup', soltar); trilho.addEventListener('pointercancel', soltar);
+        escolha.querySelector('[data-trecho="voltar"]').onclick = () => {
+            pararPrevia(); escolha.classList.add('hidden'); lista.classList.remove('hidden'); campo.closest('.pd-busca').classList.remove('hidden');
+        };
+        escolha.querySelector('[data-trecho="usar"]').onclick = () => {
+            pararPrevia();
+            sc.musica = { id: m.id, titulo: m.titulo, artista: m.artista, capa: m.capa || '', preview: m.preview, ini };
+            pintarMusicaCriador();
+            atualizarBotaoPublicarStory();
+            vibrar(10);
+            fechar();
+        };
+    }
+    setTimeout(() => campo.focus(), 250);
+}
+function tocarMusicaEditor() {
+    if (!sc.musica || !sc.musica.preview) return;
+    tocadorMusica.tocar(sc.musica.preview, sc.musica.ini, 'editor');
+}
+// no visualizador: toca o trecho enquanto o story está na tela
+async function musicaDoStory(item) {
+    const m = item && item.style && item.style.musica;
+    const btn = document.getElementById('svSom');
+    if (!m || !m.id) { tocadorMusica.parar('viewer'); if (btn) btn.classList.add('hidden'); return; }
+    if (btn) { btn.classList.remove('hidden'); btn.classList.toggle('mudo', !!state.svMudo); }
+    const idAgora = item.id;
+    tocadorMusica.parar();
+    const fresco = await previewMusica(m.id);
+    if (state.storyItemAtual !== idAgora || !$('#storyViewer').classList.contains('on')) return;
+    if (!fresco) { if (btn) btn.classList.add('hidden'); return; }
+    const ok = await tocadorMusica.tocar(fresco.preview, m.ini, 'viewer', !!state.svMudo);
+    if ($('#storyViewer').classList.contains('paused')) tocadorMusica.pausar('viewer');
+    if (!ok && btn) { state.svMudo = true; btn.classList.add('mudo'); }
+}
+
 async function abrirAdesivosStory() {
     const uid = state.session.user.id;
     const ini = new Date(); ini.setHours(0, 0, 0, 0);
@@ -16557,7 +16785,7 @@ $('#scStage').addEventListener('click', e => {
 $('#scPublish').addEventListener('click', async () => {
     if (sc.busy) return;
     const caption = $('#scText').value.trim();
-    if (sc.mode === 'text' && !caption && !sc.adesivo && !(sc.mencoes || []).length && !sc.enquete && !sc.card) return;
+    if (sc.mode === 'text' && !caption && !sc.adesivo && !(sc.mencoes || []).length && !sc.enquete && !sc.card && !sc.musica) return;
     if (sc.mode === 'photo' && !sc.file && !sc.repostUrl) return;
     sc.busy = true;
     $('#scPublicarGrande').classList.add('enviando');
@@ -16583,6 +16811,8 @@ $('#scPublish').addEventListener('click', async () => {
     if (sc.enquete) style.enquete = { p: sc.enquete.p, a: sc.enquete.a, b: sc.enquete.b, x: Math.round((sc.enqPos || {}).x || 50), y: Math.round((sc.enqPos || {}).y || 64) };
     if (state.storyResumoSemana) style.resumo_semana = state.storyResumoSemana;
     if ((sc.mencoes || []).length) style.mencoes = sc.mencoes.map(m => ({ id: m.id, username: m.username, x: Math.round((sc[m.chave] || {}).x || 50), y: Math.round((sc[m.chave] || {}).y || 40), s: Math.round(((sc[m.chave] || {}).s || 1) * 100) / 100, r: Math.round((sc[m.chave] || {}).r || 0) }));
+    if (sc.musica) { const mp = sc.musicaPos || {}; style.musica = { id: sc.musica.id, titulo: sc.musica.titulo, artista: sc.musica.artista, capa: sc.musica.capa || '', ini: Math.round((Number(sc.musica.ini) || 0) * 2) / 2,
+        x: Math.round(mp.x || 50), y: Math.round(mp.y || 70), s: Math.round((mp.s || 1) * 100) / 100, r: Math.round(mp.r || 0) }; }
     if (sc.repost) style.repost = true;
     if (sc.repostDe) style.repost_de = sc.repostDe;
     let arquivo = null;
@@ -16697,6 +16927,7 @@ function atualizarAneisStory() {
 // ============================================================
 async function openStoryViewer(groupIdx) {
     medirQuadroStory();
+    tocadorMusica.liberar();
     state.storyIdx = groupIdx;
     state.storyItemIdx = primeiroNaoVisto((state.storiesData || [])[groupIdx]);
     $('#storyViewer').classList.add('on');
@@ -16713,6 +16944,7 @@ function closeStoryViewer() {
     state.storyAtual = null;
     document.body.style.overflow = '';
     clearTimeout(state.storyTimer);
+    tocadorMusica.parar('viewer');
 }
 
 function showCurrentStory() {
@@ -16913,22 +17145,25 @@ function showCurrentStory() {
 
     // Auto-avança em 6 s. Com foto, o tempo só começa quando ela aparece (no máximo 5 s de espera)
     clearTimeout(state.storyTimer); clearTimeout(state.storyEspera);
+    state.storyDur = item.style && item.style.musica && item.style.musica.id ? MUSICA_TRECHO * 1000 : 6000; // com música, dura o trecho todo
+    if (!(item.style && item.style.musica)) tocadorMusica.parar('viewer');
     const iniciarTempo = () => {
         clearTimeout(state.storyEspera);
         if (state.storyItemAtual !== item.id) return;
         $('#storyViewer').classList.remove('carregando');
-        state.storyRestante = 6000;
+        state.storyRestante = state.storyDur;
         state.storyInicio = Date.now();
         clearTimeout(state.storyTimer);
-        if (!$('#storyViewer').classList.contains('paused')) state.storyTimer = setTimeout(() => advanceStory(1), 6000);
+        if (!$('#storyViewer').classList.contains('paused')) state.storyTimer = setTimeout(() => advanceStory(1), state.storyDur);
         const barra = content.parentElement && document.querySelector('#storyViewer .story-progress-bar.active .fill');
-        if (barra) { barra.style.animation = 'none'; void barra.offsetWidth; barra.style.animation = ''; }
+        if (barra) { barra.style.animation = 'none'; void barra.offsetWidth; barra.style.animation = ''; barra.style.animationDuration = state.storyDur + 'ms'; }
+        musicaDoStory(item);
     };
     state.storyItemAtual = item.id;
     const foto = content.querySelector('img.sv-foto');
     if (foto && !foto.complete) {
         $('#storyViewer').classList.add('carregando');
-        state.storyRestante = 6000; state.storyInicio = Date.now();
+        state.storyRestante = state.storyDur; state.storyInicio = Date.now();
         foto.addEventListener('load', iniciarTempo, { once: true });
         foto.addEventListener('error', iniciarTempo, { once: true });
         state.storyEspera = setTimeout(iniciarTempo, 5000);
@@ -17242,20 +17477,23 @@ function ligarToqueStory(zona, direcao) {
 function pausarStoryNoPonto() {
     clearTimeout(state.storyTimer);
     const decorrido = Date.now() - (state.storyInicio || Date.now());
-    state.storyRestante = Math.max(300, (state.storyRestante || 6000) - decorrido);
+    state.storyRestante = Math.max(300, (state.storyRestante || state.storyDur || 6000) - decorrido);
     $('#storyViewer').classList.add('paused');
+    tocadorMusica.pausar('viewer');
 }
 function retomarStoryDoPonto() {
     $('#storyViewer').classList.remove('paused');
     if (!$('#storyViewer').classList.contains('on')) return;
     state.storyInicio = Date.now();
     clearTimeout(state.storyTimer);
-    state.storyTimer = setTimeout(() => advanceStory(1), state.storyRestante || 6000);
+    state.storyTimer = setTimeout(() => advanceStory(1), state.storyRestante || state.storyDur || 6000);
+    tocadorMusica.continuar('viewer');
 }
 
 function pausarStory() {
     clearTimeout(state.storyTimer);
     $('#storyViewer').classList.add('paused');
+    tocadorMusica.pausar('viewer');
 }
 function retomarStory() {
     $('#storyViewer').classList.remove('paused');
@@ -17408,6 +17646,14 @@ function abrirQuemViuStory() {
 }
 
 document.getElementById('svActivity').addEventListener('click', e => { e.stopPropagation(); abrirQuemViuStory(); });
+document.getElementById('svSom').addEventListener('click', e => {
+    e.stopPropagation();
+    state.svMudo = !state.svMudo;
+    e.currentTarget.classList.toggle('mudo', state.svMudo);
+    tocadorMusica.mudo(state.svMudo);
+    if (!state.svMudo && tocadorMusica.el.paused && !$('#storyViewer').classList.contains('paused')) tocadorMusica.el.play().catch(() => {});
+    vibrar(5);
+});
 document.getElementById('svMais').addEventListener('click', e => {
     e.stopPropagation();
     const m = document.getElementById('svMenu');
@@ -17748,6 +17994,16 @@ function abrirNovoPost(file, destino = 'post') {
         tela.classList.toggle('dest-story', d === 'story');
         tela.querySelectorAll('[data-np="dest"]').forEach(b => b.classList.toggle('on', b.dataset.d === d));
         tela.querySelector('.np-pub').textContent = d === 'story' ? 'Avançar' : 'Publicar';
+        // prévia do story igual ao editor: foto fora do formato da tela aparece inteira, com fundo desfocado
+        const caixa = tela.querySelector('.np-foto'), im = tela.querySelector('#npTrilho img');
+        if (caixa && im) {
+            const ajustar = () => {
+                const a = im.naturalWidth / im.naturalHeight || 0;
+                caixa.classList.toggle('np-inteira', d === 'story' && a > 0 && Math.abs(a - 9 / 16) / (9 / 16) >= 0.12);
+                caixa.style.setProperty('--np-fundo', `url("${im.src}")`);
+            };
+            if (im.complete) ajustar(); else im.addEventListener('load', ajustar, { once: true });
+        }
     };
     setDest(destino);
     const ta = tela.querySelector('#npLegenda');
@@ -19094,6 +19350,7 @@ async function bootInterno() {
     else if (ap && ap.tela === 'post' && ap.id) { await switchView('feed'); openPostSheet(ap.id); }
     else if (ap && ap.tela === 'desafio' && ap.id) await switchView('challenge', { id: ap.id });
     else if (ap && ap.tela === 'perfil' && ap.id) await switchView('user-profile', { uid: ap.id });
+    else if (ap && ap.tela === 'depoimento' && ap.id) await abrirPedidoDepoimento(ap.id, '');
     else if (ap && ['notifications', 'messages', 'progress', 'coach'].includes(ap.tela)) await switchView(ap.tela);
     else await switchView(abaInicial());
     if (ap && ap.tela === 'treino' && trGet()) setTimeout(() => abrirTreinoVivo(), 300);
