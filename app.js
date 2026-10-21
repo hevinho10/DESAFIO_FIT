@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261252';
+const APP_VERSAO = '20261253';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -15674,7 +15674,7 @@ function closeStoryCreator() {
     if (depois) setTimeout(depois, 700);
     $('#storyCreator').classList.remove('on');
     tocadorMusica.parar('editor'); tocadorMusica.parar('previa');
-    { const mm = document.getElementById('scMusModo'); if (mm) mm.remove(); $('#storyCreator').classList.remove('mus-modo'); }
+    { const mm = document.getElementById('scMusModo'); if (mm) mm.remove(); $('#storyCreator').classList.remove('mus-modo'); fecharBalaoMusica(); }
     document.body.style.overflow = '';
     sincronizarModoTela();
     $('#scText').blur();
@@ -16598,7 +16598,7 @@ function elMusicaCriador() {
     if (!el) {
         el = document.createElement('div'); el.id = 'scMusica'; el.className = 'sc-musica';
         $('#scStage').appendChild(el);
-        tornarArrastavel(el, 'musicaPos', null);
+        tornarArrastavel(el, 'musicaPos', () => abrirBalaoMusica());
     }
     return el;
 }
@@ -16607,12 +16607,13 @@ function pintarMusicaCriador() {
     if (!sc.musica) { if (el) el.remove(); tocadorMusica.parar('editor'); return; }
     const m = elMusicaCriador();
     m.innerHTML = htmlAdesivoMusica(sc.musica);
-    m.className = 'sc-musica est-' + (sc.musica.estilo || 'card');
+    m.className = 'sc-musica est-' + (sc.musica.estilo || 'card') + (document.getElementById('scMusModo') ? ' editando' : '');
     if (!sc.musicaPos) sc.musicaPos = { x: 50, y: 70, s: 1, r: 0 };
     posicionar(m, sc.musicaPos);
     m.style.transform = `translate(-50%, -50%) scale(${sc.musicaPos.s || 1}) rotate(${sc.musicaPos.r || 0}deg)`;
 }
 function tirarMusicaStory() {
+    fecharBalaoMusica();
     sc.musica = null; sc.musicaPos = null;
     pintarMusicaCriador();
     atualizarBotaoPublicarStory();
@@ -16742,16 +16743,19 @@ function abrirModoTrecho(m) {
     const pp = { play: '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>', pause: '<svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" fill="currentColor"/></svg>' };
     const modo = document.createElement('div');
     modo.id = 'scMusModo'; modo.className = 'mm';
+    const miniEst = { card: '<i class="mm-mini card"></i>', vidro: '<i class="mm-mini vidro"></i>', mini: '<i class="mm-mini mini"></i>' };
     modo.innerHTML = `<div class="mm-top"><button type="button" data-mm="cancelar">Cancelar</button><button type="button" class="ok" data-mm="ok">Concluir</button></div>
-        <div class="mm-baixo">
-            <div class="mm-estilos">${[['card', 'Card'], ['vidro', 'Vidro'], ['mini', 'Mini']].map(([k, n]) => `<button type="button" data-est="${k}" class="${k === estilo ? 'on' : ''}">${n}</button>`).join('')}</div>
-            <div class="mm-ctrl"><button type="button" class="mm-dur" data-mm="dur">${dur}</button><span class="mm-tempo" id="mmTempo"></span><button type="button" class="mm-pp" data-mm="pp">${pp.pause}</button></div>
+        <div class="mm-painel">
+            <div class="mm-seg">${[['card', 'Card'], ['vidro', 'Vidro'], ['mini', 'Mini']].map(([k, n]) => `<button type="button" data-est="${k}" class="${k === estilo ? 'on' : ''}">${miniEst[k]}${n}</button>`).join('')}</div>
+            <div class="mm-ctrl"><button type="button" class="mm-dur" data-mm="dur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9.5 2.5h5"/></svg><b>${dur}</b> s</button><span class="mm-tempo" id="mmTempo"></span><button type="button" class="mm-pp" data-mm="pp">${pp.pause}</button></div>
             <div class="mm-onda-box" id="mmBox"><div class="mm-onda" id="mmOnda">${htmlBarras}</div><div class="mm-janela" id="mmJanela"><div class="mm-fill" id="mmFill"></div><div class="mm-onda mm-onda-dentro" id="mmOndaD">${htmlBarras}</div></div></div>
             <p class="mm-dica">Arraste a onda pra escolher o trecho</p>
         </div>
         <div class="mm-roda hidden" id="mmRoda"><div class="mm-roda-folha"><h3>Duração do trecho</h3><div class="mm-roda-lista" id="mmRodaLista">${Array.from({ length: 11 }, (_, k) => k + 5).map(n => `<button type="button" data-seg="${n}">${n} segundos</button>`).join('')}</div><button type="button" class="mm-roda-ok" data-mm="roda-ok">Concluir</button></div></div>`;
     cr.appendChild(modo);
     cr.classList.add('mus-modo');
+    fecharBalaoMusica();
+    { const st = document.getElementById('scMusica'); if (st) st.classList.add('editando'); }
     const box = modo.querySelector('#mmBox'), onda = modo.querySelector('#mmOnda'), ondaD = modo.querySelector('#mmOndaD'), jan = modo.querySelector('#mmJanela'), fill = modo.querySelector('#mmFill'), tempo = modo.querySelector('#mmTempo');
     const fmt = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
     const pintar = () => {
@@ -16760,7 +16764,7 @@ function abrirModoTrecho(m) {
         onda.style.transform = `translateX(${x0}px)`;
         ondaD.style.transform = `translateX(${-ini * MUS_PPS}px)`;
         tempo.textContent = `${fmt(ini)} – ${fmt(ini + dur)}`;
-        modo.querySelector('.mm-dur').textContent = dur;
+        modo.querySelector('.mm-dur b').textContent = dur;
     };
     const tocar = () => { tocadorMusica.tocar(m.preview, ini, 'editor', false, dur); modo.querySelector('.mm-pp').innerHTML = pp.pause; };
     pintar(); tocar();
@@ -16773,7 +16777,7 @@ function abrirModoTrecho(m) {
     box.addEventListener('pointermove', e => { if (!arr) return; ini = Math.max(0, Math.min(30 - dur, arr.ini0 - (e.clientX - arr.x) / MUS_PPS)); pintar(); });
     const soltar = () => { if (!arr) return; arr = null; ini = Math.round(ini * 2) / 2; pintar(); tocar(); vibrar(5); };
     box.addEventListener('pointerup', soltar); box.addEventListener('pointercancel', soltar);
-    const fechar = () => { cancelAnimationFrame(raf); modo.remove(); cr.classList.remove('mus-modo'); };
+    const fechar = () => { cancelAnimationFrame(raf); modo.remove(); cr.classList.remove('mus-modo'); const st = document.getElementById('scMusica'); if (st) st.classList.remove('editando'); };
     modo.addEventListener('click', e => {
         const est = e.target.closest('[data-est]');
         if (est) { estilo = est.dataset.est; sc.musica.estilo = estilo; modo.querySelectorAll('[data-est]').forEach(b => b.classList.toggle('on', b === est)); pintarMusicaCriador(); vibrar(5); return; }
@@ -16802,6 +16806,40 @@ function abrirModoTrecho(m) {
         }
     });
     modo.querySelector('#mmRoda').addEventListener('click', e => { if (e.target.id === 'mmRoda') e.currentTarget.classList.add('hidden'); });
+}
+// tocou no adesivo de música: balão pra trocar o formato ou voltar pro trecho
+function fecharBalaoMusica() { const b = document.getElementById('scMusBalao'); if (b) b.remove(); }
+function abrirBalaoMusica() {
+    if (!sc.musica) return;
+    if (document.getElementById('scMusBalao')) { fecharBalaoMusica(); return; }
+    const st = document.getElementById('scMusica'), stage = $('#scStage'); if (!st || !stage) return;
+    const b = document.createElement('div');
+    b.id = 'scMusBalao'; b.className = 'mus-balao';
+    const est = sc.musica.estilo || 'card';
+    b.innerHTML = [['card', 'Card'], ['vidro', 'Vidro'], ['mini', 'Mini']].map(([k, n]) => `<button type="button" data-bal="${k}" class="${k === est ? 'on' : ''}"><i class="mm-mini ${k}"></i>${n}</button>`).join('')
+        + '<button type="button" data-bal="trecho"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h1.5M7 8v8M11 5v14M15 9v6M19 7v10"/></svg>Trecho</button>';
+    stage.appendChild(b);
+    const sr = stage.getBoundingClientRect(), r = st.getBoundingClientRect();
+    const cx = r.left + r.width / 2 - sr.left, acima = r.top - sr.top > 90;
+    b.classList.toggle('embaixo', !acima);
+    b.style.left = Math.max(b.offsetWidth / 2 + 8, Math.min(sr.width - b.offsetWidth / 2 - 8, cx)) + 'px';
+    b.style.top = (acima ? r.top - sr.top - 12 : r.bottom - sr.top + 12) + 'px';
+    b.style.setProperty('--seta', (cx - (parseFloat(b.style.left) - b.offsetWidth / 2)) + 'px');
+    vibrar(6);
+    b.addEventListener('pointerdown', e => e.stopPropagation());
+    b.addEventListener('click', e => {
+        e.stopPropagation();
+        const k = (e.target.closest('[data-bal]') || {}).dataset; if (!k) return;
+        if (k.bal === 'trecho') { fecharBalaoMusica(); abrirModoTrecho(sc.musica); return; }
+        sc.musica.estilo = k.bal;
+        b.querySelectorAll('[data-bal]').forEach(x => x.classList.toggle('on', x.dataset.bal === k.bal));
+        pintarMusicaCriador(); vibrar(5);
+    });
+    // tocou fora: some
+    setTimeout(() => {
+        const fora = e => { if (e.target.closest('#scMusBalao')) return; if (!document.getElementById('scMusBalao')) { document.removeEventListener('pointerdown', fora, true); return; } if (e.target.closest('#scMusica')) return; fecharBalaoMusica(); document.removeEventListener('pointerdown', fora, true); };
+        document.addEventListener('pointerdown', fora, true);
+    }, 0);
 }
 function tocarMusicaEditor() {
     if (!sc.musica || !sc.musica.preview) return;
