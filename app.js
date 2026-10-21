@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261245';
+const APP_VERSAO = '20261246';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -8409,11 +8409,13 @@ async function renderChallengeDetail(cid) {
     const podeVerDentro = ch.im_member || ch.created_by === state.session.user.id || state.profile.is_admin;
     if (!podeVerDentro) { await renderChallengeVitrine(ch); return; }
 
-    const [{ data: ranking }, { data: saude }, { data: regrasRow }] = await Promise.all([
+    const [{ data: ranking }, { data: saude }, { data: regrasRow }, { data: posOntem }] = await Promise.all([
         sb.rpc('challenge_ranking', { cid }),
         sb.rpc('challenge_health', { cid }),
         sb.from('challenges').select('rules').eq('id', cid).maybeSingle(),
+        sb.rpc('challenge_posicoes_ontem', { cid }).then(r => r, () => ({ data: [] })),
     ]);
+    const ontemPos = {}; (posOntem || []).forEach(p => { ontemPos[p.user_id] = p.pos_ontem; });
     ch.rules = regrasRow ? regrasRow.rules : null;
     setTimeout(() => hydrateNarracaoDesafio(ch, ranking || []), 300);
 
@@ -8451,7 +8453,7 @@ async function renderChallengeDetail(cid) {
     }
 
     // Destaques, médias e resumo só fazem sentido pra quem está dentro
-    let destaquesHTML = '', grupoHTML = '', semanaHTML = '', relatorioHTML = '';
+    let destaquesHTML = '', grupoHTML = '', semanaHTML = '', relatorioHTML = '', semanaRank = [];
     if (ch.im_member) {
         const [{ data: destaques }, { data: grupo }, { data: semana }] = await Promise.all([
             sb.rpc('challenge_highlights', { cid }),
@@ -8466,16 +8468,15 @@ async function renderChallengeDetail(cid) {
         };
         const comValor = (destaques || []).filter(d => Number(d.valor) > 0);
         if (comValor.length) {
+            const emoDest = { treinos: '💪', agua: '💧', ofensiva: '🔥' };
             destaquesHTML = `<div class="chart-card">
                 <div class="chart-head"><span class="chart-title">Destaques</span></div>
-                <div class="dest-list">
-                    ${comValor.map(d => `<div class="dest-row" data-act="view-user" data-uid="${d.user_id}">
-                        ${avatarHTML({ id: d.user_id, display_name: d.display_name, avatar_url: d.avatar_url }, 'sm')}
-                        <div class="dest-info">
-                            <div class="dest-tipo">${rotulos[d.tipo] || d.tipo}</div>
-                            <div class="dest-nome">${d.user_id === state.session.user.id ? 'Você' : escapeHTML(d.display_name)}</div>
-                        </div>
-                        <div class="dest-valor">${String(Number(d.valor)).replace('.', ',')}<small>${d.unidade}</small></div>
+                <div class="dch-lista">
+                    ${comValor.map(d => `<div class="dch" data-act="view-user" data-uid="${d.user_id}">
+                        <span class="dch-e">${emoDest[d.tipo] || '⭐'}</span>
+                        <b>${rotulos[d.tipo] || d.tipo}</b>
+                        <span class="dch-quem">${avatarHTML({ id: d.user_id, display_name: d.display_name, avatar_url: d.avatar_url }, 'sm')}${d.user_id === state.session.user.id ? 'Você' : escapeHTML(String(d.display_name || '').split(' ')[0])}</span>
+                        <em>${String(Number(d.valor)).replace('.', ',')} <small>${d.unidade}</small></em>
                     </div>`).join('')}
                 </div>
             </div>`;
@@ -8491,12 +8492,15 @@ async function renderChallengeDetail(cid) {
                     <div class="grupo-item"><b>${String(g.sono_medio).replace('.', ',')}h</b><span>sono médio</span></div>
                     <div class="grupo-item"><b>${String(g.pct_medio).replace('.', ',')}%</b><span>evolução média</span></div>
                 </div>
-                <p class="chart-foot" style="text-align:left">Médias do grupo inteiro, sem identificar ninguém.</p>
+                ${(() => { const eu = (saude || []).find(m => m.user_id === state.session.user.id); const pc = eu && eu.pct != null ? Number(eu.pct) : null;
+                    return pc != null ? `<div class="grupo-eu"><span>Sua evolução no desafio</span><b class="${pc > 0 ? 'bom' : pc < 0 ? 'ruim' : ''}">${pc > 0 ? '−' : pc < 0 ? '+' : ''}${br(Math.abs(pc))}%</b></div>` : ''; })()}
+                <p class="chart-foot" style="text-align:left">Médias do grupo inteiro, sem identificar ninguém. Cada um vê só a própria evolução.</p>
             </div>`;
         }
 
         const semanaLista = (semana || []).filter(s => Number(s.pontos_semana) > 0 || s.dias_semana > 0);
-        if (semanaLista.length) {
+        semanaRank = semanaLista.map(s => ({ user_id: s.user_id, display_name: s.display_name, avatar_url: s.avatar_url, points: s.pontos_semana, sub: plural(s.dias_semana, 'treino', 'treinos') + ' na semana' }));
+        if (false && semanaLista.length) {
             semanaHTML = `<div class="chart-card">
                 <div class="chart-head"><span class="chart-title">Esta semana</span></div>
                 <div class="cw-rank-list">
@@ -8523,8 +8527,8 @@ async function renderChallengeDetail(cid) {
         const r = rel && rel[0];
         if (r) {
             const horas = Math.floor((r.minutos_total || 0) / 60);
-            relatorioHTML = `<div class="chart-card">
-                <div class="chart-head"><span class="chart-title">Relatório do organizador</span></div>
+            relatorioHTML = `<details class="chart-card ch-rel">
+                <summary class="chart-head"><span class="chart-title">Relatório do organizador</span><span class="chart-legend">só você vê ›</span></summary>
                 <div class="grupo-grid">
                     <div class="grupo-item"><b>${r.participantes}</b><span>participantes</span></div>
                     <div class="grupo-item"><b>${String(r.kg_perdidos_total).replace('.', ',')} kg</b><span>perdidos no total</span></div>
@@ -8534,26 +8538,41 @@ async function renderChallengeDetail(cid) {
                     <div class="grupo-item"><b>${String(r.agua_media_l).replace('.', ',')} L</b><span>água por dia</span></div>
                 </div>
                 ${r.sem_registro > 0 ? `<p class="chart-foot" style="text-align:left">${plural(r.sem_registro, 'pessoa está', 'pessoas estão')} sem registrar nada há mais de 7 dias.</p>` : ''}
-            </div>`;
+            </details>`;
         }
     }
 
+    // ranking: pódio com os 3 primeiros e lista com setas (subiu/caiu desde ontem)
+    const seta = (uid, pos) => {
+        const o = ontemPos[uid]; if (!o) return '';
+        const d = o - pos;
+        return d > 0 ? `<span class="rk-seta up">▲${d}</span>` : d < 0 ? `<span class="rk-seta dn">▼${-d}</span>` : '<span class="rk-seta eq">=</span>';
+    };
+    const rankHTML = (lista, comSeta, unidade) => {
+        if (!lista.length) return '<div class="log-empty">Ninguém pontuou nesse período ainda.</div>';
+        const eu = state.session.user.id;
+        const nome = u => u.user_id === eu ? 'Você' : escapeHTML(String(u.display_name || '').split(' ')[0]);
+        const top = lista.slice(0, 3);
+        const ordem = top.length >= 2 ? [top[1], top[0], top[2]].filter(Boolean) : top;
+        const podio = top.length >= 2 ? `<div class="rk-podio">${ordem.map(u => { const p = lista.indexOf(u) + 1;
+            return `<div class="rk-pd p${p}${u.user_id === eu ? ' me' : ''}" data-act="view-user" data-uid="${u.user_id}">
+                <span class="rk-av">${p === 1 ? '<i class="rk-coroa">👑</i>' : ''}${avatarHTML(u, 'md')}</span>
+                <b>${nome(u)}</b><small>${Math.round(u.points)} ${unidade}${comSeta ? ' ' + seta(u.user_id, p) : ''}</small>
+                <span class="rk-base">${p}</span></div>`; }).join('')}</div>` : '';
+        const resto = (top.length >= 2 ? lista.slice(3) : lista).map(u => { const p = lista.indexOf(u) + 1; const me = u.user_id === eu;
+            return `<div class="cw-rank-item${me ? ' me' : ''}" data-act="view-user" data-uid="${u.user_id}">
+                <span class="cw-rank-medal">${p}</span>${avatarHTML(u, 'sm')}
+                <div class="cw-rank-info"><span class="cw-rank-name">${me ? 'Você' : escapeHTML(u.display_name)}</span>${u.sub ? `<span class="cw-rank-sub">${u.sub}</span>` : ''}</div>
+                ${comSeta ? seta(u.user_id, p) : ''}<span class="cw-rank-pts">${Math.round(u.points)}</span></div>`; }).join('');
+        return podio + `<div class="cw-rank-list">${resto}</div>`;
+    };
     const diasPorPessoa = {};
     (saude || []).forEach(m => { diasPorPessoa[m.user_id] = m.dias_treinados; });
-
-    const rankRows = (ranking || []).map((u, i) => {
-        const isMe = u.user_id === state.session.user.id;
-        const dias = diasPorPessoa[u.user_id];
-        return `<div class="cw-rank-item${isMe?' me':''}" data-act="view-user" data-uid="${u.user_id}">
-            <span class="cw-rank-medal">${i+1}</span>
-            ${avatarHTML(u, 'sm')}
-            <div class="cw-rank-info">
-                <span class="cw-rank-name">${isMe?'Você':escapeHTML(u.display_name)}</span>
-                ${dias != null ? `<span class="cw-rank-sub">${plural(dias, 'dia treinado', 'dias treinados')} no desafio</span>` : ''}
-            </div>
-            <span class="cw-rank-pts">${plural(Math.round(u.points), 'pt', 'pts')}</span>
-        </div>`;
-    }).join('') || '<div class="log-empty">Ninguém pontuou nesse período ainda.</div>';
+    const geral = (ranking || []).map(u => ({ ...u, sub: diasPorPessoa[u.user_id] != null ? plural(diasPorPessoa[u.user_id], 'dia treinado', 'dias treinados') : '' }));
+    const rankGeralHTML = rankHTML(geral, true, 'pts');
+    const rankSemanaHTML = rankHTML(semanaRank, false, 'pts');
+    const totalDias = Math.max(1, Math.ceil((new Date(ch.ends_at) - new Date(ch.starts_at)) / 86400000));
+    const pctPassou = ch.status === 'ativo' ? Math.min(100, Math.max(0, Math.round((1 - diasFim / totalDias) * 100))) : ch.status === 'futuro' ? 0 : 100;
 
     let saudeHTML;
     if (!ch.im_member) {
@@ -8584,9 +8603,8 @@ async function renderChallengeDetail(cid) {
                 <div style="width:28px"></div>
             </div>
 
-            ${ch.status === 'ativo' && diasFim <= 7 ? `<div class="ch-reta-final">Reta final: ${plural(diasFim, 'dia restante', 'dias restantes')} neste desafio.</div>` : ''}
-
             <div class="ch-hero">
+                <div class="ch-anel" style="--p:${pctPassou}%"><span>${ch.status === 'ativo' ? `<b>${diasFim}</b><small>${diasFim === 1 ? 'dia<br>restante' : 'dias<br>restantes'}</small>` : ch.status === 'futuro' ? '<b>⏳</b><small>em breve</small>' : '<b>🏁</b><small>acabou</small>'}</span></div>
                 <span class="ch-status ${ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim'}">
                     ${ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado'}
                 </span>
@@ -8613,10 +8631,13 @@ async function renderChallengeDetail(cid) {
 
             ${pedidosHTML}
 
-            <div class="chart-card">
-                <div class="chart-head"><span class="chart-title">Ranking do desafio</span></div>
-                <div class="cw-rank-list">${rankRows}</div>
-                <p class="chart-foot" style="text-align:left">Conta só o que cada um ganhou de ${dataBR(ch.starts_at)} em diante. Pontos anteriores ao desafio não entram.</p>
+            ${ch.status === 'encerrado' && ch.im_member ? `<button class="ch-ver-fim" data-act="ver-encerramento" data-id="${cid}">🏆 Ver o encerramento do desafio</button>` : ''}
+            <div class="chart-card" id="chRanking">
+                <div class="chart-head"><span class="chart-title">Ranking</span>${Object.keys(ontemPos).length && ch.status === 'ativo' ? '<span class="chart-legend">▲▼ desde ontem</span>' : ''}</div>
+                ${semanaRank.length ? '<div class="rk-abas"><button class="on" data-rk="geral">Geral</button><button data-rk="semana">Esta semana</button></div>' : ''}
+                <div class="rk-painel" data-rk-p="geral">${rankGeralHTML}</div>
+                ${semanaRank.length ? `<div class="rk-painel hidden" data-rk-p="semana">${rankSemanaHTML}</div>` : ''}
+                <p class="chart-foot" style="text-align:left">Conta só o que cada um ganhou de ${dataBR(ch.starts_at)} em diante.</p>
             </div>
 
             ${destaquesHTML}
@@ -8624,13 +8645,57 @@ async function renderChallengeDetail(cid) {
             ${semanaHTML}
             ${relatorioHTML}
 
-            <div class="chart-card">
-                <div class="chart-head"><span class="chart-title">Progresso do grupo</span></div>
-                <div class="ch-health-list">${saudeHTML}</div>
-                ${ch.im_member && ch.status === 'ativo' ? '<p class="dest-hint" style="margin-top:10px">Cada um vê só o percentual de evolução dos outros. Peso e medidas continuam privados.</p>' : ''}
-            </div>
+            ${ch.im_member && ch.status === 'ativo' ? '' : `<div class="chart-card"><div class="chart-head"><span class="chart-title">Progresso do grupo</span></div><div class="ch-health-list">${saudeHTML}</div></div>`}
         </div>
     `;
+    const rk = document.getElementById('chRanking');
+    if (rk) rk.addEventListener('click', e => { const b = e.target.closest('[data-rk]'); if (!b) return;
+        rk.querySelectorAll('[data-rk]').forEach(x => x.classList.toggle('on', x === b));
+        rk.querySelectorAll('[data-rk-p]').forEach(p => p.classList.toggle('hidden', p.dataset.rkP !== b.dataset.rk)); vibrar(5); });
+    // desafio acabou: o encerramento abre sozinho uma vez
+    if (ch.status === 'encerrado' && ch.im_member && !lsGet('pulso-fim-desafio-' + cid)) setTimeout(() => abrirEncerramentoDesafio(cid), 500);
+}
+
+// ===== Encerramento do desafio em grupo: campeão, números e destaques (3 telas pra deslizar) =====
+const DIAS_SEMANA_NOME = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+async function abrirEncerramentoDesafio(cid) {
+    lsSet('pulso-fim-desafio-' + cid, '1');
+    const { data: e, error } = await sb.rpc('challenge_encerramento', { cid });
+    if (error || !e || !(e.podio || []).length) { if (error) toast('Não consegui abrir o encerramento agora', 'err'); return; }
+    const eu = state.session.user.id, pod = e.podio, camp = pod[0];
+    const nomeDe = p => p.id === eu ? 'Você' : escapeHTML(String(p.nome || '').split(' ')[0]);
+    const avG = (p, cls = '') => `<span class="fd-av ${cls}">${avatarHTML({ id: p.id, display_name: p.nome, avatar_url: p.avatar }, 'lg')}</span>`;
+    const podioHTML = () => { const o = pod.length >= 2 ? [pod[1], pod[0], pod[2]].filter(Boolean) : pod;
+        return `<div class="rk-podio fd-podio">${o.map(p => `<div class="rk-pd p${p.pos}${p.id === eu ? ' me' : ''}"><span class="rk-av">${avatarHTML({ id: p.id, display_name: p.nome, avatar_url: p.avatar }, 'md')}</span><b>${nomeDe(p)}</b><small>${p.pts}</small><span class="rk-base">${p.pos}</span></div>`).join('')}</div>`; };
+    const minha = e.minha_pos ? `<p class="fd-minha">Você terminou em <b>${e.minha_pos}º</b> de ${e.total}</p>` : '';
+    const dest = [
+        e.madrugador && e.madrugador.n ? ['🌅', 'Mais madrugador', `${e.madrugador.id === eu ? 'Você' : escapeHTML(e.madrugador.nome)} · ${e.madrugador.n} ${e.madrugador.n === 1 ? 'treino' : 'treinos'} antes das 7h`] : null,
+        e.constancia && e.constancia.n ? ['📅', 'Rei da constância', `${e.constancia.id === eu ? 'Você' : escapeHTML(e.constancia.nome)} · treinou ${e.constancia.n} de ${e.constancia.de} dias`] : null,
+        e.arrancada && e.arrancada.pts ? ['🚀', 'Arrancada final', `${e.arrancada.id === eu ? 'Você' : escapeHTML(e.arrancada.nome)} · ${e.arrancada.pts} pts nos últimos 3 dias`] : null,
+    ].filter(Boolean);
+    const telas = [
+        `<div class="fd-t"><small class="fd-k">${escapeHTML(String(e.nome || '').toUpperCase())} · ENCERRADO</small><h2>${camp.id === eu ? 'Você é o campeão!' : 'Temos um campeão!'}</h2>
+            <div class="fd-camp"><i class="rk-coroa">👑</i>${avG(camp)}</div><b class="fd-nome">${camp.id === eu ? 'Você' : escapeHTML(camp.nome)}</b><div class="fd-big">${camp.pts} pts</div>${podioHTML()}${minha}</div>`,
+        `<div class="fd-t"><small class="fd-k">OS NÚMEROS DA DISPUTA</small><h2>Que desafio!</h2><div class="fd-stats">
+            <div><b>${e.treinos || 0}</b><span>treinos no desafio</span></div><div><b>${br(Number(e.km || 0))} km</b><span>somados</span></div>
+            <div><b>${e.dia_forte != null ? DIAS_SEMANA_NOME[e.dia_forte] : '–'}</b><span>dia mais forte</span></div><div><b>${e.total}</b><span>${e.total === 1 ? 'pessoa' : 'pessoas'} na disputa</span></div></div></div>`,
+        `<div class="fd-t"><small class="fd-k">DESTAQUES</small><h2>Quem brilhou</h2>${dest.map(d => `<div class="fd-aw"><span>${d[0]}</span><div><b>${d[1]}</b><small>${d[2]}</small></div></div>`).join('') || '<p class="fd-minha">Sem destaques dessa vez.</p>'}
+            <button class="btn-primary fd-btn" data-fd="story">Postar o pódio no story</button></div>`,
+    ];
+    const old = document.getElementById('fdTela'); if (old) old.remove();
+    const t = document.createElement('div'); t.id = 'fdTela'; t.className = 'fd-tela';
+    t.innerHTML = `<div class="fd-barras">${telas.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div><button class="fd-x" aria-label="Fechar">×</button>
+        <div class="fd-trilho">${telas.map(x => `<section class="fd-sec">${x}</section>`).join('')}</div>`;
+    document.body.appendChild(t); document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => t.classList.add('on'));
+    const tr = t.querySelector('.fd-trilho');
+    tr.addEventListener('scroll', () => { const i = Math.round(tr.scrollLeft / tr.clientWidth); t.querySelectorAll('.fd-barras i').forEach((b, k) => b.classList.toggle('on', k <= i)); }, { passive: true });
+    const fechar = () => { t.classList.remove('on'); setTimeout(() => { t.remove(); document.body.style.overflow = ''; }, 220); };
+    t.querySelector('.fd-x').onclick = fechar;
+    t.querySelector('[data-fd="story"]').onclick = () => {
+        fechar();
+        abrirEditorComCard({ card: { tipo: 'podio', nome: e.nome, podio: pod.map(p => ({ id: p.id, nome: String(p.nome || '').split(' ')[0], avatar: p.avatar || '', pts: p.pts, pos: p.pos })) }, bg: 'radial-gradient(70% 45% at 50% 35%, rgba(253,224,71,.25), transparent 70%), #07080C' });
+    };
 }
 
 // ============================================================
@@ -13625,6 +13690,8 @@ document.addEventListener('click', async e => {
         const tg = document.getElementById('depFeed-' + btn.dataset.id); if (tg) { tg.classList.toggle('on'); vibrar(6); }
     } else if (act === 'dep-editar') {
         abrirEscreverDepoimento(btn.dataset.uid, '', { id: btn.dataset.id, texto: btn.dataset.texto, cor: btn.dataset.cor });
+    } else if (act === 'ver-encerramento') {
+        abrirEncerramentoDesafio(btn.dataset.id);
     } else if (act === 'meu-qr') {
         abrirMeuQR();
     } else if (act === 'dep-story') {
@@ -14982,6 +15049,12 @@ function estiloTextoStory(st, len, emFoto) {
 const CARD_STORY_BG = 'linear-gradient(165deg, #0F4A35 0%, #0A0C0B 55%, #1C1446 100%)';
 function htmlCardStory(st, comFoto) {
     const c = st.card || {};
+    if (c.tipo === 'podio') {
+        const pod = c.podio || [], o = pod.length >= 2 ? [pod[1], pod[0], pod[2]].filter(Boolean) : pod;
+        return `<div class="card-story podio-cs${comFoto ? ' sobre-foto' : ''}"><small class="cs-rot">${escapeHTML(c.nome || 'Desafio')} · pódio</small>
+            <div class="rk-podio">${o.map(p => `<div class="rk-pd p${p.pos}"><span class="rk-av">${p.pos === 1 ? '<i class="rk-coroa">👑</i>' : ''}${avatarHTML({ id: p.id, display_name: p.nome, avatar_url: p.avatar || null }, 'md')}</span><b>${escapeHTML(p.nome)}</b><small>${p.pts} pts</small><span class="rk-base">${p.pos}</span></div>`).join('')}</div>
+            <b class="cs-marca">Pulso.</b></div>`;
+    }
     if (c.tipo === 'depoimento') {
         const k = CORES_DEP[corDep(c.cor)];
         return `<div class="card-story dep-cs${comFoto ? ' sobre-foto' : ''}" style="--dc:${k[0]};--dg:${k[1]}"><span class="dep-brilho"></span>
