@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261257';
+const APP_VERSAO = '20261258';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -5036,42 +5036,205 @@ function closeDynamicSheets() {
     document.body.style.overflow = '';
 }
 
-async function openFollowList(uid, type) {
-    const old = document.getElementById('followListSheet');
-    if (old) old.remove();
-    const sheet = document.createElement('div');
-    sheet.id = 'followListSheet';
-    sheet.className = 'sheet on';
-    sheet.innerHTML = `<div class="sheet-card">
-        <div class="sheet-handle"></div>
-        <h3 class="sheet-title">${type === 'followers' ? 'Seguidores' : 'Seguindo'}</h3>
-        <div id="followListBody" class="follow-list"><div class="spinner"></div></div>
-    </div>`;
-    document.body.appendChild(sheet);
-    document.body.style.overflow = 'hidden';
-    sheet.onclick = e => { if (e.target === sheet) { sheet.remove(); document.body.style.overflow = ''; } };
+async function openFollowList(uid, type) { abrirTelaConexoes(uid, type === 'following' ? 'seguindo' : 'seguidores'); }
 
-    const { data, error } = await sb.rpc(type === 'followers' ? 'list_followers' : 'list_following', { target: uid });
-    const body = document.getElementById('followListBody');
-    if (!body) return;
-    if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
-    if (!data || data.length === 0) {
-        const minha = uid === state.session.user.id;
-        body.innerHTML = !minha ? `<div class="log-empty">${type === 'followers' ? 'Ninguém segue ainda.' : 'Não segue ninguém ainda.'}</div>`
-            : type === 'followers' ? vazioAcao('pessoaMais', 'Ninguém te segue ainda', 'Chame seus amigos pra treinar junto.', 'Convidar amigos', 'data-act="convidar-amigo"')
-            : vazioAcao('perfil', 'Você ainda não segue ninguém', 'Siga pessoas pra ver os treinos delas no feed.', 'Ver sugestões', 'data-act="m-go" data-view="search"');
-        return;
+// ---- Seguidores e seguindo em tela cheia: abas, busca, pedidos agrupados e sugestões ----
+const tempoCurto = iso => { if (!iso) return ''; const d = (Date.now() - new Date(iso).getTime()) / 86400000; if (d < 1) return 'hoje'; if (d < 2) return 'ontem'; if (d < 7) return `${Math.floor(d)} dias`; if (d < 30) return `${Math.floor(d / 7)} sem`; if (d < 365) return `${Math.floor(d / 30)} m`; return `${Math.floor(d / 365)} a`; };
+async function abrirTelaConexoes(uid, aba = 'seguidores') {
+    const eu = state.session.user.id, minha = uid === eu;
+    const ant = document.getElementById('telaConexoes'); if (ant) ant.remove();
+    const v = document.createElement('div'); v.id = 'telaConexoes'; v.className = 'posts-viewer tc-tela';
+    const seta = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+    v.innerHTML = `<div class="pv-topo tc-topo"><button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button><div class="topbar-title" id="tcTitulo"></div><div style="width:40px"></div></div>
+        <div class="tc-abas" id="tcAbas"><button type="button" data-tc="seguidores"><b id="tcNSeg">·</b> seguidores</button><button type="button" data-tc="seguindo"><b id="tcNSgn">·</b> seguindo</button></div>
+        <label class="pd-busca tc-busca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><input id="tcBusca" type="search" placeholder="Buscar" autocomplete="off" autocapitalize="off"></label>
+        <div class="tc-corpo" id="tcCorpo">${esqueletoAba('depoimentos')}</div>`;
+    document.body.appendChild(v); document.body.style.overflow = 'hidden';
+    const fechar = () => { v.remove(); document.body.style.overflow = ''; };
+    v.querySelector('.pv-voltar').onclick = fechar;
+    const dados = {}, corpo = v.querySelector('#tcCorpo'), busca = v.querySelector('#tcBusca');
+    let pedidos = [];
+    sb.from('profiles').select('username').eq('id', uid).maybeSingle().then(({ data }) => { const t = v.querySelector('#tcTitulo'); if (t) t.textContent = data ? '@' + data.username : ''; });
+    async function carregar(tipo) {
+        if (dados[tipo]) return dados[tipo];
+        let { data, error } = await sb.rpc('lista_conexoes', { alvo: uid, tipo });
+        if (error) { // banco ainda sem a seção 27: usa a lista antiga
+            const r = await sb.rpc(tipo === 'seguindo' ? 'list_following' : 'list_followers', { target: uid });
+            data = (r.data || []).map(u => ({ ...u, desde: null, eu_sigo: tipo === 'seguindo' && minha, me_segue: tipo === 'seguidores' && minha }));
+        }
+        dados[tipo] = data || [];
+        return dados[tipo];
     }
-    // nos meus seguidores: quem eu ainda não sigo ganha o botão "Seguir de volta"
-    let sigo = null;
-    if (type === 'followers' && uid === state.session.user.id) {
-        try { const { data: f } = await sb.from('follows').select('following_id').eq('follower_id', uid).limit(2000); sigo = new Set((f || []).map(x => x.following_id)); } catch (_) {}
+    const linha = (u, tipo) => {
+        const amigos = u.eu_sigo && u.me_segue && u.id !== eu;
+        let bt = '';
+        if (u.id === eu) bt = '';
+        else if (minha && tipo === 'seguidores') bt = u.eu_sigo
+            ? `<button class="bt-min cinza" data-tc-msg="${u.id}" data-name="${escapeHTML(u.display_name || '')}" data-username="${escapeHTML(u.username || '')}" data-avatar="${escapeHTML(u.avatar_url || '')}">Mensagem</button>`
+            : `<button class="bt-min" data-tc-seguir="${u.id}">Seguir de volta</button>`;
+        else bt = u.eu_sigo ? `<button class="bt-min cinza" data-tc-deixar="${u.id}" data-nome="${escapeHTML(u.display_name || '')}">Seguindo</button>` : `<button class="bt-min" data-tc-seguir="${u.id}">Seguir</button>`;
+        const x = minha && tipo === 'seguidores' && u.id !== eu ? `<button class="tc-x" data-tc-remover="${u.id}" data-nome="${escapeHTML(u.display_name || '')}" aria-label="Remover seguidor">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>` : '';
+        return `<div class="tc-item" data-uid="${u.id}">
+            <span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'sm')}</span>
+            <div class="pd-nome" data-act="view-user" data-uid="${u.id}"><b>${escapeHTML(u.display_name || u.username || '')}</b><small>@${escapeHTML(u.username || '')}${u.desde ? ' · ' + tempoCurto(u.desde) : ''}${amigos ? ' · <em>amigos</em>' : ''}</small></div>
+            ${bt}${x}</div>`;
+    };
+    async function pintar() {
+        const tipo = aba;
+        v.querySelectorAll('[data-tc]').forEach(b => b.classList.toggle('on', b.dataset.tc === tipo));
+        v.querySelector('#tcAbas').style.setProperty('--i', tipo === 'seguindo' ? 1 : 0);
+        const lista = await carregar(tipo);
+        if (tipo !== aba) return;
+        const t = busca.value.trim().toLowerCase().replace(/^@/, '');
+        const filtrada = t ? lista.filter(u => (u.display_name || '').toLowerCase().includes(t) || (u.username || '').toLowerCase().includes(t)) : lista;
+        let html = '';
+        if (minha && tipo === 'seguidores' && pedidos.length && !t) {
+            const p0 = pedidos[0];
+            html += `<button type="button" class="tc-pedidos" data-tc-pedidos><span class="tc-ped-avs">${pedidos.slice(0, 2).map(u => avatarHTML(u, 'sm')).join('')}</span>
+                <span class="pd-nome"><b>Pedidos pra seguir</b><small>${escapeHTML(p0.username || p0.display_name || '')}${pedidos.length > 1 ? ` e mais ${pedidos.length - 1} ${pedidos.length - 1 === 1 ? 'pessoa' : 'pessoas'}` : ''}</small></span>
+                <span class="tc-ped-n">${pedidos.length}</span>${SVG_C('<path d="M9 6l6 6-6 6"/>')}</button>`;
+        }
+        if (!filtrada.length) {
+            html += t ? '<p class="pd-vazio">Ninguém com esse nome.</p>'
+                : (!minha ? `<div class="log-empty">${tipo === 'seguidores' ? 'Ninguém segue ainda.' : 'Não segue ninguém ainda.'}</div>`
+                : tipo === 'seguidores' ? vazioAcao('pessoaMais', 'Ninguém te segue ainda', 'Chame seus amigos pra treinar junto.', 'Convidar amigos', 'data-act="convidar-amigo"')
+                : vazioAcao('perfil', 'Você ainda não segue ninguém', 'Siga pessoas pra ver os treinos delas no feed.', 'Ver sugestões', 'data-act="m-go" data-view="search"'));
+        } else {
+            const semVolta = minha && tipo === 'seguidores' && !t ? filtrada.filter(u => !u.eu_sigo && u.id !== eu) : [];
+            const resto = semVolta.length ? filtrada.filter(u => !semVolta.includes(u)) : filtrada;
+            if (semVolta.length) html += `<div class="mus-sec tc-sec"><span>Ainda não segue de volta</span></div>${semVolta.map(u => linha(u, tipo)).join('')}`;
+            if (resto.length) html += `${semVolta.length ? '<div class="mus-sec tc-sec"><span>Mais recentes primeiro</span></div>' : ''}${resto.map(u => linha(u, tipo)).join('')}`;
+        }
+        if (minha && !t) html += '<div id="tcSugestoes"></div>';
+        corpo.innerHTML = html;
+        if (minha && !t) pintarSugestoes(corpo.querySelector('#tcSugestoes'));
     }
-    body.innerHTML = data.map(u => `<div class="follow-row" data-act="view-user" data-uid="${u.id}">
-        ${avatarHTML(u, 'sm')}
-        <div><div class="follow-name">${escapeHTML(u.display_name)}</div><div class="follow-uname">@${escapeHTML(u.username)}</div></div>
-        ${sigo && !sigo.has(u.id) && u.id !== uid ? `<button class="fl-volta" data-act="seguir-de-volta" data-uid="${u.id}" data-nome="${escapeHTML(u.display_name || '')}">Seguir de volta</button>` : ''}
-    </div>`).join('');
+    // contagens das abas
+    Promise.all([carregar('seguidores'), carregar('seguindo')]).then(([a, b]) => {
+        const n1 = v.querySelector('#tcNSeg'), n2 = v.querySelector('#tcNSgn'); if (n1) n1.textContent = a.length; if (n2) n2.textContent = b.length;
+    });
+    if (minha) { const { data } = await sb.rpc('list_follow_requests'); pedidos = data || []; }
+    pintar();
+    v.querySelector('#tcAbas').addEventListener('click', e => { const b = e.target.closest('[data-tc]'); if (!b || b.dataset.tc === aba) return; aba = b.dataset.tc; busca.value = ''; corpo.innerHTML = esqueletoAba('depoimentos'); pintar(); vibrar(5); });
+    busca.addEventListener('input', () => pintar());
+    // deslizar pro lado troca a aba
+    { let x0 = null, y0 = 0;
+      corpo.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+      corpo.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
+        if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return; const nova = dx < 0 ? 'seguindo' : 'seguidores'; if (nova === aba) return; aba = nova; busca.value = ''; pintar(); vibrar(5); }, { passive: true }); }
+    corpo.addEventListener('click', async e => {
+        const ped = e.target.closest('[data-tc-pedidos]');
+        if (ped) { abrirTelaPedidos(async () => { const { data } = await sb.rpc('list_follow_requests'); pedidos = data || []; delete dados.seguidores; pintar(); }); return; }
+        const sg = e.target.closest('[data-tc-seguir]');
+        if (sg) {
+            e.stopPropagation(); sg.disabled = true;
+            const { data: res, error } = await sb.rpc('follow_user', { target_id: sg.dataset.tcSeguir });
+            if (error) { sg.disabled = false; toast('Não consegui seguir agora.', 'err'); return; }
+            const pedido = res === 'requested';
+            Object.values(dados).forEach(l => l.forEach(u => { if (u.id === sg.dataset.tcSeguir && !pedido) u.eu_sigo = true; }));
+            sg.classList.add('cinza'); sg.textContent = pedido ? 'Solicitado' : 'Seguindo'; vibrar(6);
+            return;
+        }
+        const dx = e.target.closest('[data-tc-deixar]');
+        if (dx) {
+            e.stopPropagation();
+            if (!(await confirmar(`Deixar de seguir ${dx.dataset.nome || 'essa pessoa'}?`, 'Deixar de seguir', true))) return;
+            await sb.rpc('unfollow_user', { target_id: dx.dataset.tcDeixar });
+            Object.values(dados).forEach(l => l.forEach(u => { if (u.id === dx.dataset.tcDeixar) u.eu_sigo = false; }));
+            dx.classList.remove('cinza'); dx.textContent = 'Seguir'; dx.removeAttribute('data-tc-deixar'); dx.dataset.tcSeguir = u_id(dx);
+            return;
+        }
+        const rm = e.target.closest('[data-tc-remover]');
+        if (rm) {
+            e.stopPropagation();
+            if (!(await confirmar(`Remover ${rm.dataset.nome || 'essa pessoa'} dos seus seguidores? Ela não vai ser avisada.`, 'Remover', true))) return;
+            const { error } = await sb.rpc('remover_seguidor', { quem: rm.dataset.tcRemover });
+            if (error) { toast('Não consegui remover agora.', 'err'); return; }
+            dados.seguidores = (dados.seguidores || []).filter(u => u.id !== rm.dataset.tcRemover);
+            const n1 = v.querySelector('#tcNSeg'); if (n1) n1.textContent = dados.seguidores.length;
+            const it = rm.closest('.tc-item'); if (it) it.remove();
+            toast('Seguidor removido', 'ok');
+            return;
+        }
+        const msg = e.target.closest('[data-tc-msg]');
+        if (msg) {
+            e.stopPropagation();
+            const fake = document.createElement('button'); fake.dataset.act = 'start-chat'; fake.dataset.uid = msg.dataset.tcMsg; fake.dataset.name = msg.dataset.name; fake.dataset.username = msg.dataset.username; fake.dataset.avatar = msg.dataset.avatar;
+            fake.style.display = 'none'; document.body.appendChild(fake); fechar(); fake.click(); setTimeout(() => fake.remove(), 500);
+        }
+    });
+}
+const u_id = el => el.closest('.tc-item') ? el.closest('.tc-item').dataset.uid : '';
+
+// "Seguido por": lista de quem você segue e também segue esse perfil
+async function abrirSeguidoPor(uid) {
+    const { f } = x1Folha(`<h3 class="x1-folha-t">Pessoas que você segue</h3><div class="pd-lista" id="spLista">${esqueletoAba('depoimentos')}</div>`, 'seguidoPorSheet');
+    let { data, error } = await sb.rpc('seguido_por', { alvo: uid });
+    if (error) { const ids = (state.seguidoPorIds || []).slice(0, 200); const r = ids.length ? await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', ids) : { data: [] }; data = r.data || []; }
+    const box = f.querySelector('#spLista'); if (!box) return;
+    box.innerHTML = (data || []).map(u => `<div class="pd-item" data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'sm')}<div class="pd-nome"><b>${escapeHTML(u.display_name || u.username || '')}</b><small>@${escapeHTML(u.username || '')}</small></div></div>`).join('') || '<p class="pd-vazio">Ninguém em comum.</p>';
+    box.addEventListener('click', () => { const v = document.getElementById('seguidoPorSheet'); if (v) v.remove(); });
+}
+// pedidos pra seguir: tela própria, um por um ou todos
+async function abrirTelaPedidos(aoFechar) {
+    const ant = document.getElementById('telaPedidos'); if (ant) ant.remove();
+    const v = document.createElement('div'); v.id = 'telaPedidos'; v.className = 'posts-viewer tc-tela';
+    const seta = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
+    v.innerHTML = `<div class="pv-topo tc-topo"><button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button><div class="topbar-title">Pedidos pra seguir</div><div style="width:40px"></div></div><div class="tc-corpo" id="tpCorpo">${esqueletoAba('depoimentos')}</div>`;
+    document.body.appendChild(v);
+    const fechar = () => { v.remove(); if (aoFechar) aoFechar(); };
+    v.querySelector('.pv-voltar').onclick = fechar;
+    const corpo = v.querySelector('#tpCorpo');
+    const { data } = await sb.rpc('list_follow_requests');
+    let lista = data || [];
+    const pintar = () => {
+        corpo.innerHTML = !lista.length ? '<p class="pd-vazio">Nenhum pedido pendente.</p>'
+            : `<div class="mus-sec tc-sec"><span>${plural(lista.length, 'pedido', 'pedidos')}</span>${lista.length > 1 ? '<button type="button" class="tc-todos" data-tp-todos>Aceitar todos</button>' : ''}</div>`
+            + lista.map(u => `<div class="tc-item" data-uid="${u.id}"><span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'sm')}</span>
+                <div class="pd-nome" data-act="view-user" data-uid="${u.id}"><b>${escapeHTML(u.display_name || u.username || '')}</b><small>@${escapeHTML(u.username || '')}${u.requested_at ? ' · ' + tempoCurto(u.requested_at) : ''}</small></div>
+                <button class="bt-min" data-tp="1" data-uid="${u.id}">Aceitar</button><button class="bt-min cinza" data-tp="0" data-uid="${u.id}">Recusar</button></div>`).join('');
+    };
+    pintar();
+    corpo.addEventListener('click', async e => {
+        const b = e.target.closest('[data-tp]');
+        if (b) {
+            e.stopPropagation(); b.disabled = true;
+            const { error } = await sb.rpc('respond_follow_request', { requester: b.dataset.uid, accept: b.dataset.tp === '1' });
+            if (error) { b.disabled = false; toast('Tente de novo', 'err'); return; }
+            lista = lista.filter(u => u.id !== b.dataset.uid); pintar(); vibrar(6);
+            updateNotifBadge();
+            return;
+        }
+        if (e.target.closest('[data-tp-todos]')) {
+            if (!(await confirmar(`Aceitar os ${lista.length} pedidos?`, 'Aceitar todos'))) return;
+            await responderTodosPedidos(lista.map(u => u.id), true);
+            lista = []; pintar(); updateNotifBadge(); toast('Pedidos aceitos', 'ok');
+        }
+    });
+}
+async function responderTodosPedidos(ids, aceitar) {
+    for (let i = 0; i < ids.length; i += 8) await Promise.all(ids.slice(i, i + 8).map(id => sb.rpc('respond_follow_request', { requester: id, accept: aceitar }).then(() => {}, () => {})));
+}
+// "Pessoas que você talvez conheça" (amigos dos seus amigos e quem está nos mesmos desafios)
+const sugDispensadas = () => { try { return new Set(JSON.parse(lsGet('pulso-sug-fora') || '[]')); } catch (_) { return new Set(); } };
+async function pintarSugestoes(box, titulo = 'Pessoas que você talvez conheça') {
+    if (!box) return;
+    const { data, error } = await sb.rpc('sugestoes_seguir');
+    if (error || !box.isConnected) return;
+    const fora = sugDispensadas();
+    const lista = (data || []).filter(u => !fora.has(u.id)).slice(0, 10);
+    if (!lista.length) { box.innerHTML = ''; return; }
+    box.innerHTML = `<div class="sug-box"><div class="mus-sec"><span>${titulo}</span></div><div class="sug-trilho">${lista.map(u => `<div class="sug-card" data-sug="${u.id}">
+        <button type="button" class="sgc-x" data-sug-x="${u.id}" aria-label="Dispensar">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
+        <span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'md')}</span>
+        <b data-act="view-user" data-uid="${u.id}">${escapeHTML(u.display_name || u.username || '')}</b><small>${escapeHTML(u.motivo || '')}</small>
+        <button type="button" class="bt-min" data-sug-seguir="${u.id}">Seguir</button></div>`).join('')}</div></div>`;
+    box.onclick = async e => {
+        const x = e.target.closest('[data-sug-x]');
+        if (x) { e.stopPropagation(); const f = sugDispensadas(); f.add(x.dataset.sugX); lsSet('pulso-sug-fora', JSON.stringify([...f].slice(-300))); const c = x.closest('.sug-card'); if (c) c.remove(); if (!box.querySelector('.sug-card')) box.innerHTML = ''; return; }
+        const sg = e.target.closest('[data-sug-seguir]');
+        if (sg) { e.stopPropagation(); sg.disabled = true; const { data: res, error: er } = await sb.rpc('follow_user', { target_id: sg.dataset.sugSeguir }); if (er) { sg.disabled = false; return; } sg.classList.add('cinza'); sg.textContent = res === 'requested' ? 'Solicitado' : 'Seguindo'; vibrar(6); }
+    };
 }
 
 async function openPostSheet(id) {
@@ -12170,6 +12333,7 @@ async function renderProfile() {
     `;
 
     marcarAbaPerfil();
+    ligarReordenarDestaques();
     $('[data-act="go-edit-profile"]').addEventListener('click', () => switchView('edit-profile'));
     if (state.abrirAbaPerfil) {
         const aba = document.querySelector(`.ig-tab[data-tab="${state.abrirAbaPerfil}"]`);
@@ -13232,6 +13396,7 @@ async function renderUserProfile(uid) {
             mutuosTotal = cid.length;
             if (cid.length) {
                 const { data: pf } = await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', cid.slice(0, 3));
+                state.seguidoPorIds = cid;
                 mutuos = pf || [];
             }
         }
@@ -13269,9 +13434,11 @@ async function renderUserProfile(uid) {
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
             
-            ${mutuosTotal ? `<button class="perfil-mutuos" data-act="open-follow-list" data-type="followers" data-uid="${uid}">
-                <span class="pm-fotos">${mutuos.slice(0, 2).map(m => avatarHTML(m, 'sm')).join('')}</span>
-                <span>${p.sexo === 'F' ? 'Seguida' : p.sexo === 'M' ? 'Seguido' : 'Seguido(a)'} por <b>${mutuos.slice(0, 2).map(m => escapeHTML(m.username)).join('</b> e <b>')}</b></span>
+            ${mutuosTotal ? `<button class="perfil-mutuos" data-act="seguido-por" data-uid="${uid}">
+                <span class="pm-fotos">${mutuos.slice(0, 3).map(m => avatarHTML(m, 'sm')).join('')}</span>
+                <span>${p.sexo === 'F' ? 'Seguida' : p.sexo === 'M' ? 'Seguido' : 'Seguido(a)'} por ${mutuosTotal > 2
+                    ? `<b>${mutuos.slice(0, 2).map(m => escapeHTML(m.username)).join('</b>, <b>')}</b> e mais ${mutuosTotal - 2}`
+                    : `<b>${mutuos.slice(0, 2).map(m => escapeHTML(m.username)).join('</b> e <b>')}</b>`}</span>
             </button>` : ''}
             <div class="ig-profile-actions perfil-acoes">
                 ${iFollow ? `<button class="pa-btn pa-seguindo" data-act="perfil-seguindo-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-private="${p.is_private ? '1' : '0'}">Seguindo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`
@@ -13854,6 +14021,8 @@ document.addEventListener('click', async e => {
         openMeasureSheet();
     } else if (act === 'go-messages') {
         switchView('messages');
+    } else if (act === 'seguido-por') {
+        abrirSeguidoPor(btn.dataset.uid);
     } else if (act === 'start-chat') {
         const otherUid = btn.dataset.uid;
         const otherName = btn.dataset.name;
@@ -14587,10 +14756,29 @@ document.addEventListener('click', async e => {
     } else if (act === 'set-account-privacy') {
         const privado = btn.dataset.private === '1';
         if (privado === !!state.profile.is_private) return;
+        // ficando pública com pedidos pendentes: você escolhe aceitar ou recusar todos antes
+        if (!privado) {
+            const { data: pend } = await sb.rpc('list_follow_requests');
+            const ids = (pend || []).map(u => u.id);
+            if (ids.length) {
+                const escolha = await new Promise(ok => {
+                    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Você tem ${plural(ids.length, 'pedido pendente', 'pedidos pendentes')}</h3>
+                        <p class="dep-sub">Sua conta vai ficar pública. O que fazer com quem já pediu pra te seguir?</p>
+                        <button class="bt-min bt-grande" data-pub="aceitar">Aceitar todos</button><button class="bt-min cinza bt-grande" data-pub="recusar">Recusar todos</button><button class="x1-op" data-pub="cancelar">Cancelar</button>`, 'pubSheet');
+                    let deu = false;
+                    f.addEventListener('click', e => { const b = e.target.closest('[data-pub]'); if (!b) return; deu = true; fechar(); ok(b.dataset.pub); });
+                    new MutationObserver((_, ob) => { if (!document.body.contains(f)) { ob.disconnect(); if (!deu) ok('cancelar'); } }).observe(document.body, { childList: true });
+                });
+                if (escolha === 'cancelar') return;
+                toast(escolha === 'aceitar' ? 'Aceitando os pedidos…' : 'Recusando os pedidos…');
+                await responderTodosPedidos(ids, escolha === 'aceitar');
+                updateNotifBadge();
+            }
+        }
         const { error } = await sb.from('profiles').update({ is_private: privado }).eq('id', state.session.user.id);
         if (error) { toast('Não consegui mudar agora. Tente de novo.', 'err'); return; }
         state.profile.is_private = privado;
-        toast(privado ? 'Conta privada. Só seguidores aprovados veem seus posts.' : 'Conta pública. Pedidos pendentes foram aprovados.', 'ok');
+        toast(privado ? 'Conta privada. Só seguidores aprovados veem seus posts.' : 'Conta pública. Qualquer pessoa pode te seguir.', 'ok');
     } else if (act === 'semana-ver') {
         abrirSemana();
     } else if (act === 'semana-fechar') {
@@ -17657,28 +17845,75 @@ function trocarPessoaStory(dir) {
 
 // ---- Destaques de stories ----
 async function carregarDestaques(uid) {
-    const { data } = await sb.from('story_highlights')
-        .select('id, title, cover_url, created_at, story_highlight_items (id, image_url, background_color, created_at)')
-        .eq('user_id', uid).order('created_at', { ascending: true });
+    const q = () => sb.from('story_highlights').select('id, title, cover_url, created_at, story_highlight_items (id, image_url, background_color, created_at)').eq('user_id', uid);
+    let { data, error } = await q().order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
+    if (error) ({ data } = await q().order('created_at', { ascending: true })); // banco sem a coluna "ordem" ainda
     return (data || []).filter(h => (h.story_highlight_items || []).length);
 }
 // ---- Capa dos destaques: foto (com enquadramento), cor do story, ou cor + ícone ----
 const CAPA_CORES = { verde: 'linear-gradient(135deg,#10B981,#0E7490)', laranja: 'linear-gradient(135deg,#F59E0B,#EF4444)', roxo: 'linear-gradient(135deg,#8B5CF6,#EC4899)',
-    azul: 'linear-gradient(135deg,#0EA5E9,#6366F1)', grafite: '#1F2937', claro: '#F1F4F1' };
+    azul: 'linear-gradient(135deg,#0EA5E9,#6366F1)', rosa: 'linear-gradient(135deg,#F472B6,#FB923C)', agua: 'linear-gradient(135deg,#22D3EE,#0D9488)',
+    sol: 'linear-gradient(135deg,#FBBF24,#F97316)', noite: 'linear-gradient(135deg,#1E3A8A,#0F172A)', lima: 'linear-gradient(135deg,#84CC16,#15803D)',
+    lilas: 'linear-gradient(135deg,#A78BFA,#6D28D9)', grafite: '#1F2937', claro: '#F1F4F1' };
+// figurinhas separadas por segmento, sempre 12 em cada
+const CAPA_SEGMENTOS = {
+    treino: ['treino', 'corrida', 'bike', 'natacao', 'trofeu', 'medalha', 'alvo', 'raio', 'fogo', 'cronometro', 'tenis', 'evolucao'],
+    saude: ['agua', 'sono', 'maca', 'refeicao', 'coracao', 'balanca', 'yoga', 'folha', 'sol', 'batimento', 'salada', 'pilula'],
+    vida: ['casa', 'familia', 'viagem', 'aviao', 'praia', 'camera', 'presente', 'cafe', 'livro', 'musica', 'pet', 'sino'],
+    fe: ['cruz', 'biblia', 'pomba', 'maos', 'igreja', 'vela', 'coroa', 'estrela', 'nascer', 'peixe', 'calice', 'ancora'],
+};
+const CAPA_SEG_NOME = { treino: 'Treino', saude: 'Saúde', vida: 'Vida', fe: 'Fé' };
 const CAPA_ICONES = {
     treino: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
-    refeicao: '<circle cx="13.5" cy="12.5" r="6"/><path d="M3.5 4v4.5a1.8 1.8 0 0 0 1.8 1.8M7 4v4.5a1.8 1.8 0 0 1-1.8 1.8M5.3 10.3V20"/>',
     corrida: '<circle cx="14" cy="4.5" r="1.8"/><path d="M9 21l2.5-6-3-3 3.5-4 3 3.5h3.5M11.5 15l3 2.5V21"/>',
-    coracao: '<path d="M12 20.5s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7.5 2.6c0 5.7-7.5 10.3-7.5 10.3z"/>',
+    bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l2 7M14 6h2"/>',
+    natacao: '<path d="M3 17c2 0 2-1.5 4.5-1.5S10 17 12 17s2-1.5 4.5-1.5S19 17 21 17M3 21c2 0 2-1.5 4.5-1.5S10 21 12 21s2-1.5 4.5-1.5S19 21 21 21"/><circle cx="16" cy="7" r="1.8"/><path d="M5 13l5-4 3 2"/>',
     trofeu: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM16 5.5h3v1.5a3 3 0 0 1-3 3M8 5.5H5v1.5a3 3 0 0 0 3 3M12 13v4M8.5 20h7"/>',
-    evolucao: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
-    viagem: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
-    estrela: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
+    medalha: '<circle cx="12" cy="15" r="5"/><path d="M8.5 11.5 6 3h4l2 5 2-5h4l-2.5 8.5M12 13v4"/>',
+    alvo: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+    raio: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
     fogo: '<path d="M12 21.5c4 0 7-2.7 7-6.6 0-3.3-2.2-5.6-4-7.4.1 2-1 3.4-2.3 3.4C11 10.9 12.5 6.5 10 2.5 9 6.5 5 8.5 5 14.9 5 18.8 8 21.5 12 21.5z"/>',
-    cruz: '<path d="M12 3v18M6 8.5h12"/>',
-    sino: '<path d="M17.5 9a5.5 5.5 0 1 0-11 0c0 6.5-2.5 8.5-2.5 8.5h16s-2.5-2-2.5-8.5M10 20.5a2 2 0 0 0 4 0"/>',
+    cronometro: '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 2.5h5M18.5 6l1.5-1.5"/>',
+    tenis: '<path d="M3 16.5V12l4-1 2 2 4-3 3 4 5 1.5v2.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/><path d="M3 15.5h18M10 11.5l1 1.5M12.5 10l1 1.5"/>',
+    evolucao: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
+    agua: '<path d="M12 2.5c3 3.5 5.5 6.6 5.5 9.7a5.5 5.5 0 0 1-11 0c0-3.1 2.5-6.2 5.5-9.7z"/><path d="M9.5 13.5a2.5 2.5 0 0 0 2.5 2.5"/>',
+    sono: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    maca: '<path d="M12 7.5c-4-2-8.5.3-7.8 5.3.6 5 3.8 9 7.8 7 4 2 7.2-2 7.8-7 .7-5-3.8-7.3-7.8-5.3z"/><path d="M12 7.5c0-2 1-3.6 3-4.5"/>',
+    refeicao: '<circle cx="13.5" cy="12.5" r="6"/><path d="M3.5 4v4.5a1.8 1.8 0 0 0 1.8 1.8M7 4v4.5a1.8 1.8 0 0 1-1.8 1.8M5.3 10.3V20"/>',
+    coracao: '<path d="M12 20.5s-7.5-4.6-7.5-10.3A4.2 4.2 0 0 1 12 7.6a4.2 4.2 0 0 1 7.5 2.6c0 5.7-7.5 10.3-7.5 10.3z"/>',
+    balanca: '<rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 10a4.5 4.5 0 0 1 7 0M12 10l1.3-1.8"/>',
+    yoga: '<circle cx="12" cy="4.5" r="1.8"/><path d="M12 8v5.5M5 10.5l7 2 7-2M7.5 20l4.5-6.5 4.5 6.5"/>',
+    folha: '<path d="M5 19c0-9 6-14 15-14 0 9-5 15-14 15zM5 19l8-8"/>',
+    sol: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5"/>',
+    batimento: '<path d="M3 12h4l2-4 3 9 2.5-6 1.5 1H21"/>',
+    salada: '<path d="M3 11h18a9 9 0 0 1-18 0zM8 11c0-3 2-5 4-5M12 11c0-2.5 2-4.5 4.5-4.5M8.5 6c1-1.5 2.5-2 4-1.5"/>',
+    pilula: '<rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-35 12 12)"/><path d="M9.5 8.5l5 7"/>',
+    casa: '<path d="M4 11l8-7 8 7v9H4zM10 20v-5h4v5"/>',
+    familia: '<circle cx="8" cy="7" r="2.5"/><circle cx="16" cy="7" r="2.5"/><path d="M3.5 20a4.5 4.5 0 0 1 9 0M11.5 20a4.5 4.5 0 0 1 9 0"/>',
+    viagem: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    aviao: '<path d="M10 14l-6 2v-2l6-4V5a2 2 0 0 1 4 0v5l6 4v2l-6-2v4l2 2v1l-4-1-4 1v-1l2-2z"/>',
+    praia: '<path d="M3 20h18M7 20c0-6 2-10 7-12M14 8c-3-2-7-1-8 2M14 8c2-3 6-3 7 0M14 8c0 3-1 6-4 7"/>',
+    camera: '<rect x="3" y="7" width="18" height="13" rx="3"/><circle cx="12" cy="13.5" r="3.5"/><path d="M9 7l1.5-3h3L15 7"/>',
+    presente: '<rect x="3.5" y="9" width="17" height="11" rx="2"/><path d="M12 9v11M3.5 13h17M12 9c-2-4-6-4-6-1.5S10 9 12 9c2 0 6 1 6-1.5S14 5 12 9"/>',
+    cafe: '<path d="M5 9h11v5a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M9 3.5c0 1 1 1.5 1 2.5M12 3.5c0 1 1 1.5 1 2.5"/>',
+    livro: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20"/>',
     musica: '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+    pet: '<circle cx="6.5" cy="10" r="2"/><circle cx="17.5" cy="10" r="2"/><circle cx="9.5" cy="5.5" r="2"/><circle cx="14.5" cy="5.5" r="2"/><path d="M7.5 17.5c0-3 2-5.5 4.5-5.5s4.5 2.5 4.5 5.5c0 2-2 2.5-4.5 2.5s-4.5-.5-4.5-2.5z"/>',
+    sino: '<path d="M17.5 9a5.5 5.5 0 1 0-11 0c0 6.5-2.5 8.5-2.5 8.5h16s-2.5-2-2.5-8.5M10 20.5a2 2 0 0 0 4 0"/>',
+    cruz: '<path d="M12 3v18M6 8.5h12"/>',
+    biblia: '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v16H6.5A1.5 1.5 0 0 0 5 20.5zM5 20.5A1.5 1.5 0 0 0 6.5 22H19M12 6.5v7M9.5 9h5"/>',
+    pomba: '<path d="M3 13c3 0 5-1 7-3 1-3 4-5 7-4l3-1-1.5 3c0 5-4 9-10 9-2 0-4-1-5.5-4z"/><path d="M10 10c1 2 3 3 5 3"/>',
+    maos: '<path d="M12 4v8M12 12l-3 4.5V21M12 12l3 4.5V21M12 4c-1 0-2 1-2.5 2.5L8 12l-3 4M12 4c1 0 2 1 2.5 2.5L16 12l3 4"/>',
+    igreja: '<path d="M12 2v4M10 4h4M5 21v-8l7-5 7 5v8zM10 21v-4a2 2 0 0 1 4 0v4"/>',
+    vela: '<path d="M9 10h6v11H9zM12 10V8M12 2c1.5 2 2 3 0 5-2-2-1.5-3 0-5z"/>',
+    coroa: '<path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/>',
+    estrela: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
+    nascer: '<path d="M3 18h18M6 18a6 6 0 0 1 12 0M12 4v3M4.5 9.5l2 1.5M19.5 9.5l-2 1.5M8 21h8"/>',
+    peixe: '<path d="M2 12c4-5 10-6 15 0-5 6-11 5-15 0zM17 12l4-3v6z"/>',
+    calice: '<path d="M7 3h10c0 5-2 8-5 8s-5-3-5-8zM12 11v7M8 21h8"/>',
+    ancora: '<circle cx="12" cy="5" r="2"/><path d="M12 7v14M8 11h8M4.5 14a7.5 7.5 0 0 0 15 0"/>',
 };
+const segmentoDoIcone = ic => Object.keys(CAPA_SEGMENTOS).find(k => CAPA_SEGMENTOS[k].includes(ic)) || 'treino';
 const capaBase = c => String(c || '').split('#q=')[0];
 const capaEnq = c => { const m = String(c || '').match(/#q=([\d.]+),([\d.]+),([\d.]+)/); return m ? { x: +m[1], y: +m[2], s: +m[3] } : { x: 50, y: 50, s: 1 }; };
 const svgCapa = (ic, claro) => `<svg viewBox="0 0 24 24" fill="none" stroke="${claro ? '#0A0C0B' : '#fff'}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${CAPA_ICONES[ic] || CAPA_ICONES.estrela}</svg>`;
@@ -17715,6 +17950,45 @@ function destaquesHTML(lista, uid, { temArquivo = true } = {}) {
             <span class="destaque-nome">${escapeHTML(h.title)}</span>
         </button>`;
     }).join('')}${novo}</div>`;
+}
+// segurar um destaque do seu perfil e arrastar pra mudar a ordem
+function ligarReordenarDestaques() {
+    const box = document.querySelector('.view .destaques'); if (!box) return;
+    let timer = null, modo = false, arr = null, ini = null;
+    const itens = () => [...box.querySelectorAll('.destaque[data-id]')];
+    const entrar = () => {
+        modo = true; box.classList.add('reordenando'); vibrar([8, 30, 8]);
+        if (!document.getElementById('dstPronto')) {
+            const b = document.createElement('button'); b.id = 'dstPronto'; b.type = 'button'; b.className = 'bt-min dst-pronto'; b.textContent = 'Pronto';
+            b.onclick = sair; box.after(b);
+        }
+    };
+    const sair = async () => {
+        modo = false; box.classList.remove('reordenando'); const b = document.getElementById('dstPronto'); if (b) b.remove();
+        const ids = itens().map(x => x.dataset.id);
+        const res = await Promise.all(ids.map((id, i) => sb.from('story_highlights').update({ ordem: i }).eq('id', id).then(r => r.error, () => true)));
+        if (res.some(Boolean)) toast('Não consegui salvar a ordem agora', 'err'); else toast('Ordem dos destaques salva', 'ok');
+    };
+    box.addEventListener('pointerdown', e => {
+        const it = e.target.closest('.destaque[data-id]'); if (!it) return;
+        ini = { x: e.clientX, y: e.clientY };
+        if (modo) { arr = it; it.classList.add('arrastando'); try { it.setPointerCapture(e.pointerId); } catch (_) {} return; }
+        clearTimeout(timer); timer = setTimeout(() => { entrar(); arr = it; it.classList.add('arrastando'); try { it.setPointerCapture(e.pointerId); } catch (_) {} }, 480);
+    });
+    box.addEventListener('pointermove', e => {
+        if (!modo && ini && Math.hypot(e.clientX - ini.x, e.clientY - ini.y) > 8) clearTimeout(timer);
+        if (!modo || !arr) return;
+        e.preventDefault();
+        const alvo = itens().find(x => x !== arr && (() => { const r = x.getBoundingClientRect(); return e.clientX > r.left && e.clientX < r.right; })());
+        if (!alvo) return;
+        const lista = itens(), ia = lista.indexOf(arr), ib = lista.indexOf(alvo);
+        if (ia < ib) alvo.after(arr); else alvo.before(arr);
+        vibrar(4);
+    });
+    const soltar = () => { clearTimeout(timer); if (arr) arr.classList.remove('arrastando'); arr = null; ini = null; };
+    box.addEventListener('pointerup', soltar); box.addEventListener('pointercancel', soltar);
+    box.addEventListener('click', e => { if (modo || box.dataset.acabou === '1') { e.preventDefault(); e.stopPropagation(); } }, true);
+    box.addEventListener('contextmenu', e => e.preventDefault());
 }
 function capaFalhou(img) {
     const resto = (img.dataset.alt || '').split('|').filter(Boolean);
@@ -17768,7 +18042,7 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null, modo = nul
     // enquadramento da foto (arrastar e zoom) fica guardado junto do link da capa
     let enq = capa && !capa.startsWith('cor:') && !capa.startsWith('ic:') ? capaEnq(capa) : { x: 50, y: 50, s: 1 };
     let icCapa = capa && capa.startsWith('ic:') ? capa : null;
-    let abaCapa = icCapa ? 'icone' : 'fotos';
+    let abaCapa = icCapa ? 'icone' : 'fotos', segCapa = null;
     if (capa) capa = capaBase(capa);
     if (icCapa) capa = null;
     let capaPropria = capa && !capa.startsWith('cor:') && !urlsItens.has(capa) && !(arquivo || []).some(st => st.image_url === capa) ? capa : null;
@@ -17808,6 +18082,7 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null, modo = nul
         if (!valida) capa = opsCapa.find(c => !c.startsWith('cor:') && !capasQuebradas.has(c)) || opsCapa[0] || null;
         const estiloCapa = c => !c ? `background:${STORY_BG_PADRAO}` : c.startsWith('cor:') ? `background:${c.slice(4)}` : `background-image:url('${c}')`;
         const [, icSel = 'treino', corSel = 'verde'] = (icCapa || 'ic:treino:verde').split(':');
+        if (!segCapa) segCapa = segmentoDoIcone(icSel);
         const final = () => abaCapa === 'icone' ? `ic:${icSel}:${corSel}` : (capa && !capa.startsWith('cor:') && (Math.abs(enq.x - 50) > .5 || Math.abs(enq.y - 50) > .5 || Math.abs(enq.s - 1) > .01) ? `${capa}#q=${Math.round(enq.x)},${Math.round(enq.y)},${enq.s.toFixed(2)}` : capa);
         const vc = visualCapa(final());
         const lista = [...new Set([...(capaPropria ? [capaPropria] : []), ...opsCapa])].filter(c => !capasQuebradas.has(c));
@@ -17825,12 +18100,14 @@ async function abrirEditorDestaque(hid = null, preSelecionado = null, modo = nul
                 <div class="ed-capas">${lista.map(c => `<button type="button" class="ed-capa-op${c === capa ? ' on' : ''}" data-capa="${c}" style="${estiloCapa(c)}"></button>`).join('')}<label class="ed-capa-op ed-capa-gal" aria-label="Foto da galeria">${SVG_C('<rect x="3.5" y="4.5" width="17" height="15" rx="3.5"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-4.5-4.5-8.5 8.5"/>')}<input type="file" accept="image/*" id="edCapaGal" hidden></label></div>
                 <p class="ed-capa-dica ed-capa-dica2">um story do destaque ou uma foto da galeria</p>` : `
                 <div class="ed-cores">${Object.entries(CAPA_CORES).map(([k, c]) => `<button type="button" data-cor-capa="${k}" class="${k === corSel ? 'on' : ''}" style="background:${c}" aria-label="${k}"></button>`).join('')}</div>
-                <div class="ed-icones">${Object.keys(CAPA_ICONES).map(k => `<button type="button" data-ic-capa="${k}" class="${k === icSel ? 'on' : ''}" aria-label="${k}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${CAPA_ICONES[k]}</svg></button>`).join('')}</div>`}
+                <div class="ed-segs">${Object.keys(CAPA_SEGMENTOS).map(k => `<button type="button" data-seg-capa="${k}" class="${k === segCapa ? 'on' : ''}">${CAPA_SEG_NOME[k]}</button>`).join('')}</div>
+                <div class="ed-icones">${CAPA_SEGMENTOS[segCapa].map(k => `<button type="button" data-ic-capa="${k}" class="${k === icSel ? 'on' : ''}" aria-label="${k}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${CAPA_ICONES[k]}</svg></button>`).join('')}</div>`}
                 <input type="text" id="edNome" class="obj-input ed-nome" maxlength="20" placeholder="Nome do destaque (opcional)" value="${escapeHTML(nome)}">
                 ${hid ? '<button class="cfg-row cfg-perigo ed-excluir" id="edExcluir"><span class="cfg-txt">Excluir destaque</span></button>' : ''}
             </div>`;
         const guardarNome = () => { const el = document.getElementById('edNome'); if (el) nome = el.value; };
         v.querySelectorAll('[data-aba-capa]').forEach(b => b.onclick = () => { guardarNome(); abaCapa = b.dataset.abaCapa; if (abaCapa === 'icone' && !icCapa) icCapa = 'ic:treino:verde'; passo2(); vibrar(5); });
+        v.querySelectorAll('[data-seg-capa]').forEach(b => b.onclick = () => { guardarNome(); segCapa = b.dataset.segCapa; passo2(); vibrar(5); });
         v.querySelectorAll('[data-cor-capa]').forEach(b => b.onclick = () => { guardarNome(); icCapa = `ic:${icSel}:${b.dataset.corCapa}`; passo2(); vibrar(5); });
         v.querySelectorAll('[data-ic-capa]').forEach(b => b.onclick = () => { guardarNome(); icCapa = `ic:${b.dataset.icCapa}:${corSel}`; passo2(); vibrar(5); });
         // enquadrar a foto: arrastar move, a barra dá zoom
