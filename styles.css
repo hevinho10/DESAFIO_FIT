@@ -5838,3 +5838,7 @@ details.ch-rel:not([open]) > summary{ margin-bottom:0; }
 .pcs-bloq{ aspect-ratio:4 / 5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:rgba(255,255,255,.85); }
 .pcs-bloq svg{ width:30px; height:30px; opacity:.8; }
 .pcs-bloq b{ font-size:13.5px; font-weight:600; }
+/* aviso enquanto converte foto HEIC */
+.aviso-foto-prep{ position:fixed; left:50%; top:calc(env(safe-area-inset-top, 0px) + 18px); transform:translateX(-50%); z-index:600; display:flex; align-items:center; gap:10px; padding:10px 16px; border-radius:999px;
+  background:rgba(14,17,17,.9); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.12); color:#fff; font:600 13.5px var(--ff-body); box-shadow:0 10px 26px rgba(0,0,0,.35); }
+.aviso-foto-prep .spinner-mini{ width:16px; height:16px; border-radius:50%; border:2px solid rgba(255,255,255,.25); border-top-color:#34D399; animation:girar .8s linear infinite; display:inline-block; }

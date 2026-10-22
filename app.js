@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261256';
+const APP_VERSAO = '20261257';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -289,6 +289,76 @@ document.addEventListener('click', async e => {
 }, true);
 
 // Reduz a foto antes de subir: economiza dados e deixa o feed leve
+// ---- Fotos HEIC (Samsung com "Imagens de alta eficiência", iPhone): o Android e o computador não abrem.
+// Converte pra JPG no próprio celular antes de usar. O conversor só é baixado se alguém escolher uma foto HEIC.
+async function ehHeic(file) {
+    if (!file) return false;
+    const t = String(file.type || '').toLowerCase(), n = String(file.name || '').toLowerCase();
+    if (/heic|heif/.test(t) || /\.(heic|heif)$/.test(n)) return true;
+    if (t && t !== 'application/octet-stream' && t.startsWith('image/') && !/heic|heif/.test(t)) return false;
+    try { const cab = new Uint8Array(await file.slice(4, 12).arrayBuffer()); const txt = String.fromCharCode(...cab); return /^ftyp(heic|heix|hevc|heim|heis|mif1|msf1)/.test(txt); } catch (_) { return false; }
+}
+async function navegadorAbre(file) {
+    try { if (window.createImageBitmap) { const b = await createImageBitmap(file); if (b.close) b.close(); return true; } } catch (_) { return false; }
+    return new Promise(ok => { const u = URL.createObjectURL(file), im = new Image(); im.onload = () => { URL.revokeObjectURL(u); ok(im.naturalWidth > 0); }; im.onerror = () => { URL.revokeObjectURL(u); ok(false); }; im.src = u; });
+}
+let heicCarregando = null;
+function carregarConversorHeic() {
+    if (window.heic2any) return Promise.resolve();
+    if (!heicCarregando) heicCarregando = new Promise((ok, erro) => { const sc = document.createElement('script'); sc.src = 'heic2any.min.js?v=1'; sc.onload = ok; sc.onerror = () => { heicCarregando = null; erro(new Error('conversor')); }; document.head.appendChild(sc); });
+    return heicCarregando;
+}
+function avisoPreparandoFoto(on) {
+    let el = document.getElementById('avisoFotoPrep');
+    if (!on) { if (el) el.remove(); return; }
+    if (el) return;
+    el = document.createElement('div'); el.id = 'avisoFotoPrep'; el.className = 'aviso-foto-prep';
+    el.innerHTML = '<span class="spinner-mini"></span>Preparando a foto…';
+    document.body.appendChild(el);
+}
+async function heicParaJpg(file, silencioso = false) {
+    if (!silencioso) avisoPreparandoFoto(true);
+    try {
+        await carregarConversorHeic();
+        let r = await window.heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+        if (Array.isArray(r)) r = r[0];
+        if (!r || !r.size) throw new Error('vazio');
+        return new File([r], String(file.name || 'foto').replace(/\.(heic|heif)$/i, '') + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+    } finally { if (!silencioso) avisoPreparandoFoto(false); }
+}
+// devolve um arquivo que este celular consegue abrir (ou null, com aviso, se não der)
+async function fotoLegivel(file) {
+    if (!(await ehHeic(file))) return file;
+    if (await navegadorAbre(file)) return file; // iPhone abre HEIC: o compressImage já transforma em JPG
+    try { return await heicParaJpg(file); }
+    catch (_) {
+        toast('Não consegui abrir essa foto (formato HEIC). No Samsung: Câmera › Configurações › Formatos › desligue "Imagens de alta eficiência".', 'err');
+        return null;
+    }
+}
+// qualquer campo de foto do app: troca a foto HEIC pela versão JPG antes do resto do app ver
+(function converterHeicNosCampos() {
+    document.addEventListener('change', async e => {
+        const inp = e.target;
+        if (!inp || inp.tagName !== 'INPUT' || inp.type !== 'file' || inp.dataset.heicOk === '1' || !inp.files || !inp.files.length) return;
+        const lista = [...inp.files];
+        let precisa = false;
+        for (const f of lista) { if (await ehHeic(f) && !(await navegadorAbre(f))) { precisa = true; break; } }
+        if (!precisa) return;
+        e.stopImmediatePropagation();
+        const novos = [];
+        for (const f of lista) { const ok = await fotoLegivel(f); if (ok) novos.push(ok); }
+        try {
+            const dt = new DataTransfer(); novos.forEach(f => dt.items.add(f));
+            inp.files = dt.files;
+        } catch (_) { return; }
+        if (!novos.length) { inp.value = ''; return; }
+        inp.dataset.heicOk = '1';
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+        setTimeout(() => { delete inp.dataset.heicOk; }, 0);
+    }, true);
+})();
+
 function compressImage(file, maxSide = 1200, quality = 0.8) {
     return new Promise((resolve) => {
         if (!file || !file.type || !file.type.startsWith('image/')) return resolve(file);
@@ -315,7 +385,13 @@ function compressImage(file, maxSide = 1200, quality = 0.8) {
 }
 
 async function uploadImage(bucket, file, opts = {}) {
-    const blob = await compressImage(file, opts.maxSide || 1200, opts.quality || 0.8);
+    let blob = await compressImage(file, opts.maxSide || 1200, opts.quality || 0.8);
+    // última garantia: nunca sobe HEIC (o Android e o computador não abrem)
+    if (blob === file && await ehHeic(file)) {
+        const jpg = await heicParaJpg(file, true).catch(() => null);
+        if (!jpg) throw new Error('Não consegui converter essa foto (HEIC). Tente outra foto.');
+        blob = await compressImage(jpg, opts.maxSide || 1200, opts.quality || 0.8);
+    }
     const ext = (blob.type === 'image/jpeg' || blob !== file) ? 'jpg' : (file.name.split('.').pop() || 'jpg');
     const path = opts.fixedName
         ? `${state.session.user.id}/${opts.fixedName}.${ext}`
@@ -10092,9 +10168,10 @@ function abrirTrocarUsuario() {
 // Sua própria foto de perfil em HEIC (só abre no iPhone): o seu iPhone converte pra JPEG sem você perceber
 async function converterMeuAvatarHeic() {
     try {
-        const p = state.profile; if (!p || !p.avatar_url || !/\.hei[cf](\?|$)/i.test(p.avatar_url) || tipoAparelho() !== 'iphone') return;
+        const p = state.profile; if (!p || !p.avatar_url || !/\.hei[cf](\?|$)/i.test(p.avatar_url)) return;
         const resp = await fetch(p.avatar_url); if (!resp.ok) return;
-        const arquivo = new File([await resp.blob()], 'avatar.heic', { type: 'image/heic' });
+        let arquivo = new File([await resp.blob()], 'avatar.heic', { type: 'image/heic' });
+        if (!(await navegadorAbre(arquivo))) arquivo = await heicParaJpg(arquivo, true);
         const jpg = await compressImage(arquivo, 600, 0.85);
         if (!jpg || jpg === arquivo || jpg.type !== 'image/jpeg') return;
         const url = await uploadImage('avatars', new File([jpg], 'avatar.jpg', { type: 'image/jpeg' }), { maxSide: 600, fixedName: 'avatar' }) + '?t=' + Date.now();
@@ -10102,25 +10179,29 @@ async function converterMeuAvatarHeic() {
         if (!error) state.profile.avatar_url = url;
     } catch (_) {}
 }
-// Roda SÓ no iPhone do admin (é o aparelho que consegue ler o HEIC), em segundo plano, pra fotos de qualquer usuário.
-// Leve: 20s depois de abrir, até 10 fotos por vez; sem pendência, confere no máximo 1 vez por dia.
+// Roda SÓ no aparelho do admin (qualquer um: no Android usa o conversor), em segundo plano, pra fotos de qualquer usuário.
+// Leve: 20s depois de abrir, até 5 fotos por vez (stories primeiro); sem pendência, confere no máximo a cada 30 min.
 async function converterFotosHeic() {
-    if (!state.session || !state.profile || !state.profile.is_admin || tipoAparelho() !== 'iphone') return;
+    if (!state.session || !state.profile || !state.profile.is_admin) return;
     const chave = 'pulso-heic-adm-' + state.session.user.id;
     const ultimo = lsGet(chave) || '';
-    if (ultimo !== 'pendente' && Date.now() - Number(ultimo || 0) < 86400000) return;
+    if (ultimo !== 'pendente' && Date.now() - Number(ultimo || 0) < 30 * 60000) return;
     lsSet(chave, String(Date.now()));
     const meu = state.session.user.id;
     let sobrou = false, feitas = 0;
     try {
         const { data: lista, error } = await sb.rpc('admin_fotos_heic');
         if (error) return;
-        for (const it of lista || []) {
+        // stories primeiro (somem em 24 h), no máximo 5 por vez
+        const fila = [...(lista || [])].sort((a, b) => (a.tabela === 'stories' ? 0 : 1) - (b.tabela === 'stories' ? 0 : 1));
+        if (fila.length > 5) sobrou = true;
+        for (const it of fila.slice(0, 5)) {
             try {
                 const resp = await fetch(it.image_url);
                 if (!resp.ok) throw new Error('baixar');
                 const original = await resp.blob();
-                const arquivo = new File([original], 'foto.heic', { type: 'image/heic' });
+                let arquivo = new File([original], 'foto.heic', { type: 'image/heic' });
+                if (!(await navegadorAbre(arquivo))) arquivo = await heicParaJpg(arquivo, true);
                 const jpg = await compressImage(arquivo, 1200, 0.82);
                 if (!jpg || jpg === arquivo || jpg.type !== 'image/jpeg') throw new Error('converter');
                 const caminho = `${meu}/conv-${Date.now()}-${feitas}.jpg`;
