@@ -5890,3 +5890,4 @@ details.ch-rel:not([open]) > summary{ margin-bottom:0; }
 @keyframes dstTreme{ from{ transform:rotate(-2.5deg); } to{ transform:rotate(2.5deg); } }
 .dst-pronto{ display:flex; margin:4px auto 10px; }
 .perfil-mutuos .pm-fotos .avatar + .avatar{ margin-left:-8px; }
+.tc-tela.oculta{ display:none !important; }

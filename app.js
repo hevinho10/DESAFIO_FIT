@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261258';
+const APP_VERSAO = '20261259';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1901,7 +1901,7 @@ function fecharTopo() {
     }
     if ($('#storyCreator').classList.contains('on')) { closeStoryCreator(); return true; }
     if ($('#storyViewer').classList.contains('on')) { closeStoryViewer(); return true; }
-    const pv = [...document.querySelectorAll('.posts-viewer')];
+    const pv = [...document.querySelectorAll('.posts-viewer:not(.oculta)')];
     if (pv.length) { pv[pv.length - 1].remove(); if (!document.querySelector('.posts-viewer')) { document.body.style.overflow = ''; state.arquivoStories = null; } return true; }
     if ($('#composerSheet').classList.contains('on')) { closeComposer(); return true; }
     return false;
@@ -1910,6 +1910,7 @@ function voltarUmPasso() {
     const ts = document.getElementById('termsSheet');
     if (document.getElementById('onbTela') || (ts && ts.classList.contains('on') && ts.style.display !== 'none')) return true;
     if (fecharTopo()) return true;
+    if (voltarPraLista()) return true;
     const pilha = state.navPilha || [];
     if (pilha.length) { const ant = pilha.pop(); switchView(ant.v, { ...(ant.p || {}), _voltando: true }); return true; }
     if (state.view && state.view !== 'feed') { switchView('feed', { _voltando: true }); return true; }
@@ -5053,7 +5054,9 @@ async function abrirTelaConexoes(uid, aba = 'seguidores') {
     const fechar = () => { v.remove(); document.body.style.overflow = ''; };
     v.querySelector('.pv-voltar').onclick = fechar;
     const dados = {}, corpo = v.querySelector('#tcCorpo'), busca = v.querySelector('#tcBusca');
-    let pedidos = [];
+    let pedidos = [], pedidosFeitos = new Set();
+    // pedidos que você já mandou e ainda não foram aceitos: botão mostra "Solicitado"
+    try { const { data: pf } = await sb.from('follow_requests').select('target_id').eq('requester_id', eu).limit(1000); pedidosFeitos = new Set((pf || []).map(x => x.target_id)); } catch (_) {}
     sb.from('profiles').select('username').eq('id', uid).maybeSingle().then(({ data }) => { const t = v.querySelector('#tcTitulo'); if (t) t.textContent = data ? '@' + data.username : ''; });
     async function carregar(tipo) {
         if (dados[tipo]) return dados[tipo];
@@ -5066,17 +5069,20 @@ async function abrirTelaConexoes(uid, aba = 'seguidores') {
         return dados[tipo];
     }
     const linha = (u, tipo) => {
-        const amigos = u.eu_sigo && u.me_segue && u.id !== eu;
         let bt = '';
+        const pedi = !u.eu_sigo && pedidosFeitos.has(u.id);
         if (u.id === eu) bt = '';
         else if (minha && tipo === 'seguidores') bt = u.eu_sigo
             ? `<button class="bt-min cinza" data-tc-msg="${u.id}" data-name="${escapeHTML(u.display_name || '')}" data-username="${escapeHTML(u.username || '')}" data-avatar="${escapeHTML(u.avatar_url || '')}">Mensagem</button>`
-            : `<button class="bt-min" data-tc-seguir="${u.id}">Seguir de volta</button>`;
-        else bt = u.eu_sigo ? `<button class="bt-min cinza" data-tc-deixar="${u.id}" data-nome="${escapeHTML(u.display_name || '')}">Seguindo</button>` : `<button class="bt-min" data-tc-seguir="${u.id}">Seguir</button>`;
+            : pedi ? `<button class="bt-min cinza" data-tc-cancelar="${u.id}" data-volta="1" data-nome="${escapeHTML(u.display_name || '')}">Solicitado</button>`
+            : `<button class="bt-min" data-tc-seguir="${u.id}" data-volta="1">Seguir de volta</button>`;
+        else bt = u.eu_sigo ? `<button class="bt-min cinza" data-tc-deixar="${u.id}" data-nome="${escapeHTML(u.display_name || '')}">Seguindo</button>`
+            : pedi ? `<button class="bt-min cinza" data-tc-cancelar="${u.id}" data-nome="${escapeHTML(u.display_name || '')}">Solicitado</button>`
+            : `<button class="bt-min" data-tc-seguir="${u.id}">Seguir</button>`;
         const x = minha && tipo === 'seguidores' && u.id !== eu ? `<button class="tc-x" data-tc-remover="${u.id}" data-nome="${escapeHTML(u.display_name || '')}" aria-label="Remover seguidor">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>` : '';
         return `<div class="tc-item" data-uid="${u.id}">
             <span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'sm')}</span>
-            <div class="pd-nome" data-act="view-user" data-uid="${u.id}"><b>${escapeHTML(u.display_name || u.username || '')}</b><small>@${escapeHTML(u.username || '')}${u.desde ? ' · ' + tempoCurto(u.desde) : ''}${amigos ? ' · <em>amigos</em>' : ''}</small></div>
+            <div class="pd-nome" data-act="view-user" data-uid="${u.id}"><b>${escapeHTML(u.display_name || u.username || '')}</b><small>@${escapeHTML(u.username || '')}</small></div>
             ${bt}${x}</div>`;
     };
     async function pintar() {
@@ -5100,10 +5106,7 @@ async function abrirTelaConexoes(uid, aba = 'seguidores') {
                 : tipo === 'seguidores' ? vazioAcao('pessoaMais', 'Ninguém te segue ainda', 'Chame seus amigos pra treinar junto.', 'Convidar amigos', 'data-act="convidar-amigo"')
                 : vazioAcao('perfil', 'Você ainda não segue ninguém', 'Siga pessoas pra ver os treinos delas no feed.', 'Ver sugestões', 'data-act="m-go" data-view="search"'));
         } else {
-            const semVolta = minha && tipo === 'seguidores' && !t ? filtrada.filter(u => !u.eu_sigo && u.id !== eu) : [];
-            const resto = semVolta.length ? filtrada.filter(u => !semVolta.includes(u)) : filtrada;
-            if (semVolta.length) html += `<div class="mus-sec tc-sec"><span>Ainda não segue de volta</span></div>${semVolta.map(u => linha(u, tipo)).join('')}`;
-            if (resto.length) html += `${semVolta.length ? '<div class="mus-sec tc-sec"><span>Mais recentes primeiro</span></div>' : ''}${resto.map(u => linha(u, tipo)).join('')}`;
+            html += filtrada.map(u => linha(u, tipo)).join('');
         }
         if (minha && !t) html += '<div id="tcSugestoes"></div>';
         corpo.innerHTML = html;
@@ -5123,6 +5126,8 @@ async function abrirTelaConexoes(uid, aba = 'seguidores') {
       corpo.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0; x0 = null;
         if (Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return; const nova = dx < 0 ? 'seguindo' : 'seguidores'; if (nova === aba) return; aba = nova; busca.value = ''; pintar(); vibrar(5); }, { passive: true }); }
     corpo.addEventListener('click', async e => {
+        const vu = e.target.closest('[data-act="view-user"]');
+        if (vu && !e.target.closest('button')) { e.stopPropagation(); abrirPerfilDaLista(vu.dataset.uid); return; }
         const ped = e.target.closest('[data-tc-pedidos]');
         if (ped) { abrirTelaPedidos(async () => { const { data } = await sb.rpc('list_follow_requests'); pedidos = data || []; delete dados.seguidores; pintar(); }); return; }
         const sg = e.target.closest('[data-tc-seguir]');
@@ -5130,9 +5135,25 @@ async function abrirTelaConexoes(uid, aba = 'seguidores') {
             e.stopPropagation(); sg.disabled = true;
             const { data: res, error } = await sb.rpc('follow_user', { target_id: sg.dataset.tcSeguir });
             if (error) { sg.disabled = false; toast('Não consegui seguir agora.', 'err'); return; }
-            const pedido = res === 'requested';
-            Object.values(dados).forEach(l => l.forEach(u => { if (u.id === sg.dataset.tcSeguir && !pedido) u.eu_sigo = true; }));
-            sg.classList.add('cinza'); sg.textContent = pedido ? 'Solicitado' : 'Seguindo'; vibrar(6);
+            const pedido = res === 'requested', id = sg.dataset.tcSeguir;
+            Object.values(dados).forEach(l => l.forEach(u => { if (u.id === id && !pedido) u.eu_sigo = true; }));
+            if (pedido) pedidosFeitos.add(id);
+            sg.disabled = false; sg.classList.add('cinza'); sg.removeAttribute('data-tc-seguir');
+            if (pedido) { sg.textContent = 'Solicitado'; sg.dataset.tcCancelar = id; }
+            else if (aba === 'seguidores' && minha) { const u = (dados.seguidores || []).find(x => x.id === id) || {}; sg.textContent = 'Mensagem'; sg.dataset.tcMsg = id; sg.dataset.name = u.display_name || ''; sg.dataset.username = u.username || ''; sg.dataset.avatar = u.avatar_url || ''; }
+            else { sg.textContent = 'Seguindo'; sg.dataset.tcDeixar = id; }
+            vibrar(6);
+            return;
+        }
+        const cn = e.target.closest('[data-tc-cancelar]');
+        if (cn) {
+            e.stopPropagation();
+            if (!(await confirmar(`Cancelar o pedido pra seguir ${cn.dataset.nome || 'essa pessoa'}?`, 'Cancelar pedido', true))) return;
+            const id = cn.dataset.tcCancelar;
+            await sb.rpc('unfollow_user', { target_id: id });
+            pedidosFeitos.delete(id);
+            cn.classList.remove('cinza'); cn.removeAttribute('data-tc-cancelar'); cn.dataset.tcSeguir = id;
+            cn.textContent = cn.dataset.volta === '1' ? 'Seguir de volta' : 'Seguir';
             return;
         }
         const dx = e.target.closest('[data-tc-deixar]');
@@ -5141,7 +5162,7 @@ async function abrirTelaConexoes(uid, aba = 'seguidores') {
             if (!(await confirmar(`Deixar de seguir ${dx.dataset.nome || 'essa pessoa'}?`, 'Deixar de seguir', true))) return;
             await sb.rpc('unfollow_user', { target_id: dx.dataset.tcDeixar });
             Object.values(dados).forEach(l => l.forEach(u => { if (u.id === dx.dataset.tcDeixar) u.eu_sigo = false; }));
-            dx.classList.remove('cinza'); dx.textContent = 'Seguir'; dx.removeAttribute('data-tc-deixar'); dx.dataset.tcSeguir = u_id(dx);
+            dx.classList.remove('cinza'); dx.textContent = 'Seguir'; const idd = dx.dataset.tcDeixar; dx.removeAttribute('data-tc-deixar'); dx.dataset.tcSeguir = idd;
             return;
         }
         const rm = e.target.closest('[data-tc-remover]');
@@ -5164,7 +5185,26 @@ async function abrirTelaConexoes(uid, aba = 'seguidores') {
         }
     });
 }
-const u_id = el => el.closest('.tc-item') ? el.closest('.tc-item').dataset.uid : '';
+// abre o perfil por cima e guarda a lista: voltar do perfil cai de novo nela, no mesmo ponto
+function abrirPerfilDaLista(uid) {
+    if (!uid) return;
+    const tp = document.getElementById('telaPedidos'); if (tp) tp.remove();
+    const tc = document.getElementById('telaConexoes');
+    if (uid === state.session.user.id) { if (tc) tc.remove(); document.body.style.overflow = ''; switchView('profile'); return; }
+    if (tc) { tc.dataset.scroll = tc.scrollTop; if (!tc.classList.contains('oculta')) tc.dataset.view = JSON.stringify({ v: state.view, p: state.viewParams || {} }); tc.classList.add('oculta'); }
+    document.body.style.overflow = '';
+    state.manterConexoes = true;
+    switchView('user-profile', { uid });
+}
+// voltar de um perfil aberto pela lista: mostra a lista de novo e devolve a tela de baixo pro perfil de origem
+function voltarPraLista() {
+    const tc = document.getElementById('telaConexoes');
+    if (!tc || !tc.classList.contains('oculta')) return false;
+    tc.classList.remove('oculta'); document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => { tc.scrollTop = Number(tc.dataset.scroll) || 0; });
+    try { const o = JSON.parse(tc.dataset.view || 'null'); if (o && o.v) { state.manterConexoes = true; switchView(o.v, { ...(o.p || {}), _voltando: true }); } } catch (_) {}
+    return true;
+}
 
 // "Seguido por": lista de quem você segue e também segue esse perfil
 async function abrirSeguidoPor(uid) {
@@ -5196,6 +5236,8 @@ async function abrirTelaPedidos(aoFechar) {
     };
     pintar();
     corpo.addEventListener('click', async e => {
+        const vu = e.target.closest('[data-act="view-user"]');
+        if (vu) { e.stopPropagation(); abrirPerfilDaLista(vu.dataset.uid); return; }
         const b = e.target.closest('[data-tp]');
         if (b) {
             e.stopPropagation(); b.disabled = true;
@@ -13673,6 +13715,9 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) sinc
 
 async function switchView(v, params = {}) {
     try { musicaFeed.parar(); } catch (_) {}
+    // saiu do perfil aberto pela lista de seguidores pra outro lugar: a lista guardada some
+    if (state.manterConexoes) state.manterConexoes = false;
+    else { const tc = document.getElementById('telaConexoes'); if (tc && tc.classList.contains('oculta')) tc.remove(); }
     const viewAnterior = state.view;
     const paramsAnteriores = state.viewParams || {};
     if (viewAnterior === 'feed' && v !== 'feed') state.feedScroll = window.scrollY; // lembra onde parou
