@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261263';
+const APP_VERSAO = '20261264';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -7103,21 +7103,27 @@ function psChips(g, chips, y, centro = true) {
 }
 const psTempo = m => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
 const psNum = v => String(Math.round(v * 10) / 10).replace('.', ',');
-async function dadosPostSemana(ini) {
+// período: semana (domingo a sábado) ou mês
+async function dadosPostSemana(ini, fimX = null, tipo = 'semana') {
     ini = new Date(ini); ini.setHours(0, 0, 0, 0);
-    const fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 7), ult = new Date(fim.getTime() - DIA_MS);
+    const fim = fimX ? new Date(fimX) : new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 7);
+    const ult = new Date(fim.getTime() - DIA_MS);
     const uid = state.session.user.id;
     const [{ data: posts }, { data: pts }, { data: st }] = await Promise.all([
         sb.from('posts').select('id, kind, activity_type, duration_min, distance_km, image_url, thumb_url, water_ml, created_at, reactions (id)')
-            .eq('user_id', uid).in('kind', ['workout', 'water', 'post']).gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()).limit(800),
-        sb.from('points_ledger').select('amount').eq('user_id', uid).gte('earned_at', ini.toISOString()).lt('earned_at', fim.toISOString()).limit(2000),
+            .eq('user_id', uid).in('kind', ['workout', 'water', 'post']).gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()).limit(2000),
+        sb.from('points_ledger').select('amount').eq('user_id', uid).gte('earned_at', ini.toISOString()).lt('earned_at', fim.toISOString()).limit(5000),
         sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle(),
     ]);
     const lista = posts || [];
     const treinos = lista.filter(p => p.kind === 'workout').sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    const dias = [[], [], [], [], [], [], []];
-    treinos.forEach(p => dias[new Date(p.created_at).getDay()].push(p));
-    const diasTreino = dias.filter(x => x.length).length;
+    // dias do período (a semana é a de 7 dias; no mês, todos os dias do mês)
+    const nDias = Math.round((fim - ini) / DIA_MS);
+    const diasP = [...Array(nDias)].map((_, k) => ({ d: new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + k), ws: [] }));
+    treinos.forEach(p => { const k = Math.floor((new Date(p.created_at) - ini) / DIA_MS); if (diasP[k]) diasP[k].ws.push(p); });
+    const dias = tipo === 'semana' ? diasP.map(x => x.ws) : null;
+    const diasTreino = diasP.filter(x => x.ws.length).length;
+    let seq = 0, melhorSeq = 0; diasP.forEach(x => { if (x.ws.length) { seq++; melhorSeq = Math.max(melhorSeq, seq); } else seq = 0; });
     const minutos = treinos.reduce((t, p) => t + (p.duration_min || 0), 0);
     const comKm = treinos.filter(p => Number(p.distance_km) > 0);
     const km = comKm.reduce((t, p) => t + Number(p.distance_km), 0);
@@ -7125,16 +7131,28 @@ async function dadosPostSemana(ini) {
     const maisFeito = (Object.entries(cont).sort((a, b) => b[1] - a[1])[0] || [''])[0];
     const kmCont = {}; comKm.forEach(p => { kmCont[p.activity_type] = (kmCont[p.activity_type] || 0) + Number(p.distance_km); });
     const tipoKm = (Object.entries(kmCont).sort((a, b) => b[1] - a[1])[0] || [''])[0];
-    const decorridos = Math.max(1, Math.min(7, Math.ceil((Math.min(Date.now(), +fim) - ini) / DIA_MS)));
+    const decorridos = Math.max(1, Math.min(nDias, Math.ceil((Math.min(Date.now(), +fim) - ini) / DIA_MS)));
     const agua = lista.filter(p => p.kind === 'water').reduce((t, p) => t + (p.water_ml || 0), 0) / 1000 / decorridos;
     const curt = p => (p.reactions || []).length;
     const fotos = lista.filter(p => p.image_url && (p.kind === 'workout' || p.kind === 'post'))
         .sort((a, b) => curt(b) - curt(a) || new Date(b.created_at) - new Date(a.created_at));
+    const ateHoje = new Date(Math.min(+ult, Date.now()));
     const mes = ult.toLocaleDateString('pt-BR', { month: 'long' });
-    const periodo = ini.getMonth() === ult.getMonth() ? `${ini.getDate()} a ${ult.getDate()} de ${mes}` : `${x1DM(ini)} a ${x1DM(ult)}`;
-    return { ini, ult, treinos, dias, diasTreino, minutos, km, maisFeito, tipoKm, agua, fotos, meta: state.profile.weekly_goal || 3,
+    const periodo = tipo === 'mes' ? `${ini.getDate()} a ${ateHoje.getDate()} de ${mes}`
+        : ini.getMonth() === ult.getMonth() ? `${ini.getDate()} a ${ult.getDate()} de ${mes}` : `${x1DM(ini)} a ${x1DM(ult)}`;
+    const meta = state.profile.weekly_goal || 3;
+    // a semana atual (domingo a sábado) pra faixa da chama, mesmo no post do mês
+    let semanaAtual = dias;
+    if (!semanaAtual) {
+        const s0 = inicioDaSemana(new Date()); s0.setHours(0, 0, 0, 0);
+        semanaAtual = [...Array(7)].map((_, k) => { const dd = new Date(s0.getFullYear(), s0.getMonth(), s0.getDate() + k); const x = diasP.find(y => +y.d === +dd); return x ? x.ws : []; });
+    }
+    return { tipo, ini, ult, treinos, dias: semanaAtual, diasP, diasTreino, melhorSeq, minutos, km, maisFeito, tipoKm, agua, fotos, meta,
+        metaPeriodo: tipo === 'mes' ? Math.max(1, Math.round(meta * decorridos / 7)) : meta,
+        titulo: tipo === 'mes' ? ['Meu', mes] : ['Minha', 'semana'],
         pontos: Math.round((pts || []).reduce((t, r) => t + Number(r.amount || 0), 0)), ofensiva: Number((st && st.current_streak) || 0),
-        periodo, curto: `${x1DM(ini)} a ${x1DM(ult)}`, verso: versiculoDaSemana(), hoje: Date.now() < +fim ? new Date().getDay() : 7 };
+        periodo, curto: tipo === 'mes' ? mes : `${x1DM(ini)} a ${x1DM(ult)}`, verso: versiculoDaSemana(),
+        hoje: tipo === 'mes' || Date.now() < +fim ? new Date().getDay() : 7 };
 }
 function psFundo(g, glow, base = '#000') {
     g.fillStyle = base; g.fillRect(0, 0, 1080, 1920);
@@ -7150,36 +7168,89 @@ async function psDia(g, d, k, x, y, w, h, raio) {
         const ic = await psIcone(pr.activity_type, `rgb(${c})`); const t = Math.min(w, h) * .5;
         if (ic) g.drawImage(ic, x + (w - t) / 2, y + (h - t) / 2, t, t);
     } else {
-        g.setLineDash(k > d.hoje ? [8, 10] : []); g.strokeStyle = k > d.hoje ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,0)';
-        g.fillStyle = 'rgba(255,255,255,.05)'; psRR(g, x, y, w, h, raio); g.fill(); if (k > d.hoje) g.stroke(); g.setLineDash([]);
+        g.fillStyle = 'rgba(255,255,255,.05)'; psRR(g, x, y, w, h, raio); g.fill();
+        if (k > d.hoje) { g.setLineDash([8, 10]); g.strokeStyle = 'rgba(255,255,255,.14)'; g.lineWidth = 2; g.stroke(); g.setLineDash([]); }
     }
 }
 const PS_LETRAS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+// faixa de dias: na semana, 7 quadrados com o símbolo; no mês, a grade do mês (domingo a sábado) com a cor do treino
+async function psFaixaDias(g, d, x, y, w, alturaSemana, raio = 36) {
+    if (d.tipo !== 'mes') {
+        const W = Math.min(alturaSemana, (w - 6 * 16) / 7), gap = (w - 7 * W) / 6;
+        for (let k = 0; k < 7; k++) {
+            const xx = x + k * (W + gap);
+            await psDia(g, d, k, xx, y, W, alturaSemana, raio);
+            g.fillStyle = k === d.hoje ? '#fff' : '#7E8784'; g.font = psF(700, 32); g.textAlign = 'center'; g.fillText(PS_LETRAS[k], xx + W / 2, y + alturaSemana + 50); g.textAlign = 'left';
+        }
+        return alturaSemana + 60;
+    }
+    const off = d.diasP[0].d.getDay(), linhas = Math.ceil((off + d.diasP.length) / 7);
+    const gap = 10, C = Math.min((w - 6 * gap) / 7, 46), Wc = (w - 6 * gap) / 7;
+    const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
+    d.diasP.forEach((x0, i) => {
+        const pos = off + i, col = pos % 7, lin = Math.floor(pos / 7);
+        const xx = x + col * (Wc + gap), yy = y + lin * (C + gap);
+        if (x0.ws.length) {
+            const pr = [...x0.ws].sort((a, b) => (b.duration_min || 0) - (a.duration_min || 0))[0];
+            g.fillStyle = `rgb(${corAtividade(pr.activity_type)})`;
+        } else g.fillStyle = x0.d > hoje0 ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.07)';
+        psRR(g, xx, yy, Wc, C, 12); g.fill();
+    });
+    return linhas * (C + gap);
+}
 const PS_MODELOS = {
     async blocos(g, d) {
         psFundo(g, [[920, 120, 700, 'rgba(16,185,129,.30)']]);
         psMarca(g, 76, 160);
-        const bateu = d.diasTreino >= d.meta;
-        g.fillStyle = '#F1F4F1'; g.font = psF(800, 118); g.fillText('Minha', 76, 345); g.fillText('semana', 76, 470);
-        if (bateu) { const w = g.measureText('semana').width; g.fillStyle = '#34D399'; g.fillText('✓', 76 + w + 24, 470); }
+        const bateu = d.diasTreino >= d.metaPeriodo;
+        g.fillStyle = '#F1F4F1'; g.font = psF(800, 118); g.fillText(d.titulo[0], 76, 345); g.fillText(d.titulo[1], 76, 470);
+        if (bateu) { const w = g.measureText(d.titulo[1]).width; g.fillStyle = '#34D399'; g.fillText('✓', 76 + w + 24, 470); }
         g.fillStyle = '#9AA3A0'; g.font = psF(500, 42); g.fillText(d.periodo, 76, 540);
-        const W = 122, gap = (928 - 7 * W) / 6;
-        for (let k = 0; k < 7; k++) {
-            const x = 76 + k * (W + gap);
-            await psDia(g, d, k, x, 610, W, 150, 36);
-            g.fillStyle = k === d.hoje ? '#fff' : '#7E8784'; g.font = psF(700, 32); g.textAlign = 'center'; g.fillText(PS_LETRAS[k], x + W / 2, 815); g.textAlign = 'left';
-        }
-        g.fillStyle = bateu ? 'rgba(16,185,129,.16)' : 'rgba(255,255,255,.06)'; psRR(g, 76, 860, 928, 120, 36); g.fill();
+        const h = await psFaixaDias(g, d, 76, 610, 928, 150);
+        const y0 = Math.max(860, 610 + h + 30);
+        g.fillStyle = bateu ? 'rgba(16,185,129,.16)' : 'rgba(255,255,255,.06)'; psRR(g, 76, y0, 928, 120, 36); g.fill();
         g.fillStyle = bateu ? '#6EE7B7' : '#F1F4F1'; g.font = psF(700, 44);
-        g.fillText(bateu ? `🎯 Meta batida: ${d.diasTreino} de ${d.meta} treinos` : `🎯 ${d.diasTreino} de ${d.meta} treinos na semana`, 116, 936);
+        g.fillText(d.tipo === 'mes' ? `🗓 ${d.diasTreino} dias treinados · seguidos: ${d.melhorSeq}`
+            : bateu ? `🎯 Meta batida: ${d.diasTreino} de ${d.meta} treinos` : `🎯 ${d.diasTreino} de ${d.meta} treinos na semana`, 116, y0 + 76);
         const caixas = [[psTempo(d.minutos), 'treinando'], d.km > 0 ? [`${psNum(d.km)} km`, 'percorridos'] : [`${psNum(d.agua)} L`, 'de água por dia'],
-            [`🔥 ${d.ofensiva}`, 'dias de ofensiva'], [`+${d.pontos}`, 'pontos na semana']];
+            [`🔥 ${d.ofensiva}`, 'dias de ofensiva'], [`+${d.pontos}`, d.tipo === 'mes' ? 'pontos no mês' : 'pontos na semana']];
+        const yc = y0 + 160, alt = Math.min(215, (1640 - yc - 30) / 2);
         caixas.forEach(([v, l], i) => {
-            const x = 76 + (i % 2) * 479, y = 1020 + Math.floor(i / 2) * 240;
-            g.fillStyle = 'rgba(255,255,255,.06)'; psRR(g, x, y, 449, 215, 40); g.fill();
-            g.fillStyle = '#F1F4F1'; psAjusta(g, v, 380, 800, 76); g.fillText(v, x + 40, y + 115);
-            g.fillStyle = '#9AA3A0'; g.font = psF(500, 34); g.fillText(l, x + 40, y + 170);
+            const x = 76 + (i % 2) * 479, y = yc + Math.floor(i / 2) * (alt + 25);
+            g.fillStyle = 'rgba(255,255,255,.06)'; psRR(g, x, y, 449, alt, 40); g.fill();
+            g.fillStyle = '#F1F4F1'; psAjusta(g, v, 380, 800, 76); g.fillText(v, x + 40, y + alt * .53);
+            g.fillStyle = '#9AA3A0'; g.font = psF(500, 34); g.fillText(l, x + 40, y + alt * .8);
         });
+        psVersiculo(g, d.verso);
+    },
+    async anel(g, d) {
+        psFundo(g, [[540, 640, 700, 'rgba(16,185,129,.28)']]);
+        psMarca(g, 76, 160);
+        const fr = Math.min(1, d.diasTreino / Math.max(1, d.metaPeriodo));
+        const cx = 540, cy = 640, R = 300;
+        g.lineCap = 'round'; g.lineWidth = 60;
+        g.strokeStyle = 'rgba(255,255,255,.08)'; g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+        g.strokeStyle = '#10B981'; g.beginPath(); g.arc(cx, cy, R, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(.02, fr)); g.stroke();
+        g.textAlign = 'center'; g.fillStyle = '#F1F4F1';
+        const centro = d.tipo === 'mes' ? String(d.diasTreino) : `${d.diasTreino}/${d.meta}`;
+        psAjusta(g, centro, 420, 800, 180); g.fillText(centro, cx, cy + 50);
+        g.fillStyle = '#9AA3A0'; g.font = psF(500, 38); g.fillText(d.tipo === 'mes' ? 'dias treinados' : 'treinos na semana', cx, cy + 115);
+        // símbolos dos treinos em volta do anel
+        const tipos = [...new Set(d.treinos.map(p => p.activity_type || 'Outro'))].slice(0, 6);
+        for (let i = 0; i < tipos.length; i++) {
+            const a = -Math.PI / 2 + (i + .5) * (Math.PI * 2 / Math.max(tipos.length, 4)), x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+            const c = corAtividade(tipos[i]);
+            g.fillStyle = '#07120D'; g.beginPath(); g.arc(x, y, 52, 0, Math.PI * 2); g.fill();
+            g.lineWidth = 5; g.strokeStyle = `rgb(${c})`; g.stroke();
+            const ic = await psIcone(tipos[i], `rgb(${c})`); if (ic) g.drawImage(ic, x - 30, y - 30, 60, 60);
+        }
+        const bateu = d.diasTreino >= d.metaPeriodo;
+        g.fillStyle = '#F1F4F1'; g.font = psF(800, 76);
+        g.fillText(bateu ? (d.tipo === 'mes' ? 'Mês de constância!' : 'Meta da semana batida!') : (d.tipo === 'mes' ? `${d.titulo[0]} ${d.titulo[1]}` : 'Semana em andamento'), cx, 1130);
+        g.fillStyle = '#9AA3A0'; g.font = psF(500, 40); g.fillText(d.periodo, cx, 1195);
+        g.textAlign = 'left';
+        psChips(g, [`⏱ ${psTempo(d.minutos)}`, d.km > 0 ? `📍 ${psNum(d.km)} km` : `💧 ${psNum(d.agua)} L`, `🔥 ${d.ofensiva} dias`], 1270);
+        psChips(g, [`⚡ +${d.pontos} pts`], 1370);
         psVersiculo(g, d.verso);
     },
     async foto(g, d) {
@@ -7191,23 +7262,24 @@ const PS_MODELOS = {
         g.fillStyle = gr; g.fillRect(0, 0, 1080, 1300);
         const pill = (txt, x, dir) => { g.font = psF(700, 34); const w = g.measureText(txt).width + 52; const x0 = dir < 0 ? x - w : x; g.fillStyle = 'rgba(0,0,0,.5)'; psRR(g, x0, 66, w, 70, 35); g.fill(); g.fillStyle = '#fff'; g.fillText(txt, x0 + 26, 113); };
         pill('Pulso.', 66, 1); pill(d.curto, 1014, -1);
-        const bateu = d.diasTreino >= d.meta;
-        g.fillStyle = '#6EE7B7'; g.font = psF(800, 34); g.fillText('M I N H A   S E M A N A', 66, 1070);
-        g.fillStyle = '#fff'; psAjusta(g, bateu ? 'Meta batida ✓' : `${d.diasTreino} ${d.diasTreino === 1 ? 'treino' : 'treinos'}`, 950, 800, 104); g.fillText(bateu ? 'Meta batida ✓' : `${d.diasTreino} ${d.diasTreino === 1 ? 'treino' : 'treinos'}`, 66, 1185);
-        const cx = [[String(d.diasTreino), d.diasTreino === 1 ? 'treino' : 'treinos'], [psTempo(d.minutos), 'treinando'], [`🔥 ${d.ofensiva}`, 'dias de ofensiva']];
+        const bateu = d.diasTreino >= d.metaPeriodo;
+        g.fillStyle = '#6EE7B7'; g.font = psF(800, 34); g.fillText((d.tipo === 'mes' ? `${d.titulo[0]} ${d.titulo[1]}` : 'Minha semana').toUpperCase().split('').join(' '), 66, 1070);
+        const tit = bateu ? 'Meta batida ✓' : `${d.diasTreino} ${d.diasTreino === 1 ? 'treino' : 'treinos'}`;
+        g.fillStyle = '#fff'; psAjusta(g, tit, 950, 800, 104); g.fillText(tit, 66, 1185);
+        const cx = [[String(d.diasTreino), d.diasTreino === 1 ? 'treino' : (d.tipo === 'mes' ? 'dias treinados' : 'treinos')], [psTempo(d.minutos), 'treinando'], [`🔥 ${d.ofensiva}`, 'dias de ofensiva']];
         cx.forEach(([v, l], i) => {
             const x = 66 + i * 324;
             g.fillStyle = 'rgba(255,255,255,.07)'; psRR(g, x, 1250, 300, 190, 36); g.fill();
             g.fillStyle = '#fff'; psAjusta(g, v, 250, 800, 64); g.fillText(v, x + 32, 1345);
             g.fillStyle = '#9AA3A0'; g.font = psF(500, 30); g.fillText(l, x + 32, 1397);
         });
-        for (let k = 0; k < 7; k++) { g.fillStyle = d.dias[k].length ? '#10B981' : 'rgba(255,255,255,.12)'; psRR(g, 66 + k * 137, 1490, 121, 14, 7); g.fill(); }
+        if (d.tipo !== 'mes') for (let k = 0; k < 7; k++) { g.fillStyle = d.dias[k].length ? '#10B981' : 'rgba(255,255,255,.12)'; psRR(g, 66 + k * 137, 1490, 121, 14, 7); g.fill(); }
         psVersiculo(g, d.verso);
     },
     async polaroids(g, d) {
         psFundo(g, [[540, 800, 760, 'rgba(16,185,129,.16)']], '#030403');
         psMarca(g, 76, 160);
-        g.fillStyle = '#F1F4F1'; g.font = psF(800, 84); g.fillText('Minha semana', 76, 290);
+        g.fillStyle = '#F1F4F1'; g.font = psF(800, 84); g.fillText(`${d.titulo[0]} ${d.titulo[1]}`, 76, 290);
         g.fillStyle = '#9AA3A0'; g.font = psF(500, 38); g.fillText(d.periodo, 76, 350);
         const itens = [...d.treinos].sort((a, b) => (!!b.image_url - !!a.image_url) || ((b.reactions || []).length - (a.reactions || []).length)).slice(0, 4)
             .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
@@ -7219,29 +7291,29 @@ const PS_MODELOS = {
             g.save(); g.translate(x + 205, y + 250); g.rotate(rot * Math.PI / 180); g.translate(-205, -250);
             g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 40; g.shadowOffsetY = 20;
             g.fillStyle = '#F5F3EE'; g.fillRect(0, 0, 410, 500); g.shadowColor = 'transparent';
-            const img = p._img;
-            if (img) psCover(g, img, 24, 24, 362, 362, .3);
+            if (p._img) psCover(g, p._img, 24, 24, 362, 362, .3);
             else {
                 const c = corAtividade(p.activity_type);
                 g.fillStyle = `rgba(${c},.2)`; g.fillRect(24, 24, 362, 362);
                 const ic = await psIcone(p.activity_type, `rgb(${c})`); if (ic) g.drawImage(ic, 135, 135, 140, 140);
             }
-            const leg = `${DIA3[new Date(p.created_at).getDay()]} · ${Number(p.distance_km) > 0 ? psNum(p.distance_km) + ' km' : String(p.activity_type || 'treino').toLowerCase()}`;
+            const dt = new Date(p.created_at);
+            const leg = `${d.tipo === 'mes' ? x1DM(dt) : DIA3[dt.getDay()]} · ${Number(p.distance_km) > 0 ? psNum(p.distance_km) + ' km' : String(p.activity_type || 'treino').toLowerCase()}`;
             g.fillStyle = '#222'; g.font = psMao(40); g.textAlign = 'center'; g.fillText(leg, 205, 455); g.textAlign = 'left';
             g.restore();
         }
-        psChips(g, [`🎯 ${d.diasTreino} de ${d.meta} treinos`, `⏱ ${psTempo(d.minutos)}`, `🔥 ${d.ofensiva} dias`], 1560);
+        psChips(g, [d.tipo === 'mes' ? `🗓 ${d.diasTreino} dias` : `🎯 ${d.diasTreino} de ${d.meta} treinos`, `⏱ ${psTempo(d.minutos)}`, `🔥 ${d.ofensiva} dias`], 1560);
         psVersiculo(g, d.verso);
     },
     async faixas(g, d) {
         psFundo(g, []);
         g.font = psF(800, 52); g.fillStyle = '#F1F4F1'; g.fillText('Pulso', 76, 140); const w = g.measureText('Pulso').width; g.fillStyle = '#34D399'; g.fillText('.', 76 + w, 140);
         g.fillStyle = '#F1F4F1'; g.font = psF(700, 46); g.fillText(`  ·  ${d.curto}`, 76 + w + 16, 140);
-        const bateu = d.diasTreino >= d.meta;
+        const bateu = d.diasTreino >= d.metaPeriodo;
         const faixas = [
-            ['#10B981', '#04140D', `${d.diasTreino} ${d.diasTreino === 1 ? 'TREINO' : 'TREINOS'}`, bateu ? `meta de ${d.meta} batida ✓` : `meta da semana: ${d.meta}`, -2],
+            ['#10B981', '#04140D', `${d.diasTreino} ${d.tipo === 'mes' ? (d.diasTreino === 1 ? 'DIA' : 'DIAS') : (d.diasTreino === 1 ? 'TREINO' : 'TREINOS')}`, d.tipo === 'mes' ? 'treinando no mês' : bateu ? `meta de ${d.meta} batida ✓` : `meta da semana: ${d.meta}`, -2],
             ['#F5F3EE', '#111', `${psTempo(d.minutos).toUpperCase()} SUANDO`, d.maisFeito ? `${d.maisFeito.toLowerCase()} foi o que mais fiz` : 'bora pra próxima', 1.5],
-            d.km > 0 ? ['#FF7A4D', '#1A0A03', `${psNum(d.km)} KM`, d.tipoKm ? `de ${d.tipoKm.toLowerCase()}` : 'percorridos', -1] : ['#FF7A4D', '#1A0A03', `+${d.pontos} PONTOS`, 'na semana', -1],
+            d.km > 0 ? ['#FF7A4D', '#1A0A03', `${psNum(d.km)} KM`, d.tipoKm ? `de ${d.tipoKm.toLowerCase()}` : 'percorridos', -1] : ['#FF7A4D', '#1A0A03', `+${d.pontos} PONTOS`, d.tipo === 'mes' ? 'no mês' : 'na semana', -1],
             d.ofensiva >= 2 ? ['#A78BFA', '#120A2A', `🔥 ${d.ofensiva} DIAS`, 'sem deixar a ofensiva cair', 2] : ['#60A5FA', '#06142B', `${psNum(d.agua)} L DE ÁGUA`, 'por dia, em média', 2],
         ];
         let y = 230;
@@ -7250,7 +7322,6 @@ const PS_MODELOS = {
             g.save(); g.translate(540, y + h / 2); g.rotate(rot * Math.PI / 180);
             g.fillStyle = bg; g.fillRect(-600, -h / 2, 1200, h);
             g.fillStyle = cor; const tam = psAjusta(g, txt, 920, 800, i === 0 ? 170 : 140, 70);
-            if (i === 1 && g.measureText(txt).width > 920) { /* quebra em 2 linhas */ }
             g.fillText(txt, -470, -h / 2 + tam * .95 + 20);
             g.font = psF(700, 36); g.globalAlpha = .8; g.fillText(sub, -470, h / 2 - 40); g.globalAlpha = 1;
             g.restore();
@@ -7272,11 +7343,11 @@ const PS_MODELOS = {
             await psDia(g, d, k, x, 1270, R * 2, R * 2, R);
             g.fillStyle = k === d.hoje ? '#fff' : '#9AA3A0'; g.font = psF(700, 30); g.textAlign = 'center'; g.fillText(PS_LETRAS[k], x + R, 1430); g.textAlign = 'left';
         }
-        psChips(g, [`🎯 ${d.diasTreino} de ${d.meta} treinos`, `⏱ ${psTempo(d.minutos)}`], 1490);
+        psChips(g, [d.tipo === 'mes' ? `🗓 ${d.diasTreino} dias no mês` : `🎯 ${d.diasTreino} de ${d.meta} treinos`, `⏱ ${psTempo(d.minutos)}`], 1490);
         psVersiculo(g, d.verso);
     },
 };
-const PS_NOMES = { blocos: 'Blocos', foto: 'Foto destaque', polaroids: 'Polaroids', faixas: 'Faixas', chama: 'Chama' };
+const PS_NOMES = { blocos: 'Blocos', anel: 'Anel', foto: 'Foto destaque', polaroids: 'Polaroids', faixas: 'Faixas', chama: 'Chama' };
 async function desenharPostSemana(modelo, d) {
     try { await document.fonts.load('800 80px "Plus Jakarta Sans"'); } catch (_) {}
     const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1920;
@@ -7284,34 +7355,74 @@ async function desenharPostSemana(modelo, d) {
     await PS_MODELOS[modelo](g, d);
     return await new Promise(r => cv.toBlob(b => r(b), 'image/jpeg', 0.92));
 }
-// escolha do modelo (miniaturas de verdade) e depois a prévia com Postar, Compartilhar e Salvar
-async function abrirModelosSemana(ini) {
+// escolha do modelo (miniaturas de verdade) e depois a prévia, com voltar e arrastar pro lado
+async function abrirModelosSemana(ini, fim = null, tipo = 'semana', pronto = null) {
     const old = document.getElementById('psSheet'); if (old) old.remove();
     const sheet = document.createElement('div');
     sheet.id = 'psSheet'; sheet.className = 'sheet on';
     sheet.innerHTML = `<div class="sheet-card"><div class="sheet-handle"></div><h3 class="sheet-title">Escolha o modelo</h3>
-        <p class="sheet-sub">Sua semana em imagem pro story.</p><div class="ps-grade" id="psGrade"><div class="spinner"></div></div>
+        <p class="sheet-sub">${tipo === 'mes' ? 'Seu mês' : 'Sua semana'} em imagem pro story.</p><div class="ps-grade" id="psGrade"><div class="spinner"></div></div>
         <button class="btn x1-btn min" id="psOk" disabled>Ver prévia</button></div>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
-    const d = await dadosPostSemana(ini);
-    if (!document.getElementById('psSheet')) return;
-    // fotos: a mais curtida (Foto destaque) e as dos treinos (Polaroids)
-    const comFoto = d.treinos.filter(p => p.image_url);
-    await Promise.all([
-        d.fotos[0] ? psFoto(d.fotos[0].image_url).then(i => { d.fotoImg = i; }) : null,
-        ...comFoto.slice(0, 8).map(p => psFoto(p.thumb_url || p.image_url).then(i => { p._img = i; })),
-    ]);
-    const modelos = ['blocos', ...(d.fotoImg ? ['foto'] : []), 'polaroids', 'faixas', ...(d.ofensiva >= 2 ? ['chama'] : [])];
-    const blobs = {};
-    for (const m of modelos) { try { blobs[m] = await desenharPostSemana(m, d); } catch (e) { console.warn('modelo', m, e); } }
-    const ok = modelos.filter(m => blobs[m]);
-    let sel = ok[0];
+    let lista = pronto && pronto.lista, d = pronto && pronto.d;
+    if (!lista) {
+        d = await dadosPostSemana(ini, fim, tipo);
+        if (!document.getElementById('psSheet')) return;
+        const comFoto = d.treinos.filter(p => p.image_url);
+        await Promise.all([
+            d.fotos[0] ? psFoto(d.fotos[0].image_url).then(i => { d.fotoImg = i; }) : null,
+            ...comFoto.slice(0, 8).map(p => psFoto(p.thumb_url || p.image_url).then(i => { p._img = i; })),
+        ]);
+        const modelos = ['blocos', 'anel', ...(d.fotoImg ? ['foto'] : []), 'polaroids', 'faixas', ...(d.ofensiva >= 2 ? ['chama'] : [])];
+        lista = [];
+        for (const m of modelos) { try { const b = await desenharPostSemana(m, d); if (b) lista.push({ m, nome: PS_NOMES[m], blob: b, url: URL.createObjectURL(b) }); } catch (e) { console.warn('modelo', m, e); } }
+    }
+    let sel = (pronto && pronto.sel) || (lista[0] && lista[0].m);
     const grade = sheet.querySelector('#psGrade'); if (!grade) return;
-    grade.innerHTML = ok.map(m => `<button type="button" class="ps-op${m === sel ? ' on' : ''}" data-m="${m}"><img src="${URL.createObjectURL(blobs[m])}" alt=""><span>${PS_NOMES[m]}</span></button>`).join('');
+    grade.innerHTML = lista.map(x => `<button type="button" class="ps-op${x.m === sel ? ' on' : ''}" data-m="${x.m}"><img src="${x.url}" alt=""><span>${x.nome}</span></button>`).join('');
     const bt = sheet.querySelector('#psOk'); bt.disabled = !sel;
     grade.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; sel = b.dataset.m; grade.querySelectorAll('.ps-op').forEach(x => x.classList.toggle('on', x === b)); vibrar(6); });
-    bt.onclick = () => { if (!sel) return; sheet.remove(); abrirPreviaImagem(blobs[sel], 'pulso-minha-semana.jpg', isoDe(d.ini)); };
+    bt.onclick = () => {
+        if (!sel) return; sheet.remove();
+        abrirPreviaModelos(lista, lista.findIndex(x => x.m === sel), tipo === 'mes' ? 'pulso-meu-mes.jpg' : 'pulso-minha-semana.jpg', tipo === 'semana' ? isoDe(d.ini) : null,
+            idx => abrirModelosSemana(ini, fim, tipo, { lista, d, sel: lista[idx].m }));
+    };
+}
+// prévia com os modelos: arrasta pro lado pra trocar, "Trocar modelo" volta pra grade
+function abrirPreviaModelos(lista, idx, nomeArquivo, semanaResumo, voltar) {
+    const old = document.getElementById('previaSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'previaSheet'; sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card previa-card">
+        <div class="sheet-handle"></div>
+        <div class="pvm-topo"><button type="button" class="pvm-voltar" id="pvVoltar">${SVG_X(IC_X1.voltar)}Trocar modelo</button><span id="pvNome"></span></div>
+        <div class="pvm-trilho" id="pvTrilho">${lista.map(x => `<div class="pvm-slide"><img class="previa-img" src="${x.url}" alt="Prévia ${x.nome}"></div>`).join('')}</div>
+        <div class="pvm-pontos" id="pvPontos">${lista.map((_, k) => `<i data-k="${k}"></i>`).join('')}</div>
+        <div class="previa-botoes">
+            <button class="btn-primary" id="pvPulso">Postar no Pulso</button>
+            <div class="previa-linha">
+                <button class="btn-secondary" id="pvCompartilhar">Compartilhar</button>
+                <button class="btn-secondary" id="pvSalvar">Salvar imagem</button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    const tr = sheet.querySelector('#pvTrilho');
+    const marcar = () => {
+        sheet.querySelector('#pvNome').textContent = `${lista[idx].nome} · ${idx + 1} de ${lista.length}`;
+        sheet.querySelectorAll('#pvPontos i').forEach((p, k) => p.classList.toggle('on', k === idx));
+    };
+    requestAnimationFrame(() => { tr.scrollLeft = idx * tr.clientWidth; marcar(); });
+    tr.addEventListener('scroll', () => { const k = Math.round(tr.scrollLeft / Math.max(1, tr.clientWidth)); if (k !== idx && lista[k]) { idx = k; marcar(); vibrar(4); } }, { passive: true });
+    sheet.querySelector('#pvPontos').addEventListener('click', e => { const p = e.target.closest('[data-k]'); if (p) tr.scrollTo({ left: Number(p.dataset.k) * tr.clientWidth, behavior: 'smooth' }); });
+    const fechar = () => sheet.remove();
+    const arquivo = () => new File([lista[idx].blob], nomeArquivo, { type: 'image/jpeg' });
+    sheet.addEventListener('click', e => { if (e.target === sheet) fechar(); });
+    sheet.querySelector('#pvVoltar').onclick = () => { fechar(); voltar(idx); };
+    sheet.querySelector('#pvPulso').onclick = () => { const a = arquivo(); fechar(); state.storyResumoSemana = semanaResumo; openStoryCreator(); entrarModoFoto(a); };
+    sheet.querySelector('#pvCompartilhar').onclick = () => compartilharImagem(arquivo());
+    sheet.querySelector('#pvSalvar').onclick = () => salvarImagem(lista[idx].blob, nomeArquivo);
 }
 
 // Passo 2: prévia com Postar no Pulso, Compartilhar e Salvar
@@ -8290,7 +8401,8 @@ function montarEvolucao(d) {
         });
         const itens = candidatos.filter(c => c.padrao).map(c => [c.valor, c.rotulo]);
         if (tR.length) {
-            state.resumoMes = { titulo, subtitulo: cap(legenda), candidatos };
+            state.resumoMes = { titulo, subtitulo: cap(legenda), candidatos,
+                periodo: titulo.startsWith('Meu ') && !/\d{4}$/.test(titulo) ? { tipo: 'mes', ini: iniR, fim: (() => { const a = new Date(iniR); return +new Date(a.getFullYear(), a.getMonth() + 1, 1); })() } : null };
             mesHTML = `<div class="chart-card">
                 <div class="chart-head"><span class="chart-title">${rotuloCard}</span><span class="chart-legend">${legenda}</span></div>
                 <div class="mini-stats">${itens.map(([v, l]) => `<div><b>${escapeHTML(v)}</b><span>${escapeHTML(l)}</span></div>`).join('')}</div>
@@ -15033,6 +15145,7 @@ document.addEventListener('click', async e => {
         e.stopPropagation();
         if (!state.resumoMes) return;
         if (state.resumoMes.titulo === 'Minha semana') { abrirModelosSemana(inicioDaSemana(new Date())); return; }
+        if (state.resumoMes.periodo && state.resumoMes.periodo.tipo === 'mes') { const pr = state.resumoMes.periodo; abrirModelosSemana(new Date(pr.ini), new Date(pr.fim), 'mes'); return; }
         abrirEscolhaResumo(state.resumoMes, 'pulso-resumo.jpg');
     } else if (act === 'resumo-story') {
         e.stopPropagation();
