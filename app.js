@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261261';
+const APP_VERSAO = '20261262';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -3609,34 +3609,40 @@ async function lerPrintDeTreino() {
 async function refreshReportCard() {
     const box = $('#reportCard');
     if (!box) return;
-    const [{ data: atual }, { data: semanas }] = await Promise.all([
-        sb.rpc('current_report'),
+    const [ultimo, { data: semanas }] = await Promise.all([
+        sb.from('ai_reports').select('body, created_at').eq('user_id', state.session.user.id).order('created_at', { ascending: false }).limit(1)
+            .then(r => (r.error ? sb.rpc('current_report') : r), () => sb.rpc('current_report')),
         sb.rpc('report_readiness'),
     ]);
-    const relatorio = atual && atual[0];
+    const relatorio = ultimo && ultimo.data && ultimo.data[0];
     const prontas = Number(semanas || 0);
-
-    if (relatorio) {
-        const quando = new Date(relatorio.created_at).toLocaleDateString('pt-BR');
-        box.innerHTML = `
-            <div class="chart-head"><span class="chart-title">Seus padrões</span><span class="chart-legend">gerado em ${quando}</span></div>
-            <div class="report-body">${escapeHTML(relatorio.body).replace(/\n/g, '<br>')}</div>`;
+    if (!relatorio && prontas < 3) { box.innerHTML = ''; box.style.display = 'none'; return; }
+    box.style.display = '';
+    const explica = '<p class="pd-explica">A IA cruza seu sono, água, treinos e refeições das últimas 10 semanas pra achar o que funciona pra você.</p>';
+    const cab = '<div class="chart-head"><span class="chart-title">Seus padrões</span><span class="chart-legend">últimas 10 semanas</span></div>';
+    if (!relatorio) {
+        if (lsGet('pulso-relatorio-avisado') !== 'sim') {
+            lsSet('pulso-relatorio-avisado', 'sim');
+            setTimeout(() => toast('Você já tem dados pra IA achar seus padrões. Role até o fim do Resumo.', 'ok'), 800);
+        }
+        box.innerHTML = `${cab}${explica}<div class="pd-rod"><small></small><button class="bt-min" data-act="gerar-relatorio">Gerar meus padrões</button></div>`;
         return;
     }
-
-    if (prontas < 3) { box.innerHTML = ''; box.style.display = 'none'; return; }
-    box.style.display = '';
-
-    // Avisa uma vez quando o relatório passa a estar disponível
-    if (localStorage.getItem('pulso-relatorio-avisado') !== 'sim') {
-        localStorage.setItem('pulso-relatorio-avisado', 'sim');
-        setTimeout(() => toast('Você já tem dados pra IA achar seus padrões. Role até o fim da Evolução.', 'ok'), 800);
+    const quando = new Date(relatorio.created_at);
+    const libera = new Date(quando.getTime() + 7 * DIA_MS);
+    const pode = Date.now() >= +libera;
+    let corpo;
+    try {
+        const j = JSON.parse(relatorio.body);
+        if (!j || !j.funciona) throw 0;
+        const bloco = (cls, ic, tit, txt) => txt ? `<div class="pd-bl"><i class="${cls}">${ic}</i><div><b>${tit}</b>${escapeHTML(txt)}</div></div>` : '';
+        corpo = bloco('ok', '✓', 'Funciona', j.funciona) + bloco('at', '!', 'Atenção', j.atencao) + bloco('te', '→', 'Tente', j.tente);
+    } catch (_) {
+        corpo = `<div class="report-body">${escapeHTML(relatorio.body).replace(/\n/g, '<br>')}</div>`;
     }
-
-    box.innerHTML = `
-        <div class="chart-head"><span class="chart-title">Seus padrões</span></div>
-        <p class="chart-foot" style="text-align:left">A IA cruza seu sono, sua água, seus treinos e sua alimentação pra achar o que funciona pra você. Uma vez por mês.</p>
-        <button class="btn-mini" data-act="gerar-relatorio" style="margin-top:12px">Gerar relatório do mês</button>`;
+    box.innerHTML = `${cab}${explica}${corpo}
+        <div class="pd-rod"><small>Gerado em ${quando.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</small>
+        ${pode ? '<button class="bt-min" data-act="gerar-relatorio">Gerar novo</button>' : `<button class="bt-min cinza" disabled>Novo a partir de ${libera.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</button>`}</div>`;
 }
 
 async function gerarRelatorio(btn) {
@@ -3674,17 +3680,18 @@ TAREFA:
 Analise as semanas acima e escreva um retrato curto dos padrões dessa pessoa. Procure relações entre as colunas, por exemplo: semanas com mais sono tiveram mais treino? a água acompanha os dias de treino? o peso ou a nota das refeições mudou junto com alguma coisa?
 
 REGRAS DA RESPOSTA:
-- No máximo 150 palavras, em português do Brasil.
-- Comece pelo padrão mais forte que você encontrou, citando os números reais das semanas.
-- Só afirme uma relação se ela aparecer em pelo menos 3 semanas. Se não houver relação clara, diga isso com honestidade em vez de inventar.
-- Termine com UMA sugestão prática pra este mês, ligada ao objetivo da pessoa.
-- Nada de bullet point numerado, escreva em dois ou três parágrafos curtos.
-- Não fale de emagrecer se o objetivo dela não for esse.`;
+- Português do Brasil, jeito simples e direto. Cada campo com UMA frase curta (até 25 palavras).
+- "funciona": o padrão bom mais forte, citando números reais das semanas.
+- "atencao": o que atrapalha ou caiu, também com números reais.
+- "tente": UMA sugestão prática pra próxima semana, ligada ao objetivo da pessoa.
+- Só afirme uma relação se ela aparecer em pelo menos 3 semanas. Se não houver relação clara, diga isso com honestidade.
+- Não fale de emagrecer se o objetivo dela não for esse.
+Formato do JSON: {"funciona": "...", "atencao": "...", "tente": "..."}`;
 
-        const texto = await callAI(prompt);
-        const inicioMes = new Date();
-        inicioMes.setDate(1);
-        const periodo = inicioMes.toISOString().split('T')[0];
+        const j = await iaJSON(prompt);
+        if (!j || !j.funciona) throw new Error('resposta vazia');
+        const texto = JSON.stringify({ funciona: String(j.funciona), atencao: String(j.atencao || ''), tente: String(j.tente || '') });
+        const periodo = isoLocal(new Date());
 
         const { error: erroSalvar } = await sb.from('ai_reports').insert({
             user_id: state.session.user.id,
@@ -3698,7 +3705,7 @@ REGRAS DA RESPOSTA:
     } catch (e) {
         console.error(e);
         toast('Não consegui gerar agora. Tente de novo em instantes.', 'err');
-        btn.disabled = false; btn.textContent = 'Gerar relatório do mês';
+        btn.disabled = false; btn.textContent = 'Gerar de novo';
     }
 }
 
@@ -3812,40 +3819,103 @@ async function prepararSono() {
             : 'Registre a noite que acabou de passar.'}</div>`;
 }
 
+
+// ============================================================
+// GRÁFICO DE DIAS QUE ARRASTA PRO LADO (água e sono): 14 dias na tela, arrastando aparecem os mais antigos
+// ============================================================
+const MESES_NOME = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+state.graficosDias = state.graficosDias || {};
+// cfg: { id, dias: [{ d: Date, v: number|null }], meta, corAbaixo, corMeta, fmt(v), resumo(visiveis) => {topo, chip}, toque(dia) }
+function graficoDiasHTML(cfg) {
+    state.graficosDias[cfg.id] = cfg;
+    const vals = cfg.dias.map(x => Number(x.v || 0));
+    const max = Math.max(cfg.meta * 1.15, ...vals, 0.1);
+    const hoje = isoDe(new Date());
+    const cols = cfg.dias.map((x, i) => {
+        const v = x.v == null ? null : Number(x.v);
+        const h = v ? Math.max(3, Math.min(100, v / max * 100)) : 0;
+        return `<button type="button" class="gd-col${isoDe(x.d) === hoje ? ' hj' : ''}" data-gd="${cfg.id}" data-i="${i}">
+            <span class="gd-barra"><span class="gd-meta" style="bottom:${cfg.meta / max * 100}%"></span>${v ? `<i style="height:${h}%;background:${v >= cfg.meta ? cfg.corMeta : cfg.corAbaixo}"></i>` : ''}</span>
+            <small>${x.d.getDate()}</small></button>`;
+    }).join('');
+    return `<div class="gd" id="gd-${cfg.id}">
+        <div class="gd-topo" data-gd-topo></div>
+        <div class="gd-mes"><b data-gd-mes></b><span data-gd-faixa></span></div>
+        <div class="gd-scroll" data-gd-scroll>${cols}</div>
+        <div class="gd-leg"><span><u style="background:${cfg.corAbaixo}"></u>abaixo da meta</span><span><u style="background:${cfg.corMeta}"></u>bateu a meta</span></div>
+        <div class="gd-chips" data-gd-chip></div>
+    </div>`;
+}
+function ligarGraficoDias(id) {
+    const cfg = state.graficosDias[id], el = document.getElementById('gd-' + id);
+    if (!cfg || !el || el.dataset.ligado) return;
+    el.dataset.ligado = '1';
+    const sc = el.querySelector('[data-gd-scroll]');
+    const atualizar = () => {
+        const cols = [...sc.children]; if (!cols.length) return;
+        const w = cols[0].getBoundingClientRect().width + 5;
+        const ini = Math.max(0, Math.round(sc.scrollLeft / w)), fim = Math.min(cfg.dias.length - 1, ini + 13);
+        const vis = cfg.dias.slice(ini, fim + 1);
+        const a = vis[0].d, b = vis[vis.length - 1].d;
+        el.querySelector('[data-gd-mes]').textContent = MESES_NOME[b.getMonth()];
+        el.querySelector('[data-gd-faixa]').textContent = `${x1DM(a)} a ${x1DM(b)}`;
+        const r = cfg.resumo(vis);
+        el.querySelector('[data-gd-topo]').innerHTML = r.topo;
+        el.querySelector('[data-gd-chip]').innerHTML = r.chip ? `<span>${r.chip}</span>` : '';
+    };
+    // a aba pode estar escondida: só posiciona no fim (dias mais recentes) quando ganhar largura
+    let posicionado = false;
+    const posicionar = () => { if (posicionado || !sc.clientWidth) return; posicionado = true; sc.scrollLeft = sc.scrollWidth; atualizar(); };
+    requestAnimationFrame(posicionar);
+    if (window.ResizeObserver) new ResizeObserver(posicionar).observe(sc);
+    let t = null;
+    sc.addEventListener('scroll', () => { cancelAnimationFrame(t); t = requestAnimationFrame(atualizar); }, { passive: true });
+    sc.addEventListener('click', e => {
+        const b = e.target.closest('[data-gd]'); if (!b) return;
+        sc.querySelectorAll('.gd-col.sel').forEach(x => x.classList.remove('sel'));
+        b.classList.add('sel');
+        const x = cfg.dias[Number(b.dataset.i)];
+        const faixa = el.querySelector('[data-gd-faixa]');
+        const dt = x.d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }).replace('.', '');
+        faixa.innerHTML = `<em>${dt}: ${x.v ? cfg.fmt(Number(x.v)) : 'sem registro'}</em>${cfg.toque ? ' <button type="button" class="gd-acao" data-gd-acao>Editar</button>' : ''}`;
+        const ac = faixa.querySelector('[data-gd-acao]');
+        if (ac) ac.onclick = ev => { ev.stopPropagation(); cfg.toque(x); };
+        e.stopPropagation();
+    });
+}
+
 // ---- Sono ----
 async function refreshSleepCard() {
     const box = $('#sleepCard');
     if (!box) return;
-    const [{ data }, { data: serie }] = await Promise.all([
+    const desde = new Date(Date.now() - 120 * DIA_MS);
+    const [{ data }, { data: logs }] = await Promise.all([
         sb.rpc('sleep_summary'),
-        sb.rpc('sleep_series', { days_back: 14 }),
+        sb.from('sleep_logs').select('slept_on, hours').eq('user_id', state.session.user.id).gte('slept_on', isoLocal(desde)).order('slept_on', { ascending: true }).limit(400),
     ]);
     const s = (data && data[0]) || {};
     state.sleep = s;
-
-    if (!s.registros) { box.innerHTML = ''; box.style.display = 'none'; return; }
+    if (!s.registros && !(logs || []).length) { box.innerHTML = ''; box.style.display = 'none'; return; }
     box.style.display = '';
-
-    const media = s.media7 != null ? Number(s.media7) : null;
-    const rotulo = { ruim: 'noites difíceis', moderado: 'noites medianas', bom: 'noites boas' }[s.qualidade_comum] || null;
-    const barras = (serie || []).map(d => ({
-        label: new Date(d.d + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit' }),
-        value: Number(d.hours),
-    }));
-
-    box.innerHTML = `
-        <div class="chart-head">
-            <span class="chart-title">Sono</span>
-            ${rotulo ? `<span class="chart-legend">na maioria, ${rotulo}</span>` : ''}
-        </div>
-        <div class="sleep-row">
-            <div class="sleep-now">
-                <span class="sleep-val">${media != null ? String(media).replace('.', ',') + 'h' : '--'}</span>
-                <span class="sleep-lbl">média por noite</span>
-            </div>
-        </div>
-        ${barras.length >= 2 ? barChart(barras, { goal: Number(state.profile.sleep_goal_h) || 7, height: 110 }) : ''}
-    `;
+    const meta = Number(state.profile.sleep_goal_h) || 7;
+    const porDia = {}; (logs || []).forEach(l => { porDia[String(l.slept_on).slice(0, 10)] = Number(l.hours); });
+    const primeiro = (logs || []).length ? new Date(String(logs[0].slept_on).slice(0, 10) + 'T12:00:00') : new Date(Date.now() - 13 * DIA_MS);
+    const ini = new Date(Math.min(+primeiro, Date.now() - 13 * DIA_MS)); ini.setHours(12, 0, 0, 0);
+    const dias = [];
+    const hojeIso = isoLocal(new Date());
+    for (let d = new Date(ini); isoLocal(d) <= hojeIso; d = new Date(d.getTime() + DIA_MS)) dias.push({ d: new Date(d), v: porDia[isoLocal(d)] ?? null });
+    const fmtH = v => `${String(Math.round(v * 10) / 10).replace('.', ',')} h`;
+    box.innerHTML = `<div class="chart-head"><span class="chart-title">Sono</span><span class="chart-legend">meta ${String(meta).replace('.', ',')} h</span></div>
+        ${graficoDiasHTML({ id: 'sono', dias, meta, corAbaixo: 'rgba(221,214,254,.72)', corMeta: '#8B5CF6', fmt: fmtH,
+            resumo: vis => {
+                const reg = vis.filter(x => x.v != null);
+                const media = reg.length ? reg.reduce((t, x) => t + Number(x.v), 0) / reg.length : null;
+                const boas = reg.filter(x => Number(x.v) >= meta).length;
+                return { topo: media != null ? `Em média <b style="color:#A78BFA">${fmtH(media)}</b> por noite` : 'Nenhuma noite registrada nesses dias',
+                    chip: reg.length ? `🌙 ${boas} de ${reg.length} ${reg.length === 1 ? 'noite' : 'noites'} com ${String(meta).replace('.', ',')} h ou mais` : '' };
+            },
+            toque: x => { openSleepSheet(); setTimeout(() => { const d = $('#slDate'), h = $('#slHours'); if (d) d.value = isoLocal(x.d); if (h && x.v != null) h.value = x.v; }, 50); } })}`;
+    ligarGraficoDias('sono');
 }
 
 function openSleepSheet() {
@@ -4977,8 +5047,28 @@ async function renderWorkoutHistory(uid, ano, mes) {
 
 function abrirDiaTreino(d) {
     const ws = (state.calPorDia || {})[d] || [];
-    if (!ws.length) return;
-    const ehMeu = state.calTreino && state.calTreino.uid === state.session.user.id;
+    abrirListaTreinos(ws, state.calTreino && state.calTreino.uid === state.session.user.id);
+}
+// treinos de um dia na Evolução (faixa da semana, calendário e constância)
+function guardarTreinosEvo(lista) {
+    state.evoDias = state.evoDias || {}; state.wkDados = state.wkDados || {};
+    const vistos = new Set();
+    (lista || []).forEach(p => {
+        if (!p || (p.kind && p.kind !== 'workout') || !p.id) return;
+        state.wkDados[p.id] = { user_id: state.session.user.id, ...p };
+        const k = diaChave(p.created_at);
+        if (!vistos.has(k)) { vistos.add(k); state.evoDias[k] = (state.evoDias[k] || []).filter(x => !lista.some(y => y.id === x.id)); }
+        if (!state.evoDias[k].some(x => x.id === p.id)) state.evoDias[k].push(p);
+    });
+}
+// célula com o símbolo do treino principal do dia (mesmo padrão do calendário do perfil)
+function iconeDiaTreino(ws) {
+    if (!ws || !ws.length) return null;
+    const principal = [...ws].sort((a, b) => (b.duration_min || 0) - (a.duration_min || 0))[0];
+    return { c: corAtividade(principal.activity_type), svg: svgAtividade(principal.activity_type) };
+}
+function abrirListaTreinos(ws, ehMeu = true) {
+    if (!ws || !ws.length) return;
     const data = new Date(ws[0].created_at);
     let titulo = data.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
     titulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);
@@ -7441,7 +7531,10 @@ function semanaStripHTML() {
     return `<div class="chart-card sem-strip" data-act="evo-aba" data-aba="resumo">
         <div class="ss-topo"><span class="ss-rot">Sua semana</span><span class="ss-n"><b>${d.feitos}</b> de ${d.meta} treinos</span></div>
         <div class="ss-dias">${letras.split('').map((l, i) => {
+            const ws = (d.treinosDia || [])[i] || [];
+            const ic = iconeDiaTreino(ws);
             const cls = d.dias[i] ? 'ok' : i === d.hoje ? 'hoje' : i > d.hoje ? 'depois' : '';
+            if (ic) return `<button type="button" class="ss-d ${cls}${i === d.hoje ? ' hj' : ''}" style="--c:${ic.c}" data-act="evo-dia" data-k="${diaChave(ws[0].created_at)}"><i>${ic.svg}</i>${l}</button>`;
             return `<span class="ss-d ${cls}"><i>${d.dias[i] ? ok : ''}</i>${l}</span>`;
         }).join('')}</div>
     </div>`;
@@ -7732,6 +7825,7 @@ function montarEvolucao(d) {
     const metaSem = d.weeklyGoal || 3;
     const hoje0c = new Date(); hoje0c.setHours(0, 0, 0, 0);
     const diasComTreino = new Set(treinos.map(p => diaChave(p.created_at)));
+    const treinosPorChave = {}; treinos.forEach(p => { const k = diaChave(p.created_at); (treinosPorChave[k] = treinosPorChave[k] || []).push(p); });
     const semIni = dt => { const x = new Date(dt); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return x; };
     const primeiraSem = semIni(new Date(Math.max(desde, inicioHist)));
     const semanasC = [];
@@ -7744,8 +7838,9 @@ function montarEvolucao(d) {
         const cel = [...Array(7)].map((_, k) => {
             const dia = new Date(w.getFullYear(), w.getMonth(), w.getDate() + k);
             if (dia > hoje0c) return '<i class="tz-q fut"></i>';
-            const ok = diasComTreino.has(diaChave(dia)); if (ok) n++;
-            return `<i class="tz-q${ok ? ' t' : ''}${+dia === +hoje0c ? ' hj' : ''}"></i>`;
+            const ch = diaChave(dia), ws = treinosPorChave[ch];
+            if (ws) { n++; const ic = iconeDiaTreino(ws); return `<button type="button" class="tz-q t${+dia === +hoje0c ? ' hj' : ''}" style="--c:${ic.c}" data-act="evo-dia" data-k="${ch}">${ic.svg}</button>`; }
+            return `<i class="tz-q${+dia === +hoje0c ? ' hj' : ''}"></i>`;
         }).join('');
         const atual = +w === +semIni(hoje0c);
         if (!atual) { fechadas++; if (n >= metaSem) bateu++; }
@@ -7822,11 +7917,24 @@ function montarEvolucao(d) {
     // ---- pontos por semana (domingo a sábado) ----
     const ptsSem = {};
     (d.ledger || []).forEach(x => { const t = new Date(x.earned_at); if (t < desde - 6 * DIA_MS) return; const w = new Date(t); w.setHours(0, 0, 0, 0); w.setDate(w.getDate() - w.getDay()); ptsSem[+w] = (ptsSem[+w] || 0) + Number(x.amount || 0); });
-    const ptsBars = Object.entries(ptsSem).sort((a, b) => a[0] - b[0]).slice(-12).map(([k, v]) => {
-        const dd = new Date(Number(k));
-        return { label: dd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), value: Math.round(v), tip: `Semana de ${dd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}: ${Math.round(v)} pts` };
-    });
-    const pontosHTML = nDias >= 14 && ptsBars.length ? `<div class="chart-card"><div class="chart-head"><span class="chart-title">Pontos por semana</span><span class="chart-legend">domingo a sábado</span></div>${barChart(ptsBars, { unit: 'pts' })}</div>` : '';
+    const semAtualPts = (() => { const w = new Date(); w.setHours(0, 0, 0, 0); w.setDate(w.getDate() - w.getDay()); return +w; })();
+    const ptsLista = Object.entries(ptsSem).map(([k, v]) => [Number(k), Math.round(v)]).sort((a, b) => a[0] - b[0]).slice(-8);
+    let pontosHTML = '';
+    if (nDias >= 14 && ptsLista.length >= 2) {
+        const fechadas = ptsLista.filter(([k]) => k !== semAtualPts);
+        const media = fechadas.length ? Math.round(fechadas.reduce((t, [, v]) => t + v, 0) / fechadas.length) : 0;
+        const maxV = Math.max(...ptsLista.map(([, v]) => v), 1);
+        const melhor = fechadas.reduce((m, x) => (!m || x[1] > m[1] ? x : m), null);
+        const dm = k => new Date(k).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        pontosHTML = `<div class="chart-card pts-sem">
+            <div class="chart-head"><span class="chart-title">Pontos por semana</span><span class="chart-legend">domingo a sábado</span></div>
+            ${media ? `<div class="ps-big"><b>${media}</b>pts por semana, em média</div>` : ''}
+            <div class="ps-leg">${media ? '<span><i class="med"></i>média</span>' : ''}<span><u></u>melhor semana</span><span><u class="and"></u>em andamento</span></div>
+            <div class="ps-bars">${media ? `<span class="ps-med" style="bottom:calc(22px + (100% - 44px) * ${media / maxV})"></span>` : ''}
+                ${ptsLista.map(([k, v]) => `<div class="ps-b${melhor && k === melhor[0] ? ' max' : ''}${k === semAtualPts ? ' and' : ''}"><i style="height:calc((100% - 44px) * ${Math.max(0.03, v / maxV)})"><em>${v}</em></i><small>${k === semAtualPts ? 'esta' : dm(k)}</small></div>`).join('')}</div>
+            ${melhor ? `<p class="ps-nota">Melhor semana: <b>${dm(melhor[0])}</b> (${melhor[1]} pts).</p>` : ''}
+        </div>`;
+    }
 
     // ---- cintura ----
     const cint = (d.mSeries || []).filter(r => r.cintura != null).map(r => ({ x: new Date(r.d + 'T12:00:00'), y: Number(r.cintura) })).filter(p => noPer(+p.x));
@@ -7915,27 +8023,26 @@ function montarEvolucao(d) {
         : '';
     const semMedidas = !(d.weightPoints || []).length && !(d.mSeries || []).some(r => r.cintura != null) && !Number(state.profile.target_weight || 0);
 
-    // ---- água: últimos dias contra a meta ----
+    // ---- água: dias contra a meta (arrasta pro lado pra ver os mais antigos) ----
     const aguaHistorico = metaMl => {
-        const nd = Math.min(nDias, 14);
         const porDiaAgua = {};
         (d.meusPosts || []).filter(p => p.kind === 'water').forEach(p => {
             const k = diaChave(p.created_at); porDiaAgua[k] = (porDiaAgua[k] || 0) + (p.water_ml || 0);
         });
-        const barras = [];
-        for (let i = nd - 1; i >= 0; i--) {
-            const dia = new Date(Date.now() - i * DIA_MS);
-            if (+dia < new Date(inicioHist).setHours(0, 0, 0, 0)) continue;
-            const ml = porDiaAgua[diaChave(dia)] || 0;
-            barras.push({
-                label: dia.toLocaleDateString('pt-BR', { day: '2-digit' }),
-                value: Math.round(ml / 100) / 10, txt: ml ? String(Math.round(ml / 100) / 10).replace('.', ',') : '',
-                tip: `${dia.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })}: ${formatLitros(ml)}`,
-            });
-        }
-        if (barras.length < 2) return '';
-        const bateu = barras.filter(b => b.value * 1000 >= metaMl).length;
-        return `<div class="chart-sub">Últimos ${barras.length} dias · meta batida em ${bateu}</div>${barChart(barras, { goal: Math.round(metaMl / 100) / 10, height: 110 })}`;
+        const hoje0 = new Date(); hoje0.setHours(12, 0, 0, 0);
+        const ini = new Date(Math.max(+new Date(inicioHist), Date.now() - 180 * DIA_MS)); ini.setHours(12, 0, 0, 0);
+        const dias = [];
+        for (let x = new Date(Math.min(+ini, hoje0 - 13 * DIA_MS)); x <= hoje0; x = new Date(x.getTime() + DIA_MS)) dias.push({ d: new Date(x), v: (porDiaAgua[diaChave(x)] || 0) / 1000 });
+        const meta = metaMl / 1000;
+        const fmtL = v => `${String(Math.round(v * 10) / 10).replace('.', ',')} L`;
+        return graficoDiasHTML({ id: 'agua', dias, meta, corAbaixo: 'rgba(191,219,254,.75)', corMeta: '#3B82F6', fmt: fmtL,
+            resumo: vis => {
+                const validos = vis.filter(x => +x.d >= new Date(inicioHist).setHours(0, 0, 0, 0));
+                const media = validos.length ? validos.reduce((t, x) => t + x.v, 0) / validos.length : 0;
+                const bateu = validos.filter(x => x.v >= meta).length;
+                return { topo: `Em média <b style="color:#60A5FA">${fmtL(media)}</b> de água por dia`,
+                    chip: validos.length ? `💧 Bateu a meta em ${bateu} de ${validos.length} ${validos.length === 1 ? 'dia' : 'dias'}` : '' };
+            } });
     };
 
     return { periodosHTML, statsHTML, calendarioHTML, pesoHTML, treinosTopoHTML, atividadeHTML, tiposHTML, cardioHTML, musculosHTML, refeicoesHTML, pontosHTML, cinturaHTML, recordesHTML, mesHTML, aguaHistorico, aguaMediaTxt, semMedidas };
@@ -8595,8 +8702,8 @@ async function renderProgress() {
         sb.rpc('weight_progress', { uid }),
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
         sb.rpc('count_valid_weeks', { uid }),
-        sb.from('posts').select('kind, created_at, activity_type, duration_min, distance_km, muscle_groups, meal_slot, meal_score, water_ml')
-            .eq('user_id', uid).in('kind', ['workout', 'water', 'meal', 'weight']).order('created_at', { ascending: true }).limit(3000),
+        sb.from('posts').select('id, kind, created_at, activity_type, duration_min, distance_km, muscle_groups, meal_slot, meal_score, water_ml, image_url, thumb_url, in_feed, caption, meta')
+            .eq('user_id', uid).in('kind', ['workout', 'water', 'meal', 'weight']).order('created_at', { ascending: false }).limit(4000).then(r => (r && r.data ? { ...r, data: [...r.data].reverse() } : r)),
         sb.from('sleep_logs').select('slept_on, hours').eq('user_id', uid).order('slept_on', { ascending: true }).limit(1200),
         sb.from('points_ledger').select('amount, earned_at').eq('user_id', uid).order('earned_at', { ascending: true }).limit(5000),
         aguaDeHoje().catch(() => ({})),
@@ -8605,9 +8712,10 @@ async function renderProgress() {
     ]);
     {
         const seg = inicioSemana(); seg.setHours(0, 0, 0, 0);
-        const dias = [0, 0, 0, 0, 0, 0, 0];
-        (meusPosts || []).forEach(p => { if (p.kind === 'workout') { const t = new Date(p.created_at); if (t >= seg) dias[t.getDay()] = 1; } });
-        state.semanaStrip = { dias, hoje: new Date().getDay(), feitos: dias.reduce((a, b) => a + b, 0), meta: state.profile.weekly_goal || 3 };
+        const dias = [0, 0, 0, 0, 0, 0, 0], treinosDia = [[], [], [], [], [], [], []];
+        guardarTreinosEvo((meusPosts || []).filter(p => p.kind === 'workout'));
+        (meusPosts || []).forEach(p => { if (p.kind === 'workout') { const t = new Date(p.created_at); if (t >= seg) { dias[t.getDay()] = 1; treinosDia[t.getDay()].push(p); } } });
+        state.semanaStrip = { dias, treinosDia, ini: +seg, hoje: new Date().getDay(), feitos: dias.reduce((a, b) => a + b, 0), meta: state.profile.weekly_goal || 3 };
     }
 
 
@@ -8732,19 +8840,13 @@ async function renderProgress() {
                 ${ev.cinturaHTML}
             `)}
             ${abaHTML('habitos', `
-                <div class="chart-card water-card">
+                <div class="chart-card agua-card">
                     <div class="chart-head">
                         <span class="chart-title">Água</span>
-                        <span class="chart-legend">hoje: ${aguaHoje.pct || 0}% da meta</span>
+                        <span class="chart-legend">meta ${formatLitros(aguaHoje.goal_ml || 2000)}</span>
                     </div>
-                    <div class="wtr-top">
-                        <span class="wtr-now">${formatLitros(aguaHoje.total_ml || 0)}</span>
-                        <span class="wtr-goal">de ${formatLitros(aguaHoje.goal_ml || 2000)} hoje</span>
-                    </div>
-                    <div class="wtr-track"><div class="wtr-fill" style="width:${aguaHoje.pct || 0}%"></div></div>
-                    ${ev.aguaMediaTxt ? `<div class="agua-media">${ev.aguaMediaTxt}</div>` : ''}
                     ${ev.aguaHistorico(aguaHoje.goal_ml || 2000)}
-                    <button class="btn-mini wtr-btn" data-act="quick-water">+ Registrar água</button>
+                    <div class="gd-rodape"><span class="gd-hoje">Hoje: <b>${formatLitros(aguaHoje.total_ml || 0)}</b> de ${formatLitros(aguaHoje.goal_ml || 2000)}</span><button class="bt-min" data-act="quick-water">+ Registrar água</button></div>
                 </div>
                 <div class="chart-card" id="sleepCard"></div>
                 ${ev.refeicoesHTML}
@@ -8753,6 +8855,7 @@ async function renderProgress() {
     `;
     const cal = c.querySelector('.cal-scroll');
     if (cal) cal.scrollLeft = cal.scrollWidth;
+    ligarGraficoDias('agua');
     hydrateCalMes();
     hydrateMapaCorpo();
     hydrateRecordesExercicio();
@@ -11167,7 +11270,8 @@ async function renderPainelDesafio(cidEscolhido) {
     const x1Vivos = x1s.filter(x => x.status === 'ativo' || x.status === 'pendente');
     state.semDesafioAtivo = !meus.length;
     // Tem X1 rolando: mostra os cards (X1 primeiro, depois os em grupo)
-    if (!cidEscolhido && x1Vivos.length && meus.length) { await renderListaMeusDesafios(meus, x1s); return; }
+    // A aba sempre abre na lista: o que está rolando (X1 e em grupo) primeiro, depois o convite pra um X1 novo
+    if (!cidEscolhido && meus.length) { await renderListaMeusDesafios(meus, x1s); return; }
     if (!meus.length) {
         await renderChallenges();
         // é aba principal: sem seta de voltar
@@ -11246,7 +11350,7 @@ async function renderPainelDesafio(cidEscolhido) {
     const abaPd = ch.team_mode ? ((state.abaDesafio || {})[ch.id] || 'individual') : 'individual';
     c.innerHTML = `<div class="view painel-desafio">
         <div class="pd-head">
-            ${meus.length > 1 ? `<button class="pd-voltar" data-act="pd-lista" aria-label="Seus desafios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>` : ''}
+            ${meus.length >= 1 ? `<button class="pd-voltar" data-act="pd-lista" aria-label="Desafios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>` : ''}
             <div class="pd-head-txt"><h1 class="pd-nome">${escapeHTML(ch.name)}</h1>
             <span class="pd-quando${!futuro && diasFaltam <= 3 ? ' reta' : ''}">${futuro ? (diasFaltam <= 1 ? 'Começa amanhã' : `Começa em ${diasFaltam} dias`) : diasFaltam <= 0 ? 'Último dia!' : diasFaltam <= 3 ? `🏁 Reta final: faltam ${diasFaltam} dias` : `Faltam ${diasFaltam} dias`}</span></div>
             <button class="ia-link" data-act="open-challenge" data-id="${ch.id}">Tudo do desafio ›</button>
@@ -11395,7 +11499,7 @@ async function renderListaMeusDesafios(meus, x1s = null) {
     const agora = Date.now();
     c.innerHTML = `<div class="view painel-desafio">
         <h1 class="pd-nome pd-lista-titulo">${x1s ? 'Desafios' : 'Seus desafios'}</h1>
-        ${x1s ? '<div id="x1Slot"></div><div class="x1-sec x1-sec-cab pd-sec-grupo">EM GRUPO</div>' : ''}
+        ${x1s ? '<div class="x1-sec x1-sec-cab pd-sec-grupo">ROLANDO AGORA</div><div id="x1Slot"></div>' : ''}
         ${extras.map(({ ch, pos, total, time, cfg, mudou, ontem }) => {
             const mov = pos && ontem && ontem !== pos ? (ontem > pos ? ` <span class="rk-seta up">▲${ontem - pos}</span>` : ` <span class="rk-seta dn">▼${pos - ontem}</span>`) : '';
             const ini = new Date(ch.starts_at), fim = new Date(ch.ends_at);
@@ -11405,11 +11509,12 @@ async function renderListaMeusDesafios(meus, x1s = null) {
             const quando = futuro ? (dias <= 1 ? 'começa amanhã' : `começa em ${dias} d`) : dias <= 0 ? 'último dia' : dias <= 3 ? `🏁 ${dias} ${dias === 1 ? 'dia' : 'dias'}` : `faltam ${dias} d`;
             const linhaTime = time ? ` · <span class="pd-card-time"><i style="background:${corTime(time)}"></i>Time ${escapeHTML(nomeTime(cfg, time))}</span>` : (cfg.team_mode ? '' : ' · individual');
             return `<button class="pd-card" data-act="pd-abrir" data-id="${ch.id}">
-                <div class="pd-card-topo"><b>${escapeHTML(ch.name)}</b><span class="${!futuro && dias <= 3 ? 'reta' : ''}">${quando}</span>${mudou ? '<i class="pd-card-dot"></i>' : ''}</div>
+                <div class="pd-card-topo"><b>${x1s ? '<span class="pd-tag">EM GRUPO</span>' : ''}${escapeHTML(ch.name)}</b><span class="${!futuro && dias <= 3 ? 'reta' : ''}">${quando}</span>${mudou ? '<i class="pd-card-dot"></i>' : ''}</div>
                 <div class="pd-card-sub">${futuro ? `${total} ${total === 1 ? 'participante' : 'participantes'}` : pos ? `Você em <b>${pos}º</b> de ${total}${mov}` : `${total} participantes`}${linhaTime}</div>
                 <div class="pd-tempo"><i style="width:${pct}%"></i></div>
             </button>`;
         }).join('')}
+        ${x1s ? '<div id="x1NovoSlot"></div>' : ''}
         <button class="pd-descobrir" data-act="go-challenges-lista">Descobrir desafios <span>›</span></button>
         ${x1s ? '<div id="x1FimSlot"></div>' : ''}
     </div>`;
@@ -11632,12 +11737,13 @@ async function hydrateCalMes() {
     if (!state.calMes) state.calMes = { a: agora.getFullYear(), m: agora.getMonth() };
     const { a, m } = state.calMes;
     const ini = new Date(a, m, 1), fim = new Date(a, m + 1, 1);
-    const { data } = await sb.from('posts').select('created_at, activity_type, duration_min, distance_km')
+    const { data } = await sb.from('posts').select('id, created_at, activity_type, duration_min, distance_km, muscle_groups, image_url, thumb_url, in_feed, caption, meta')
         .eq('user_id', state.session.user.id).eq('kind', 'workout')
         .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString())
         .order('created_at', { ascending: true });
     if (!document.getElementById('calMesSlot')) return;
     const porDia = {};
+    guardarTreinosEvo(data || []);
     (data || []).forEach(p => { const dd = new Date(p.created_at).getDate(); (porDia[dd] = porDia[dd] || []).push(p); });
     const diasMes = new Date(a, m + 1, 0).getDate();
     const vazios = ini.getDay(); // semana começa no domingo
@@ -11652,10 +11758,12 @@ async function hydrateCalMes() {
     for (let d = 1; d <= diasMes; d++) {
         const dia = new Date(a, m, d);
         const cls = ['cm-d'];
-        if (porDia[d]) cls.push('on');
+        const ic = iconeDiaTreino(porDia[d]);
+        if (ic) cls.push('tem');
         if (+dia === +hoje) cls.push('hoje');
         if (dia > hoje) cls.push('futuro');
-        celulas.push(`<button type="button" class="${cls.join(' ')}" ${porDia[d] ? `data-act="cal-dia" data-d="${d}"` : 'tabindex="-1"'}>${d}</button>`);
+        celulas.push(ic ? `<button type="button" class="${cls.join(' ')}" style="--c:${ic.c}" data-act="evo-dia" data-k="${diaChave(dia)}">${ic.svg}<span>${d}</span></button>`
+            : `<span class="${cls.join(' ')}">${d}</span>`);
     }
     state.calMesDias = porDia;
     const nomeMes = ini.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -11670,7 +11778,7 @@ async function hydrateCalMes() {
         </div>
         <div class="cm-sem">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div>
         <div class="cm-grade">${celulas.join('')}</div>
-        <div class="cm-balao hidden" id="cmBalao"></div>
+        ${(() => { const tipos = [...new Set((data || []).map(p => p.activity_type || 'Outro'))]; return tipos.length ? `<div class="calt-leg cm-leg">${tipos.map(t => `<span><i style="background:rgb(${corAtividade(t)})"></i>${escapeHTML(t)}</span>`).join('')}</div>` : ''; })()}
         <p class="cm-rodape"><b>${treinados}</b> ${treinados === 1 ? 'dia treinado' : 'dias treinados'}${melhor > 1 ? ` · melhor sequência: <b>${melhor}</b> dias` : ''}</p>
     </div>`;
     // arrastar pro lado troca o mês
@@ -14506,6 +14614,8 @@ document.addEventListener('click', async e => {
         menuRegistro(btn);
     } else if (act === 'cal-dia') {
         abrirDiaTreino(Number(btn.dataset.dia));
+    } else if (act === 'evo-dia') {
+        abrirListaTreinos((state.evoDias || {})[btn.dataset.k] || []);
     } else if (act === 'cal-mes') {
         const c = state.calTreino; if (!c) return;
         const d = new Date(c.ano, c.mes + Number(btn.dataset.d), 1);
@@ -15879,6 +15989,7 @@ function htmlCardStory(st, comFoto) {
             <b class="cs-marca">Pulso.</b>
         </div>`;
     }
+    if (c.tipo === 'x1' && c.modelo) return x1StoryModeloHTML(c);
     if (c.tipo === 'x1') {
         return `<div class="card-story x1-cs${comFoto ? ' sobre-foto' : ''}">
             <small class="cs-rot">Desafio X1 · ${escapeHTML(c.modalidade || '')}</small>
@@ -18805,10 +18916,11 @@ function mostrarEscolhaDeTipo() {
 async function preencherStatusRegistro() {
     if (!state.session) return;
     const uid = state.session.user.id;
-    const set = (k, txt, destaque = false, extra = '') => {
+    // feito = já registrou hoje: fica meio apagado com um ✓, mas continua tocável
+    const set = (k, txt, destaque = false, extra = '', feito = false) => {
         const el = document.getElementById('ktSub-' + k); if (!el) return;
         el.innerHTML = escapeHTML(txt) + extra;
-        const tile = el.closest('.kind-tile'); if (tile) tile.classList.toggle('pendente', destaque);
+        const tile = el.closest('.kind-tile'); if (tile) { tile.classList.toggle('pendente', destaque && !feito); tile.classList.toggle('feito', feito); }
     };
     try {
         const ini = new Date(); ini.setHours(0, 0, 0, 0);
@@ -18823,16 +18935,15 @@ async function preencherStatusRegistro() {
         const sub = document.getElementById('regSub');
         if (sub) sub.innerHTML = total > 0 ? `Hoje você já fez <b>+${Math.round(total)} pts</b>. Tudo vale ponto.` : 'Tudo vale ponto.';
         const treinos = (posts || []).filter(p => p.kind === 'workout').length;
-        set('workout', treinos ? (treinos === 1 ? 'Feito hoje ✓' : `${treinos} hoje ✓`) : 'Até 15 pts');
+        set('workout', treinos ? `${treinos === 1 ? 'Feito hoje' : treinos + ' hoje'} · pode registrar outro` : 'Até 15 pts', false, '', treinos > 0);
         const refs = (posts || []).filter(p => p.kind === 'meal');
-        const ult = refs.length ? refs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] : null;
-        set('meal', ult ? `${MEAL_SLOT_NAME[ult.meal_slot] || 'Refeição'} registrado` : 'Com foto vale ponto');
+        set('meal', refs.length ? `${Math.min(refs.length, 4)} de 4 hoje` : 'Com foto vale ponto', false, '', refs.length >= 4);
         const pct = Math.min(100, Math.round(((w.total_ml || 0) / (w.goal_ml || 2000)) * 100));
-        set('water', (w.total_ml || 0) > 0 ? `${formatLitros(w.total_ml)} de ${formatLitros(w.goal_ml || 2000)}` : `Meta de ${formatLitros(w.goal_ml || 2000)}`, false, `<span class="kt-barra"><i style="width:${pct}%"></i></span>`);
+        set('water', (w.total_ml || 0) > 0 ? `${formatLitros(w.total_ml)} de ${formatLitros(w.goal_ml || 2000)}` : `Meta de ${formatLitros(w.goal_ml || 2000)}`, false, `<span class="kt-barra"><i style="width:${pct}%"></i></span>`, pct >= 100);
         const temSono = sono && sono.length;
         if (temSono) state.sonoRegistrado = ontem;
         const hora = new Date().getHours();
-        set('sleep', temSono ? `${br(Number(sono[0].hours))} h essa noite` : 'Falta registrar a noite', !temSono && hora >= 5 && hora < 15);
+        set('sleep', temSono ? `${br(Number(sono[0].hours))} h · toque pra editar` : 'Falta registrar a noite', !temSono && hora >= 5 && hora < 15, '', !!temSono);
     } catch (_) {}
 }
 function limparComposer() {
@@ -20632,7 +20743,7 @@ function regrasX1HTML(tipo, duracao = null, datas = null, aceitar = false) {
             ${passo(2, 'O que dá ponto', `<div class="x1-rg-tab">${tabela}</div>${tipo === 'perfeito' ? '<p class="x1-ps-nota">O sono vale no dia em que você acorda, se registrado até as 14 h.</p>' : ''}`)}
             ${passo(3, 'Quem ganha', `<p>${ganha} Empate: vence quem chegou primeiro à pontuação final. Desistir dá a vitória pro outro.</p><p class="x1-rg-ex">${SVG_X(IC_X1.estrela)}<span>${exemplo}</span></p>`)}
         </div>
-        ${aceitar ? '<div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Agora não</button><button class="btn x1-btn min" data-x1f="aceitar">Aceitar o desafio ⚔️</button></div>'
+        ${aceitar ? '<div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Agora não</button><button class="btn x1-btn min" data-x1f="aceitar">Aceitar o desafio</button></div>'
             : '<button class="btn x1-btn min" data-x1f="fechar">Entendi</button>'}`;
 }
 function abrirRegrasX1(tipo, duracao = null, datas = null, aoAceitar = null) {
@@ -20642,28 +20753,29 @@ function abrirRegrasX1(tipo, duracao = null, datas = null, aoAceitar = null) {
 
 // ---------- Criar ----------
 async function abrirCriarX1(alvo, base = {}) {
-    let tipo = base.tipo || 'perfeito', dur = X1_DUR_NOVO.includes(base.duracao) ? base.duracao : '7', mostrar = true;
+    let tipo = base.tipo || 'perfeito', dur = X1_DUR_NOVO.includes(base.duracao) ? base.duracao : null, mostrar = true;
     // começa sempre à 00h. Amanhã só vale se ainda der 12 h pra pessoa aceitar
     const hoje0 = x1SomaDias(new Date(), 0), primeiro = new Date().getHours() < 12 ? 1 : 2, MAX = 14;
-    let ini = x1SomaDias(hoje0, primeiro);
-    const datasAtual = () => ({ ini, ult: x1SomaDias(ini, Number(dur) - 1), aceite: new Date(ini.getTime() - 12 * 3600000) });
+    let ini = null; // o dia só é escolhido depois da duração
+    const datasAtual = () => (ini && dur ? { ini, ult: x1SomaDias(ini, Number(dur) - 1), aceite: new Date(ini.getTime() - 12 * 3600000) } : null);
     const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
     const calHTML = () => {
-        const { ult, aceite } = datasAtual();
-        const lim = x1SomaDias(hoje0, MAX), fimCal = ult > lim ? ult : lim;
+        if (!dur) return '<div class="x1-cal-dica">Escolha a duração pra ver os dias</div>';
+        const dt = datasAtual(), ult = dt ? dt.ult : null, aceite = dt ? dt.aceite : null;
+        const lim = x1SomaDias(hoje0, MAX), fimCal = ult && ult > lim ? ult : lim;
         let d = x1SomaDias(hoje0, -hoje0.getDay());
         const fimSab = x1SomaDias(fimCal, 6 - fimCal.getDay());
         const meses = [...new Set([hoje0, fimCal].map(x => MESES[x.getMonth()]))].join(' · ');
         let cel = '';
         while (d <= fimSab) {
             const off = Math.round((d - hoje0) / 86400000);
-            const pode = off >= primeiro && off <= MAX, noPer = d >= ini && d <= ult;
-            const c = ['x1-cd', pode ? 'pode' : 'fora', noPer ? 'per' : '', +d === +ini ? 'ini' : '', +d === +ult ? 'ult' : '', off === 0 ? 'hoje' : ''].filter(Boolean).join(' ');
+            const pode = off >= primeiro && off <= MAX, noPer = !!dt && d >= ini && d <= ult;
+            const c = ['x1-cd', pode ? 'pode' : 'fora', noPer ? 'per' : '', dt && +d === +ini ? 'ini' : '', dt && +d === +ult ? 'ult' : '', off === 0 ? 'hoje' : ''].filter(Boolean).join(' ');
             cel += `<button type="button" class="${c}"${pode ? ` data-x1="dia" data-d="${x1ISO(d)}"` : ' disabled'}>${d.getDate() === 1 ? `<small>${MESES[d.getMonth()].slice(0, 3)}</small>` : ''}${d.getDate()}</button>`;
             d = x1SomaDias(d, 1);
         }
-        return `<div class="x1-cal"><div class="x1-cal-m">${meses}</div><div class="x1-cal-s">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div><div class="x1-cal-g">${cel}</div></div>
-            <div class="x1-agenda"><div><small>Começa</small><b>${x1DiaTxt(ini)} · 00h</b></div><div><small>Termina</small><b>${x1DiaTxt(ult)} · 23h59</b></div><div><small>Aceite até</small><b>${x1DiaTxt(aceite)} · 12h</b></div></div>`;
+        return `<div class="x1-cal entra"><div class="x1-cal-m">${meses}</div><div class="x1-cal-s">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div><div class="x1-cal-g">${cel}</div></div>
+            ${dt ? `<div class="x1-agenda"><div><small>Começa</small><b>${x1DiaTxt(ini)} · 00h</b></div><div><small>Termina</small><b>${x1DiaTxt(ult)} · 23h59</b></div><div><small>Aceite até</small><b>${x1DiaTxt(aceite)} · 12h</b></div></div>` : '<p class="x1-cal-toque">Toque no dia em que o X1 começa</p>'}`;
     };
     const nome = x1PrimeiroNome(alvo.nome || alvo.display_name || alvo.username || '');
     const contra = { id: alvo.id, nome, username: alvo.username, avatar: alvo.avatar || alvo.avatar_url };
@@ -20683,22 +20795,23 @@ async function abrirCriarX1(alvo, base = {}) {
             <div class="x1-chips" id="x1Dur">${X1_DUR_NOVO.map(k => `<button type="button" class="x1-chip${k === dur ? ' on' : ''}" data-x1="dur" data-d="${k}">${X1_DUR[k]}</button>`).join('')}</div>
             <div class="x1-sec">QUANDO COMEÇA</div>
             <div id="x1Cal">${calHTML()}</div>
-            <div class="x1-sec">PRENDA <span>(opcional)</span></div>
+            <div class="x1-sec">VALENDO <span>(opcional)</span></div>
             <input class="x1-campo" id="x1Prenda" maxlength="60" placeholder="Ex: quem perder paga o açaí" value="${escapeHTML(base.prenda || '')}">
             <button type="button" class="x1-sw" data-x1="mostrar"><span><b>Mostrar pros seguidores</b><small>Card no feed por 24 h quando acabar, se os dois deixarem</small></span><i class="x1-tg on" id="x1Tg"></i></button>
         </div>
-        <div class="x1-rodape"><button class="btn x1-btn min" data-x1="enviar">Desafiar ${escapeHTML(nome)} ⚔️</button></div>`);
+        <div class="x1-rodape"><button class="btn x1-btn min" data-x1="enviar" disabled>Desafiar ${escapeHTML(nome)}</button></div>`);
+    const podeEnviar = () => { t.querySelector('[data-x1="enviar"]').disabled = !(dur && ini); };
     t.addEventListener('click', async e => {
         const b = e.target.closest('[data-x1]'); if (!b) return;
         const a = b.dataset.x1;
         if (a === 'fechar') x1FecharTela('x1Criar');
-        else if (a === 'regras') { e.stopPropagation(); abrirRegrasX1(b.dataset.t, dur, datasAtual()); }
-        else if (a === 'dia') { ini = x1DiaLocal(b.dataset.d); t.querySelector('#x1Cal').innerHTML = calHTML(); vibrar(6); }
+        else if (a === 'regras') { e.stopPropagation(); abrirRegrasX1(b.dataset.t, dur || '7', datasAtual()); }
+        else if (a === 'dia') { ini = x1DiaLocal(b.dataset.d); t.querySelector('#x1Cal').innerHTML = calHTML(); podeEnviar(); vibrar(6); }
         else if (a === 'tipo') { tipo = b.dataset.t; t.querySelectorAll('.x1-mod').forEach(m => m.classList.toggle('on', m === b)); vibrar(6); }
-        else if (a === 'dur') { dur = b.dataset.d; t.querySelectorAll('.x1-chip').forEach(m => m.classList.toggle('on', m === b)); t.querySelector('#x1Cal').innerHTML = calHTML(); vibrar(6); }
+        else if (a === 'dur') { dur = b.dataset.d; t.querySelectorAll('.x1-chip').forEach(m => m.classList.toggle('on', m === b)); t.querySelector('#x1Cal').innerHTML = calHTML(); podeEnviar(); vibrar(6); }
         else if (a === 'mostrar') { mostrar = !mostrar; t.querySelector('#x1Tg').classList.toggle('on', mostrar); vibrar(6); }
         else if (a === 'enviar') {
-            if (b.disabled) return;
+            if (b.disabled || !dur || !ini) return;
             b.disabled = true;
             const { error } = await sb.rpc('x1_criar', { alvo: alvo.id, p_tipo: tipo, p_duracao: dur, p_prenda: t.querySelector('#x1Prenda').value.trim(), p_mostrar: mostrar, p_inicio: x1ISO(ini) });
             b.disabled = false;
@@ -20746,15 +20859,22 @@ async function hydrateX1Lista(pronta = null, hub = false) {
             return `<button class="x1-card x1-fim" data-x1l="abrir" data-id="${x.id}"><span class="x1-res ${ganhei ? 'v' : emp ? 'e' : 'd'}">${ganhei ? 'Venceu' : emp ? 'Empate' : 'Perdeu'}</span>
             <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span>${ganhei ? '' : espera ? `<span class="x1-pill cinza espera">Revanche a partir de ${x1RevancheData(x)}</span>` : `<span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span>`}</button>`; }).join('')}` : ''}
         ${!vazio ? '<button class="x1-hist-link" data-x1l="historico">Ver histórico de X1</button>' : ''}`;
+    const vivos = ativos.length + convites.length + enviados.length;
+    // convite pra um X1 novo: sem X1 rolando, cartão "Você VS ?"; com X1, só uma linha
+    const novoHTML = vivos ? `<button class="x1-novo-linha" data-act="x1-escolher"><span class="x1-vsq mini">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-vs-selo">VS</i><span class="x1-q">?</span></span><b>Desafiar mais alguém</b><span>›</span></button>`
+        : `<div class="x1-novo-card" id="x1NovoCard"><div class="x1-vsq">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url }, 'g')}<i class="x1-vs-selo">VS</i><button type="button" class="x1-q" data-act="x1-escolher" aria-label="Escolher adversário">?</button></div>
+            <b>Chame alguém pro X1</b><p>Um contra um. Vale treino, km, minutos ou o dia perfeito.</p>
+            <button class="btn x1-btn min" data-act="x1-escolher">Desafiar alguém</button></div>`;
+    const slotNovo = document.getElementById('x1NovoSlot');
+    if (hub && slotNovo) slotNovo.innerHTML = `<div class="x1-lista hub">${novoHTML}</div>`;
     slot.innerHTML = `<div class="x1-lista${hub ? ' hub' : ''}">
-        <div class="x1-cab">${hub ? '<span class="x1-sec x1-sec-cab">X1</span>' : '<h2>Seus X1</h2>'}${ativos.length >= 2 ? `<span class="x1-cont">${ativos.length} de 5 ativos</span>` : ''}</div>
+        ${hub ? (ativos.length >= 2 ? `<div class="x1-cab"><span class="x1-cont">${ativos.length} de 5 X1 ativos</span></div>` : '') : `<div class="x1-cab"><h2>Seus X1</h2>${ativos.length >= 2 ? `<span class="x1-cont">${ativos.length} de 5 ativos</span>` : ''}</div>`}
         ${convites.map(x => { const { ele } = x1Lados(x); const tp = X1_TIPOS[x.tipo]; return `<button class="x1-card x1-convite" data-x1l="abrir" data-id="${x.id}">
             ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>${escapeHTML(ele.nome)} te desafiou</b><small>${tp.nome} · ${X1_DUR[x.duracao]}${x.agendado_inicio ? ' · começa ' + x1DM(x1DiaLocal(x.agendado_inicio)) : ''} · ${x1Expira(x.expira)}</small></span><span class="x1-pill">Ver</span></button>`; }).join('')}
         ${ativos.map(card).join('')}
         ${enviados.map(x => { const { ele } = x1Lados(x); return `<button class="x1-card x1-enviado" data-x1l="abrir" data-id="${x.id}">
             ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>Esperando aceitar${x.agendado_inicio ? ' · começa ' + x1DM(x1DiaLocal(x.agendado_inicio)) : ''} · ${x1Expira(x.expira)}</small></span></button>`; }).join('')}
-        ${!vazio ? '<button class="x1-desafiar" data-act="x1-escolher">⚡ Desafiar alguém</button>' : ''}
-        ${vazio ? `<div class="x1-vazio" data-act="x1-escolher"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X(IC_X1.raio)}</span><div><b>Desafie um amigo</b><small>Toque aqui e escolha alguém que você segue. Vale treino, km, minutos, pontos ou o dia perfeito.</small></div></div>` : ''}
+        ${hub && slotNovo ? '' : novoHTML}
         ${hub && document.getElementById('x1FimSlot') ? '' : terminadosHTML}
     </div>`;
     const slotFim = document.getElementById('x1FimSlot');
@@ -20797,8 +20917,22 @@ async function escolherRivalX1() {
     box.addEventListener('click', e => {
         const b = e.target.closest('[data-uid]'); if (!b || b.disabled) return;
         const p = pessoas.find(x => x.id === b.dataset.uid); if (!p) return;
-        fechar(); setTimeout(() => abrirCriarX1(p), 200);
+        fechar();
+        const card = document.getElementById('x1NovoCard');
+        if (card) mostrarAdversarioX1(card, p);
+        else setTimeout(() => abrirCriarX1(p), 200);
     });
+}
+// o "?" gira e vira a foto de quem foi escolhido
+function mostrarAdversarioX1(card, p) {
+    const q = card.querySelector('.x1-q'); if (!q) return;
+    const nome = x1PrimeiroNome(p.display_name || p.username);
+    q.outerHTML = `<span class="x1-q-escolhido">${x1Av({ id: p.id, nome: p.display_name, username: p.username, avatar: p.avatar_url }, 'g')}</span>`;
+    card.querySelector('b').textContent = `Você vs ${nome}`;
+    card.querySelector('p').textContent = 'Agora escolha o que vale, a duração e o dia que começa.';
+    const bt = card.querySelector('.x1-btn');
+    bt.textContent = 'Continuar'; bt.dataset.act = 'x1-novo'; bt.dataset.uid = p.id;
+    vibrar([8, 30, 12]);
 }
 
 // ---------- Abrir um X1 (convite, esperando, ao vivo ou terminado) ----------
@@ -20817,7 +20951,7 @@ function abrirConviteX1(x) {
     let mostrar = true;
     const hora = d => `${String(d.getHours()).padStart(2, '0')}h`;
     const { f, fechar } = x1Folha(`
-        <div class="x1-cv-topo">${x1Av(ele, 'g')}<span class="x1-raio">⚔️</span>${x1Av(eu, 'g')}</div>
+        <div class="x1-cv-topo x1-vs-topo">${x1Av(ele, 'g')}<span class="x1-vs-selo">VS</span>${x1Av(eu, 'g')}</div>
         <h2 class="x1-cv-h">${escapeHTML(x1PrimeiroNome(ele.nome))} te desafiou pro X1!</h2>
         <p class="x1-cv-s">${dt ? `Começa ${x1DiaTxt(dt.ini)} às 00h` : cedo ? 'Começa assim que você aceitar' : 'Se aceitar agora, começa amanhã às 00h'}</p>
         <div class="x1-regras">
@@ -20826,10 +20960,10 @@ function abrirConviteX1(x) {
             ${dt ? `<div class="x1-rgl"><span>Começa</span><b>${x1DiaTxt(dt.ini)} · 00h</b></div>
             <div class="x1-rgl"><span>Termina</span><b>${x1DiaTxt(dt.ult)} · 23h59</b></div>
             ${dt.aceite ? `<div class="x1-rgl"><span>Aceite até</span><b>${x1DiaTxt(dt.aceite)} · ${hora(dt.aceite)}</b></div>` : ''}` : ''}
-            ${x.prenda ? `<div class="x1-rgl"><span>Prenda</span><b>${escapeHTML(x.prenda)}</b></div>` : ''}
+            ${x.prenda ? `<div class="x1-rgl"><span>Valendo</span><b>${escapeHTML(x.prenda)}</b></div>` : ''}
         </div>
         <button type="button" class="x1-sw" data-x1c="mostrar"><span><b>Mostrar o resultado pros seguidores</b><small>Só aparece se os dois deixarem</small></span><i class="x1-tg on" id="x1CvTg"></i></button>
-        <div class="x1-duas"><button class="btn x1-btn ghost" data-x1c="recusar">Recusar</button><button class="btn x1-btn min" data-x1c="aceitar">Aceitar o desafio ⚔️</button></div>`, 'x1Convite');
+        <div class="x1-duas"><button class="btn x1-btn ghost" data-x1c="recusar">Recusar</button><button class="btn x1-btn min" data-x1c="aceitar">Aceitar o desafio</button></div>`, 'x1Convite');
     // antes de aceitar, mostra as regras com as datas reais
     const datasRegra = dt || (() => { const ini = x1SomaDias(new Date(), cedo ? 0 : 1); const n = Number(x.duracao) || 7; return { ini, ult: x1SomaDias(ini, n - 1) }; })();
     const responder = async (aceitar, b, depois) => {
@@ -20853,6 +20987,102 @@ function abrirConviteX1(x) {
         else if (a === 'mostrar') { mostrar = !mostrar; f.querySelector('#x1CvTg').classList.toggle('on', mostrar); vibrar(6); }
         else if (a === 'recusar') responder(false, b);
         else if (a === 'aceitar') abrirRegrasX1(x.tipo, x.duracao, datasRegra, (bt, fecharRegras) => responder(true, bt, fecharRegras));
+    });
+}
+
+
+// ---------- Story do X1: 3 modelos (placar de TV, cartaz de luta e carta de jogador) ----------
+// c.eu = quem posta, c.ele = o outro. venci/empate do ponto de vista de quem posta.
+function x1StoryModeloHTML(c) {
+    const nEu = x1PrimeiroNome(c.eu), nEle = x1PrimeiroNome(c.ele);
+    const venc = c.empate ? null : c.venci ? 'eu' : 'ele';
+    const nomeVenc = venc === 'eu' ? nEu : nEle;
+    const foto = (av, id, nome, cls = '') => av ? `<span class="x1m-foto ${cls}" style="background-image:url('${escapeHTML(av)}')"></span>`
+        : `<span class="x1m-foto ini ${cls}" style="background:${colorFor(String(id || nome))}">${escapeHTML(initials(nome))}</span>`;
+    const frase = c.empate ? 'Deu empate no X1!' : venc === 'eu' ? `${escapeHTML(nEu)} venceu o X1!` : `${escapeHTML(nEle)} venceu dessa vez. Revanche vem aí! 🔥`;
+    const linha = `${escapeHTML(c.modalidade || '')}${c.periodo ? ' · ' + escapeHTML(c.periodo) : ''}`;
+    if (c.modelo === 'luta') {
+        const [ga, gb] = venc === 'ele' ? [[c.avEle, c.idEle, nEle, c.b], [c.avEu, c.idEu, nEu, c.a]] : [[c.avEu, c.idEu, nEu, c.a], [c.avEle, c.idEle, nEle, c.b]];
+        return `<div class="card-story x1m x1m-luta">
+            <span class="x1m-lado a"></span><span class="x1m-lado b"></span>
+            <div class="x1m-tt">X1 · ${escapeHTML(String(c.modalidade || '').toUpperCase())}</div>
+            ${foto(ga[0], ga[1], ga[2], 'g1')}<div class="x1m-na">${escapeHTML(ga[2])}</div>
+            ${c.empate ? '<div class="x1m-selo emp">EMPATE</div>' : '<div class="x1m-selo">VENCEDOR</div>'}
+            <div class="x1m-vs">VS</div>
+            ${foto(gb[0], gb[1], gb[2], 'g2')}<div class="x1m-nb">${escapeHTML(gb[2])}</div>
+            <div class="x1m-pl"><b>${x1Num(ga[3])} × ${x1Num(gb[3])}</b><span>${escapeHTML(c.dur || '')} · PULSO.</span></div>
+        </div>`;
+    }
+    if (c.modelo === 'carta') {
+        const carta = (av, id, nome, pts, stats, tipo, cls) => `<div class="x1m-carta ${tipo} ${cls}"><div class="in">
+            <div class="ov"><b>${x1Num(pts)}</b><small>PTS</small>${tipo === 'ouro' && !c.empate ? '<i>🏆</i>' : ''}</div>
+            ${av ? `<span class="ft" style="background-image:url('${escapeHTML(av)}')"></span>` : `<span class="ini">${escapeHTML(initials(nome))}</span>`}
+            <div class="nm">${escapeHTML(nome)}</div>
+            <div class="ss">${(stats || []).slice(0, 6).map(([l, v]) => `<span>${escapeHTML(l)}<b>${escapeHTML(String(v))}</b></span>`).join('')}</div>
+            <div class="bt">${c.empate ? 'EMPATE' : tipo === 'ouro' ? 'CAMPEÃO' : 'VICE'}</div></div></div>`;
+        const tEu = c.empate || venc === 'eu' ? 'ouro' : 'prata', tEle = c.empate || venc === 'ele' ? 'ouro' : 'prata';
+        return `<div class="card-story x1m x1m-cartas">
+            <div class="x1m-ct"><small style="${venc === 'eu' || c.empate ? '' : 'color:#CBD5E1'}">${c.empate ? 'X1 EMPATADO' : venc === 'eu' ? 'CAMPEÃO DO X1' : 'X1 DE RESPEITO'}</small><span>${linha}</span></div>
+            <div class="x1m-par">${carta(c.avEle, c.idEle, nEle, c.b, c.statsEle, tEle, 'tras')}${carta(c.avEu, c.idEu, nEu, c.a, c.statsEu, tEu, 'frente')}</div>
+            <div class="x1m-res"><b>${x1Num(c.a)}<em>×</em>${x1Num(c.b)}</b><p>${frase}</p></div>
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
+    // placar de TV
+    const lin = (av, id, nome, pts, ganhou) => `<div class="x1m-l${ganhou ? ' w' : c.empate ? '' : ' p'}">${foto(av, id, nome)}<b>${escapeHTML(nome)}${ganhou ? ' 🏆' : ''}</b><em>${x1Num(pts)}</em></div>`;
+    return `<div class="card-story x1m x1m-tv">
+        <span class="x1m-tag"><i></i>FIM DE JOGO</span>
+        <div class="x1m-lg">DESAFIO X1 · ${escapeHTML(String(c.modalidade || '').toUpperCase())}${c.dur ? ' · ' + escapeHTML(c.dur.toUpperCase()) : ''}</div>
+        <div class="x1m-sb">${lin(c.avEu, c.idEu, nEu, c.a, venc === 'eu')}${lin(c.avEle, c.idEle, nEle, c.b, venc === 'ele')}
+            <div class="x1m-ft"><span>FINAL</span><span>${escapeHTML(c.periodo || '')}</span></div></div>
+        ${(c.destaques || []).length ? `<div class="x1m-st">${c.destaques.slice(0, 3).map(([v, l]) => `<div><b>${escapeHTML(String(v))}</b><small>${escapeHTML(l)}</small></div>`).join('')}</div>` : ''}
+        <p class="x1m-frase">${frase}</p>
+        <b class="cs-marca">Pulso.</b>
+    </div>`;
+}
+// os 6 números de cada carta, conforme o tipo do X1
+function x1StatsCarta(x, lado) {
+    const dias = ((x.placar && x.placar.dias) || []).map(d => d[lado]).filter(Boolean);
+    const n = dias.length;
+    const trn = dias.filter(d => d.treino).length;
+    const ref = dias.reduce((t, d) => t + ((d.refeicoes || []).length), 0);
+    const agu = dias.filter(d => Number(d.agua || 0) >= Number(d.agua_meta || 2000)).length;
+    const son = dias.filter(d => d.sono != null && Number(d.sono) >= 7).length;
+    const prf = dias.filter(d => d.perfeito).length;
+    const min = dias.reduce((t, d) => t + Number(d.minutos || 0), 0);
+    const km = dias.reduce((t, d) => t + Number(d.km || 0), 0);
+    const maiorMin = Math.max(0, ...dias.map(d => Number(d.minutos || 0)));
+    const maiorKm = Math.max(0, ...dias.map(d => Number(d.km || 0)));
+    let seq = 0, s = 0; dias.forEach(d => { if (d.treino || Number(d.minutos || 0) > 0) { s++; seq = Math.max(seq, s); } else s = 0; });
+    const k = v => x1Num(Math.round(v * 10) / 10);
+    const tabela = {
+        perfeito: [['TRN', trn], ['REF', ref], ['ÁGU', agu], ['SON', son], ['PRF', prf], ['DIA', n]],
+        treinos: [['TRN', trn], ['MIN', min], ['KM', k(km)], ['MAIOR', maiorMin], ['SEQ', seq], ['DIA', n]],
+        minutos: [['MIN', min], ['TRN', trn], ['MÉD', trn ? Math.round(min / trn) : 0], ['MAIOR', maiorMin], ['SEQ', seq], ['DIA', n]],
+        km: [['KM', k(km)], ['TRN', trn], ['MAIOR', k(maiorKm)], ['MIN', min], ['SEQ', seq], ['DIA', n]],
+        pontos: [['TRN', trn], ['REF', ref], ['ÁGU', agu], ['SON', son], ['SEQ', seq], ['DIA', n]],
+    };
+    return { stats: tabela[x.tipo] || tabela.perfeito, trn, prf, n };
+}
+// escolher o modelo antes de abrir o editor de story
+function escolherModeloStoryX1(dados) {
+    let modelo = 'placar';
+    const BG = { placar: 'radial-gradient(80% 50% at 50% 30%, rgba(16,185,129,.35), transparent 70%), linear-gradient(180deg, #05110c, #07080C)',
+        luta: 'linear-gradient(180deg, #0b0b0d, #07080C)',
+        carta: 'radial-gradient(60% 40% at 40% 45%, rgba(251,191,36,.28), transparent 70%), radial-gradient(50% 35% at 70% 55%, rgba(203,213,225,.12), transparent 70%), linear-gradient(180deg, #0e0f13, #07080C)' };
+    const mini = m => `<div class="x1m-mini-wrap"><div class="x1m-mini" style="background:${BG[m]}">${x1StoryModeloHTML({ ...dados, modelo: m })}</div></div>`;
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Escolha o modelo</h3>
+        <p class="x1m-sub">${dados.empate ? 'Deu empate! Como quer mostrar?' : dados.venci ? 'Você venceu o X1! Como quer mostrar?' : 'Mostre que foi um X1 de respeito.'}</p>
+        <div class="x1m-ops">${[['placar', 'Placar'], ['luta', 'Luta'], ['carta', 'Cartas']].map(([k, n]) => `<button type="button" class="x1m-op${k === modelo ? ' on' : ''}" data-m="${k}">${mini(k)}<span>${n}</span></button>`).join('')}</div>
+        <button class="btn x1-btn min" data-x1m="ok">Continuar pro story</button>`, 'x1Modelo');
+    requestAnimationFrame(() => f.querySelectorAll('.x1m-mini-wrap').forEach(w => w.firstElementChild.style.setProperty('--k', (w.clientWidth / 360).toFixed(3))));
+    f.addEventListener('click', e => {
+        const op = e.target.closest('[data-m]');
+        if (op) { modelo = op.dataset.m; f.querySelectorAll('.x1m-op').forEach(x => x.classList.toggle('on', x === op)); vibrar(6); return; }
+        if (e.target.closest('[data-x1m="ok"]')) {
+            fechar();
+            setTimeout(() => abrirEditorComCard({ card: { ...dados, modelo }, bg: BG[modelo] }), 200);
+        }
     });
 }
 
@@ -20916,7 +21146,7 @@ function abrirPlacarX1(x) {
                 <h2>${ganhei ? 'Você venceu o X1!' : empate ? 'Deu empate!' : `${escapeHTML(ele.nome)} venceu dessa vez`}</h2>
                 <p>${tp.nome} · ${X1_DUR[x.duracao]}${x.desistiu ? ` · ${x.desistiu === eu.id ? 'você desistiu' : escapeHTML(ele.nome) + ' desistiu'}` : ''}</p>
                 <div class="x1-pt">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</div>
-                ${x.prenda && !empate ? `<div class="x1-prenda">${ganhei ? `${escapeHTML(ele.nome)} te deve: ` : 'Você deve: '}${escapeHTML(x.prenda.replace(/^quem perder\s*/i, ''))}</div>` : ''}
+                ${x.prenda && !empate ? `<div class="x1-prenda">Valendo: <b>${escapeHTML(x.prenda.replace(/^quem perder\s*/i, ''))}</b><small>${ganhei ? `${escapeHTML(ele.nome)} te deve 😄` : 'Você deve 😅'}</small></div>` : ''}
                 ${ganhei ? '<button class="btn x1-btn min" data-x1p="story">Postar no story</button>' : `<div class="x1-duas">${x1RevancheEm(x) ? `<button class="btn x1-btn ghost" disabled>Revanche a partir de ${x1RevancheData(x)}</button>` : '<button class="btn x1-btn ghost" data-x1p="revanche">Revanche</button>'}<button class="btn x1-btn min" data-x1p="story">Postar no story</button></div>`}
             </div>` : `<div class="x1-hero">
                 <div class="x1-tipo">${pendente ? '<i class="esp"></i>ESPERANDO ACEITAR' : antes ? '<i class="esp"></i>COMEÇA EM BREVE' : '<i></i>AO VIVO'} · ${tp.nome.toUpperCase()}</div>
@@ -20928,7 +21158,7 @@ function abrirPlacarX1(x) {
                 <div class="x1-cabo"><i style="flex:${tot ? euPts : 1}"></i><u style="flex:${tot ? elePts : 1}"></u></div>
                 <div class="x1-rest"><span>${pendente ? (x.agendado_inicio ? `Começa ${x1DiaTxt(x1DiaLocal(x.agendado_inicio))} às 00h` : 'Começa quando aceitar') : antes ? x1ComecaEm(x.inicio) : `Dia ${idxHoje + 1} de ${nDias}`}</span><span>${pendente ? 'Convite ' + x1Expira(x.expira || new Date(new Date(x.criado_em).getTime() + 48 * 3600000)) : antes ? `${nDias} ${nDias === 1 ? 'dia inteiro' : 'dias inteiros'}` : x1Restante(x.fim)}</span></div>
             </div>
-            ${x.prenda ? `<div class="x1-prenda">${escapeHTML(x.prenda)}</div>` : ''}
+            ${x.prenda ? `<div class="x1-prenda">Valendo: <b>${escapeHTML(x.prenda)}</b></div>` : ''}
             ${!pendente && !antes && elePts > euPts ? '<button class="x1-virar" data-x1p="virar">✦ Como virar?<small>A IA olha o placar e o que falta hoje</small></button>' : ''}`}
 
             ${!pendente && diaHoje && !fim && x.tipo === 'perfeito' ? `<div class="x1-sec">HOJE</div>${x1HojeLinhaHTML(eu, diaHoje[meuLado], 'var(--vital)')}${x1HojeLinhaHTML(ele, diaHoje[ladoDele], '#5FB0FF')}` : ''}
@@ -20980,8 +21210,15 @@ function abrirPlacarX1(x) {
         else if (a === 'revanche') { x1FecharTela('x1Placar'); abrirCriarX1(ele, { tipo: x.tipo, duracao: x.duracao, prenda: x.prenda }); }
         else if (a === 'story') {
             x1FecharTela('x1Placar');
-            abrirEditorComCard({ card: { tipo: 'x1', modalidade: tp.nome, eu: eu.nome, ele: ele.nome, a: euPts, b: elePts, venci: ganhei, empate,
-                idEu: eu.id, idEle: ele.id, avEu: eu.avatar || '', avEle: ele.avatar || '' } });
+            const ladoEu = x.sou_criador ? 'a' : 'b', ladoEle = x.sou_criador ? 'b' : 'a';
+            const se = x1StatsCarta(x, ladoEu), so = x1StatsCarta(x, ladoEle);
+            const dt = x1Datas(x);
+            const vant = Math.abs(euPts - elePts);
+            escolherModeloStoryX1({ tipo: 'x1', modalidade: tp.nome, eu: eu.nome, ele: ele.nome, a: euPts, b: elePts, venci: ganhei, empate,
+                idEu: eu.id, idEle: ele.id, avEu: eu.avatar || '', avEle: ele.avatar || '',
+                periodo: dt ? `${x1DM(dt.ini)} a ${x1DM(dt.ult)}` : '', dur: X1_DUR[x.duracao] || '',
+                statsEu: se.stats, statsEle: so.stats,
+                destaques: [x.tipo === 'perfeito' ? [se.prf, se.prf === 1 ? 'dia perfeito' : 'dias perfeitos'] : [se.trn, se.trn === 1 ? 'treino' : 'treinos'], [se.n, se.n === 1 ? 'dia' : 'dias'], [(ganhei ? '+' : empate ? '' : '−') + x1Num(vant), 'de diferença']] });
         }
     });
 }
