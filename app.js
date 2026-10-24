@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261262';
+const APP_VERSAO = '20261263';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -163,13 +163,17 @@ const INTENSITY = {
     'Musculação':1.0,'Corrida':1.0,'Natação':1.0,'Ciclismo':1.0,'HIIT':1.0,
     'Caminhada':0.7,'Pilates':0.7,'Yoga':0.7,'Dança':0.7,'Alongamento':0.7,
     'Futebol':1.0,
+    'Funcional':1.0,'Crossfit':1.0,'Calistenia':1.0,'Spinning':1.0,'Remo':1.0,
+    'Vôlei':0.9,'Basquete':1.0,'Beach tennis':0.9,'Tênis':0.9,
+    'Jiu-jitsu':1.0,'Muay thai':1.0,'Boxe':1.0,
+    'Trilha':0.8,'Skate':0.8,'Surf':0.9,
     'Outro':0.8
 };
 
 // Distância (e ritmo) ou grupos musculares, pro selo do post
-const ATIVIDADES_COM_KM = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Futebol'];
+const ATIVIDADES_COM_KM = ['Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Futebol', 'Spinning', 'Remo', 'Trilha'];
 // distância: valor inicial e passo do contador por atividade
-const KM_PADRAO = { 'Corrida': [3, 0.5], 'Caminhada': [2, 0.5], 'Futebol': [5, 0.5], 'Ciclismo': [10, 1], 'Natação': [1, 0.25] };
+const KM_PADRAO = { 'Corrida': [3, 0.5], 'Caminhada': [2, 0.5], 'Futebol': [5, 0.5], 'Ciclismo': [10, 1], 'Natação': [1, 0.25], 'Spinning': [15, 1], 'Remo': [2, 0.5], 'Trilha': [5, 0.5] };
 // grupos novos contam nas categorias antigas (equilíbrio muscular e coach)
 const GRUPO_CATEGORIA = { 'Bíceps': 'Braços', 'Tríceps': 'Braços', 'Quadríceps': 'Pernas', 'Posterior': 'Pernas', 'Panturrilha': 'Pernas', 'Lombar': 'Costas' };
 const categoriasMusculares = lista => [...new Set((lista || []).map(g => GRUPO_CATEGORIA[g] || g))];
@@ -183,6 +187,10 @@ const COR_ATIVIDADE = {
     'Musculação': '53,225,155', 'Corrida': '255,122,77', 'Caminhada': '255,166,92', 'Ciclismo': '255,194,75',
     'Natação': '64,200,230', 'Yoga': '167,139,250', 'Pilates': '214,136,232', 'Dança': '240,110,160',
     'Alongamento': '120,214,200', 'Futebol': '95,176,255', 'HIIT': '255,96,96', 'Outro': '150,162,155',
+    'Funcional': '255,96,96', 'Crossfit': '255,96,96', 'Calistenia': '53,225,155', 'Spinning': '255,194,75', 'Remo': '64,200,230',
+    'Vôlei': '95,176,255', 'Basquete': '255,140,60', 'Beach tennis': '250,204,21', 'Tênis': '163,230,53',
+    'Jiu-jitsu': '240,110,160', 'Muay thai': '240,110,160', 'Boxe': '240,110,160',
+    'Trilha': '132,204,22', 'Skate': '148,163,184', 'Surf': '64,200,230',
 };
 // No tema claro, as cores mais apagadas ganham um tom mais forte pra não sumirem no branco
 const COR_CLARO = { '53,225,155': '20,165,116', '255,194,75': '206,142,10', '64,200,230': '16,148,186', '95,176,255': '40,118,214',
@@ -1360,7 +1368,7 @@ async function openEditPostSheet(id) {
 
     let campos = '';
     if (p.kind === 'workout') {
-        const tipos = ['Musculação','Corrida','Ciclismo','Natação','Caminhada','Yoga','Dança','Alongamento','Futebol','Outro'];
+        const tipos = TIPOS_TREINO;
         campos = `
             <div class="field-row">
                 <div class="field"><label>Atividade</label>
@@ -4592,7 +4600,7 @@ function pintarTema(light) {
     if (light) document.documentElement.setAttribute('data-theme', 'light');
     else document.documentElement.removeAttribute('data-theme');
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', light ? '#F4F6F4' : '#0A0C0B');
+    if (meta) meta.setAttribute('content', light ? '#F4F6F4' : '#000000');
 }
 if (midiaClaro) {
     const mudou = () => { if (temaEscolhido() === 'auto') pintarTema(midiaClaro.matches); };
@@ -4970,7 +4978,9 @@ function abrirEditarRegistro(id, tipo) {
 // ---- Histórico de treinos no perfil (visível pra quem visita) ----
 const WORKOUT_EMOJI = {
     'Musculação':'🏋️', 'Corrida':'🏃', 'Caminhada':'🚶', 'Natação':'🏊', 'Ciclismo':'🚴',
-    'Yoga':'🧘', 'Pilates':'🧘', 'Dança':'💃', 'HIIT':'⚡', 'Alongamento':'🤸', 'Futebol':'⚽', 'Outro':'💪'
+    'Yoga':'🧘', 'Pilates':'🧘', 'Dança':'💃', 'HIIT':'⚡', 'Alongamento':'🤸', 'Futebol':'⚽', 'Outro':'💪',
+    'Funcional':'🏋️', 'Crossfit':'🏋️', 'Calistenia':'🤸', 'Spinning':'🚴', 'Remo':'🚣', 'Vôlei':'🏐', 'Basquete':'🏀',
+    'Beach tennis':'🎾', 'Tênis':'🎾', 'Jiu-jitsu':'🥋', 'Muay thai':'🥊', 'Boxe':'🥊', 'Trilha':'🥾', 'Skate':'🛹', 'Surf':'🏄'
 };
 
 async function renderWorkoutHistory(uid, ano, mes) {
@@ -6638,23 +6648,34 @@ async function renderFeed() {
     html += `<div id="resumoSlot"></div>`;
     html += `<div id="desafioSlot"></div>`;
 
-    // Sugestões de seguir: no feed, só na primeira vez que abre no dia (o resto fica na busca)
+    // Sugestões de seguir: enquanto a pessoa segue menos de 10, a faixa fica sempre no topo.
+    // Depois disso, aparece só na primeira vez que abre no dia (o resto fica na busca).
     const chaveDesc = 'pulso-descobrir-' + state.session.user.id;
+    let sigo = state.quantosSigo;
+    if (sigo == null) { try { const { data: q, error: eq } = await sb.rpc('quantos_sigo'); if (!eq) sigo = state.quantosSigo = Number(q || 0); } catch (_) {} }
+    const poucos = sigo != null && sigo < 10;
     const jaViuHoje = lsGet(chaveDesc) === hojeISO();
-    const suggestions = jaViuHoje ? [] : await carregarSugestoes(6);
+    const suggestions = poucos ? await carregarSugestoesComeco(10) : jaViuHoje ? [] : await carregarSugestoes(6);
     if (suggestions && suggestions.length > 0) {
-        lsSet(chaveDesc, hojeISO());
-        let sugHTML = '<div class="suggestions-section"><div class="suggestions-cab"><h3 class="suggestions-title">Descobrir pessoas</h3><button class="sug-x" data-act="fechar-descobrir" aria-label="Fechar">✕</button></div><div class="suggestions-row">';
+        if (!poucos) lsSet(chaveDesc, hojeISO());
+        let sugHTML = `<div class="suggestions-section"><div class="suggestions-cab"><h3 class="suggestions-title">${poucos ? 'Pessoas pra seguir' : 'Descobrir pessoas'}</h3>${poucos ? '<button class="sug-ver" data-act="go-search">ver todas</button>' : '<button class="sug-x" data-act="fechar-descobrir" aria-label="Fechar">✕</button>'}</div><div class="suggestions-row">`;
         suggestions.forEach(u => {
+            const rot = u.grupo === 'segue' ? 'Seguir de volta' : u.privado ? 'Solicitar' : 'Seguir';
             sugHTML += `<div class="suggestion-card" data-act="view-user" data-uid="${u.id}">
                 ${avatarHTML(u, 'md')}
-                <div class="suggestion-name">${escapeHTML(u.display_name)}</div>
+                <div class="suggestion-name">${escapeHTML(u.display_name || u.username || '')}</div>
                 <div class="suggestion-uname">${escapeHTML(u.motivo || '@' + u.username)}</div>
-                <button class="suggestion-follow" data-act="quick-follow" data-uid="${u.id}" data-following="0">Seguir</button>
+                <button class="suggestion-follow" data-act="quick-follow" data-uid="${u.id}" data-following="0">${rot}</button>
             </div>`;
         });
         sugHTML += '</div></div>';
         html += sugHTML;
+    }
+    // feed vazio de gente: convite pra seguir
+    const deOutros = (posts || []).filter(p => p.user_id !== state.session.user.id).length;
+    if (poucos && !deOutros) {
+        const faltam = Math.max(0, 5 - (sigo || 0));
+        html += `<div class="feed-quieto"><span>👋</span><b>Seu feed tá quietinho</b><small>${faltam ? `Siga ${faltam === 1 ? 'mais 1 pessoa' : faltam + ' pessoas'} pra ver os treinos da galera aqui.` : 'Assim que quem você segue postar, aparece aqui.'}</small></div>`;
     }
 
     const visiveis = filtrarBloqueados(posts);
@@ -7035,6 +7056,264 @@ function abrirEscolhaResumo(res, nomeArquivo) {
     sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
 }
 
+
+// ============================================================
+// POST DA SEMANA: 5 modelos em imagem (Blocos, Foto destaque, Polaroids, Faixas gigantes e Chama)
+// ============================================================
+const psF = (p, t) => `${p} ${t}px "Plus Jakarta Sans", sans-serif`;
+const psMao = t => `500 ${t}px "Bradley Hand", "Snell Roundhand", "Segoe Script", "Comic Sans MS", cursive`;
+function psRR(g, x, y, w, h, r) { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); }
+function psImg(src) { return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; }); }
+const psIconeCache = {};
+function psIcone(tipo, cor) {
+    const k = tipo + cor; if (psIconeCache[k]) return psIconeCache[k];
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="${cor}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICONES_ATIVIDADE[tipo] || ICONES_ATIVIDADE.Outro}</svg>`;
+    return (psIconeCache[k] = psImg('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)));
+}
+async function psFoto(url) {
+    try { const r = await fetch(url, { mode: 'cors' }); if (!r.ok) return null; const b = await r.blob(); return await psImg(URL.createObjectURL(b)); } catch (_) { return null; }
+}
+function psCover(g, img, x, y, w, h, foco = .35) {
+    const k = Math.max(w / img.width, h / img.height), iw = img.width * k, ih = img.height * k;
+    g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip(); g.drawImage(img, x + (w - iw) / 2, y + (h - ih) * foco, iw, ih); g.restore();
+}
+function psAjusta(g, txt, maxW, peso, tam, min = 40) { g.font = psF(peso, tam); while (g.measureText(txt).width > maxW && tam > min) { tam -= 4; g.font = psF(peso, tam); } return tam; }
+function psMarca(g, x, y, tam = 60, centro = false) {
+    g.font = psF(800, tam); const w = g.measureText('Pulso').width + g.measureText('.').width;
+    const x0 = centro ? x - w / 2 : x;
+    g.textAlign = 'left'; g.fillStyle = '#F1F4F1'; g.fillText('Pulso', x0, y); g.fillStyle = '#34D399'; g.fillText('.', x0 + g.measureText('Pulso').width, y);
+}
+function psVersiculo(g, v, base = 1800) {
+    if (!v) return;
+    const [texto, ref] = v;
+    g.textAlign = 'center'; g.fillStyle = '#F1F4F1'; g.font = psF(700, 46);
+    const linhas = []; let l = '';
+    texto.split(' ').forEach(p => { const t = l ? l + ' ' + p : p; if (g.measureText(t).width > 900 && l) { linhas.push(l); l = p; } else l = t; });
+    if (l) linhas.push(l);
+    const n = Math.min(2, linhas.length), y0 = base - (n - 1) * 58 - 30;
+    linhas.slice(0, 2).forEach((t, k) => g.fillText(t, 540, y0 + k * 58));
+    g.fillStyle = '#34D399'; g.font = psF(600, 28); g.fillText(String(ref).toUpperCase(), 540, y0 + n * 58 - 6);
+    g.textAlign = 'left';
+}
+function psChips(g, chips, y, centro = true) {
+    g.font = psF(600, 36);
+    const ws = chips.map(c => g.measureText(c).width + 56), tot = ws.reduce((a, b) => a + b, 0) + (chips.length - 1) * 18;
+    let x = centro ? 540 - tot / 2 : 70;
+    chips.forEach((c, i) => { g.fillStyle = 'rgba(255,255,255,.08)'; psRR(g, x, y, ws[i], 76, 38); g.fill(); g.fillStyle = '#F1F4F1'; g.fillText(c, x + 28, y + 50); x += ws[i] + 18; });
+}
+const psTempo = m => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
+const psNum = v => String(Math.round(v * 10) / 10).replace('.', ',');
+async function dadosPostSemana(ini) {
+    ini = new Date(ini); ini.setHours(0, 0, 0, 0);
+    const fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 7), ult = new Date(fim.getTime() - DIA_MS);
+    const uid = state.session.user.id;
+    const [{ data: posts }, { data: pts }, { data: st }] = await Promise.all([
+        sb.from('posts').select('id, kind, activity_type, duration_min, distance_km, image_url, thumb_url, water_ml, created_at, reactions (id)')
+            .eq('user_id', uid).in('kind', ['workout', 'water', 'post']).gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()).limit(800),
+        sb.from('points_ledger').select('amount').eq('user_id', uid).gte('earned_at', ini.toISOString()).lt('earned_at', fim.toISOString()).limit(2000),
+        sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle(),
+    ]);
+    const lista = posts || [];
+    const treinos = lista.filter(p => p.kind === 'workout').sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const dias = [[], [], [], [], [], [], []];
+    treinos.forEach(p => dias[new Date(p.created_at).getDay()].push(p));
+    const diasTreino = dias.filter(x => x.length).length;
+    const minutos = treinos.reduce((t, p) => t + (p.duration_min || 0), 0);
+    const comKm = treinos.filter(p => Number(p.distance_km) > 0);
+    const km = comKm.reduce((t, p) => t + Number(p.distance_km), 0);
+    const cont = {}; treinos.forEach(p => { const k = p.activity_type || 'Treino'; cont[k] = (cont[k] || 0) + (p.duration_min || 0) + 1; });
+    const maisFeito = (Object.entries(cont).sort((a, b) => b[1] - a[1])[0] || [''])[0];
+    const kmCont = {}; comKm.forEach(p => { kmCont[p.activity_type] = (kmCont[p.activity_type] || 0) + Number(p.distance_km); });
+    const tipoKm = (Object.entries(kmCont).sort((a, b) => b[1] - a[1])[0] || [''])[0];
+    const decorridos = Math.max(1, Math.min(7, Math.ceil((Math.min(Date.now(), +fim) - ini) / DIA_MS)));
+    const agua = lista.filter(p => p.kind === 'water').reduce((t, p) => t + (p.water_ml || 0), 0) / 1000 / decorridos;
+    const curt = p => (p.reactions || []).length;
+    const fotos = lista.filter(p => p.image_url && (p.kind === 'workout' || p.kind === 'post'))
+        .sort((a, b) => curt(b) - curt(a) || new Date(b.created_at) - new Date(a.created_at));
+    const mes = ult.toLocaleDateString('pt-BR', { month: 'long' });
+    const periodo = ini.getMonth() === ult.getMonth() ? `${ini.getDate()} a ${ult.getDate()} de ${mes}` : `${x1DM(ini)} a ${x1DM(ult)}`;
+    return { ini, ult, treinos, dias, diasTreino, minutos, km, maisFeito, tipoKm, agua, fotos, meta: state.profile.weekly_goal || 3,
+        pontos: Math.round((pts || []).reduce((t, r) => t + Number(r.amount || 0), 0)), ofensiva: Number((st && st.current_streak) || 0),
+        periodo, curto: `${x1DM(ini)} a ${x1DM(ult)}`, verso: versiculoDaSemana(), hoje: Date.now() < +fim ? new Date().getDay() : 7 };
+}
+function psFundo(g, glow, base = '#000') {
+    g.fillStyle = base; g.fillRect(0, 0, 1080, 1920);
+    glow.forEach(([x, y, r, cor]) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, cor); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 1080, 1920); });
+}
+// dia com o símbolo do treino principal
+async function psDia(g, d, k, x, y, w, h, raio) {
+    const ws = d.dias[k];
+    if (ws.length) {
+        const pr = [...ws].sort((a, b) => (b.duration_min || 0) - (a.duration_min || 0))[0];
+        const c = corAtividade(pr.activity_type);
+        g.fillStyle = `rgba(${c},.2)`; psRR(g, x, y, w, h, raio); g.fill();
+        const ic = await psIcone(pr.activity_type, `rgb(${c})`); const t = Math.min(w, h) * .5;
+        if (ic) g.drawImage(ic, x + (w - t) / 2, y + (h - t) / 2, t, t);
+    } else {
+        g.setLineDash(k > d.hoje ? [8, 10] : []); g.strokeStyle = k > d.hoje ? 'rgba(255,255,255,.14)' : 'rgba(255,255,255,0)';
+        g.fillStyle = 'rgba(255,255,255,.05)'; psRR(g, x, y, w, h, raio); g.fill(); if (k > d.hoje) g.stroke(); g.setLineDash([]);
+    }
+}
+const PS_LETRAS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+const PS_MODELOS = {
+    async blocos(g, d) {
+        psFundo(g, [[920, 120, 700, 'rgba(16,185,129,.30)']]);
+        psMarca(g, 76, 160);
+        const bateu = d.diasTreino >= d.meta;
+        g.fillStyle = '#F1F4F1'; g.font = psF(800, 118); g.fillText('Minha', 76, 345); g.fillText('semana', 76, 470);
+        if (bateu) { const w = g.measureText('semana').width; g.fillStyle = '#34D399'; g.fillText('✓', 76 + w + 24, 470); }
+        g.fillStyle = '#9AA3A0'; g.font = psF(500, 42); g.fillText(d.periodo, 76, 540);
+        const W = 122, gap = (928 - 7 * W) / 6;
+        for (let k = 0; k < 7; k++) {
+            const x = 76 + k * (W + gap);
+            await psDia(g, d, k, x, 610, W, 150, 36);
+            g.fillStyle = k === d.hoje ? '#fff' : '#7E8784'; g.font = psF(700, 32); g.textAlign = 'center'; g.fillText(PS_LETRAS[k], x + W / 2, 815); g.textAlign = 'left';
+        }
+        g.fillStyle = bateu ? 'rgba(16,185,129,.16)' : 'rgba(255,255,255,.06)'; psRR(g, 76, 860, 928, 120, 36); g.fill();
+        g.fillStyle = bateu ? '#6EE7B7' : '#F1F4F1'; g.font = psF(700, 44);
+        g.fillText(bateu ? `🎯 Meta batida: ${d.diasTreino} de ${d.meta} treinos` : `🎯 ${d.diasTreino} de ${d.meta} treinos na semana`, 116, 936);
+        const caixas = [[psTempo(d.minutos), 'treinando'], d.km > 0 ? [`${psNum(d.km)} km`, 'percorridos'] : [`${psNum(d.agua)} L`, 'de água por dia'],
+            [`🔥 ${d.ofensiva}`, 'dias de ofensiva'], [`+${d.pontos}`, 'pontos na semana']];
+        caixas.forEach(([v, l], i) => {
+            const x = 76 + (i % 2) * 479, y = 1020 + Math.floor(i / 2) * 240;
+            g.fillStyle = 'rgba(255,255,255,.06)'; psRR(g, x, y, 449, 215, 40); g.fill();
+            g.fillStyle = '#F1F4F1'; psAjusta(g, v, 380, 800, 76); g.fillText(v, x + 40, y + 115);
+            g.fillStyle = '#9AA3A0'; g.font = psF(500, 34); g.fillText(l, x + 40, y + 170);
+        });
+        psVersiculo(g, d.verso);
+    },
+    async foto(g, d) {
+        psFundo(g, []);
+        const img = d.fotoImg;
+        if (img) psCover(g, img, 0, 0, 1080, 1290, .3);
+        const gr = g.createLinearGradient(0, 0, 0, 1300);
+        gr.addColorStop(0, 'rgba(0,0,0,.45)'); gr.addColorStop(.25, 'rgba(0,0,0,0)'); gr.addColorStop(.62, 'rgba(0,0,0,0)'); gr.addColorStop(1, '#000');
+        g.fillStyle = gr; g.fillRect(0, 0, 1080, 1300);
+        const pill = (txt, x, dir) => { g.font = psF(700, 34); const w = g.measureText(txt).width + 52; const x0 = dir < 0 ? x - w : x; g.fillStyle = 'rgba(0,0,0,.5)'; psRR(g, x0, 66, w, 70, 35); g.fill(); g.fillStyle = '#fff'; g.fillText(txt, x0 + 26, 113); };
+        pill('Pulso.', 66, 1); pill(d.curto, 1014, -1);
+        const bateu = d.diasTreino >= d.meta;
+        g.fillStyle = '#6EE7B7'; g.font = psF(800, 34); g.fillText('M I N H A   S E M A N A', 66, 1070);
+        g.fillStyle = '#fff'; psAjusta(g, bateu ? 'Meta batida ✓' : `${d.diasTreino} ${d.diasTreino === 1 ? 'treino' : 'treinos'}`, 950, 800, 104); g.fillText(bateu ? 'Meta batida ✓' : `${d.diasTreino} ${d.diasTreino === 1 ? 'treino' : 'treinos'}`, 66, 1185);
+        const cx = [[String(d.diasTreino), d.diasTreino === 1 ? 'treino' : 'treinos'], [psTempo(d.minutos), 'treinando'], [`🔥 ${d.ofensiva}`, 'dias de ofensiva']];
+        cx.forEach(([v, l], i) => {
+            const x = 66 + i * 324;
+            g.fillStyle = 'rgba(255,255,255,.07)'; psRR(g, x, 1250, 300, 190, 36); g.fill();
+            g.fillStyle = '#fff'; psAjusta(g, v, 250, 800, 64); g.fillText(v, x + 32, 1345);
+            g.fillStyle = '#9AA3A0'; g.font = psF(500, 30); g.fillText(l, x + 32, 1397);
+        });
+        for (let k = 0; k < 7; k++) { g.fillStyle = d.dias[k].length ? '#10B981' : 'rgba(255,255,255,.12)'; psRR(g, 66 + k * 137, 1490, 121, 14, 7); g.fill(); }
+        psVersiculo(g, d.verso);
+    },
+    async polaroids(g, d) {
+        psFundo(g, [[540, 800, 760, 'rgba(16,185,129,.16)']], '#030403');
+        psMarca(g, 76, 160);
+        g.fillStyle = '#F1F4F1'; g.font = psF(800, 84); g.fillText('Minha semana', 76, 290);
+        g.fillStyle = '#9AA3A0'; g.font = psF(500, 38); g.fillText(d.periodo, 76, 350);
+        const itens = [...d.treinos].sort((a, b) => (!!b.image_url - !!a.image_url) || ((b.reactions || []).length - (a.reactions || []).length)).slice(0, 4)
+            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const POS = { 1: [[290, 470, -4]], 2: [[90, 470, -7], [570, 560, 6]], 3: [[80, 440, -8], [580, 500, 6], [330, 1000, 3]], 4: [[76, 420, -8], [570, 470, 6], [130, 975, 4], [575, 1020, -5]] };
+        const pos = POS[itens.length] || [];
+        const DIA3 = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+        for (let i = 0; i < itens.length; i++) {
+            const p = itens[i], [x, y, rot] = pos[i];
+            g.save(); g.translate(x + 205, y + 250); g.rotate(rot * Math.PI / 180); g.translate(-205, -250);
+            g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 40; g.shadowOffsetY = 20;
+            g.fillStyle = '#F5F3EE'; g.fillRect(0, 0, 410, 500); g.shadowColor = 'transparent';
+            const img = p._img;
+            if (img) psCover(g, img, 24, 24, 362, 362, .3);
+            else {
+                const c = corAtividade(p.activity_type);
+                g.fillStyle = `rgba(${c},.2)`; g.fillRect(24, 24, 362, 362);
+                const ic = await psIcone(p.activity_type, `rgb(${c})`); if (ic) g.drawImage(ic, 135, 135, 140, 140);
+            }
+            const leg = `${DIA3[new Date(p.created_at).getDay()]} · ${Number(p.distance_km) > 0 ? psNum(p.distance_km) + ' km' : String(p.activity_type || 'treino').toLowerCase()}`;
+            g.fillStyle = '#222'; g.font = psMao(40); g.textAlign = 'center'; g.fillText(leg, 205, 455); g.textAlign = 'left';
+            g.restore();
+        }
+        psChips(g, [`🎯 ${d.diasTreino} de ${d.meta} treinos`, `⏱ ${psTempo(d.minutos)}`, `🔥 ${d.ofensiva} dias`], 1560);
+        psVersiculo(g, d.verso);
+    },
+    async faixas(g, d) {
+        psFundo(g, []);
+        g.font = psF(800, 52); g.fillStyle = '#F1F4F1'; g.fillText('Pulso', 76, 140); const w = g.measureText('Pulso').width; g.fillStyle = '#34D399'; g.fillText('.', 76 + w, 140);
+        g.fillStyle = '#F1F4F1'; g.font = psF(700, 46); g.fillText(`  ·  ${d.curto}`, 76 + w + 16, 140);
+        const bateu = d.diasTreino >= d.meta;
+        const faixas = [
+            ['#10B981', '#04140D', `${d.diasTreino} ${d.diasTreino === 1 ? 'TREINO' : 'TREINOS'}`, bateu ? `meta de ${d.meta} batida ✓` : `meta da semana: ${d.meta}`, -2],
+            ['#F5F3EE', '#111', `${psTempo(d.minutos).toUpperCase()} SUANDO`, d.maisFeito ? `${d.maisFeito.toLowerCase()} foi o que mais fiz` : 'bora pra próxima', 1.5],
+            d.km > 0 ? ['#FF7A4D', '#1A0A03', `${psNum(d.km)} KM`, d.tipoKm ? `de ${d.tipoKm.toLowerCase()}` : 'percorridos', -1] : ['#FF7A4D', '#1A0A03', `+${d.pontos} PONTOS`, 'na semana', -1],
+            d.ofensiva >= 2 ? ['#A78BFA', '#120A2A', `🔥 ${d.ofensiva} DIAS`, 'sem deixar a ofensiva cair', 2] : ['#60A5FA', '#06142B', `${psNum(d.agua)} L DE ÁGUA`, 'por dia, em média', 2],
+        ];
+        let y = 230;
+        faixas.forEach(([bg, cor, txt, sub, rot], i) => {
+            const h = i === 1 ? 330 : 280;
+            g.save(); g.translate(540, y + h / 2); g.rotate(rot * Math.PI / 180);
+            g.fillStyle = bg; g.fillRect(-600, -h / 2, 1200, h);
+            g.fillStyle = cor; const tam = psAjusta(g, txt, 920, 800, i === 0 ? 170 : 140, 70);
+            if (i === 1 && g.measureText(txt).width > 920) { /* quebra em 2 linhas */ }
+            g.fillText(txt, -470, -h / 2 + tam * .95 + 20);
+            g.font = psF(700, 36); g.globalAlpha = .8; g.fillText(sub, -470, h / 2 - 40); g.globalAlpha = 1;
+            g.restore();
+            y += h + 40;
+        });
+        psVersiculo(g, d.verso);
+    },
+    async chama(g, d) {
+        psFundo(g, [[540, 720, 760, 'rgba(255,122,77,.38)']], '#000');
+        psMarca(g, 76, 160);
+        g.textAlign = 'center';
+        g.font = '380px "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Emoji", sans-serif'; g.fillText('🔥', 540, 830);
+        g.fillStyle = '#F7F7F7'; g.font = psF(800, 280); g.fillText(String(d.ofensiva), 540, 1110);
+        g.fillStyle = '#FDBA74'; g.font = psF(700, 48); g.fillText(d.ofensiva === 1 ? 'dia de ofensiva' : 'dias seguidos sem parar', 540, 1195);
+        g.textAlign = 'left';
+        const R = 56, gap = (928 - 7 * R * 2) / 6;
+        for (let k = 0; k < 7; k++) {
+            const x = 76 + k * (R * 2 + gap);
+            await psDia(g, d, k, x, 1270, R * 2, R * 2, R);
+            g.fillStyle = k === d.hoje ? '#fff' : '#9AA3A0'; g.font = psF(700, 30); g.textAlign = 'center'; g.fillText(PS_LETRAS[k], x + R, 1430); g.textAlign = 'left';
+        }
+        psChips(g, [`🎯 ${d.diasTreino} de ${d.meta} treinos`, `⏱ ${psTempo(d.minutos)}`], 1490);
+        psVersiculo(g, d.verso);
+    },
+};
+const PS_NOMES = { blocos: 'Blocos', foto: 'Foto destaque', polaroids: 'Polaroids', faixas: 'Faixas', chama: 'Chama' };
+async function desenharPostSemana(modelo, d) {
+    try { await document.fonts.load('800 80px "Plus Jakarta Sans"'); } catch (_) {}
+    const cv = document.createElement('canvas'); cv.width = 1080; cv.height = 1920;
+    const g = cv.getContext('2d');
+    await PS_MODELOS[modelo](g, d);
+    return await new Promise(r => cv.toBlob(b => r(b), 'image/jpeg', 0.92));
+}
+// escolha do modelo (miniaturas de verdade) e depois a prévia com Postar, Compartilhar e Salvar
+async function abrirModelosSemana(ini) {
+    const old = document.getElementById('psSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'psSheet'; sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card"><div class="sheet-handle"></div><h3 class="sheet-title">Escolha o modelo</h3>
+        <p class="sheet-sub">Sua semana em imagem pro story.</p><div class="ps-grade" id="psGrade"><div class="spinner"></div></div>
+        <button class="btn x1-btn min" id="psOk" disabled>Ver prévia</button></div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    const d = await dadosPostSemana(ini);
+    if (!document.getElementById('psSheet')) return;
+    // fotos: a mais curtida (Foto destaque) e as dos treinos (Polaroids)
+    const comFoto = d.treinos.filter(p => p.image_url);
+    await Promise.all([
+        d.fotos[0] ? psFoto(d.fotos[0].image_url).then(i => { d.fotoImg = i; }) : null,
+        ...comFoto.slice(0, 8).map(p => psFoto(p.thumb_url || p.image_url).then(i => { p._img = i; })),
+    ]);
+    const modelos = ['blocos', ...(d.fotoImg ? ['foto'] : []), 'polaroids', 'faixas', ...(d.ofensiva >= 2 ? ['chama'] : [])];
+    const blobs = {};
+    for (const m of modelos) { try { blobs[m] = await desenharPostSemana(m, d); } catch (e) { console.warn('modelo', m, e); } }
+    const ok = modelos.filter(m => blobs[m]);
+    let sel = ok[0];
+    const grade = sheet.querySelector('#psGrade'); if (!grade) return;
+    grade.innerHTML = ok.map(m => `<button type="button" class="ps-op${m === sel ? ' on' : ''}" data-m="${m}"><img src="${URL.createObjectURL(blobs[m])}" alt=""><span>${PS_NOMES[m]}</span></button>`).join('');
+    const bt = sheet.querySelector('#psOk'); bt.disabled = !sel;
+    grade.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; sel = b.dataset.m; grade.querySelectorAll('.ps-op').forEach(x => x.classList.toggle('on', x === b)); vibrar(6); });
+    bt.onclick = () => { if (!sel) return; sheet.remove(); abrirPreviaImagem(blobs[sel], 'pulso-minha-semana.jpg', isoDe(d.ini)); };
+}
+
 // Passo 2: prévia com Postar no Pulso, Compartilhar e Salvar
 function abrirPreviaImagem(blob, nomeArquivo, semanaResumo = null) {
     const old = document.getElementById('previaSheet');
@@ -7160,8 +7439,17 @@ function salvarImagem(blob, nome) {
 // COACH NA EVOLUÇÃO: treino do dia, plano, carta, alerta
 // (tudo gerado uma vez e guardado; abrir de novo não gera outra vez)
 // ============================================================
-const MODALIDADES = ['Musculação', 'Corrida', 'Caminhada', 'Ciclismo', 'Natação', 'Pilates', 'Yoga', 'Dança', 'Alongamento', 'Futebol'];
-const TIPOS_TREINO = ['Musculação', 'Corrida', 'Ciclismo', 'Natação', 'Caminhada', 'Yoga', 'Dança', 'Alongamento', 'Futebol', 'Outro'];
+// modalidades por grupo (primeiro acesso, perfil de treino e registrar)
+const MODALIDADES_GRUPOS = [
+    ['Academia', ['Musculação', 'Funcional', 'Crossfit', 'Calistenia', 'HIIT']],
+    ['Cardio', ['Corrida', 'Caminhada', 'Ciclismo', 'Spinning', 'Natação', 'Remo']],
+    ['Esportes', ['Futebol', 'Vôlei', 'Basquete', 'Beach tennis', 'Tênis']],
+    ['Lutas', ['Jiu-jitsu', 'Muay thai', 'Boxe']],
+    ['Corpo e mente', ['Pilates', 'Yoga', 'Alongamento', 'Dança']],
+    ['Ao ar livre', ['Trilha', 'Skate', 'Surf']],
+];
+const MODALIDADES = MODALIDADES_GRUPOS.flatMap(([, l]) => l);
+const TIPOS_TREINO = [...MODALIDADES, 'Outro'];
 const EQUIPAMENTOS = ['Nenhum', 'Halteres', 'Elástico', 'Barra fixa', 'Kettlebell', 'Esteira ou bike'];
 const DIAS_SEMANA = [[0, 'D'], [1, 'S'], [2, 'T'], [3, 'Q'], [4, 'Q'], [5, 'S'], [6, 'S']]; // exibição começa no domingo
 const NOME_DIA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -9756,7 +10044,7 @@ async function renderJeitoTreino() {
             </div>
             <div class="obj-bloco">
                 <div class="obj-rotulo">O que você curte fazer</div>
-                <div class="chip-row">${MODALIDADES.map(m => `<button type="button" class="chip${(p.train_likes || []).includes(m) ? ' on' : ''}" data-obj-gosto="${m}">${m}</button>`).join('')}</div>
+                <div class="onb-likes">${MODALIDADES_GRUPOS.map(([g, l]) => `<div class="onb-grupo">${g}</div><div class="chip-row">${l.map(m => `<button type="button" class="chip mod-chip${(p.train_likes || []).includes(m) ? ' on' : ''}" data-obj-gosto="${m}" style="--c:${corAtividade(m)}">${svgAtividade(m)}${m}</button>`).join('')}</div>`).join('')}</div>
             </div>
             <div class="obj-bloco">
                 <div class="obj-rotulo">O que você prefere evitar <span class="lbl-opt">opcional</span></div>
@@ -10253,6 +10541,29 @@ function linhaSugestao(u) {
         <button class="btn-mini sug-seguir" data-act="sug-seguir" data-uid="${u.id}">Seguir</button>
     </div>`;
 }
+// sugestões agrupadas pelo motivo (mesmo desafio, mesmas modalidades, mais ativos). Sem a função nova no banco, usa a antiga
+async function carregarSugestoesComeco(lim = 18) {
+    const { data, error } = await sb.rpc('sugestoes_comeco', { lim });
+    if (!error && data) return data;
+    const antigas = await carregarSugestoes(lim);
+    return antigas.map(u => ({ ...u, grupo: 'outros', rotulo: 'Sugestões pra você' }));
+}
+function linhaSugestaoComeco(u) {
+    const bt = u.grupo === 'segue' ? 'Seguir de volta' : u.privado ? 'Solicitar' : 'Seguir';
+    return `<div class="follow-row sug-row">
+        <span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'sm')}</span>
+        <div style="flex:1;min-width:0" data-act="view-user" data-uid="${u.id}">
+            <div class="follow-name">${escapeHTML(u.display_name || u.username || '')}</div>
+            <div class="follow-uname">${escapeHTML(u.motivo || '@' + (u.username || ''))}</div>
+        </div>
+        <button class="bt-min sug-seguir" data-act="sug-seguir" data-uid="${u.id}">${bt}</button>
+    </div>`;
+}
+function gruposSugestoesHTML(lista) {
+    const grupos = [];
+    lista.forEach(u => { let g = grupos.find(x => x.k === u.grupo + '|' + u.rotulo); if (!g) grupos.push(g = { k: u.grupo + '|' + u.rotulo, rotulo: u.rotulo, l: [] }); g.l.push(u); });
+    return grupos.map(g => `<div class="sug-grupo">${escapeHTML(g.rotulo || '')}</div>${g.l.map(linhaSugestaoComeco).join('')}`).join('');
+}
 async function carregarSugestoes(lim = 8) {
     const { data } = await sb.rpc('suggested_people', { lim });
     return data || [];
@@ -10281,7 +10592,7 @@ async function abrirPrimeirosPassos(passo = 0) {
     } else if (ONB_PASSOS[passo] === 'treino') {
         corpo = `<h2>Como você gosta de se mexer?</h2>
             <p>Escolha o que curte. Dá pra mudar quando quiser.</p>
-            <div class="chip-row onb-likes">${MODALIDADES.map(m => `<button type="button" class="chip${o.likes.has(m) ? ' on' : ''}" data-onb-like="${m}">${m}</button>`).join('')}</div>
+            <div class="onb-likes">${MODALIDADES_GRUPOS.map(([g, l]) => `<div class="onb-grupo">${g}</div><div class="chip-row">${l.map(m => `<button type="button" class="chip mod-chip${o.likes.has(m) ? ' on' : ''}" data-onb-like="${m}" style="--c:${corAtividade(m)}">${svgAtividade(m)}${m}</button>`).join('')}</div>`).join('')}</div>
             <div class="onb-sub">Quantos treinos por semana?</div>
             <div class="obj-dias">${[1, 2, 3, 4, 5, 6, 7].map(n => `<button type="button" class="obj-dia${o.semana === n ? ' on' : ''}" data-onb-semana="${n}">${n}</button>`).join('')}</div>
             ${rodape()}`;
@@ -10292,7 +10603,7 @@ async function abrirPrimeirosPassos(passo = 0) {
             ${rodape()}`;
     } else if (ONB_PASSOS[passo] === 'pessoas') {
         corpo = `<h2>Treinar junto é mais fácil</h2>
-            <p>Siga algumas pessoas pra ver os treinos delas no seu feed.</p>
+            <p>Siga quem combina com você pra ver os treinos da galera no seu feed.</p>
             <div class="follow-list onb-lista" id="onbPessoas"><div class="spinner"></div></div>
             ${rodape()}`;
     } else if (ONB_PASSOS[passo] === 'avisos') {
@@ -10310,9 +10621,9 @@ async function abrirPrimeirosPassos(passo = 0) {
     tela.innerHTML = `<div class="onb-card">${topo}<div class="onb-corpo">${corpo}</div></div>`;
 
     if (ONB_PASSOS[passo] === 'pessoas') {
-        const lista = await carregarSugestoes(8);
+        const lista = await carregarSugestoesComeco(18);
         const box = document.getElementById('onbPessoas');
-        if (box) box.innerHTML = lista.length ? lista.map(linhaSugestao).join('') : '<p class="faixa-nota">Assim que mais gente entrar, as sugestões aparecem aqui.</p>';
+        if (box) box.innerHTML = lista.length ? gruposSugestoesHTML(lista) : '<p class="faixa-nota">Assim que mais gente entrar, as sugestões aparecem aqui.</p>';
     }
     if (ONB_PASSOS[passo] === 'desafios') {
         const { data } = await sb.rpc('list_challenges');
@@ -14166,7 +14477,8 @@ document.addEventListener('click', async e => {
         const { data, error } = await sb.rpc('follow_user', { target_id: btn.dataset.uid });
         if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
         btn.textContent = data === 'requested' ? 'Solicitado' : 'Seguindo';
-        btn.classList.add('feito');
+        btn.classList.add('feito', 'cinza');
+        if (state.quantosSigo != null && data !== 'requested') state.quantosSigo++;
     } else if (act === 'busca-remover') {
         e.stopPropagation();
         lsSet(chaveHistBusca(), JSON.stringify(lerHistBusca().filter(x => x.id !== btn.dataset.uid)));
@@ -14241,6 +14553,7 @@ document.addEventListener('click', async e => {
         } else {
             const { data: res, error } = await sb.rpc('follow_user', { target_id: uid });
             if (!error) {
+                if (state.quantosSigo != null && res !== 'requested') state.quantosSigo++;
                 btn.dataset.following = '1';
                 btn.textContent = res === 'requested' ? 'Solicitado' : 'Seguindo';
                 btn.classList.add('following');
@@ -14719,11 +15032,11 @@ document.addEventListener('click', async e => {
     } else if (act === 'mes-story') {
         e.stopPropagation();
         if (!state.resumoMes) return;
+        if (state.resumoMes.titulo === 'Minha semana') { abrirModelosSemana(inicioDaSemana(new Date())); return; }
         abrirEscolhaResumo(state.resumoMes, 'pulso-resumo.jpg');
     } else if (act === 'resumo-story') {
         e.stopPropagation();
-        const d = state.resumoSemana || await dadosDaSemana();
-        abrirEscolhaResumo(d, 'pulso-minha-semana.jpg');
+        abrirModelosSemana(semanaDoResumo());
     } else if (act === 'podio-compartilhar') {
         e.stopPropagation();
         const pd = state.podios && state.podios[btn.dataset.id];
@@ -19395,9 +19708,25 @@ const ICONES_ATIVIDADE = {
     'Dança': '<circle cx="13" cy="4.5" r="1.8"/><path d="M9 21l3-7-3-3 4-3 3 4h3M12 14l4 7"/>',
     'Alongamento': '<circle cx="12" cy="4.5" r="1.8"/><path d="M4 9h16M12 9v6l-4 6M12 15l4 6"/>',
     'Futebol': '<circle cx="12" cy="12" r="9"/><path d="M12 7l4 3-1.5 5h-5L8 10z"/>',
+    'HIIT': '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+    'Funcional': '<circle cx="12" cy="14" r="6"/><path d="M9 8.5V6h6v2.5M12 11.5v2.5l2 1"/>',
+    'Crossfit': '<path d="M8 8a4 4 0 0 1 8 0"/><path d="M6.5 10h11l-1.5 10h-8z"/>',
+    'Calistenia': '<path d="M4 4h16M8 4v4M16 4v4"/><circle cx="12" cy="9.5" r="1.8"/><path d="M8 8l4 4 4-4M12 12v5l-2 4M12 17l2 4"/>',
+    'Spinning': '<circle cx="7" cy="17" r="3"/><path d="M7 17l4-7h6M11 10l-2-3h-2M17 10l1 7"/><path d="M14 17h6"/>',
+    'Remo': '<path d="M3 17h18M6 17l9-11M15 6l3-2"/><circle cx="9" cy="11" r="1.5"/>',
+    'Vôlei': '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 9 9 9 0 0 0 8 4.5M12 12a9 9 0 0 1-8 4.5M12 12c2.5-1 5-3.5 6.5-7"/>',
+    'Basquete': '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.5 5.5c3 3 3 10 0 13M18.5 5.5c-3 3-3 10 0 13"/>',
+    'Beach tennis': '<ellipse cx="10" cy="9" rx="6" ry="6.5"/><path d="M14.5 13.5 20 20"/><circle cx="18.5" cy="6" r="1.5"/>',
+    'Tênis': '<ellipse cx="10" cy="9" rx="6" ry="6.5"/><path d="M14.5 13.5 20 20M6 9h8M10 3v12"/>',
+    'Jiu-jitsu': '<path d="M7 4l5 4 5-4M7 4v16h10V4M12 8v12M8 13h8"/>',
+    'Muay thai': '<path d="M7 9a4 4 0 0 1 4-4h3a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-3l-1 4H7z"/><path d="M10 9h3"/>',
+    'Boxe': '<path d="M7 9a4 4 0 0 1 4-4h3a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3h-3l-1 4H7z"/><path d="M10 9h3"/>',
+    'Trilha': '<path d="M3 20l6-11 4 6 3-4 5 9z"/>',
+    'Skate': '<path d="M3 14h18M6 14l-1 3M18 14l1 3"/><circle cx="7" cy="18.5" r="1.5"/><circle cx="17" cy="18.5" r="1.5"/>',
+    'Surf': '<path d="M4 20C8 10 14 5 20 4c-1 6-6 12-16 16zM8 16l8-8"/>',
     'Outro': '<circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>',
 };
-const NOME_CURTO_ATIV = { 'Ciclismo': 'Bike' };
+const NOME_CURTO_ATIV = { 'Ciclismo': 'Bike', 'Beach tennis': 'Beach' };
 
 function montarFormTreino() {
     // atividades em ordem do que a pessoa mais usa

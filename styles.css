@@ -6177,3 +6177,36 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .x1m-mini{ position:absolute; left:0; top:0; width:360px; height:640px; transform-origin:0 0; transform:scale(var(--k, .28)); pointer-events:none; }
 .x1m-mini .card-story{ transform:translate(-50%, -50%); }
 #x1Modelo .x1-btn{ margin-top:16px; }
+
+/* ONDA 60: preto total no tema escuro (cartões quase pretos, separados pela borda) */
+:root:not([data-theme="light"]){
+    --bg:#000000; --bg-card:#0B0B0C; --bg-elev:#141415; --bg-input:#141415; --surface:#0B0B0C;
+    --line:rgba(255,255,255,.10);
+}
+:root:not([data-theme="light"]) body{ background:#000; }
+:root:not([data-theme="light"]) .theme-swatch.dark{ background:#000; }
+:root:not([data-theme="light"]) .sc-stage{ background:#000; }
+:root:not([data-theme="light"]) .pv-topo{ background:rgba(0,0,0,.72); }
+/* brilho suave atrás dos números que importam */
+:root:not([data-theme="light"]) .x1-hero, :root:not([data-theme="light"]) .tz-topo, :root:not([data-theme="light"]) .pts-sem{ position:relative; overflow:hidden; }
+:root:not([data-theme="light"]) .x1-hero::before, :root:not([data-theme="light"]) .tz-topo::before, :root:not([data-theme="light"]) .pts-sem::before{
+    content:''; position:absolute; left:-60px; top:-80px; width:260px; height:220px; pointer-events:none;
+    background:radial-gradient(closest-side, rgba(16,185,129,.16), transparent); }
+:root:not([data-theme="light"]) #composerSheet .sheet-card{ background:rgba(10,10,11,.86) !important; }
+/* modalidades com símbolo */
+.onb-grupo{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); font-weight:700; margin:14px 0 8px; }
+.onb-likes .chip-row{ display:flex; flex-wrap:wrap; gap:7px; }
+.mod-chip{ display:inline-flex; align-items:center; gap:7px; padding-left:10px; }
+.mod-chip svg{ width:16px; height:16px; color:rgb(var(--c)); flex:none; }
+/* post da semana: escolha do modelo */
+.ps-grade{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin:12px 0 16px; }
+.ps-grade .spinner{ grid-column:1 / -1; margin:40px auto; }
+.ps-op{ border:0; background:none; padding:0; display:flex; flex-direction:column; align-items:center; gap:7px; font:600 12.5px var(--ff-body); color:var(--ink-dim); }
+.ps-op img{ width:100%; aspect-ratio:9/16; object-fit:cover; border-radius:12px; border:2px solid var(--line); display:block; }
+.ps-op.on{ color:#34D399; } .ps-op.on img{ border-color:#10B981; }
+/* sugestões de quem seguir */
+.sug-grupo{ font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); font-weight:700; margin:16px 2px 4px; }
+.sug-grupo:first-child{ margin-top:4px; }
+.sug-ver{ border:0; background:none; color:var(--ink-dim); font:500 12.5px var(--ff-body); }
+.feed-quieto{ margin:12px 0; padding:22px 16px; border-radius:20px; border:1px solid var(--line); background:var(--bg-card); text-align:center; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.feed-quieto span{ font-size:28px; } .feed-quieto b{ font-size:15px; } .feed-quieto small{ font-size:12.5px; color:var(--ink-dim); }
