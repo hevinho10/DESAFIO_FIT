@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261259';
+const APP_VERSAO = '20261260';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -4575,6 +4575,7 @@ function renderSettings() {
                 ${linhaConfig('cfg-page', 'cadeado', 'Privacidade da conta', p.is_private ? 'Privada' : 'Pública', ' data-page="set-privacy"')}
                 ${linhaConfig('cfg-page', 'storyOculto', 'Ocultar story de', '<span id="cfgOcultos"></span>', ' data-page="set-hide-story"')}
                 ${linhaConfig('go-blocked', 'bloquear', 'Bloqueados', '<span id="cfgBloq"></span>')}
+                ${linhaSwitch('toggle-aniversario', 'perfil', 'Mostrar meu aniversário', 'Seus amigos ficam sabendo no dia. Nunca o ano ou a idade.', p.mostrar_aniversario !== false)}
             </div>
 
             <div class="cfg-grupo">
@@ -4933,7 +4934,7 @@ async function renderWorkoutHistory(uid, ano, mes) {
     const nomeMes = (NOME_MES[mes] || '').replace(/^./, x => x.toUpperCase());
     const ehMesAtual = ano === hoje.getFullYear() && mes === hoje.getMonth();
 
-    const offset = (ini.getDay() + 6) % 7; // semana começa na segunda
+    const offset = ini.getDay(); // semana começa no domingo
     const nDias = new Date(ano, mes + 1, 0).getDate();
     let cel = '<span class="cd vazio"></span>'.repeat(offset);
     for (let d = 1; d <= nDias; d++) {
@@ -4968,7 +4969,7 @@ async function renderWorkoutHistory(uid, ano, mes) {
             </div>
         </div>
         <div class="calt-resumo"><span><b>${lista.length}</b>${lista.length === 1 ? 'treino' : 'treinos'}</span><span><b>${tempo}</b>ativo</span>${kmTotal ? `<span><b>${br(Math.round(kmTotal * 10) / 10)}</b>km</span>` : ''}</div>
-        <div class="calt-sem">${'STQQSSD'.split('').map(x => `<span>${x}</span>`).join('')}</div>
+        <div class="calt-sem">${'DSTQQSS'.split('').map(x => `<span>${x}</span>`).join('')}</div>
         <div class="calt-dias">${cel}</div>
         ${legenda}${vazioMes}
     </div>`;
@@ -6499,21 +6500,32 @@ async function renderFeed() {
     state.storiesData = storiesOrdered;
     setTimeout(preCarregarBarraStories, 800);
 
+    // aniversariantes do dia (anel colorido + 🎂). Quem não tem story também aparece: tocar abre o parabéns
+    const aniv = await carregarAniversariantes();
+    const anivIds = new Set(aniv.map(p => p.id));
+    const souAniv = fazAniversarioHoje(state.profile.birth_date);
     // HTML da barra de stories
     let storiesHTML = '<div class="stories-bar">';
     // Meu botão de adicionar story sempre presente
     storiesHTML += `<div class="story-item" data-add-story="1">
-        <div class="story-avatar mine${mine && grupoVisto(mine) ? ' seen' : ''}${ehDourado(state.profile) ? ' dourado' : ''}${state.storyEnviando ? ' enviando' : ''}">
+        <div class="story-avatar mine${mine && grupoVisto(mine) ? ' seen' : ''}${ehDourado(state.profile) ? ' dourado' : ''}${souAniv ? ' aniv' : ''}${state.storyEnviando ? ' enviando' : ''}">
             <div class="story-avatar-in">${avatarHTML(state.profile, 'md').replace('avatar-md','avatar')}</div>
             <span class="story-plus">+</span>
         </div>
         <span class="story-name">Seu story</span>
     </div>`;
+    const comStory = new Set(storiesOrdered.map(g => g.user && g.user.id));
+    aniv.filter(p => !comStory.has(p.id)).forEach(p => {
+        storiesHTML += `<div class="story-item" data-act="parabens" data-uid="${p.id}">
+            <div class="story-avatar aniv"><div class="story-avatar-in">${avatarHTML(p, 'md').replace('avatar-md','avatar')}</div><span class="story-bolo">🎂</span></div>
+            <span class="story-name">${escapeHTML(p.display_name || p.username)}</span>
+        </div>`;
+    });
     storiesOrdered.forEach((group, i) => {
         if (group === mine) return;  // já ficou embutido no botão de cima quando eu tenho meus stories, mostro os outros aqui
         storiesHTML += `<div class="story-item" data-story-idx="${i}">
-            <div class="story-avatar${grupoVisto(group) ? ' seen' : ''}${ehDourado(group.user) ? ' dourado' : ''}">
-                <div class="story-avatar-in">${avatarHTML(group.user, 'md').replace('avatar-md','avatar')}</div>
+            <div class="story-avatar${grupoVisto(group) ? ' seen' : ''}${ehDourado(group.user) ? ' dourado' : ''}${anivIds.has(group.user.id) ? ' aniv' : ''}">
+                <div class="story-avatar-in">${avatarHTML(group.user, 'md').replace('avatar-md','avatar')}</div>${anivIds.has(group.user.id) ? '<span class="story-bolo">🎂</span>' : ''}
             </div>
             <span class="story-name">${escapeHTML(group.user.display_name || group.user.username)}</span>
         </div>`;
@@ -6527,7 +6539,8 @@ async function renderFeed() {
     let html = '<div class="view feed-view">';
 
     html += `<div id="coachSlot"></div>`;
-    html += storiesHTML + '<div id="prontSlot"></div><div id="lembrancaSlot"></div><div id="semanaSlot"></div><div id="retroSlot"></div>';
+    html += storiesHTML + '<div id="anivSlot"></div><div id="prontSlot"></div><div id="lembrancaSlot"></div><div id="semanaSlot"></div><div id="retroSlot"></div>';
+    if (souAniv) setTimeout(hydrateAniversario, 300);
     setTimeout(hydrateLembranca, 400);
     setTimeout(hydrateRetroFeed, 600);
     setTimeout(hydrateSemanaFeed, 700);
@@ -7613,7 +7626,7 @@ function montarEvolucao(d) {
     (d.meusPosts || []).forEach(p => marca(p.created_at, p.kind));
     (d.sonos || []).forEach(x => marca(x.slept_on + 'T12:00:00', 'sleep'));
     const iniCal = new Date(Math.max(inicioHist, desde)); iniCal.setHours(0, 0, 0, 0);
-    iniCal.setDate(iniCal.getDate() - ((iniCal.getDay() + 6) % 7)); // começa na segunda
+    iniCal.setDate(iniCal.getDate() - iniCal.getDay()); // começa no domingo
     const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
     const semanasCal = [];
     for (let w = new Date(iniCal); w <= hoje0; w = new Date(w.getTime() + 7 * DIA_MS)) {
@@ -9768,7 +9781,8 @@ async function dadosDaSemana() {
 }
 function difTxt(a, b) { const d = a - b; return d === 0 ? 'igual à semana passada' : `${d > 0 ? '+' : '−'}${Math.abs(d)} vs semana passada`; }
 
-const VERSICULOS = [["Tudo é possível para quem tem fé", "Marcos 9:23"], ["Deus é a minha força e o meu escudo!", "Salmos 28:7"], ["Faça tudo com amor", "1 Coríntios 16:14"], ["O choro pode durar uma noite, mas a alegria vem ao amanhecer", "Salmos 30:5"], ["Seja forte e corajoso! Não desanime", "Josué 1:9"], ["Tudo posso naquele que me fortalece", "Filipenses 4:13"], ["O Senhor cuida de mim, nada me falta", "Salmos 23:1"], ["Confie no Senhor de todo o seu coração", "Provérbios 3:5"], ["A sua fé curou você", "Marcos 10:52"], ["Grandes coisas fez o Senhor por nós, e por isso estamos alegres", "Salmos 126:3"], ["O amor nunca falha", "1 Coríntios 13:8"], ["Deus é o meu refúgio e a minha fortaleza", "Salmos 46:1"], ["Entrega o teu caminho ao Senhor; confia nele, e ele o fará", "Salmos 37:5"], ["A alegria do Senhor é a nossa força", "Neemias 8:10"], ["Deus faz infinitamente mais do que pedimos ou pensamos", "Efésios 3:20"], ["O Senhor é bom, um refúgio em tempos de angústia", "Naum 1:7"], ["Lâmpada para os meus pés é a tua palavra e luz para o meu caminho", "Salmos 119:105"], ["Quem está em Cristo é nova criatura", "2 Coríntios 5:17"], ["Deus derramou o seu amor em nossos corações", "Romanos 5:5"], ["Tenha bom ânimo, eu venci o mundo", "João 16:33"], ["O Senhor renova as minhas forças", "Salmos 23:3"], ["Busquem em primeiro lugar o Reino de Deus", "Mateus 6:33"], ["A nossa esperança está firme no Senhor", "Salmos 33:20"], ["Combati o bom combate, acabei a carreira, guardei a fé", "2 Timóteo 4:7"], ["Deus é amor", "1 João 4:8"], ["O Senhor sustenta todos os que caem", "Salmos 145:14"], ["O fruto do Espírito é amor, alegria e paz", "Gálatas 5:22"], ["Revesti-vos de toda a armadura de Deus", "Efésios 6:11"], ["O Senhor te guardará de todo o mal", "Salmos 121:7"], ["Andemos por fé, e não por vista", "2 Coríntios 5:7"], ["O Senhor firma os passos do homem bom", "Salmos 37:23"], ["Deus dá força ao cansado e multiplica as forças ao que não tem nenhum vigor", "Isaías 40:29"], ["Aquele que habita no esconderijo do Altíssimo, à sombra do Onipotente descansará", "Salmos 91:1"], ["O Senhor abençoará o seu povo com paz", "Salmos 29:11"], ["A sua graça me basta", "2 Coríntios 12:9"], ["Em paz me deito e logo pego no sono, porque só tu, Senhor, me fazes descansar", "Salmos 4:8"], ["O Senhor é a minha luz e a minha salvação; de quem terei medo?", "Salmos 27:1"], ["Deus sabe de todas as coisas", "1 João 3:20"], ["Tudo tem o seu tempo determinado debaixo do céu", "Eclesiastes 3:1"], ["O Senhor pelejará por vós, e vós calareis os vossos lábios", "Êxodo 14:14"], ["Guarda o teu coração do mal", "Provérbios 4:23"], ["Bem-aventurados os limpos de coração, porque eles verão a Deus", "Mateus 5:8"], ["A fé é a certeza das coisas que se esperam", "Hebreus 11:1"], ["Se Deus é por nós, quem será contra nós?", "Romanos 8:31"], ["Clama a mim, e responder-te-ei", "Jeremias 33:3"], ["O meu socorro vem do Senhor, que fez os céus e a terra", "Salmos 121:2"], ["O Senhor é compassivo e misericordioso", "Salmos 103:8"], ["Deus amou o mundo de tal maneira...", "João 3:16"], ["Não temas, porque eu sou contigo", "Isaías 43:5"], ["O Senhor é o meu rochedo, a minha fortaleza e o meu libertador", "Salmos 18:2"], ["Deus prova o seu amor para conosco em que Cristo morreu por nós", "Romanos 5:8"], ["O temor do Senhor é o princípio da sabedoria", "Provérbios 9:10"], ["Lança o teu fardo sobre o Senhor, e ele te susterá", "Salmos 55:22"], ["O justo viverá por fé", "Romanos 1:17"], ["Deus não nos deu espírito de covardia, mas de poder, de amor e de moderação", "2 Timóteo 1:7"], ["Buscai e achareis; batei e abrir-se-vos-á", "Mateus 7:7"], ["O Senhor guarda os simples; fui humilhado, e ele me salvou", "Salmos 116:6"], ["A palavra do nosso Deus permanece para sempre", "Isaías 40:8"], ["Guarda-me, ó Deus, porque em ti confio", "Salmos 16:1"], ["O Senhor coroa-te de graça e de misericórdia", "Salmos 103:4"], ["Cantai ao Senhor um cântico novo", "Salmos 96:1"], ["Habite em vós a palavra de Cristo ricamente", "Colossenses 3:16"], ["Deus é fiel, o qual não vos deixará tentar acima do que podeis suportar", "1 Coríntios 10:13"], ["O Senhor é grande e mui digno de louvor", "Salmos 48:1"], ["Creia no Senhor Jesus e serás salvo", "Atos 16:31"], ["A vereda dos justos é como a luz da aurora", "Provérbios 4:18"], ["Celebrai com júbilo ao Senhor, todos os moradores da terra", "Salmos 100:1"], ["O Senhor conhece os que andam na integridade", "Salmos 37:18"], ["Deus exalta os humildes", "Tiago 4:10"], ["A sabedoria é a coisa principal; adquire pois a sabedoria", "Provérbios 4:7"], ["Esperem no Senhor; tenham coragem e sejam fortes!", "Salmos 27:14"], ["Os que confiam no Senhor são como o monte de Sião", "Salmos 125:1"], ["O meu refúgio e a minha fortaleza são o meu Deus", "Salmos 91:2"], ["A paz de Deus, que excede todo o entendimento, guardará os vossos corações", "Filipenses 4:7"], ["O Senhor retribui a cada um conforme a sua justiça", "Salmos 18:24"], ["Bem-aventurados os que têm fome e sede de justiça", "Mateus 5:6"], ["O Senhor é a porção da minha herança", "Salmos 16:5"], ["Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia", "Salmos 46:1"], ["Guarda a tua língua do mal", "Salmos 34:13"], ["Deus escolheu as coisas loucas deste mundo para confundir as sábias", "1 Coríntios 1:27"], ["O Senhor dá sabedoria; da sua boca procedem a ciência e o entendimento", "Provérbios 2:6"], ["A palavra de Deus é viva e eficaz", "Hebreus 4:12"], ["O Senhor desfaz os conselhos das nações", "Salmos 33:10"], ["Deus habita nos louvores do seu povo", "Salmos 22:3"], ["O Senhor é justo em todos os seus caminhos", "Salmos 145:17"], ["A veracidade do Senhor dura para sempre", "Salmos 117:2"], ["O Senhor guarda todos os que o amam", "Salmos 145:20"], ["Deus é quem efetua em vós tanto o querer como o realizar", "Filipenses 2:13"], ["O Senhor abrirá o seu bom tesouro", "Deuteronômio 28:12"], ["A lei do Senhor é perfeita e refrigera a alma", "Salmos 19:7"], ["Deus enxugará de seus olhos toda lágrima", "Apocalipse 21:4"], ["O Senhor é o rei perpétuo e para sempre", "Salmos 10:16"], ["A benignidade do Senhor é melhor do que a vida", "Salmos 63:3"], ["O Senhor ouve a oração dos justos", "Provérbios 15:29"], ["Deus não vê como vê o homem", "1 Samuel 16:7"], ["O Senhor dá força ao seu povo", "Salmos 29:11"], ["A mansidão seja conhecida por todos os homens", "Filipenses 4:5"], ["O Senhor é o meu pastor; nada me faltará", "Salmos 23:1"], ["Deus é o nosso salvador", "Salmos 68:20"], ["O Senhor reina; regozije-se a terra", "Salmos 97:1"], ["A oração fervorosa de um justo tem muito poder", "Tiago 5:16"], ["Deus nos chamou para a paz", "1 Coríntios 7:15"], ["O Senhor orienta os passos do homem reto", "Provérbios 20:24"], ["A luz brilha nas trevas, e as trevas não a derrotaram", "João 1:5"], ["O Senhor salva a alma de seus servos", "Salmos 34:22"], ["Deus é fiel e justo para nos perdoar", "1 João 1:9"], ["O Senhor livra o seu povo de todas as angústias", "Salmos 34:17"], ["A esperança que se adia faz adoecer o coração, mas o desejo cumprido é árvore de vida", "Provérbios 13:12"], ["O Senhor guarda os passos dos seus fiéis", "1 Samuel 2:9"], ["Deus dá graça aos humildes", "Tiago 4:6"], ["O Senhor é a fortaleza da minha vida", "Salmos 27:1"], ["Acaso há alguma coisa difícil para o Senhor?", "Gênesis 18:14"], ["O Senhor cumpre o seu propósito para comigo", "Salmos 138:8"], ["Deus faz o solitário viver em família", "Salmos 68:6"], ["O Senhor fortalece o seu povo", "Salmos 29:11"], ["A nossa cidadania está nos céus", "Filipenses 3:20"], ["O Senhor ama a justiça e o juízo", "Salmos 33:5"], ["Deus supre todas as nossas necessidades segundo as suas riquezas", "Filipenses 4:19"], ["O Senhor dá sabedoria aos simples", "Salmos 19:7"], ["A palavra do Senhor é reta, e todas as suas obras são fiéis", "Salmos 33:4"], ["O Senhor sonda o coração e examina a mente", "Jeremias 17:10"], ["Deus é o nosso auxílio na tormenta", "Salmos 46:1"], ["O Senhor renova a tua juventude como a da águia", "Salmos 103:5"], ["A sabedoria do alto é primeiramente pura, depois pacífica", "Tiago 3:17"], ["O Senhor governa para sempre", "Salmos 146:10"], ["Deus está no meio dela; não será abalada", "Salmos 46:5"], ["O Senhor ama os que seguem a justiça", "Provérbios 15:9"], ["A graça e a verdade vieram por Jesus Cristo", "João 1:17"], ["O Senhor firma os céus com entendimento", "Salmos 136:5"], ["Deus nos abençoou com todas as bênçãos espirituais", "Efésios 1:3"], ["O Senhor é o criador dos confins da terra", "Isaías 40:28"], ["A justiça exalta as nações", "Provérbios 14:34"], ["O Senhor é bom para com todos", "Salmos 145:9"], ["Deus enviou o seu Filho ao mundo para que sejamos salvos", "1 João 4:9"], ["O Senhor dá alegria ao coração", "Salmos 4:7"], ["A veracidade do Senhor é eterna", "Salmos 100:5"], ["O Senhor olha do céu e vê todos os filhos dos homens", "Salmos 33:13"], ["Deus nos deu a vida eterna em seu Filho", "1 João 5:11"], ["O Senhor liberta os cativos", "Salmos 146:7"], ["A paciência de Deus nos leva ao arrependimento", "Romanos 2:4"], ["O Senhor estabelece a sua habitação no meio de nós", "Levítico 26:11"], ["Deus guia os mansos na justiça", "Salmos 25:9"], ["O Senhor cuida de mim todos os dias", "Salmos 68:19"], ["A paz esteja com todos vós em Cristo Jesus", "1 Pedro 5:14"], ["O Senhor é o Deus que me salva", "Salmos 88:1"], ["Tudo o que tem fôlego louve ao Senhor!", "Salmos 150:6"], ["Esforça-te, e tem bom ânimo", "Josué 1:9"], ["Deus é o que me cinge de força", "Salmos 18:32"]];
+// frases curtas, jeito jovem, fiéis ao texto bíblico
+const VERSICULOS = [["Disciplina o seu corpo.", "1Co 9:27"], ["A disciplina dói agora, mas recompensa depois.", "Hb 12:11"], ["Quem espera no Senhor renova as forças.", "Is 40:31"], ["Não desista de fazer o bem. A colheita vem.", "Gl 6:9"], ["Faça tudo de coração, como pra Deus.", "Cl 3:23"], ["Corra pra vencer.", "1Co 9:24"], ["Até Deus descansou no sétimo dia.", "Gn 2:2"], ["Seu corpo é templo do Espírito Santo.", "1Co 6:19"], ["Tudo posso naquele que me fortalece.", "Fp 4:13"], ["Seja forte e corajoso.", "Js 1:9"], ["Deus não te deu espírito de medo.", "2Tm 1:7"], ["O exercício físico tem seu valor.", "1Tm 4:8"], ["Corra com perseverança a sua corrida.", "Hb 12:1"], ["Esquece o que ficou pra trás. Avança.", "Fp 3:13"], ["O preguiçoso só deseja. O esforçado conquista.", "Pv 13:4"], ["Aprenda com a formiga.", "Pv 6:6"], ["Todo esforço traz proveito.", "Pv 14:23"], ["Ele dá força ao cansado.", "Is 40:29"], ["Correm e não se cansam.", "Is 40:31"], ["A alegria do Senhor é a sua força.", "Ne 8:10"], ["Coração alegre é bom remédio.", "Pv 17:22"], ["Em paz eu deito e durmo.", "Sl 4:8"], ["Ele dá o sono aos seus amados.", "Sl 127:2"], ["Comer e beber também é pra glória de Deus.", "1Co 10:31"], ["Tá cansado? Vem que Ele te dá descanso.", "Mt 11:28"], ["Um dia de cada vez.", "Mt 6:34"], ["Não despreze o começo pequeno.", "Zc 4:10"], ["Quem é fiel no pouco é fiel no muito.", "Lc 16:10"], ["Ele treina minhas mãos pra batalha.", "Sl 144:1"], ["Deus me reveste de força.", "Sl 18:32"], ["Cansados, mas seguindo em frente.", "Jz 8:4"], ["Quem anda com sábios fica sábio.", "Pv 13:20"], ["Ferro afia ferro.", "Pv 27:17"], ["Dois são melhores que um.", "Ec 4:9"], ["Se um cair, o outro levanta.", "Ec 4:10"], ["O justo cai sete vezes e se levanta.", "Pv 24:16"], ["Tem tempo certo pra tudo.", "Ec 3:1"], ["A misericórdia dEle se renova toda manhã.", "Lm 3:23"], ["Combati o bom combate. Terminei a corrida.", "2Tm 4:7"], ["Dominar a si mesmo vale mais que conquistar uma cidade.", "Pv 16:32"], ["Domínio próprio é fruto do Espírito.", "Gl 5:23"], ["Planejamento e esforço dão fruto.", "Pv 21:5"], ["Entregue seus planos a Deus.", "Pv 16:3"], ["Busque primeiro o Reino. O resto vem.", "Mt 6:33"], ["Não se canse de fazer o bem.", "2Ts 3:13"], ["Seja firme. Seu esforço não é em vão.", "1Co 15:58"], ["Não tenha medo. Só creia.", "Mc 5:36"], ["Ele cuida de você.", "1Pe 5:7"], ["Levanta e anda.", "Jo 5:8"], ["Você é obra-prima de Deus.", "Ef 2:10"], ["Fui feito de modo especial e admirável.", "Sl 139:14"], ["Não perca a confiança. A recompensa é grande.", "Hb 10:35"]];
 
 // Semana que o resumo mostra: sábado e domingo = semana atual; segunda = a que acabou
 function semanaDoResumo() {
@@ -9781,6 +9795,77 @@ function janelaDoResumo() {
     return (d === 6 && h >= 12) || d === 0 || (d === 1 && h < 19);
 }
 // Um versículo por semana, sorteado e guardado (o card e a imagem mostram o mesmo)
+// ---- Aniversário ----
+function fazAniversarioHoje(bd) {
+    if (!bd) return false;
+    const md = String(bd).slice(5, 10), h = new Date(), hoje = `${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
+    if (md === hoje) return true;
+    // quem nasceu em 29/02 comemora no dia 28 nos anos sem 29
+    return md === '02-29' && hoje === '02-28' && new Date(h.getFullYear(), 1, 29).getMonth() !== 1;
+}
+async function carregarAniversariantes() {
+    const dia = hojeISO();
+    if (state.anivCache && state.anivCache.dia === dia) return state.anivCache.lista;
+    let lista = [];
+    try { const { data, error } = await sb.rpc('aniversariantes_hoje'); if (!error) lista = data || []; } catch (_) {}
+    state.anivCache = { dia, lista };
+    return lista;
+}
+// card do próprio aniversariante no topo do feed
+async function hydrateAniversario() {
+    const slot = document.getElementById('anivSlot'); if (!slot || lsGet('pulso-aniv-' + hojeISO())) return;
+    let treinos = 0;
+    try {
+        const { count } = await sb.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', state.session.user.id)
+            .eq('kind', 'workout').gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString());
+        treinos = count || 0;
+    } catch (_) {}
+    if (!document.getElementById('anivSlot')) return;
+    const nome = x1PrimeiroNome(state.profile.display_name || state.profile.username);
+    const dica = treinos >= 4
+        ? `Você treinou ${treinos} vezes essa semana. Hoje o presente é descanso: comemora sem culpa.`
+        : 'Que tal um treino leve de 20 min pra começar o novo ciclo com o pé direito?';
+    slot.innerHTML = `<div class="aniv-card">
+        <button class="dc-x" data-act="aniv-fechar" aria-label="Fechar">×</button>
+        <span class="aniv-emo">🎂</span>
+        <h3>Feliz aniversário, ${escapeHTML(nome)}!</h3>
+        <p class="aniv-verso">O Senhor te abençoe e te guarde.<span>Nm 6:24</span></p>
+        <p class="aniv-dica">${dica}</p>
+        ${treinos >= 4 ? '' : '<button class="bt-min" data-act="aniv-treino">Treino leve de 20 min</button>'}
+    </div>`;
+    slot.querySelector('[data-act="aniv-treino"]')?.addEventListener('click', e => { e.stopPropagation(); abrirModoTreino({ a: 'Caminhada' }); });
+}
+// parabéns: abre a conversa com 3 mensagens prontas
+const PARABENS_MSGS = ['Feliz aniversário! 🎉', 'Parabéns! Deus te abençoe 🙏', 'Bora comemorar com um treino? 💪'];
+async function abrirParabens(uid) {
+    if (!uid) return;
+    const { data: p } = await sb.from('profiles').select('id, username, display_name, avatar_url').eq('id', uid).maybeSingle();
+    if (!p) { toast('Perfil não encontrado', 'err'); return; }
+    const { data: convId, error } = await sb.rpc('get_or_create_conversation', { other_id: uid });
+    if (error) {
+        const t = String(error.message || '');
+        toast(t.includes('dm_ninguem') ? 'Essa pessoa não está recebendo mensagens.' : t.includes('dm_seguidores') ? 'Essa pessoa só recebe mensagem de quem a segue.' : msgErro(error), 'err');
+        return;
+    }
+    await switchView('chat', { conversationId: convId, otherUser: p });
+    const poeSug = (tent = 0) => {
+        const input = document.getElementById('chatInput');
+        if (!input) { if (tent < 20) setTimeout(() => poeSug(tent + 1), 150); return; }
+        const caixa = document.getElementById('chatComposer') || input.parentElement;
+        if (!caixa || document.getElementById('parabensSug')) return;
+        const sug = document.createElement('div');
+        sug.id = 'parabensSug'; sug.className = 'parabens-sug';
+        sug.innerHTML = `<small>🎂 Hoje é aniversário de ${escapeHTML(x1PrimeiroNome(p.display_name || p.username))}</small><div>${PARABENS_MSGS.map(m => `<button type="button" class="bt-min cinza">${m}</button>`).join('')}</div>`;
+        caixa.parentElement.insertBefore(sug, caixa);
+        sug.addEventListener('click', e => {
+            const b = e.target.closest('button'); if (!b) return;
+            input.value = b.textContent; input.dispatchEvent(new Event('input', { bubbles: true })); input.focus();
+            sug.remove();
+        });
+    };
+    poeSug();
+}
+
 function versiculoDaSemana() {
     // escolhido pela pessoa + semana: cada um tem o seu, igual em qualquer aparelho
     const semente = (state.session ? state.session.user.id : 'x') + '|' + isoDe(semanaDoResumo());
@@ -9823,7 +9908,7 @@ async function hydrateResumoSemana() {
             <div><b>${String(d.aguaMediaL).replace('.', ',')}<small> L</small></b><span>água · média por dia</span></div>
             <div><b>${d.sono != null ? String(d.sono).replace('.', ',') + '<small> h</small>' : '-'}</b><span>sono médio</span></div>
         </div>
-        ${d.versiculo ? `<p class="resumo-verso">“${escapeHTML(d.versiculo[0])}”<span>${escapeHTML(d.versiculo[1])}</span></p>` : ''}
+        ${d.versiculo ? `<div class="resumo-verso"><p>${escapeHTML(d.versiculo[0])}</p><span>${escapeHTML(d.versiculo[1])}</span></div>` : ''}
         <button class="btn-secondary resumo-story" data-act="resumo-story">Postar como story</button>
     </div>`;
 }
@@ -9895,16 +9980,17 @@ async function imagemResumo(r) {
         // versículo da semana, centralizado no rodapé
         const [texto, ref] = r.versiculo;
         g.textAlign = 'center';
-        g.fillStyle = '#C9D0CA';
-        g.font = `italic 500 40px "Plus Jakarta Sans", sans-serif`;
-        const palavras = ('“' + texto + '”').split(' ');
+        g.fillStyle = '#F1F4F1';
+        g.font = `700 54px "Plus Jakarta Sans", sans-serif`;
+        const palavras = texto.split(' ');
         const linhas = []; let linha = '';
-        palavras.forEach(p => { const t = linha ? linha + ' ' + p : p; if (g.measureText(t).width > 880 && linha) { linhas.push(linha); linha = p; } else linha = t; });
+        palavras.forEach(p => { const t = linha ? linha + ' ' + p : p; if (g.measureText(t).width > 860 && linha) { linhas.push(linha); linha = p; } else linha = t; });
         if (linha) linhas.push(linha);
-        const base = 1800 - (linhas.length - 1) * 52;
-        linhas.slice(0, 3).forEach((l, k) => g.fillText(l, 540, base + k * 52 - 40));
-        g.fillStyle = '#35E19B'; g.font = `600 32px Inter, sans-serif`;
-        g.fillText(ref, 540, base + Math.min(linhas.length, 3) * 52 - 20);
+        const LH = 66, n = Math.min(linhas.length, 3);
+        const base = 1790 - (n - 1) * LH;
+        linhas.slice(0, 3).forEach((l, k) => g.fillText(l, 540, base + k * LH - 40));
+        g.fillStyle = '#35E19B'; g.font = `600 30px "Plus Jakarta Sans", sans-serif`;
+        g.fillText(ref, 540, base + n * LH - 22);
         g.textAlign = 'left';
     }
     return await new Promise(r => cv.toBlob(b => r(b), 'image/jpeg', 0.92));
@@ -11503,7 +11589,7 @@ async function hydrateCalMes() {
     const porDia = {};
     (data || []).forEach(p => { const dd = new Date(p.created_at).getDate(); (porDia[dd] = porDia[dd] || []).push(p); });
     const diasMes = new Date(a, m + 1, 0).getDate();
-    const vazios = (ini.getDay() + 6) % 7; // semana começa na segunda
+    const vazios = ini.getDay(); // semana começa no domingo
     const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
     const ehMesAtual = a === agora.getFullYear() && m === agora.getMonth();
     // maior sequência no mês
@@ -11531,7 +11617,7 @@ async function hydrateCalMes() {
                 <button type="button" data-act="cal-mes" data-dir="1" aria-label="Próximo mês" ${ehMesAtual ? 'disabled' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
             </div>
         </div>
-        <div class="cm-sem">${['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map(x => `<span>${x}</span>`).join('')}</div>
+        <div class="cm-sem">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div>
         <div class="cm-grade">${celulas.join('')}</div>
         <div class="cm-balao hidden" id="cmBalao"></div>
         <p class="cm-rodape"><b>${treinados}</b> ${treinados === 1 ? 'dia treinado' : 'dias treinados'}${melhor > 1 ? ` · melhor sequência: <b>${melhor}</b> dias` : ''}</p>
@@ -11770,7 +11856,7 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
         state.depsCache[x.id] = x;
         const podeApagar = meu || x.author_id === eu;
         return `<div class="dep-item dep-vidro${pendente ? ' pendente' : ''}" style="${estiloCorDep(x.cor)}"><span class="dep-brilho"></span>
-            <p class="dep-texto">${escapeHTML(x.texto)}</p>
+            <p class="dep-texto"><span class="dep-q a">“</span>${escapeHTML(x.texto)}<span class="dep-q f">”</span></p>
             <div class="dep-topo">
                 <span data-act="view-user" data-uid="${a.id}">${avatarHTML(a, 'sm')}</span>
                 <div class="dep-quem" data-act="view-user" data-uid="${a.id}"><b>${escapeHTML(a.display_name || a.username || '')}</b></div>
@@ -11786,11 +11872,11 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
                     <button class="btn-secondary btn-xs" data-act="dep-editar" data-id="${x.id}" data-texto="${escapeHTML(x.texto)}" data-cor="${escapeHTML(x.cor || 'neutro')}" data-uid="${uid}">Editar</button>
                 </div>
             </div>` : ''}
-            ${pendente && meu ? `<div class="dep-decidir">
-                <button type="button" class="x1-sw dep-sw" data-act="dep-feed-tg" data-id="${x.id}"><span><b>Também postar no feed</b></span><i class="x1-tg" id="depFeed-${x.id}"></i></button>
+            ${pendente && meu ? `<div class="dep-decidir dep-linha">
+                <button type="button" class="dep-ck" data-act="dep-feed-tg" data-id="${x.id}"><i class="dep-box" id="depFeed-${x.id}"></i>Postar no feed</button>
                 <div class="dep-bts">
-                    <button class="btn-ghost btn-xs" data-act="dep-responder" data-id="${x.id}" data-pub="0">Recusar</button>
-                    <button class="btn-primary-sm" data-act="dep-responder" data-id="${x.id}" data-pub="1">Publicar</button>
+                    <button class="bt-min cinza" data-act="dep-responder" data-id="${x.id}" data-pub="0">Recusar</button>
+                    <button class="bt-min" data-act="dep-responder" data-id="${x.id}" data-pub="1">Publicar</button>
                 </div>
             </div>` : ''}
         </div>`;
@@ -14281,7 +14367,7 @@ document.addEventListener('click', async e => {
         btn.disabled = true;
         const { error } = await sb.rpc('responder_depoimento', { did: btn.dataset.id, publicar, no_feed: !!(publicar && ck && ck.classList.contains('on')) });
         if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
-        toast(publicar ? (ck && ck.checked ? 'Publicado no perfil e no feed ✨' : 'Publicado no seu perfil ✨') : 'Depoimento recusado', 'ok');
+        toast(publicar ? (ck && ck.classList.contains('on') ? 'Publicado no perfil e no feed ✨' : 'Publicado no seu perfil ✨') : 'Depoimento recusado', 'ok');
         renderDepoimentos(state.session.user.id, false, '');
     } else if (act === 'dep-apagar') {
         if (!(await confirmar('Apagar este depoimento? Se ele foi pro feed, o post também sai.'))) return;
@@ -14832,6 +14918,16 @@ document.addEventListener('click', async e => {
         const sl = document.getElementById('semanaSlot'); if (sl) sl.innerHTML = '';
     } else if (act === 'semana-story') {
         postarSemanaNoStory(btn);
+    } else if (act === 'toggle-aniversario') {
+        const on = state.profile.mostrar_aniversario === false;
+        state.profile.mostrar_aniversario = on;
+        btn.setAttribute('aria-checked', on); btn.querySelector('.cfg-switch').classList.toggle('on', on);
+        const { error } = await sb.from('profiles').update({ mostrar_aniversario: on }).eq('id', state.session.user.id);
+        if (error) { state.profile.mostrar_aniversario = !on; btn.querySelector('.cfg-switch').classList.toggle('on', !on); toast(msgErro(error), 'err'); }
+    } else if (act === 'parabens') {
+        abrirParabens(btn.dataset.uid);
+    } else if (act === 'aniv-fechar') {
+        lsSet('pulso-aniv-' + hojeISO(), '1'); const s = document.getElementById('anivSlot'); if (s) s.innerHTML = '';
     } else if (act === 'toggle-prontidao') {
         const on = !prontidaoLigada();
         state.profile.prontidao_ligada = on;
@@ -15736,8 +15832,12 @@ function htmlCardStory(st, comFoto) {
         return `<div class="card-story x1-cs${comFoto ? ' sobre-foto' : ''}">
             <small class="cs-rot">Desafio X1 · ${escapeHTML(c.modalidade || '')}</small>
             <span class="cs-emo">${c.venci ? '🏆' : c.empate ? '🤝' : '⚡'}</span>
-            <div class="x1-cs-pl"><span>${escapeHTML(c.eu || '')}</span><b>${x1Num(c.a)}<em>x</em>${x1Num(c.b)}</b><span>${escapeHTML(c.ele || '')}</span></div>
-            <p>${c.venci ? 'Venci o X1!' : c.empate ? 'Deu empate!' : 'Foi por pouco. Revanche vem aí.'}</p>
+            <div class="x1-cs-pl"><b>${x1Num(c.a)}<em>x</em>${x1Num(c.b)}</b></div>
+            <div class="x1-cs-duo">
+                <span class="x1-cs-p${c.venci ? ' v' : ''}">${x1Av({ id: c.idEu, nome: x1PrimeiroNome(c.eu), avatar: c.avEu }, 'm')}<small>${escapeHTML(x1PrimeiroNome(c.eu))}</small></span>
+                <span class="x1-cs-p${!c.venci && !c.empate ? ' v' : ''}">${x1Av({ id: c.idEle, nome: x1PrimeiroNome(c.ele), avatar: c.avEle }, 'm')}<small>${escapeHTML(x1PrimeiroNome(c.ele))}</small></span>
+            </div>
+            <p>${c.empate ? 'Deu empate!' : `${escapeHTML(x1PrimeiroNome(c.venci ? c.eu : c.ele))} venceu o X1!`}</p>
             <b class="cs-marca">Pulso.</b>
         </div>`;
     }
@@ -16070,16 +16170,17 @@ async function abrirMencionarStory() {
         const { data } = await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', ids);
         pessoas = (data || []).sort((a, b) => String(a.display_name).localeCompare(String(b.display_name)));
     }
+    if (!sheet.isConnected) return;
     const pintar = (q = '') => {
-        const box = document.getElementById('menLista'); if (!box) return;
+        const box = sheet.querySelector('#menLista'); if (!box) return;
         const t = q.trim().toLowerCase();
         const l = pessoas.filter(p => !t || String(p.username).toLowerCase().includes(t) || String(p.display_name).toLowerCase().includes(t));
         box.innerHTML = l.length ? l.map(p => `<button type="button" class="men-pessoa" data-men="${p.id}">${avatarHTML(p, 'sm')}<span><b>${escapeHTML(p.display_name || '')}</b><small>@${escapeHTML(p.username || '')}</small></span></button>`).join('')
             : '<p class="faixa-nota">Você só pode mencionar quem você segue.</p>';
     };
     pintar();
-    document.getElementById('menBusca').addEventListener('input', e => pintar(e.target.value));
-    document.getElementById('menLista').addEventListener('click', e => {
+    sheet.querySelector('#menBusca')?.addEventListener('input', e => pintar(e.target.value));
+    sheet.querySelector('#menLista')?.addEventListener('click', e => {
         const b = e.target.closest('[data-men]'); if (!b) return;
         const p = pessoas.find(x => x.id === b.dataset.men);
         sheet.remove();
@@ -20211,6 +20312,7 @@ async function bootInterno() {
     else if (ap && ap.tela === 'desafio' && ap.id) await switchView('challenge', { id: ap.id });
     else if (ap && ap.tela === 'perfil' && ap.id) await switchView('user-profile', { uid: ap.id });
     else if (ap && ap.tela === 'depoimento' && ap.id) await abrirPedidoDepoimento(ap.id, '');
+    else if (ap && ap.tela === 'parabens' && ap.id) { await switchView('feed'); abrirParabens(ap.id); }
     else if (ap && ['notifications', 'messages', 'progress', 'coach'].includes(ap.tela)) await switchView(ap.tela);
     else await switchView(abaInicial());
     if (ap && ap.tela === 'treino' && trGet()) setTimeout(() => abrirTreinoVivo(), 300);
@@ -20310,7 +20412,25 @@ const X1_TIPOS = {
     km: { nome: 'Quilômetros', ic: IC_X1.corrida, c: '255,122,77', desc: 'Corrida, caminhada ou bike', un: 'km' },
     pontos: { nome: 'Pontos Pulso', ic: IC_X1.raio, c: '255,194,75', desc: 'Tudo que soma ponto no app', un: 'pts' },
 };
-const X1_DUR = { '3': '3 dias', '7': '7 dias', domingo: 'Até domingo' };
+const X1_DUR = { '3': '3 dias', '7': '7 dias', '21': '21 dias', domingo: 'Até domingo' };
+const X1_DUR_NOVO = ['3', '7', '21'];
+// "Wagner_Lima" vira "Wagner"
+const x1PrimeiroNome = n => { const p = String(n || '').replace(/[_.]+/g, ' ').trim().split(/\s+/)[0] || ''; return p.charAt(0).toUpperCase() + p.slice(1); };
+const X1_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const x1DM = d => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+const x1DiaTxt = d => `${X1_SEM[d.getDay()]} ${x1DM(d)}`;
+const x1DiaLocal = iso => { const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+const x1SomaDias = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+const x1ISO = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// datas reais de um X1: primeiro dia, último dia e prazo pra aceitar
+function x1Datas(x) {
+    if (x.agendado_inicio) {
+        const ini = x1DiaLocal(x.agendado_inicio), n = Number(x.duracao) || 7;
+        return { ini, ult: x1SomaDias(ini, n - 1), aceite: x.status === 'pendente' && x.aceitar_ate ? new Date(x.aceitar_ate) : null };
+    }
+    if (x.inicio && x.fim) return { ini: new Date(x.inicio), ult: new Date(new Date(x.fim).getTime() - 1000), aceite: null };
+    return null;
+}
 const X1_SLOTS = [['cafe', 'Café'], ['almoco', 'Almoço'], ['lanche', 'Lanche'], ['jantar', 'Jantar']];
 const x1Num = n => { const v = Math.round(Number(n || 0) * 10) / 10; return Number.isInteger(v) ? String(v) : String(v).replace('.', ','); };
 const x1Av = (p, cls = '') => {
@@ -20329,16 +20449,19 @@ function x1Lados(x) {
 const x1NaoComecou = x => x.status === 'ativo' && x.inicio && new Date(x.inicio) > new Date();
 function x1ComecaEm(inicio) {
     const d = new Date(inicio), amanha = isoDe(new Date(Date.now() + 86400000)) === isoDe(d);
-    return amanha ? 'Começa amanhã às 00h' : `Começa ${d.toLocaleDateString('pt-BR', { weekday: 'long' })} às 00h`;
+    if (amanha) return 'Começa amanhã às 00h';
+    return d - Date.now() < 6 * 86400000 ? `Começa ${d.toLocaleDateString('pt-BR', { weekday: 'long' })} às 00h` : `Começa dia ${x1DM(d)} às 00h`;
 }
 function x1Expira(q) {
     const ms = new Date(q) - Date.now(); if (ms <= 0) return 'expirando';
+    if (ms > 48 * 3600000) { const d = new Date(q); return `aceite até ${x1DM(d)} às ${String(d.getHours()).padStart(2, '0')}h`; }
     const h = Math.floor(ms / 3600000); return h >= 1 ? `expira em ${h} h` : `expira em ${Math.max(1, Math.floor(ms / 60000))} min`;
 }
 // versão curta pro card quando o placar é comprido ("3d 5h")
 // revanche só 3 dias depois do fim (pra dar um respiro entre os duelos)
 const REVANCHE_MS = 3 * 86400000;
 const x1RevancheEm = x => { const ms = new Date(x.fim).getTime() + REVANCHE_MS - Date.now(); return ms > 0 ? Math.ceil(ms / 86400000) : 0; };
+const x1RevancheData = x => x1DM(new Date(new Date(x.fim).getTime() + REVANCHE_MS));
 function x1RestanteCurto(fim) {
     const ms = new Date(fim) - Date.now(); if (ms <= 0) return 'acabou';
     const d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000);
@@ -20418,55 +20541,80 @@ function puxarPraFechar(veu, folha, fechar) {
 }
 
 // ---------- Regras ----------
-function regrasX1HTML(tipo, duracao = null) {
-    const durTxt = duracao === '3' ? 'os 3 dias' : duracao === '7' ? 'os 7 dias' : duracao === 'domingo' ? 'o desafio, até domingo' : 'o desafio';
+function regrasX1HTML(tipo, duracao = null, datas = null, aceitar = false) {
+    const durTxt = duracao === '3' ? 'os 3 dias' : duracao === '7' ? 'os 7 dias' : duracao === '21' ? 'os 21 dias' : duracao === 'domingo' ? 'o desafio, até domingo' : 'o desafio';
     const linha = (a, b) => `<div class="x1-rg"><span>${a}</span><b>${b}</b></div>`;
     let tabela = '', exemplo = '';
     if (tipo === 'perfeito') {
         tabela = linha('Treino de 30 min ou mais', '+3') + linha('Cada refeição com foto', '+1') +
             linha('Água: metade da meta / meta completa', '+1 / +2') + linha('Sono: 6 h / 7 h ou mais', '+1 / +2') +
             linha('<b>Bônus dia perfeito</b> (fez tudo)', '+3');
-        exemplo = 'Treino + 2 refeições + meta de água = 3 + 2 + 2 = <b>7 pontos</b> no dia.';
+        exemplo = 'Exemplo de um dia: treino + 2 refeições + meta de água = 3 + 2 + 2 = <b>7 pontos</b> no dia.';
     } else if (tipo === 'treinos') {
         tabela = linha('Dia com treino de 30 min ou mais', '+1') + linha('Máximo por dia', '1');
-        exemplo = 'Treinou segunda, terça e quinta = <b>3</b>.';
+        exemplo = 'Exemplo de um dia: treinou 40 min = <b>1 ponto</b>. Treinou duas vezes no mesmo dia, continua 1.';
     } else if (tipo === 'minutos') {
         tabela = linha('Cada minuto de treino', '+1') + linha('Máximo por dia', '240');
-        exemplo = 'Musculação 50 min + corrida 30 min = <b>80</b>.';
+        exemplo = 'Exemplo de um dia: musculação 50 min + corrida 30 min = <b>80</b>.';
     } else if (tipo === 'km') {
         tabela = linha('Cada km de corrida, caminhada ou bike', '+1') + linha('Máximo por dia', '100 km');
-        exemplo = 'Correu 5,2 km e pedalou 12 km = <b>17,2</b>.';
+        exemplo = 'Exemplo de um dia: correu 5,2 km e pedalou 12 km = <b>17,2</b>.';
     } else {
         tabela = linha('💪 Treino', 'até 15') + linha('🍽️ Refeição com foto', '1 cada') + linha('🔥 Ofensiva no X1: 3 dias seguidos / 7 dias', '+2 / +5') + linha('⚖️ Pesagem da semana', '3');
         exemplo = 'Exemplo de um dia: treino de 50 min + 2 refeições com foto = <b>cerca de 10 pontos</b>.';
     }
     const t = X1_TIPOS[tipo] || X1_TIPOS.perfeito;
-    const intro = {
-        perfeito: `Cada coisa que você faz no dia vale ponto. Ganha quem somar mais durante ${durTxt}.`,
+    const ganha = {
+        perfeito: `Ganha quem somar mais pontos durante ${durTxt}.`,
         treinos: `Ganha quem treinar em mais dias durante ${durTxt}.`,
         minutos: `Ganha quem somar mais minutos de treino durante ${durTxt}.`,
         km: `Ganha quem somar mais quilômetros durante ${durTxt}.`,
-        pontos: `Ganha quem somar <b>mais pontos no Pulso</b> durante ${durTxt}. Vale tudo que já pontua no app:`,
+        pontos: `Ganha quem somar mais pontos no Pulso durante ${durTxt}.`,
     }[tipo] || '';
-    return `<div class="x1-rg-topo"><span class="x1-tipo-ic" style="--c:${t.c}">${SVG_X(t.ic)}</span><div><h3>Como conta</h3><small>${t.nome}${duracao ? ' · ' + X1_DUR[duracao] : ''}</small></div></div>
-        <p class="x1-rg-intro">${intro}</p>
-        <div class="x1-rg-tab">${tabela}</div>
-        <p class="x1-rg-ex">${SVG_X(IC_X1.estrela)}<span>${exemplo}</span></p>
-        <div class="x1-rg-ger">
-            <b>Regras de todo X1</b>
-            <span>Só conta o que for registrado durante o desafio.</span>
-            ${tipo === 'perfeito' ? '<span>O sono vale no dia em que você acorda, se registrado até as 14 h.</span>' : ''}
-            <span>Empate: vence quem chegou primeiro à pontuação final.</span>
-            <span>Desistir dá a vitória pro outro.</span>
+    const quando = datas && datas.ini
+        ? `Começa <b>${x1DiaTxt(datas.ini)} às ${datas.ini.getHours() || datas.ini.getMinutes() ? datas.ini.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h') : '00h'}</b> e termina <b>${x1DiaTxt(datas.ult)} às 23h59</b>.${datas.aceite ? ` Dá pra aceitar até <b>${x1DiaTxt(datas.aceite)} às ${String(datas.aceite.getHours()).padStart(2, '0')}h</b>.` : ''}`
+        : `Dura ${duracao && X1_DUR[duracao] ? X1_DUR[duracao].toLowerCase() : 'o tempo combinado'}, sempre em dias inteiros, da 00h às 23h59.`;
+    const passo = (n, tit, corpo) => `<div class="x1-ps"><span class="x1-ps-n">${n}</span><div class="x1-ps-c"><b>${tit}</b>${corpo}</div></div>`;
+    return `<div class="x1-rg-topo"><span class="x1-tipo-ic" style="--c:${t.c}">${SVG_X(t.ic)}</span><div><h3>Regras do X1</h3><small>${t.nome}${duracao && X1_DUR[duracao] ? ' · ' + X1_DUR[duracao] : ''}</small></div></div>
+        <div class="x1-passos">
+            ${passo(1, 'Quando vale', `<p>${quando} Só conta o que for registrado nesse período.</p>`)}
+            ${passo(2, 'O que dá ponto', `<div class="x1-rg-tab">${tabela}</div>${tipo === 'perfeito' ? '<p class="x1-ps-nota">O sono vale no dia em que você acorda, se registrado até as 14 h.</p>' : ''}`)}
+            ${passo(3, 'Quem ganha', `<p>${ganha} Empate: vence quem chegou primeiro à pontuação final. Desistir dá a vitória pro outro.</p><p class="x1-rg-ex">${SVG_X(IC_X1.estrela)}<span>${exemplo}</span></p>`)}
         </div>
-        <button class="btn x1-btn" data-x1f="fechar">Entendi</button>`;
+        ${aceitar ? '<div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Agora não</button><button class="btn x1-btn min" data-x1f="aceitar">Aceitar o desafio ⚔️</button></div>'
+            : '<button class="btn x1-btn min" data-x1f="fechar">Entendi</button>'}`;
 }
-function abrirRegrasX1(tipo, duracao = null) { x1Folha(regrasX1HTML(tipo, duracao), 'x1Regras'); }
+function abrirRegrasX1(tipo, duracao = null, datas = null, aoAceitar = null) {
+    const { f, fechar } = x1Folha(regrasX1HTML(tipo, duracao, datas, !!aoAceitar), 'x1Regras');
+    if (aoAceitar) f.addEventListener('click', e => { const b = e.target.closest('[data-x1f="aceitar"]'); if (b && !b.disabled) aoAceitar(b, fechar); });
+}
 
 // ---------- Criar ----------
 async function abrirCriarX1(alvo, base = {}) {
-    let tipo = base.tipo || 'perfeito', dur = base.duracao || '7', mostrar = true;
-    const nome = String(alvo.nome || alvo.display_name || alvo.username || '').split(' ')[0];
+    let tipo = base.tipo || 'perfeito', dur = X1_DUR_NOVO.includes(base.duracao) ? base.duracao : '7', mostrar = true;
+    // começa sempre à 00h. Amanhã só vale se ainda der 12 h pra pessoa aceitar
+    const hoje0 = x1SomaDias(new Date(), 0), primeiro = new Date().getHours() < 12 ? 1 : 2, MAX = 14;
+    let ini = x1SomaDias(hoje0, primeiro);
+    const datasAtual = () => ({ ini, ult: x1SomaDias(ini, Number(dur) - 1), aceite: new Date(ini.getTime() - 12 * 3600000) });
+    const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const calHTML = () => {
+        const { ult, aceite } = datasAtual();
+        const lim = x1SomaDias(hoje0, MAX), fimCal = ult > lim ? ult : lim;
+        let d = x1SomaDias(hoje0, -hoje0.getDay());
+        const fimSab = x1SomaDias(fimCal, 6 - fimCal.getDay());
+        const meses = [...new Set([hoje0, fimCal].map(x => MESES[x.getMonth()]))].join(' · ');
+        let cel = '';
+        while (d <= fimSab) {
+            const off = Math.round((d - hoje0) / 86400000);
+            const pode = off >= primeiro && off <= MAX, noPer = d >= ini && d <= ult;
+            const c = ['x1-cd', pode ? 'pode' : 'fora', noPer ? 'per' : '', +d === +ini ? 'ini' : '', +d === +ult ? 'ult' : '', off === 0 ? 'hoje' : ''].filter(Boolean).join(' ');
+            cel += `<button type="button" class="${c}"${pode ? ` data-x1="dia" data-d="${x1ISO(d)}"` : ' disabled'}>${d.getDate() === 1 ? `<small>${MESES[d.getMonth()].slice(0, 3)}</small>` : ''}${d.getDate()}</button>`;
+            d = x1SomaDias(d, 1);
+        }
+        return `<div class="x1-cal"><div class="x1-cal-m">${meses}</div><div class="x1-cal-s">${['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map(x => `<span>${x}</span>`).join('')}</div><div class="x1-cal-g">${cel}</div></div>
+            <div class="x1-agenda"><div><small>Começa</small><b>${x1DiaTxt(ini)} · 00h</b></div><div><small>Termina</small><b>${x1DiaTxt(ult)} · 23h59</b></div><div><small>Aceite até</small><b>${x1DiaTxt(aceite)} · 12h</b></div></div>`;
+    };
+    const nome = x1PrimeiroNome(alvo.nome || alvo.display_name || alvo.username || '');
     const contra = { id: alvo.id, nome, username: alvo.username, avatar: alvo.avatar || alvo.avatar_url };
     const eu = { id: state.session.user.id, nome: String(state.profile.display_name || '').split(' ')[0], username: state.profile.username, avatar: state.profile.avatar_url };
     const mods = () => Object.entries(X1_TIPOS).map(([k, t]) => `<button type="button" class="x1-mod${k === 'perfeito' ? ' lg' : ''}${k === tipo ? ' on' : ''}" data-x1="tipo" data-t="${k}">
@@ -20481,29 +20629,32 @@ async function abrirCriarX1(alvo, base = {}) {
             <div class="x1-sec">O QUE VALE</div>
             <div class="x1-mods" id="x1Mods">${mods()}</div>
             <div class="x1-sec">DURAÇÃO</div>
-            <div class="x1-chips" id="x1Dur">${Object.entries(X1_DUR).map(([k, n]) => `<button type="button" class="x1-chip${k === dur ? ' on' : ''}" data-x1="dur" data-d="${k}">${n}</button>`).join('')}</div>
+            <div class="x1-chips" id="x1Dur">${X1_DUR_NOVO.map(k => `<button type="button" class="x1-chip${k === dur ? ' on' : ''}" data-x1="dur" data-d="${k}">${X1_DUR[k]}</button>`).join('')}</div>
+            <div class="x1-sec">QUANDO COMEÇA</div>
+            <div id="x1Cal">${calHTML()}</div>
             <div class="x1-sec">PRENDA <span>(opcional)</span></div>
             <input class="x1-campo" id="x1Prenda" maxlength="60" placeholder="Ex: quem perder paga o açaí" value="${escapeHTML(base.prenda || '')}">
             <button type="button" class="x1-sw" data-x1="mostrar"><span><b>Mostrar pros seguidores</b><small>Card no feed por 24 h quando acabar, se os dois deixarem</small></span><i class="x1-tg on" id="x1Tg"></i></button>
         </div>
-        <div class="x1-rodape"><button class="btn x1-btn" data-x1="enviar">${SVG_X(IC_X1.raio)}Desafiar ${escapeHTML(nome)}</button></div>`);
+        <div class="x1-rodape"><button class="btn x1-btn min" data-x1="enviar">Desafiar ${escapeHTML(nome)} ⚔️</button></div>`);
     t.addEventListener('click', async e => {
         const b = e.target.closest('[data-x1]'); if (!b) return;
         const a = b.dataset.x1;
         if (a === 'fechar') x1FecharTela('x1Criar');
-        else if (a === 'regras') { e.stopPropagation(); abrirRegrasX1(b.dataset.t, dur); }
+        else if (a === 'regras') { e.stopPropagation(); abrirRegrasX1(b.dataset.t, dur, datasAtual()); }
+        else if (a === 'dia') { ini = x1DiaLocal(b.dataset.d); t.querySelector('#x1Cal').innerHTML = calHTML(); vibrar(6); }
         else if (a === 'tipo') { tipo = b.dataset.t; t.querySelectorAll('.x1-mod').forEach(m => m.classList.toggle('on', m === b)); vibrar(6); }
-        else if (a === 'dur') { dur = b.dataset.d; t.querySelectorAll('.x1-chip').forEach(m => m.classList.toggle('on', m === b)); vibrar(6); }
+        else if (a === 'dur') { dur = b.dataset.d; t.querySelectorAll('.x1-chip').forEach(m => m.classList.toggle('on', m === b)); t.querySelector('#x1Cal').innerHTML = calHTML(); vibrar(6); }
         else if (a === 'mostrar') { mostrar = !mostrar; t.querySelector('#x1Tg').classList.toggle('on', mostrar); vibrar(6); }
         else if (a === 'enviar') {
             if (b.disabled) return;
             b.disabled = true;
-            const { error } = await sb.rpc('x1_criar', { alvo: alvo.id, p_tipo: tipo, p_duracao: dur, p_prenda: t.querySelector('#x1Prenda').value.trim(), p_mostrar: mostrar });
+            const { error } = await sb.rpc('x1_criar', { alvo: alvo.id, p_tipo: tipo, p_duracao: dur, p_prenda: t.querySelector('#x1Prenda').value.trim(), p_mostrar: mostrar, p_inicio: x1ISO(ini) });
             b.disabled = false;
             if (error) { toast(msgErro(error), 'err'); return; }
             vibrar([10, 40, 14]);
             x1FecharTela('x1Criar');
-            toast(`Desafio enviado! ${nome} tem 48 h pra aceitar.`, 'ok');
+            toast(`Desafio enviado! ${nome} pode aceitar até ${x1DiaTxt(datasAtual().aceite)} às 12h.`, 'ok');
             if (state.view === 'desafio') hydrateX1Lista();
         }
     });
@@ -20512,6 +20663,7 @@ async function abrirCriarX1(alvo, base = {}) {
 // ---------- Lista "Seus X1" (topo da aba Desafios) ----------
 async function hydrateX1Lista(pronta = null, hub = false) {
     const slot = document.getElementById('x1Slot'); if (!slot) return;
+    hub = hub || !!document.getElementById('x1FimSlot'); // recarregar no hub não pode duplicar os terminados
     let lista = pronta;
     if (!lista) {
         const { data, error } = await sb.rpc('x1_lista');
@@ -20541,15 +20693,15 @@ async function hydrateX1Lista(pronta = null, hub = false) {
     const vazio = !ativos.length && !convites.length && !enviados.length && !fim.length;
     const terminadosHTML = `${fim.length ? `<div class="x1-sec x1-sec-l">TERMINADOS</div>${fim.map(x => { const { ele, euPts, elePts } = x1Lados(x); const ganhei = x.vencedor === (x.sou_criador ? x.criador.id : x.rival.id); const emp = !x.vencedor; const espera = x1RevancheEm(x);
             return `<button class="x1-card x1-fim" data-x1l="abrir" data-id="${x.id}"><span class="x1-res ${ganhei ? 'v' : emp ? 'e' : 'd'}">${ganhei ? 'Venceu' : emp ? 'Empate' : 'Perdeu'}</span>
-            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span>${ganhei ? '' : espera ? `<span class="x1-pill cinza espera">Revanche em ${espera}d</span>` : `<span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span>`}</button>`; }).join('')}` : ''}
+            <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span>${ganhei ? '' : espera ? `<span class="x1-pill cinza espera">Revanche a partir de ${x1RevancheData(x)}</span>` : `<span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span>`}</button>`; }).join('')}` : ''}
         ${!vazio ? '<button class="x1-hist-link" data-x1l="historico">Ver histórico de X1</button>' : ''}`;
     slot.innerHTML = `<div class="x1-lista${hub ? ' hub' : ''}">
         <div class="x1-cab">${hub ? '<span class="x1-sec x1-sec-cab">X1</span>' : '<h2>Seus X1</h2>'}${ativos.length >= 2 ? `<span class="x1-cont">${ativos.length} de 5 ativos</span>` : ''}</div>
         ${convites.map(x => { const { ele } = x1Lados(x); const tp = X1_TIPOS[x.tipo]; return `<button class="x1-card x1-convite" data-x1l="abrir" data-id="${x.id}">
-            ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>${escapeHTML(ele.nome)} te desafiou</b><small>${tp.nome} · ${X1_DUR[x.duracao]} · ${x1Expira(x.expira)}</small></span><span class="x1-pill">Ver</span></button>`; }).join('')}
+            ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>${escapeHTML(ele.nome)} te desafiou</b><small>${tp.nome} · ${X1_DUR[x.duracao]}${x.agendado_inicio ? ' · começa ' + x1DM(x1DiaLocal(x.agendado_inicio)) : ''} · ${x1Expira(x.expira)}</small></span><span class="x1-pill">Ver</span></button>`; }).join('')}
         ${ativos.map(card).join('')}
         ${enviados.map(x => { const { ele } = x1Lados(x); return `<button class="x1-card x1-enviado" data-x1l="abrir" data-id="${x.id}">
-            ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>Esperando aceitar · ${x1Expira(x.expira)}</small></span></button>`; }).join('')}
+            ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>Esperando aceitar${x.agendado_inicio ? ' · começa ' + x1DM(x1DiaLocal(x.agendado_inicio)) : ''} · ${x1Expira(x.expira)}</small></span></button>`; }).join('')}
         ${!vazio ? '<button class="x1-desafiar" data-act="x1-escolher">⚡ Desafiar alguém</button>' : ''}
         ${vazio ? `<div class="x1-vazio" data-act="x1-escolher"><span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X(IC_X1.raio)}</span><div><b>Desafie um amigo</b><small>Toque aqui e escolha alguém que você segue. Vale treino, km, minutos, pontos ou o dia perfeito.</small></div></div>` : ''}
         ${hub && document.getElementById('x1FimSlot') ? '' : terminadosHTML}
@@ -20609,33 +20761,47 @@ async function abrirX1(id) {
 function abrirConviteX1(x) {
     const { eu, ele } = x1Lados(x);
     const tp = X1_TIPOS[x.tipo];
+    const dt = x1Datas(x);
+    const cedo = new Date().getHours() < 12;
     let mostrar = true;
+    const hora = d => `${String(d.getHours()).padStart(2, '0')}h`;
     const { f, fechar } = x1Folha(`
-        <div class="x1-cv-topo">${x1Av(ele, 'g')}<span class="x1-raio">${SVG_X(IC_X1.raio)}</span>${x1Av(eu, 'g')}</div>
-        <h2 class="x1-cv-h">${escapeHTML(ele.nome)} te desafiou!</h2>
-        <p class="x1-cv-s">Desafio X1 · ${new Date().getHours() < 12 ? 'começa assim que você aceitar' : 'se aceitar agora, começa amanhã às 00h'}</p>
+        <div class="x1-cv-topo">${x1Av(ele, 'g')}<span class="x1-raio">⚔️</span>${x1Av(eu, 'g')}</div>
+        <h2 class="x1-cv-h">${escapeHTML(x1PrimeiroNome(ele.nome))} te desafiou pro X1!</h2>
+        <p class="x1-cv-s">${dt ? `Começa ${x1DiaTxt(dt.ini)} às 00h` : cedo ? 'Começa assim que você aceitar' : 'Se aceitar agora, começa amanhã às 00h'}</p>
         <div class="x1-regras">
             <div class="x1-rgl"><span>Vale</span><b><span class="x1-mini-ic" style="--c:${tp.c}">${SVG_X(tp.ic)}</span>${tp.nome}</b><button class="x1-info" data-x1c="regras" aria-label="Regras">${SVG_X(IC_X1.info)}</button></div>
             <div class="x1-rgl"><span>Duração</span><b>${X1_DUR[x.duracao]}</b></div>
+            ${dt ? `<div class="x1-rgl"><span>Começa</span><b>${x1DiaTxt(dt.ini)} · 00h</b></div>
+            <div class="x1-rgl"><span>Termina</span><b>${x1DiaTxt(dt.ult)} · 23h59</b></div>
+            ${dt.aceite ? `<div class="x1-rgl"><span>Aceite até</span><b>${x1DiaTxt(dt.aceite)} · ${hora(dt.aceite)}</b></div>` : ''}` : ''}
             ${x.prenda ? `<div class="x1-rgl"><span>Prenda</span><b>${escapeHTML(x.prenda)}</b></div>` : ''}
         </div>
         <button type="button" class="x1-sw" data-x1c="mostrar"><span><b>Mostrar o resultado pros seguidores</b><small>Só aparece se os dois deixarem</small></span><i class="x1-tg on" id="x1CvTg"></i></button>
-        <div class="x1-duas"><button class="btn x1-btn ghost" data-x1c="recusar">Recusar</button><button class="btn x1-btn" data-x1c="aceitar">Aceitar desafio</button></div>`, 'x1Convite');
-    f.addEventListener('click', async e => {
+        <div class="x1-duas"><button class="btn x1-btn ghost" data-x1c="recusar">Recusar</button><button class="btn x1-btn min" data-x1c="aceitar">Aceitar o desafio ⚔️</button></div>`, 'x1Convite');
+    // antes de aceitar, mostra as regras com as datas reais
+    const datasRegra = dt || (() => { const ini = x1SomaDias(new Date(), cedo ? 0 : 1); const n = Number(x.duracao) || 7; return { ini, ult: x1SomaDias(ini, n - 1) }; })();
+    const responder = async (aceitar, b, depois) => {
+        if (b.disabled) return; b.disabled = true;
+        const { error } = await sb.rpc('x1_responder', { xid: x.id, aceitar, p_mostrar: mostrar });
+        b.disabled = false;
+        if (error) { toast(msgErro(error), 'err'); return; }
+        if (depois) depois();
+        fechar();
+        if (aceitar) {
+            vibrar([10, 40, 14]);
+            toast(dt ? `Aceito! Começa ${x1DiaTxt(dt.ini)} às 00h 💪` : cedo ? 'Valendo! Boa sorte 💪' : 'Aceito! Começa amanhã às 00h 💪', 'ok');
+            setTimeout(() => abrirX1(x.id), 250);
+        } else toast('Desafio recusado', 'ok');
+        if (state.view === 'desafio') hydrateX1Lista();
+    };
+    f.addEventListener('click', e => {
         const b = e.target.closest('[data-x1c]'); if (!b) return;
         const a = b.dataset.x1c;
-        if (a === 'regras') abrirRegrasX1(x.tipo, x.duracao);
+        if (a === 'regras') abrirRegrasX1(x.tipo, x.duracao, datasRegra);
         else if (a === 'mostrar') { mostrar = !mostrar; f.querySelector('#x1CvTg').classList.toggle('on', mostrar); vibrar(6); }
-        else if (a === 'recusar' || a === 'aceitar') {
-            if (b.disabled) return; b.disabled = true;
-            const { error } = await sb.rpc('x1_responder', { xid: x.id, aceitar: a === 'aceitar', p_mostrar: mostrar });
-            b.disabled = false;
-            if (error) { toast(msgErro(error), 'err'); return; }
-            fechar();
-            if (a === 'aceitar') { vibrar([10, 40, 14]); toast(new Date().getHours() < 12 ? 'Valendo! Boa sorte 💪' : 'Aceito! Começa amanhã às 00h 💪', 'ok'); setTimeout(() => abrirX1(x.id), 250); }
-            else toast('Desafio recusado', 'ok');
-            if (state.view === 'desafio') hydrateX1Lista();
-        }
+        else if (a === 'recusar') responder(false, b);
+        else if (a === 'aceitar') abrirRegrasX1(x.tipo, x.duracao, datasRegra, (bt, fecharRegras) => responder(true, bt, fecharRegras));
     });
 }
 
@@ -20700,7 +20866,7 @@ function abrirPlacarX1(x) {
                 <p>${tp.nome} · ${X1_DUR[x.duracao]}${x.desistiu ? ` · ${x.desistiu === eu.id ? 'você desistiu' : escapeHTML(ele.nome) + ' desistiu'}` : ''}</p>
                 <div class="x1-pt">${x1Num(euPts)}<em>x</em>${x1Num(elePts)}</div>
                 ${x.prenda && !empate ? `<div class="x1-prenda">${ganhei ? `${escapeHTML(ele.nome)} te deve: ` : 'Você deve: '}${escapeHTML(x.prenda.replace(/^quem perder\s*/i, ''))}</div>` : ''}
-                ${ganhei ? '<button class="btn x1-btn" data-x1p="story">Postar no story</button>' : `<div class="x1-duas">${x1RevancheEm(x) ? `<button class="btn x1-btn ghost" disabled>Revanche em ${x1RevancheEm(x)} ${x1RevancheEm(x) === 1 ? 'dia' : 'dias'}</button>` : '<button class="btn x1-btn ghost" data-x1p="revanche">Revanche</button>'}<button class="btn x1-btn" data-x1p="story">Postar no story</button></div>`}
+                ${ganhei ? '<button class="btn x1-btn min" data-x1p="story">Postar no story</button>' : `<div class="x1-duas">${x1RevancheEm(x) ? `<button class="btn x1-btn ghost" disabled>Revanche a partir de ${x1RevancheData(x)}</button>` : '<button class="btn x1-btn ghost" data-x1p="revanche">Revanche</button>'}<button class="btn x1-btn min" data-x1p="story">Postar no story</button></div>`}
             </div>` : `<div class="x1-hero">
                 <div class="x1-tipo">${pendente ? '<i class="esp"></i>ESPERANDO ACEITAR' : antes ? '<i class="esp"></i>COMEÇA EM BREVE' : '<i></i>AO VIVO'} · ${tp.nome.toUpperCase()}</div>
                 <div class="x1-vs">
@@ -20709,7 +20875,7 @@ function abrirPlacarX1(x) {
                     <div class="x1-pl dele${lider === 'ele' ? ' lider' : ''}">${x1Av(ele, 'g')}<b>${escapeHTML(ele.nome)}</b><small>${lider === 'ele' ? 'LIDERANDO' : ''}</small></div>
                 </div>
                 <div class="x1-cabo"><i style="flex:${tot ? euPts : 1}"></i><u style="flex:${tot ? elePts : 1}"></u></div>
-                <div class="x1-rest"><span>${pendente ? 'Começa quando aceitar' : antes ? x1ComecaEm(x.inicio) : `Dia ${idxHoje + 1} de ${nDias}`}</span><span>${pendente ? 'Convite ' + x1Expira(new Date(new Date(x.criado_em).getTime() + 48 * 3600000)) : antes ? `${nDias} ${nDias === 1 ? 'dia inteiro' : 'dias inteiros'}` : x1Restante(x.fim)}</span></div>
+                <div class="x1-rest"><span>${pendente ? (x.agendado_inicio ? `Começa ${x1DiaTxt(x1DiaLocal(x.agendado_inicio))} às 00h` : 'Começa quando aceitar') : antes ? x1ComecaEm(x.inicio) : `Dia ${idxHoje + 1} de ${nDias}`}</span><span>${pendente ? 'Convite ' + x1Expira(x.expira || new Date(new Date(x.criado_em).getTime() + 48 * 3600000)) : antes ? `${nDias} ${nDias === 1 ? 'dia inteiro' : 'dias inteiros'}` : x1Restante(x.fim)}</span></div>
             </div>
             ${x.prenda ? `<div class="x1-prenda">${escapeHTML(x.prenda)}</div>` : ''}
             ${!pendente && !antes && elePts > euPts ? '<button class="x1-virar" data-x1p="virar">✦ Como virar?<small>A IA olha o placar e o que falta hoje</small></button>' : ''}`}
@@ -20734,12 +20900,12 @@ function abrirPlacarX1(x) {
         ${cta ? `<div class="x1-rodape">${cta}</div>` : ''}`);
     if (cta) t.classList.add('com-rodape');
     // primeira vez: as regras abrem sozinhas
-    if (!fim && !pendente && !lsGet('pulso-x1-regras')) { lsSet('pulso-x1-regras', '1'); setTimeout(() => abrirRegrasX1(x.tipo, x.duracao), 450); }
+    if (!fim && !pendente && !lsGet('pulso-x1-regras')) { lsSet('pulso-x1-regras', '1'); setTimeout(() => abrirRegrasX1(x.tipo, x.duracao, x1Datas(x)), 450); }
     t.addEventListener('click', async e => {
         const b = e.target.closest('[data-x1p]'); if (!b) return;
         const a = b.dataset.x1p;
         if (a === 'voltar') { x1FecharTela('x1Placar'); if (state.view === 'desafio') hydrateX1Lista(); }
-        else if (a === 'regras') abrirRegrasX1(x.tipo, x.duracao);
+        else if (a === 'regras') abrirRegrasX1(x.tipo, x.duracao, x1Datas(x));
         else if (a === 'virar') comoVirarX1(x);
         else if (a === 'menu') {
             const { f, fechar } = x1Folha(`<button class="x1-op perigo" data-x1m="desistir">Desistir do X1</button><button class="x1-op" data-x1f="fechar">Cancelar</button>`, 'x1Menu');
@@ -20763,7 +20929,8 @@ function abrirPlacarX1(x) {
         else if (a === 'revanche') { x1FecharTela('x1Placar'); abrirCriarX1(ele, { tipo: x.tipo, duracao: x.duracao, prenda: x.prenda }); }
         else if (a === 'story') {
             x1FecharTela('x1Placar');
-            abrirEditorComCard({ card: { tipo: 'x1', modalidade: tp.nome, eu: eu.nome, ele: ele.nome, a: euPts, b: elePts, venci: ganhei, empate } });
+            abrirEditorComCard({ card: { tipo: 'x1', modalidade: tp.nome, eu: eu.nome, ele: ele.nome, a: euPts, b: elePts, venci: ganhei, empate,
+                idEu: eu.id, idEle: ele.id, avEu: eu.avatar || '', avEle: ele.avatar || '' } });
         }
     });
 }
