@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261260';
+const APP_VERSAO = '20261261';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -3062,10 +3062,10 @@ async function checkDailyReminder() {
         }
         // Meta da semana em risco? Isso vem antes dos outros avisos da tarde
         if (!corpo && janela === 'tarde' && !treinos) {
-            const { data: diasSem } = await sb.rpc('count_days_current_week', { uid });
+            const { data: diasSem } = await diasTreinoSemana(uid);
             const meta = state.profile.weekly_goal || 3;
             const feitos = Number(diasSem || 0);
-            const restam = 7 - ((new Date().getDay() + 6) % 7); // dias até domingo, contando hoje
+            const restam = 7 - new Date().getDay(); // dias até sábado, contando hoje
             const nomeDia = new Date().toLocaleDateString('pt-BR', { weekday: 'long' });
             if (feitos < meta && meta - feitos >= restam - 1) {
                 const dia = nomeDia.charAt(0).toUpperCase() + nomeDia.slice(1);
@@ -5358,7 +5358,7 @@ async function refreshWeeklyPill() {
     const uid = state.session && state.session.user && state.session.user.id;
     if (!uid) return;
     const [{ data: days }, { data: st }] = await Promise.all([
-        sb.rpc('count_days_current_week', { uid }),
+        diasTreinoSemana(uid),
         sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle(),
     ]);
     const goal = (state.profile && state.profile.weekly_goal) || 3;
@@ -6248,12 +6248,12 @@ async function checarQuedaCoach() {
         ]);
         if (!ultimo || !ultimo.length) return; // conta nova, sem histórico: não é queda
         const diasSem = Math.floor((Date.now() - new Date(ultimo[0].created_at)) / 86400000);
-        const seg = segundaDe(); seg.setHours(0, 0, 0, 0);
+        const seg = inicioSemana(); seg.setHours(0, 0, 0, 0);
         const estaSemana = (treinos || []).filter(t => new Date(t.created_at) >= seg).length;
         const anteriores = (treinos || []).filter(t => new Date(t.created_at) < seg).length;
         const mediaSemanal = anteriores / 3;
-        const diaDaSemana = (new Date().getDay() + 6) % 7; // 0 = segunda
-        const caiuTreinos = diaDaSemana >= 4 && mediaSemanal >= 2 && estaSemana < mediaSemanal / 2;
+        const diaDaSemana = new Date().getDay(); // 0 = domingo
+        const caiuTreinos = diaDaSemana >= 5 && mediaSemanal >= 2 && estaSemana < mediaSemanal / 2;
         // ofensiva de 7+ dias que caiu
         const chaveOf = 'pulso-ofensiva-vista-' + uid;
         const ofAntes = Number(lsGet(chaveOf) || 0);
@@ -7292,10 +7292,18 @@ function treinoDoDiaHTML(t, feitoHoje) {
 }
 
 // ---------- Plano da semana ----------
-function segundaDe(d = new Date()) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+// a semana do app vai de domingo a sábado
+// dias com treino na semana atual (domingo a sábado). Se o banco ainda não tiver a função nova, usa a antiga
+async function diasTreinoSemana(uid) {
+    const r = await sb.rpc('dias_treino_semana', { uid });
+    return r.error ? sb.rpc('count_days_current_week', { uid }) : r;
+}
+function inicioSemana(d = new Date()) { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return x; }
 async function obterPlanoSemana(forcar = false) {
-    const seg = isoDe(segundaDe());
-    const salvo = await iaGuardado('plano', seg);
+    const seg = isoDe(inicioSemana());
+    let salvo = await iaGuardado('plano', seg);
+    // plano antigo (semana de segunda a domingo) ainda vale nesta semana de transição
+    if (!salvo && !forcar) salvo = await iaGuardado('plano', isoDe(new Date(inicioSemana().getTime() + 86400000)));
     if (salvo && !forcar) return salvo;
     const p = state.profile;
     const l = await calcularLacunas();
@@ -7309,7 +7317,7 @@ async function obterPlanoSemana(forcar = false) {
             treinaDomingo = doms.size >= 5; // 5 dos últimos 8 domingos
         } catch (_) {}
     }
-    const prompt = `Você é o coach do app Pulso. Monte o plano DESTA semana (segunda a domingo) pra esta pessoa.
+    const prompt = `Você é o coach do app Pulso. Monte o plano DESTA semana (domingo a sábado) pra esta pessoa.
 
 PERFIL:
 ${perfilTreinoTexto(p)}
@@ -7326,18 +7334,19 @@ ${treinaDomingo ? '' : '- DOMINGO É DESCANSO: não marque treino no domingo (a 
 ${REGRAS_SEGURAS}
 
 Formato do JSON:
-{"resumo": "uma frase sobre o foco da semana", "dias": [{"dia": "segunda", "foco": "ex: Corrida leve 30 min ou Descanso", "minutos": número ou 0, "treino": true ou false}]} com os 7 dias, de segunda a domingo.`;
+{"resumo": "uma frase sobre o foco da semana", "dias": [{"dia": "domingo", "foco": "ex: Corrida leve 30 min ou Descanso", "minutos": número ou 0, "treino": true ou false}]} com os 7 dias, de domingo a sábado.`;
     const plano = await iaJSON(prompt);
     if (!treinaDomingo && plano && Array.isArray(plano.dias)) {
         plano.dias.forEach(d => { if (/^dom/i.test(String(d.dia || ''))) { d.treino = false; d.minutos = 0; d.foco = 'Descanso'; } });
     }
+    if (plano) plano.ordem = 'dom';
     await iaGuardar('plano', seg, plano);
     return plano;
 }
 // ---------- Carta da semana ----------
 async function obterCartaSemana() {
     const hoje = new Date();
-    const alvo = hoje.getDay() === 0 ? segundaDe(hoje) : segundaDe(new Date(Date.now() - 7 * 86400000));
+    const alvo = inicioSemana(new Date(hoje.getTime() - 7 * 86400000)); // a semana (domingo a sábado) que já fechou
     const chave = isoDe(alvo);
     const salva = await iaGuardado('carta', chave);
     if (salva) return { ...salva, semana: chave };
@@ -7385,7 +7394,7 @@ function cartaHTML(carta, anteriores) {
 async function obterAlertaQueda(l) {
     const caiu = (l.mediaAntes >= 1.5 && l.recente < l.mediaAntes * 0.5) || (l.diasSemRegistro != null && l.diasSemRegistro >= 4 && l.mediaAntes >= 1);
     if (!caiu) return null;
-    const seg = isoDe(segundaDe());
+    const seg = isoDe(inicioSemana());
     const salvo = await iaGuardado('alerta', seg);
     if (salvo) return salvo;
     const a = await iaJSON(`Você é o coach do app Pulso. Esta pessoa diminuiu bastante o ritmo.
@@ -7402,7 +7411,7 @@ Formato do JSON: {"mensagem": "2 frases no máximo", "passo": "o passo pequeno, 
 // ---------- Meta da semana que evolui (3 semanas seguidas pra cima ou pra baixo) ----------
 function sugestaoMetaHTML(series) {
     const meta = state.profile.weekly_goal || 3;
-    const segAtual = isoDe(segundaDe());
+    const segAtual = isoDe(inicioSemana());
     const fechadas = series.filter(r => String(r.week_start).slice(0, 10) < segAtual).slice(-3);
     if (fechadas.length < 3) return '';
     const dias = fechadas.map(r => Number(r.days_trained || 0));
@@ -7427,7 +7436,7 @@ function sugestaoMetaHTML(series) {
 function semanaStripHTML() {
     const d = state.semanaStrip;
     if (!d) return '';
-    const letras = 'STQQSSD';
+    const letras = 'DSTQQSS';
     const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg>';
     return `<div class="chart-card sem-strip" data-act="evo-aba" data-aba="resumo">
         <div class="ss-topo"><span class="ss-rot">Sua semana</span><span class="ss-n"><b>${d.feitos}</b> de ${d.meta} treinos</span></div>
@@ -7462,10 +7471,10 @@ async function hydrateIAEvolucao() {
             .eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', ini0.toISOString());
         state.treinosHoje = treinosHoje || [];
         if (state.treinosHoje.length) l.treinouHoje = true;
-        const seg = segundaDe();
+        const seg = inicioSemana();
         const { data: semTreinos } = await sb.from('posts').select('created_at').eq('user_id', state.session.user.id)
             .eq('kind', 'workout').gte('created_at', new Date(seg.getTime() - 12 * 3600000).toISOString());
-        const diasFeitos = new Set((semTreinos || []).map(x => (new Date(x.created_at).getDay() + 6) % 7));
+        const diasFeitos = new Set((semTreinos || []).map(x => new Date(x.created_at).getDay()));
         const [treino, plano, alerta, carta, { data: antigas }] = await Promise.all([
             obterTreinoDoDia().catch(e => { console.warn('treino do dia', e); return null; }),
             obterPlanoSemana().catch(e => { console.warn('plano', e); return null; }),
@@ -7492,7 +7501,7 @@ async function hydrateIAEvolucao() {
 
 // ---------- Previsão da semana (no anel) ----------
 function previsaoSemanaTexto(dias, meta, mediaSemanal) {
-    const idx = (new Date().getDay() + 6) % 7; // 0 = segunda
+    const idx = new Date().getDay(); // 0 = domingo
     if (idx < 2 || dias >= meta) return '';
     const restam = 6 - idx; // dias depois de hoje
     const ritmoDia = Math.max(dias / (idx + 1), (mediaSemanal || 0) / 7);
@@ -7704,49 +7713,86 @@ function montarEvolucao(d) {
         ${cenariosHTML}
     </div>`;
 
-    // ---- dias treinados por semana (no período) ----
-    const semanasPer = (d.aSeries || []).filter(r => +new Date(r.week_start + 'T12:00:00') >= desde - 6 * DIA_MS);
-    const actBars = semanasPer.slice(-12).map(r => {
-        const dd = new Date(r.week_start + 'T12:00:00');
-        return { label: dd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), value: r.days_trained, tip: `Semana de ${dd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}: ${r.days_trained} dias, ${r.total_min || 0} min` };
-    });
-    const atividadeHTML = nDias >= 14 ? `<div class="chart-card">
-        <div class="chart-head"><span class="chart-title">Dias treinados por semana</span><span class="chart-legend">meta: ${d.weeklyGoal}</span></div>
-        ${barChart(actBars, { goal: d.weeklyGoal, vazio: { msg: 'Nenhum treino nesse período ainda.', act: 'quick-kind', extra: ' data-kind="workout"', label: 'Registrar treino' } })}
+    // ---- Treinos: números do período ----
+    const fmtH = m => m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}`;
+    const kmDe = l => l.reduce((t, p) => t + Number(p.distance_km || 0), 0);
+    const nomePer = per[2] ? `Últimos ${per[1]}` : 'Desde o começo';
+    const difT = tIn.length - tAnt.length;
+    const treinosTopoHTML = tIn.length ? `<div class="chart-card tz-topo">
+        <span class="tz-rot">${nomePer}</span>
+        <div class="tz-hero">
+            <div><b>${tIn.length}</b><span>${tIn.length === 1 ? 'treino' : 'treinos'}</span></div>
+            <div><b>${mins >= 60 ? `${Math.floor(mins / 60)}h<small>${mins % 60 ? String(mins % 60).padStart(2, '0') : ''}</small>` : `${mins}<small> min</small>`}</b><span>treinando</span></div>
+            <div><b>${num1(kmDe(tIn))}<small> km</small></b><span>de cardio</span></div>
+        </div>
+        ${temAnterior ? `<p class="tz-cmp">${difT === 0 ? 'Igual ao período anterior' : `<em class="${difT > 0 ? 'sobe' : 'desce'}">${difT > 0 ? '+' : '−'}${Math.abs(difT)} ${Math.abs(difT) === 1 ? 'treino' : 'treinos'}</em> ${difT > 0 ? 'a mais' : 'a menos'} que no período anterior`}</p>` : ''}
     </div>` : '';
 
-    // ---- treinos por tipo ----
+    // ---- constância: cada semana (domingo a sábado) numa linha ----
+    const metaSem = d.weeklyGoal || 3;
+    const hoje0c = new Date(); hoje0c.setHours(0, 0, 0, 0);
+    const diasComTreino = new Set(treinos.map(p => diaChave(p.created_at)));
+    const semIni = dt => { const x = new Date(dt); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return x; };
+    const primeiraSem = semIni(new Date(Math.max(desde, inicioHist)));
+    const semanasC = [];
+    for (let w = semIni(hoje0c); w >= primeiraSem && semanasC.length < 8; w = new Date(w.getFullYear(), w.getMonth(), w.getDate() - 7)) semanasC.unshift(new Date(w));
+    const contaDia = [0, 0, 0, 0, 0, 0, 0];
+    tIn.forEach(p => { contaDia[new Date(p.created_at).getDay()]++; });
+    let fechadas = 0, bateu = 0;
+    const linhasC = semanasC.map(w => {
+        let n = 0;
+        const cel = [...Array(7)].map((_, k) => {
+            const dia = new Date(w.getFullYear(), w.getMonth(), w.getDate() + k);
+            if (dia > hoje0c) return '<i class="tz-q fut"></i>';
+            const ok = diasComTreino.has(diaChave(dia)); if (ok) n++;
+            return `<i class="tz-q${ok ? ' t' : ''}${+dia === +hoje0c ? ' hj' : ''}"></i>`;
+        }).join('');
+        const atual = +w === +semIni(hoje0c);
+        if (!atual) { fechadas++; if (n >= metaSem) bateu++; }
+        return `<div class="tz-sem"><span>${w.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>${cel}<b class="${n >= metaSem ? 'ok' : ''}">${n}</b></div>`;
+    }).join('');
+    const NOME_DIA_LONGO = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+    const maxDia = Math.max(...contaDia), diaForte = contaDia.indexOf(maxDia);
+    const forteTxt = maxDia >= 2 && contaDia.filter(x => x === maxDia).length === 1 ? ` ${NOME_DIA_LONGO[diaForte].replace(/^./, c => c.toUpperCase())} é o seu dia mais forte.` : '';
+    const constanciaHTML = semanasC.length && treinos.length ? `<div class="chart-card tz-const">
+        <div class="tz-cab"><span class="tz-rot">Constância</span><span class="tz-meta">meta: ${metaSem} por semana</span></div>
+        <div class="tz-sem tz-sem-h"><span></span>${'DSTQQSS'.split('').map(l => `<em>${l}</em>`).join('')}<b></b></div>
+        ${linhasC}
+        <p class="tz-nota">${fechadas ? `Bateu a meta em <b>${bateu} de ${fechadas} ${fechadas === 1 ? 'semana' : 'semanas'}</b>.` : 'Sua primeira semana está em andamento.'}${forteTxt}</p>
+    </div>` : '';
+    const atividadeHTML = constanciaHTML;
+
+    // ---- onde vai seu tempo (por tipo) ----
     const porTipo = {};
     tIn.forEach(p => { const k = p.activity_type || 'Outro'; porTipo[k] = (porTipo[k] || 0) + (p.duration_min || 0); });
-    const tipos = Object.entries(porTipo).sort((a, b) => b[1] - a[1]);
-    const maxTipo = tipos.length ? tipos[0][1] : 1;
-    const tiposHTML = tipos.length ? `<div class="chart-card">
-        <div class="chart-head"><span class="chart-title">Seus treinos por tipo</span><span class="chart-legend">em minutos</span></div>
-        <div class="hbars">${tipos.map(([t, m]) => `<div class="hbar tip-hit" data-tip="${escapeHTML(t)}: ${m} min em ${tIn.filter(p => (p.activity_type || 'Outro') === t).length} treinos">
-            <span class="hbar-nome">${escapeHTML(t)}</span>
-            <span class="hbar-trilho"><i style="width:${Math.max(4, Math.round(m / maxTipo * 100))}%"></i></span>
-            <span class="hbar-val">${m}</span>
-        </div>`).join('')}</div>
+    const tipos = Object.entries(porTipo).filter(([, m]) => m > 0).sort((a, b) => b[1] - a[1]);
+    const CORES_TIPO = ['#10B981', '#60A5FA', '#A78BFA', '#FBBF24', '#F472B6', '#F97316'];
+    const totTipo = tipos.reduce((t, [, m]) => t + m, 0) || 1;
+    const tiposTop = tipos.length > 6 ? [...tipos.slice(0, 5), ['Outros', tipos.slice(5).reduce((t, [, m]) => t + m, 0)]] : tipos;
+    const tiposHTML = tiposTop.length ? `<div class="chart-card tz-tipos">
+        <span class="tz-rot">Onde vai seu tempo</span>
+        <div class="tz-stack">${tiposTop.map(([, m], k) => `<i style="flex:${m};background:${CORES_TIPO[k]}"></i>`).join('')}</div>
+        <div class="tz-leg">${tiposTop.map(([t, m], k) => `<div><i style="background:${CORES_TIPO[k]}"></i><span>${escapeHTML(t)}</span><b>${fmtH(m)}</b><small>${Math.round(m / totTipo * 100)}%</small></div>`).join('')}</div>
     </div>` : '';
 
     // ---- cardio ----
     const cardios = tIn.filter(p => Number(p.distance_km) > 0);
     let cardioHTML = '';
     if (cardios.length) {
-        const km = cardios.reduce((t, p) => t + Number(p.distance_km), 0);
+        const km = kmDe(cardios);
         const corridas = cardios.filter(p => p.activity_type === 'Corrida' && p.duration_min);
         const paceMin = corridas.map(p => ({ x: new Date(p.created_at), y: p.duration_min / Number(p.distance_km) }));
         const melhor = paceMin.length ? Math.min(...paceMin.map(p => p.y)) : null;
         const fmtPace = v => `${Math.floor(v)}'${String(Math.round((v % 1) * 60)).padStart(2, '0')}"`;
         const maior = Math.max(...cardios.map(p => Number(p.distance_km)));
-        cardioHTML = `<div class="chart-card">
-            <div class="chart-head"><span class="chart-title">Cardio</span><span class="chart-legend">${cardios.length} ${cardios.length === 1 ? 'treino' : 'treinos'} com distância</span></div>
-            <div class="mini-stats">
+        cardioHTML = `<div class="chart-card tz-cardio">
+            <span class="tz-rot">Cardio</span>
+            <div class="tz-mini">
                 <div><b>${num1(km)} km</b><span>no período</span></div>
                 <div><b>${num1(maior)} km</b><span>mais longo</span></div>
-                ${melhor ? `<div><b>${fmtPace(melhor)}</b><span>melhor ritmo /km</span></div>` : ''}
+                ${melhor ? `<div><b>${fmtPace(melhor)}</b><span>melhor ritmo</span></div>` : `<div><b>${cardios.length}</b><span>${cardios.length === 1 ? 'treino' : 'treinos'}</span></div>`}
             </div>
-            ${paceMin.length >= 2 ? `<div class="chart-sub">Ritmo da corrida (min/km, quanto menor melhor)</div>${lineChart(paceMin, { id: 'pace', unit: 'min/km', decimals: 1 })}` : ''}
+            ${paceMin.length >= 3 ? `<div class="chart-sub">Ritmo da corrida (min/km, quanto menor melhor)</div>${lineChart(paceMin, { id: 'pace', unit: 'min/km', decimals: 1 })}` : ''}
         </div>`;
     }
 
@@ -7757,7 +7803,7 @@ function montarEvolucao(d) {
     const refeicoes = (d.meusPosts || []).filter(p => p.kind === 'meal' && p.meal_score != null && noPer(+new Date(p.created_at)));
     let refeicoesHTML = '';
     if (refeicoes.length >= 3) {
-        const semanaDe = t => { const x = new Date(t); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return +x; };
+        const semanaDe = t => { const x = new Date(t); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return +x; };
         const porSem = {};
         refeicoes.forEach(p => { const k = semanaDe(p.created_at); (porSem[k] = porSem[k] || []).push(Number(p.meal_score)); });
         const linha = Object.entries(porSem).sort((a, b) => a[0] - b[0]).map(([k, v]) => ({ x: new Date(Number(k)), y: v.reduce((a, b) => a + b, 0) / v.length }));
@@ -7773,12 +7819,14 @@ function montarEvolucao(d) {
         </div>`;
     }
 
-    // ---- pontos por semana ----
-    const ptsBars = (d.pSeries || []).filter(r => +new Date(r.week_start + 'T12:00:00') >= desde - 6 * DIA_MS).slice(-12).map(r => {
-        const dd = new Date(r.week_start + 'T12:00:00');
-        return { label: dd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), value: Math.round(Number(r.pts)) };
+    // ---- pontos por semana (domingo a sábado) ----
+    const ptsSem = {};
+    (d.ledger || []).forEach(x => { const t = new Date(x.earned_at); if (t < desde - 6 * DIA_MS) return; const w = new Date(t); w.setHours(0, 0, 0, 0); w.setDate(w.getDate() - w.getDay()); ptsSem[+w] = (ptsSem[+w] || 0) + Number(x.amount || 0); });
+    const ptsBars = Object.entries(ptsSem).sort((a, b) => a[0] - b[0]).slice(-12).map(([k, v]) => {
+        const dd = new Date(Number(k));
+        return { label: dd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), value: Math.round(v), tip: `Semana de ${dd.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}: ${Math.round(v)} pts` };
     });
-    const pontosHTML = nDias >= 14 ? `<div class="chart-card"><div class="chart-head"><span class="chart-title">Pontos por semana</span></div>${barChart(ptsBars, { unit: 'pts' })}</div>` : '';
+    const pontosHTML = nDias >= 14 && ptsBars.length ? `<div class="chart-card"><div class="chart-head"><span class="chart-title">Pontos por semana</span><span class="chart-legend">domingo a sábado</span></div>${barChart(ptsBars, { unit: 'pts' })}</div>` : '';
 
     // ---- cintura ----
     const cint = (d.mSeries || []).filter(r => r.cintura != null).map(r => ({ x: new Date(r.d + 'T12:00:00'), y: Number(r.cintura) })).filter(p => noPer(+p.x));
@@ -7787,15 +7835,18 @@ function montarEvolucao(d) {
     // ---- recordes pessoais (de todo o histórico) ----
     const rec = [];
     if (d.streak?.longest_streak) rec.push(['🔥', `${d.streak.longest_streak} dias`, 'maior ofensiva']);
-    const melhorSem = (d.aSeries || []).reduce((m, r) => (r.days_trained > (m ? m.days_trained : 0) ? r : m), null);
-    if (melhorSem && melhorSem.days_trained) rec.push(['📅', `${melhorSem.days_trained} treinos`, `melhor semana (${new Date(melhorSem.week_start + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`]);
+    // melhor semana (domingo a sábado): mais dias com treino
+    const diasPorSem = {};
+    [...diasComTreino].forEach(k => { const [a, m, dd] = k.split('-').map(Number); const w = semIni(new Date(a, m, dd)); (diasPorSem[+w] = diasPorSem[+w] || new Set()).add(k); });
+    const melhorSem = Object.entries(diasPorSem).reduce((m, [k, v]) => (v.size > (m ? m[1] : 0) ? [Number(k), v.size] : m), null);
+    if (melhorSem) rec.push(['📅', `${melhorSem[1]} ${melhorSem[1] === 1 ? 'dia' : 'dias'}`, `melhor semana (${new Date(melhorSem[0]).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`]);
     const longo = treinos.reduce((m, p) => ((p.duration_min || 0) > (m ? m.duration_min : 0) ? p : m), null);
     if (longo) rec.push(['⏱️', `${longo.duration_min} min`, `treino mais longo (${escapeHTML(longo.activity_type || 'treino')})`]);
     const dist = treinos.reduce((m, p) => (Number(p.distance_km || 0) > (m ? Number(m.distance_km) : 0) ? p : m), null);
     if (dist) rec.push(['🏃', `${num1(Number(dist.distance_km))} km`, `maior distância (${escapeHTML(dist.activity_type || '')})`]);
     const recordesHTML = `<div class="chart-card" id="recordesCard"${rec.length ? '' : ' hidden'}>
         <div class="chart-head"><span class="chart-title">Seus recordes</span><span class="chart-legend">de todos os tempos</span></div>
-        ${rec.length ? `<div class="recordes">${rec.map(([e, v, l]) => `<div class="recorde"><span class="rec-emo">${e}</span><b>${v}</b><span>${l}</span></div>`).join('')}</div>` : ''}
+        ${rec.length ? `<div class="tz-recs">${rec.map(([e, v, l]) => `<div class="tz-rec"><span>${e} ${l.replace(/^./, c => c.toUpperCase())}</span><b>${v}</b></div>`).join('')}</div>` : ''}
         <div id="recExBox"></div>
     </div>`;
 
@@ -7887,7 +7938,7 @@ function montarEvolucao(d) {
         return `<div class="chart-sub">Últimos ${barras.length} dias · meta batida em ${bateu}</div>${barChart(barras, { goal: Math.round(metaMl / 100) / 10, height: 110 })}`;
     };
 
-    return { periodosHTML, statsHTML, calendarioHTML, pesoHTML, atividadeHTML, tiposHTML, cardioHTML, musculosHTML, refeicoesHTML, pontosHTML, cinturaHTML, recordesHTML, mesHTML, aguaHistorico, aguaMediaTxt, semMedidas };
+    return { periodosHTML, statsHTML, calendarioHTML, pesoHTML, treinosTopoHTML, atividadeHTML, tiposHTML, cardioHTML, musculosHTML, refeicoesHTML, pontosHTML, cinturaHTML, recordesHTML, mesHTML, aguaHistorico, aguaMediaTxt, semMedidas };
 }
 
 // ============================================================
@@ -8271,12 +8322,12 @@ async function postarCorpoNoStory(M) {
 // ============================================================
 // RETROSPECTIVA DA SEMANA (estilo story: telas que passam sozinhas)
 // ============================================================
-// semana fechada: de segunda a domingo. No domingo, é a semana de hoje; nos outros dias, a anterior.
+// semana fechada: de domingo a sábado. No sábado, é a semana de hoje; nos outros dias, a anterior.
 function semanaRetro(base = new Date()) {
     const d = new Date(base.getFullYear(), base.getMonth(), base.getDate());
     const dow = d.getDay(); // 0 = domingo
-    const fim = new Date(d); fim.setDate(d.getDate() - (dow === 0 ? 0 : dow)); // domingo
-    const ini = new Date(fim); ini.setDate(fim.getDate() - 6); // segunda
+    const fim = new Date(d); fim.setDate(d.getDate() - (dow === 6 ? 0 : dow + 1)); // sábado
+    const ini = new Date(fim); ini.setDate(fim.getDate() - 6); // domingo
     const fimX = new Date(fim); fimX.setDate(fim.getDate() + 1);
     return { ini, fim, fimX, chave: isoDe(ini) };
 }
@@ -8340,7 +8391,7 @@ async function abrirSemana() {
     const { ints, quentes, frios } = resumoMapa(r.M);
     const h = Math.floor(r.minutos / 60), mi = r.minutos % 60;
     const tempo = h ? `${h}h${mi ? String(mi).padStart(2, '0') : ''}` : `${mi} min`;
-    const LETRAS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+    const LETRAS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
     const dif = r.treinos - r.antes;
     const nome = String((state.profile && state.profile.display_name) || '').split(' ')[0];
     const pctAgua = r.aguaMeta ? Math.min(100, Math.round(r.aguaMedia / r.aguaMeta * 100)) : 0;
@@ -8431,13 +8482,13 @@ const PRONT_PERG = [
     ['dor', '💪', 'Dor muscular?', ['Muita', 'Pouca', 'Nenhuma']],
     ['disp', '⚡', 'Disposição?', ['Baixa', 'Média', 'Alta']],
 ];
-// segunda-feira da semana atual (as perguntas valem pra semana inteira)
-const segundaISO = () => { const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return isoLocal(d); };
+// domingo da semana atual (as perguntas valem pra semana inteira)
+const inicioSemanaISO = () => { const d = new Date(); d.setDate(d.getDate() - d.getDay()); return isoLocal(d); };
 const prontidaoLigada = () => !(state.profile && state.profile.prontidao_ligada === false);
 // a de hoje (ou nada)
 function prontidaoHoje() {
     const p = state.profile && state.profile.prontidao;
-    return p && p.dia >= segundaISO() ? p : null; // a resposta vale da segunda até domingo
+    return p && p.dia >= inicioSemanaISO() ? p : null; // a resposta vale de domingo a sábado
 }
 // 0 a 6: baixa (até 2), normal, ótima (5+ e sem dor forte)
 function nivelProntidao(p) {
@@ -8458,7 +8509,7 @@ function hydrateProntidaoFeed(forcar = false, alvo = null) {
     // só na segunda, das 5h às 14h (de madrugada a pessoa nem dormiu ainda); se pular, volta na outra segunda
     if (!forcar) {
         if (!prontidaoLigada() || prontidaoHoje() || agora.getDay() !== 1 || hr < 5 || hr >= 14) { slot.innerHTML = ''; return; }
-        if (lsGet('pulso-pront-pulou') === segundaISO()) return;
+        if (lsGet('pulso-pront-pulou') === inicioSemanaISO()) return;
     }
     const resp = {};
     const pintar = () => {
@@ -8469,7 +8520,7 @@ function hydrateProntidaoFeed(forcar = false, alvo = null) {
     };
     pintar();
     slot.onclick = async e => {
-        if (e.target.closest('[data-pront-x]')) { if (!forcar) lsSet('pulso-pront-pulou', segundaISO()); slot.innerHTML = ''; if (forcar && slot.closest('.x1-folha-fundo')) slot.closest('.x1-folha-fundo').click(); return; }
+        if (e.target.closest('[data-pront-x]')) { if (!forcar) lsSet('pulso-pront-pulou', inicioSemanaISO()); slot.innerHTML = ''; if (forcar && slot.closest('.x1-folha-fundo')) slot.closest('.x1-folha-fundo').click(); return; }
         const b = e.target.closest('[data-pront]'); if (!b) return;
         resp[b.dataset.pront] = Number(b.dataset.v); vibrar(5); pintar();
         if (PRONT_PERG.every(([k]) => resp[k] != null)) {
@@ -8549,14 +8600,14 @@ async function renderProgress() {
         sb.from('sleep_logs').select('slept_on, hours').eq('user_id', uid).order('slept_on', { ascending: true }).limit(1200),
         sb.from('points_ledger').select('amount, earned_at').eq('user_id', uid).order('earned_at', { ascending: true }).limit(5000),
         aguaDeHoje().catch(() => ({})),
-        sb.rpc('count_days_current_week', { uid }).then(r => r, () => ({ data: 0 })),
+        diasTreinoSemana(uid).then(r => r, () => ({ data: 0 })),
         sb.rpc('shield_status').then(r => r, () => ({ data: null })),
     ]);
     {
-        const seg = segundaDe(); seg.setHours(0, 0, 0, 0);
+        const seg = inicioSemana(); seg.setHours(0, 0, 0, 0);
         const dias = [0, 0, 0, 0, 0, 0, 0];
-        (meusPosts || []).forEach(p => { if (p.kind === 'workout') { const t = new Date(p.created_at); if (t >= seg) dias[(t.getDay() + 6) % 7] = 1; } });
-        state.semanaStrip = { dias, hoje: (new Date().getDay() + 6) % 7, feitos: dias.reduce((a, b) => a + b, 0), meta: state.profile.weekly_goal || 3 };
+        (meusPosts || []).forEach(p => { if (p.kind === 'workout') { const t = new Date(p.created_at); if (t >= seg) dias[t.getDay()] = 1; } });
+        state.semanaStrip = { dias, hoje: new Date().getDay(), feitos: dias.reduce((a, b) => a + b, 0), meta: state.profile.weekly_goal || 3 };
     }
 
 
@@ -8657,16 +8708,17 @@ async function renderProgress() {
                 ${ev.statsHTML}
                 ${ev.calendarioHTML}
                 ${ev.mesHTML}
+                ${ev.pontosHTML}
                 <div class="chart-card" id="reportCard"></div>
             `)}
             ${abaHTML('treinos', `
                 ${ev.musculosHTML}
+                ${ev.treinosTopoHTML}
                 ${ev.atividadeHTML}
                 ${ev.tiposHTML}
                 ${ev.cardioHTML}
                 ${ev.recordesHTML}
-                ${ev.pontosHTML}
-                ${!ev.atividadeHTML && !ev.tiposHTML ? '<div class="chart-card"><div class="chart-convite"><span>Nenhum treino nesse período ainda.</span><button class="btn-mini" data-act="quick-kind" data-kind="workout">Registrar treino</button></div></div>' : ''}
+                ${!ev.treinosTopoHTML ? '<div class="chart-card"><div class="chart-convite"><span>Nenhum treino nesse período ainda.</span><button class="btn-mini" data-act="quick-kind" data-kind="workout">Registrar treino</button></div></div>' : ''}
             `)}
             ${abaHTML('corpo', ev.semMedidas ? `
                 <div class="chart-card">
@@ -8769,7 +8821,7 @@ async function renderChallenges() {
 
     const fx = mine ? faixaRanking(mine.rank, mine.total) : null;
     // Compara com a faixa da semana passada (guardada no aparelho)
-    const semKey = d => 'pulso-faixa-' + isoDe(segundaDe(d));
+    const semKey = d => 'pulso-faixa-' + isoDe(inicioSemana(d));
     let subiu = '';
     if (fx) {
         lsSet(semKey(new Date()), JSON.stringify(fx));
@@ -9422,7 +9474,7 @@ function renderObjetivos() {
 // train_week = { "1": [{a:"Musculação", g:["Peito","Tríceps"]}], "6": [{a:"Futebol"}] }  (chave = dia, 0 = domingo)
 // Começa com o que a pessoa contou e aprende com os registros (3 das últimas 4 semanas)
 // ============================================================
-const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];
+const ORDEM_SEMANA = [0, 1, 2, 3, 4, 5, 6]; // semana de domingo a sábado
 const DIA_CURTO = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const GRUPOS_TREINO = ['Peito', 'Costas', 'Ombros', 'Bíceps', 'Tríceps', 'Abdômen', 'Lombar', 'Glúteos', 'Quadríceps', 'Posterior', 'Panturrilha', 'Corpo todo'];
 const diaLocal = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
@@ -9723,15 +9775,14 @@ async function checarRevisaoObjetivo() {
 // ---- Resumo da semana (domingo e segunda) ----
 function inicioDaSemana(d = new Date()) {
     const x = new Date(d); x.setHours(0, 0, 0, 0);
-    const dia = (x.getDay() + 6) % 7; // segunda = 0
-    x.setDate(x.getDate() - dia);
+    x.setDate(x.getDate() - x.getDay()); // domingo
     return x;
 }
 async function dadosDaSemana() {
     const uid = state.session.user.id;
     const hoje = new Date();
-    // No domingo resume a semana atual; na segunda, a que acabou
-    const ini = inicioDaSemana(hoje.getDay() === 1 ? new Date(Date.now() - 86400000) : hoje);
+    // No sábado resume a semana atual; no domingo, a que acabou ontem
+    const ini = semanaDoResumo();
     const fim = new Date(ini.getTime() + 7 * 86400000);
     const iniAnt = new Date(ini.getTime() - 7 * 86400000);
     const [{ data: posts }, { data: sonos }, { data: pts }] = await Promise.all([
@@ -9784,15 +9835,15 @@ function difTxt(a, b) { const d = a - b; return d === 0 ? 'igual à semana passa
 // frases curtas, jeito jovem, fiéis ao texto bíblico
 const VERSICULOS = [["Disciplina o seu corpo.", "1Co 9:27"], ["A disciplina dói agora, mas recompensa depois.", "Hb 12:11"], ["Quem espera no Senhor renova as forças.", "Is 40:31"], ["Não desista de fazer o bem. A colheita vem.", "Gl 6:9"], ["Faça tudo de coração, como pra Deus.", "Cl 3:23"], ["Corra pra vencer.", "1Co 9:24"], ["Até Deus descansou no sétimo dia.", "Gn 2:2"], ["Seu corpo é templo do Espírito Santo.", "1Co 6:19"], ["Tudo posso naquele que me fortalece.", "Fp 4:13"], ["Seja forte e corajoso.", "Js 1:9"], ["Deus não te deu espírito de medo.", "2Tm 1:7"], ["O exercício físico tem seu valor.", "1Tm 4:8"], ["Corra com perseverança a sua corrida.", "Hb 12:1"], ["Esquece o que ficou pra trás. Avança.", "Fp 3:13"], ["O preguiçoso só deseja. O esforçado conquista.", "Pv 13:4"], ["Aprenda com a formiga.", "Pv 6:6"], ["Todo esforço traz proveito.", "Pv 14:23"], ["Ele dá força ao cansado.", "Is 40:29"], ["Correm e não se cansam.", "Is 40:31"], ["A alegria do Senhor é a sua força.", "Ne 8:10"], ["Coração alegre é bom remédio.", "Pv 17:22"], ["Em paz eu deito e durmo.", "Sl 4:8"], ["Ele dá o sono aos seus amados.", "Sl 127:2"], ["Comer e beber também é pra glória de Deus.", "1Co 10:31"], ["Tá cansado? Vem que Ele te dá descanso.", "Mt 11:28"], ["Um dia de cada vez.", "Mt 6:34"], ["Não despreze o começo pequeno.", "Zc 4:10"], ["Quem é fiel no pouco é fiel no muito.", "Lc 16:10"], ["Ele treina minhas mãos pra batalha.", "Sl 144:1"], ["Deus me reveste de força.", "Sl 18:32"], ["Cansados, mas seguindo em frente.", "Jz 8:4"], ["Quem anda com sábios fica sábio.", "Pv 13:20"], ["Ferro afia ferro.", "Pv 27:17"], ["Dois são melhores que um.", "Ec 4:9"], ["Se um cair, o outro levanta.", "Ec 4:10"], ["O justo cai sete vezes e se levanta.", "Pv 24:16"], ["Tem tempo certo pra tudo.", "Ec 3:1"], ["A misericórdia dEle se renova toda manhã.", "Lm 3:23"], ["Combati o bom combate. Terminei a corrida.", "2Tm 4:7"], ["Dominar a si mesmo vale mais que conquistar uma cidade.", "Pv 16:32"], ["Domínio próprio é fruto do Espírito.", "Gl 5:23"], ["Planejamento e esforço dão fruto.", "Pv 21:5"], ["Entregue seus planos a Deus.", "Pv 16:3"], ["Busque primeiro o Reino. O resto vem.", "Mt 6:33"], ["Não se canse de fazer o bem.", "2Ts 3:13"], ["Seja firme. Seu esforço não é em vão.", "1Co 15:58"], ["Não tenha medo. Só creia.", "Mc 5:36"], ["Ele cuida de você.", "1Pe 5:7"], ["Levanta e anda.", "Jo 5:8"], ["Você é obra-prima de Deus.", "Ef 2:10"], ["Fui feito de modo especial e admirável.", "Sl 139:14"], ["Não perca a confiança. A recompensa é grande.", "Hb 10:35"]];
 
-// Semana que o resumo mostra: sábado e domingo = semana atual; segunda = a que acabou
+// Semana que o resumo mostra (domingo a sábado): no sábado, a semana atual; no domingo, a que acabou ontem
 function semanaDoResumo() {
     const hoje = new Date();
-    return inicioDaSemana(hoje.getDay() === 1 ? new Date(Date.now() - 86400000) : hoje);
+    return inicioDaSemana(hoje.getDay() === 0 ? new Date(Date.now() - 86400000) : hoje);
 }
-// Aparece de sábado 12h até segunda 19h
+// Aparece de sábado 12h até o fim do domingo
 function janelaDoResumo() {
     const a = new Date(), d = a.getDay(), h = a.getHours();
-    return (d === 6 && h >= 12) || d === 0 || (d === 1 && h < 19);
+    return (d === 6 && h >= 12) || d === 0;
 }
 // Um versículo por semana, sorteado e guardado (o card e a imagem mostram o mesmo)
 // ---- Aniversário ----
@@ -12365,7 +12416,7 @@ async function renderProfile() {
             .order('created_at', { ascending: false })
             .limit(30)),
         pegar(sb.rpc('weight_progress', { uid: uidP })),
-        pegar(sb.rpc('count_days_current_week', { uid: uidP })),
+        pegar(diasTreinoSemana(uidP)),
         pegar(sb.rpc('my_weekly_rank')),
         carregarDestaques(uidP).catch(() => []),
         pegar(sb.from('stories').select('id').eq('user_id', uidP).gt('expires_at', new Date().toISOString())),
@@ -22171,9 +22222,18 @@ function pintarPilulaTreino() {
 // ============================================================
 function planoSemanaHTML(plano, diasFeitos) {
     if (!plano || !Array.isArray(plano.dias)) return '';
-    const hojeIdx = (new Date().getDay() + 6) % 7;
+    const hojeIdx = new Date().getDay(); // 0 = domingo
     const meta = state.profile.weekly_goal || 3;
-    const dias = plano.dias.slice(0, 7).map((d, i) => ({ ...d, i, feito: diasFeitos.has(i) }));
+    // índice = dia da semana (0 = domingo). Planos antigos vinham de segunda a domingo: arruma pelo nome do dia
+    const CHAVES = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const porDia = Array(7).fill(null);
+    plano.dias.slice(0, 7).forEach((d, i) => {
+        const nm = String(d.dia || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        let k = CHAVES.findIndex(c => nm.startsWith(c));
+        if (k < 0) k = plano.ordem === 'dom' ? i : (i + 1) % 7;
+        if (!porDia[k]) porDia[k] = d;
+    });
+    const dias = porDia.map((d, i) => ({ ...(d || { foco: 'Descanso', minutos: 0, treino: false }), i, feito: diasFeitos.has(i) }));
     const feitosTotal = [...diasFeitos].length;
     // treinos que ficaram pra trás: remarca no próximo dia livre (se a meta ainda não fechou)
     const perdidos = dias.filter(d => d.treino && d.i < hojeIdx && !d.feito);
@@ -22186,7 +22246,7 @@ function planoSemanaHTML(plano, diasFeitos) {
         if (!livre) break;
         remarcado[livre.i] = d; precisa--;
     }
-    const nomeDia = i => ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'][i];
+    const nomeDia = i => ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'][i];
     const ok = SVG_X('<path d="M5 12l5 5 9-10"/>');
     const hoje = dias[hojeIdx];
     const treinoHoje = hoje && (hoje.treino || remarcado[hojeIdx]) && !hoje.feito;
@@ -22197,7 +22257,7 @@ function planoSemanaHTML(plano, diasFeitos) {
             const ehHoje = d.i === hojeIdx;
             const passado = d.i < hojeIdx;
             const foco = rem ? `${rem.foco || 'Treino'}` : (d.foco || (d.treino ? 'Treino' : 'Descanso'));
-            const sub = rem ? `remarcado de ${['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'][rem.i]}` : d.minutos ? `${d.minutos} min${ehHoje ? ' · hoje' : ''}` : ehHoje ? 'hoje' : '';
+            const sub = rem ? `remarcado de ${['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][rem.i]}` : d.minutos ? `${d.minutos} min${ehHoje ? ' · hoje' : ''}` : ehHoje ? 'hoje' : '';
             const marca = d.feito ? `<span class="pl-ok">${ok}</span>`
                 : ehHoje && (d.treino || rem) ? '<span class="pl-hoje">Hoje</span>'
                 : passado && d.treino ? '<span class="pl-perdeu">não rolou</span>'
