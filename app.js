@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261268';
+const APP_VERSAO = '20261269';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -6789,23 +6789,15 @@ async function hydrateCoachCard() {
                 .eq('kind', kind)
                 .gte('created_at', hoje.toISOString());
             if (count && count > 0) return;
-
-            slot.innerHTML = `<div class="coach-card loading">
-                <div class="coach-card-head">
-                    <span class="coach-avatar">🤖</span>
-                    <div class="coach-card-meta"><div class="coach-name">Coach Pulso</div>
-                    <div class="coach-sub">analisando sua semana...</div></div>
-                </div>
-                <div class="coach-skeleton"></div>
-            </div>`;
-
-            ins = await generateInsight(kind, ctx);
+            // gera por trás, sem aviso de carregando e sem empurrar o feed: aparece na próxima vez que o feed abrir
+            generateInsight(kind, ctx).catch(() => {});
+            return;
         }
 
-        slot.innerHTML = ins ? insightCardHTML(ins) : '';
+        const html = ins ? insightCardHTML(ins) : '';
+        if (slot.innerHTML !== html) slot.innerHTML = html;
     } catch (err) {
         console.error('coach card', err);
-        slot.innerHTML = '';
     }
 }
 
@@ -6818,9 +6810,13 @@ async function renderFeed() {
     const c = $('#viewContainer');
     // Abrir rápido: na primeira vez da sessão mostra o último feed salvo enquanto o novo chega
     const chaveSnap = 'pulso-feed-snap-' + state.session.user.id;
-    const snap = !state.cacheAtivo && !state.feedSnapUsado ? lsGet(chaveSnap) : null;
+    let snapObj = null;
+    try { const raw = lsGet(chaveSnap); snapObj = raw ? (raw.charAt(0) === '{' ? JSON.parse(raw) : { base: raw, full: raw }) : null; } catch (_) {}
+    const jaTemFeed = c.querySelector('.feed-view:not(.esq-wrap)');
+    const snap = !jaTemFeed && !state.cacheAtivo && !state.feedSnapUsado && snapObj ? snapObj.full : null;
     state.feedSnapUsado = true;
-    c.innerHTML = snap || esqueleto('feed');
+    // atualizando (puxar pra baixo ou voltar pro feed): mantém o que está na tela até o novo chegar
+    if (!jaTemFeed) c.innerHTML = snap || esqueleto('feed');
     // coisas que não dependem dos posts já saem junto
     const anivP = carregarAniversariantes();
     const sigoP = state.quantosSigo != null ? Promise.resolve(state.quantosSigo)
@@ -6998,8 +6994,25 @@ async function renderFeed() {
         html += `<div id="feedMore">${(posts || []).length >= FEED_PAGE ? '<button class="btn-secondary feed-more-btn" data-act="load-more-feed">Carregar mais</button>' : ''}</div>`;
     }
     html += '</div>';
-    c.innerHTML = html;
-    if (html.length < 350000) lsSet(chaveSnap, html);
+    // se nada mudou desde a última vez, não mexe na tela (sem piscar). Se mudou, troca levando junto o que já estava nos cartões de cima
+    const telaBase = state.feedBaseHtml || (snap && snapObj ? snapObj.base : null);
+    const naTela = c.querySelector('.feed-view:not(.esq-wrap)');
+    if (!(naTela && telaBase === html)) {
+        const antigos = {};
+        if (naTela) naTela.querySelectorAll('[id$="Slot"]').forEach(el => { if (el.innerHTML.trim()) antigos[el.id] = el.innerHTML; });
+        const y = window.scrollY;
+        c.innerHTML = html;
+        Object.entries(antigos).forEach(([id, h]) => { const el = c.querySelector('#' + id); if (el && !el.innerHTML.trim()) el.innerHTML = h; });
+        if (naTela) window.scrollTo(0, y);
+    }
+    state.feedBaseHtml = html;
+    // guarda o feed já com os cartões de cima preenchidos, pra próxima abertura sair igualzinha
+    setTimeout(() => {
+        const fv = state.view === 'feed' && c.querySelector('.feed-view:not(.esq-wrap)');
+        if (!fv) return;
+        const full = c.innerHTML;
+        if (full.length < 400000) lsSet(chaveSnap, JSON.stringify({ base: html, full }));
+    }, 6000);
 
     // Coach, lembretes e desafios aparecem depois, sem travar o feed
     hydrateCoachCard();
@@ -21417,7 +21430,7 @@ async function bootInterno() {
     setTimeout(checarConvitesX1, 3000);
     setTimeout(pintarPilulaTreino, 1500);
     // o coach já começa a montar o dia por trás (quando a pessoa chegar na Evolução, está pronto)
-    setTimeout(() => { try { prepararCoach(); } catch (_) {} }, 3500);
+    setTimeout(() => { const vai = () => { try { prepararCoach(); } catch (_) {} }; if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 4000 }); else vai(); }, 9000);
     setTimeout(registrarAcesso, 2000);
     setTimeout(checarConquistasNovas, 6000);
     setTimeout(checarQuedaCoach, 8000);
