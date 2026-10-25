@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261265';
+const APP_VERSAO = '20261266';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1210,6 +1210,7 @@ async function renderAdmin() {
     `;
 
     state.admPodeCriar = podeCriar;
+    { const ab = document.querySelector('.adm-abas'), on = ab && ab.querySelector('.evo-aba.on'); if (on) ab.scrollLeft = Math.max(0, on.offsetLeft - (ab.clientWidth - on.offsetWidth) / 2); }
     hydrateAdminUsuarios();
     hydrateAdminLog();
     hydrateAdminErros();
@@ -12476,7 +12477,9 @@ async function hydrateCalMes() {
         <p class="cm-rodape"><b>${treinados}</b> ${treinados === 1 ? 'dia treinado' : 'dias treinados'}${melhor > 1 ? ` · melhor sequência: <b>${melhor}</b> dias` : ''}</p>
     </div>`;
     // arrastar pro lado troca o mês
-    const card = document.getElementById('calMesCard');
+    // se a tela trocou enquanto carregava, o card não está mais na página
+    const card = slot.querySelector('#calMesCard');
+    if (!card) return;
     let x0 = null;
     card.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
     card.addEventListener('touchend', e => {
@@ -15150,6 +15153,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'adm-aba') {
         state.abaAdmin = btn.dataset.aba;
         $$('.adm-abas .evo-aba').forEach(b => b.classList.toggle('on', b === btn));
+        try { btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch (_) {}
         $$('.adm-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== state.abaAdmin));
     } else if (act === 'adm-u-menu') {
         e.stopPropagation();
