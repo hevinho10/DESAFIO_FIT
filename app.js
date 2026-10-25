@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261267';
+const APP_VERSAO = '20261268';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -8045,7 +8045,7 @@ Formato do JSON:
     return t;
 }
 
-function treinoDoDiaHTML(t, feitoHoje) {
+function treinoDoDiaHTML(t, feitoHoje, ajustando = false, doCoach = false) {
     if (!t) return '';
     if (t.status === 'pulado') return `<div class="chart-card ia-card ia-mini"><span>Treino de hoje dispensado. Amanhã tem outro.</span><button class="btn-mini" data-act="ia-treino-voltar">Ver mesmo assim</button></div>`;
     const feito = t.status === 'feito' || feitoHoje;
@@ -8057,7 +8057,8 @@ function treinoDoDiaHTML(t, feitoHoje) {
             <p class="ia-porque">Mandou bem. Amanhã tem sugestão nova, pensada no que você fez hoje.</p>
         </div>`;
     }
-    return `<div class="chart-card ia-card">
+    return `<div class="chart-card ia-card${t.base ? ' ia-base' : ''}">
+        ${doCoach ? '<div class="ia-ajustado-wrap"><span class="ia-ajustado">ajustado pelo coach ✓</span></div>' : ''}
         <div class="chart-head"><span class="chart-title">${t.leve ? 'Hoje é dia leve' : 'Seu treino de hoje'}</span><span class="chart-legend">${t.minutos} min</span></div>
         <div class="ia-treino-titulo">${escapeHTML(t.titulo || '')}</div>
         <p class="ia-porque">${escapeHTML(t.porque || '')}</p>
@@ -8067,10 +8068,11 @@ function treinoDoDiaHTML(t, feitoHoje) {
         </details>
         ${feito ? '<div class="ia-feito">✓ Treino de hoje registrado. Mandou bem.</div>' : `<div class="ia-acoes">
             <button class="btn-ghost btn-xs" data-act="ia-treino-pular">Hoje não</button>
-            ${(t.trocas || 0) < 2 ? '<button class="btn-ghost btn-xs" data-act="ia-treino-trocar">Trocar</button>' : ''}
+            ${!t.base && (t.trocas || 0) < 2 ? '<button class="btn-ghost btn-xs" data-act="ia-treino-trocar">Trocar</button>' : ''}
             <button class="btn-ghost btn-xs" data-act="ia-treino-fiz">Já fiz</button>
-            <button class="btn-primary-sm" data-act="tr-comecar">Começar treino</button>
+            <button class="bt-min ia-comecar" data-act="tr-comecar">Começar treino</button>
         </div>`}
+        ${ajustando ? '<div class="ia-ajustando"><i></i>o coach está ajustando pro seu dia...</div>' : ''}
     </div>`;
 }
 
@@ -8233,7 +8235,72 @@ function semanaStripHTML() {
     </div>`;
 }
 
-// ---------- Monta tudo na aba Resumo ----------
+// ---------- Coach por trás: prepara o dia assim que o app abre e guarda no celular ----------
+const chaveCoach = () => 'pulso-coach-' + (state.session ? state.session.user.id : '');
+function coachCacheLer() {
+    try { const c = JSON.parse(lsGet(chaveCoach()) || 'null'); return c && c.dia === hojeISO() ? c : null; } catch (_) { return null; }
+}
+function coachCacheGravar(parte, valor) {
+    const c = coachCacheLer() || { dia: hojeISO() };
+    c[parte] = valor;
+    lsSet(chaveCoach(), JSON.stringify(c));
+}
+// depois de trocar, pular ou refazer: o que estava guardado não vale mais
+function coachInvalidar() { state.coachPrep = null; try { localStorage.removeItem(chaveCoach()); } catch (_) {} }
+// começa a montar treino, plano e carta (uma vez por dia). Se a IA falhar, tenta de novo sozinho mais 2 vezes
+function prepararCoach() {
+    const p = state.profile;
+    if (!p || !state.session || !(p.train_likes && p.train_likes.length)) return null;
+    const dia = hojeISO();
+    if (state.coachPrep && state.coachPrep.dia === dia) return state.coachPrep;
+    const valido = (parte, v) => v && (parte === 'treino' ? !!v.titulo : parte === 'plano' ? Array.isArray(v.dias) && v.dias.length : !!(v.bem || v.foco));
+    const tenta = (fn, parte, n = 0) => fn().then(v => { if (valido(parte, v)) coachCacheGravar(parte, v); return v; })
+        .catch(() => n < 2 ? new Promise(r => setTimeout(r, 15000 * (n + 1))).then(() => tenta(fn, parte, n + 1)) : null);
+    const prep = { dia };
+    prep.treino = tenta(() => obterTreinoDoDia(), 'treino');
+    prep.plano = tenta(() => obterPlanoSemana(), 'plano');
+    prep.carta = tenta(() => obterCartaSemana(), 'carta');
+    state.coachPrep = prep;
+    return prep;
+}
+// treino que o app monta sem a IA: da semana de costume (ou do que a pessoa curte). Nunca fica vazio.
+function treinoBase() {
+    const p = state.profile || {};
+    const dia = new Date().getDay();
+    let itens = [];
+    try { itens = (semanaEfetiva()[dia] || []); } catch (_) {}
+    const nomeDia = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'][dia];
+    if (!itens.length) {
+        const temCostume = (() => { try { const s = semanaEfetiva(); return Object.values(s).some(x => (x || []).length); } catch (_) { return false; } })();
+        if (temCostume) return { base: true, leve: true, tipo: 'Caminhada', minutos: 20, titulo: 'Descanso ativo · 20 min',
+            porque: `Na sua semana de costume, ${nomeDia} é dia de descanso. Uma caminhada leve e alongamento ajudam o corpo a recuperar.`,
+            blocos: [{ nome: 'Leve', itens: ['Caminhada leve de 15 min', 'Alongamento de 5 min'] }] };
+        itens = [{ a: (p.train_likes || ['Caminhada'])[0], g: [] }];
+    }
+    const x = itens[0];
+    const musc = x.a === 'Musculação';
+    const grupos = musc ? (x.g || []).slice(0, 3) : [];
+    const minutos = musc ? 50 : (x.a === 'Caminhada' ? 40 : 35);
+    const blocos = musc && grupos.length
+        ? [{ nome: 'Aquecimento', itens: ['5 min de cardio leve', 'Mobilidade das articulações do treino'] },
+           ...grupos.map(g => ({ nome: g, itens: (typeof BIBLIO_EX !== 'undefined' && BIBLIO_EX[g] ? BIBLIO_EX[g].slice(0, 3) : ['3 exercícios']).map(n => `${n} · 3x10 a 12`) })),
+           { nome: 'Final', itens: ['Alongamento de 5 min'] }]
+        : [{ nome: 'Aquecimento', itens: ['5 min leve'] }, { nome: 'Principal', itens: [`${x.a} no seu ritmo, ${minutos - 10} min`] }, { nome: 'Final', itens: ['Alongamento de 5 min'] }];
+    return { base: true, tipo: x.a, minutos, grupos,
+        titulo: textoItemSemana({ a: x.a, g: grupos }) + ` · ${minutos} min`,
+        porque: itens.length && (semanaCombinada() || state.semanaHist) ? `Da sua semana de costume: ${nomeDia} é ${textoItemSemana({ a: x.a, g: grupos }).toLowerCase()}.` : `Do que você curte fazer.`,
+        blocos };
+}
+// plano sem a IA: a semana de costume
+function planoBase() {
+    let s = {}; try { s = semanaEfetiva(); } catch (_) {}
+    if (!Object.values(s).some(x => (x || []).length)) return null;
+    const N = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    return { base: true, ordem: 'dom', dias: N.map((d, i) => { const it = (s[i] || [])[0]; return it ? { dia: d, foco: textoItemSemana(it), minutos: it.a === 'Musculação' ? 50 : 35, treino: true } : { dia: d, foco: 'Descanso', minutos: 0, treino: false }; }) };
+}
+const esqueletoCoach = titulo => `<div class="chart-card ia-card ia-esq"><div class="chart-head"><span class="chart-title">${titulo}</span></div><span class="esq" style="width:60%;height:12px"></span><span class="esq" style="width:88%;height:12px;margin-top:8px"></span><span class="esq" style="width:42%;height:12px;margin-top:8px"></span></div>`;
+
+// ---------- Monta tudo na aba Hoje (cada parte chega sozinha) ----------
 async function hydrateIAEvolucao() {
     const slot = document.getElementById('iaSlot');
     if (!slot) return;
@@ -8247,41 +8314,71 @@ async function hydrateIAEvolucao() {
         </div>`;
         return;
     }
-    slot.innerHTML = '<div class="chart-card ia-card ia-carregando"><div class="spinner"></div><span>O coach está montando seu dia...</span></div>';
+    const cache = coachCacheLer() || {};
+    const prep = prepararCoach();
+    const geracao = (state.coachGeracao = (state.coachGeracao || 0) + 1);
+    const vivo = () => state.coachGeracao === geracao && document.getElementById('iaSlot') === slot && slot.isConnected;
+    slot.innerHTML = `<div id="cAlerta"></div><div id="cPront"></div>${semanaStripHTML()}
+        <div id="cTreino">${esqueletoCoach('Seu treino de hoje')}</div><div id="cPlano">${cache.plano ? '' : esqueletoCoach('Sua semana')}</div><div id="cCarta"></div>`;
+    const pinta = (id, html) => { const el = vivo() && slot.querySelector('#' + id); if (el) el.innerHTML = html; return el; };
     try {
-        await carregarHistSemana().catch(() => {});
-        const l = await calcularLacunas();
-        // treinos de hoje (00:00 às 23:59 do Brasil)
+        // parte rápida, sem IA: lacunas, treinos de hoje e da semana
         const ini0 = new Date(); ini0.setHours(0, 0, 0, 0);
-        const { data: treinosHoje } = await sb.from('posts').select('activity_type, duration_min')
-            .eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', ini0.toISOString());
+        const seg = inicioSemana();
+        const [, l, { data: treinosHoje }, { data: semTreinos }] = await Promise.all([
+            carregarHistSemana().catch(() => {}),
+            calcularLacunas(),
+            sb.from('posts').select('activity_type, duration_min').eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', ini0.toISOString()),
+            sb.from('posts').select('created_at').eq('user_id', state.session.user.id).eq('kind', 'workout').gte('created_at', new Date(seg.getTime() - 12 * 3600000).toISOString()),
+        ]);
+        if (!vivo()) return;
         state.treinosHoje = treinosHoje || [];
         if (state.treinosHoje.length) l.treinouHoje = true;
-        const seg = inicioSemana();
-        const { data: semTreinos } = await sb.from('posts').select('created_at').eq('user_id', state.session.user.id)
-            .eq('kind', 'workout').gte('created_at', new Date(seg.getTime() - 12 * 3600000).toISOString());
         const diasFeitos = new Set((semTreinos || []).map(x => new Date(x.created_at).getDay()));
-        const [treino, plano, alerta, carta, { data: antigas }] = await Promise.all([
-            obterTreinoDoDia().catch(e => { console.warn('treino do dia', e); return null; }),
-            obterPlanoSemana().catch(e => { console.warn('plano', e); return null; }),
-            obterAlertaQueda(l).catch(() => null),
-            obterCartaSemana().catch(e => { console.warn('carta', e); return null; }),
-            sb.from('ai_daily').select('day, content').eq('user_id', state.session.user.id).eq('kind', 'carta').order('day', { ascending: false }).limit(5),
-        ]);
-        state.iaTreino = treino;
-        if (!document.getElementById('iaSlot')) return;
-        const anteriores = (antigas || []).filter(a => !carta || a.day !== carta.semana).slice(0, 4);
-        slot.innerHTML = [
-            alerta && alerta.mensagem ? `<div class="chart-card ia-card ia-alerta"><div class="chart-head"><span class="chart-title">Tudo bem por aí?</span></div><p>${escapeHTML(alerta.mensagem || '')}</p>${alerta.passo ? `<p class="ia-passo">${escapeHTML(alerta.passo)}</p>` : ''}</div>` : '',
-            prontidaoHTML(prontidaoDoDia(l), l.treinouHoje, l.sonoOntem != null || !!prontidaoHoje()),
-            semanaStripHTML(),
-            treinoDoDiaHTML(treino, l.treinouHoje),
-            planoSemanaHTML(plano, diasFeitos),
-            cartaHTML(carta, anteriores),
-        ].join('') || '';
+        pinta('cPront', prontidaoHTML(prontidaoDoDia(l), l.treinouHoje, l.sonoOntem != null || !!prontidaoHoje()));
+        obterAlertaQueda(l).then(alerta => {
+            if (alerta && alerta.mensagem) pinta('cAlerta', `<div class="chart-card ia-card ia-alerta"><div class="chart-head"><span class="chart-title">Tudo bem por aí?</span></div><p>${escapeHTML(alerta.mensagem || '')}</p>${alerta.passo ? `<p class="ia-passo">${escapeHTML(alerta.passo)}</p>` : ''}</div>`);
+        }).catch(() => {});
+
+        // treino: o guardado no celular, senão o da semana de costume (com "ajustando"), e troca quando o coach responder
+        const base = cache.treino || treinoBase();
+        state.iaTreino = base;
+        pinta('cTreino', treinoDoDiaHTML(base, l.treinouHoje, !cache.treino));
+        if (prep) prep.treino.then(t => {
+            if (!vivo()) return;
+            if (!t || !t.titulo) { if (!cache.treino) pinta('cTreino', treinoDoDiaHTML(base, l.treinouHoje, false)); return; }
+            if (cache.treino && cache.treino.status === 'pulado' && t.status !== 'pulado') return; // a pessoa já disse "hoje não
+            const mudou = !cache.treino || cache.treino.titulo !== t.titulo || cache.treino.status !== t.status;
+            state.iaTreino = t;
+            if (!mudou) return;
+            const el = pinta('cTreino', treinoDoDiaHTML(t, l.treinouHoje, false, !cache.treino));
+            if (el && !cache.treino) { el.classList.add('ia-trocou'); setTimeout(() => el.classList.remove('ia-trocou'), 3500); }
+        });
+
+        const pBase = cache.plano || planoBase();
+        pinta('cPlano', pBase ? planoSemanaHTML(pBase, diasFeitos) : (cache.plano ? '' : esqueletoCoach('Sua semana')));
+        if (prep) prep.plano.then(pl => {
+            if (!vivo()) return;
+            if (pl && Array.isArray(pl.dias) && pl.dias.length) pinta('cPlano', planoSemanaHTML(pl, diasFeitos));
+            else if (!pBase) pinta('cPlano', '');
+        });
+
+        const cartaFeita = async carta => {
+            if (!carta || !(carta.bem || carta.foco) || !vivo()) return;
+            const { data: antigas } = await sb.from('ai_daily').select('day, content').eq('user_id', state.session.user.id).eq('kind', 'carta').order('day', { ascending: false }).limit(5);
+            const anteriores = (antigas || []).filter(a => a.day !== carta.semana).slice(0, 4);
+            pinta('cCarta', cartaHTML(carta, anteriores));
+        };
+        if (cache.carta) cartaFeita(cache.carta);
+        if (prep) prep.carta.then(c => { if (c && (!cache.carta || JSON.stringify(c) !== JSON.stringify(cache.carta))) cartaFeita(c); });
     } catch (e) {
         console.warn('coach evolução', e);
-        slot.innerHTML = '';
+        // sem internet ou falha: mostra o que tem, nunca a tela vazia
+        const base = cache.treino || treinoBase();
+        state.iaTreino = base;
+        pinta('cTreino', treinoDoDiaHTML(base, false, false));
+        const pBase = cache.plano || planoBase();
+        pinta('cPlano', pBase ? planoSemanaHTML(pBase, new Set()) : '');
     }
 }
 
@@ -15165,19 +15262,20 @@ document.addEventListener('click', async e => {
         const t = state.iaTreino;
         btn.disabled = true; btn.textContent = 'Pensando...';
         try { await obterTreinoDoDia(true, t && t.titulo); } catch (err) { toast('Não consegui trocar agora.', 'err'); }
-        hydrateIAEvolucao();
+        coachInvalidar(); hydrateIAEvolucao();
     } else if (act === 'ia-treino-pular') {
         const t = state.iaTreino;
-        if (t) { t.status = 'pulado'; await iaGuardar('treino', hojeISO(), t); }
-        hydrateIAEvolucao();
+        if (t && !t.base) { t.status = 'pulado'; await iaGuardar('treino', hojeISO(), t); }
+        else if (t) { t.status = 'pulado'; coachCacheGravar('treino', t); state.coachPrep = null; hydrateIAEvolucao(); return; }
+        coachInvalidar(); hydrateIAEvolucao();
     } else if (act === 'ia-treino-voltar') {
         const t = state.iaTreino;
-        if (t) { t.status = 'sugerido'; await iaGuardar('treino', hojeISO(), t); }
-        hydrateIAEvolucao();
+        if (t && !t.base) { t.status = 'sugerido'; await iaGuardar('treino', hojeISO(), t); }
+        coachInvalidar(); hydrateIAEvolucao();
     } else if (act === 'ia-plano-refazer') {
         btn.textContent = 'refazendo...';
         try { await obterPlanoSemana(true); } catch (err) { toast('Não consegui refazer agora.', 'err'); }
-        hydrateIAEvolucao();
+        coachInvalidar(); hydrateIAEvolucao();
     } else if (act === 'adm-aba') {
         state.abaAdmin = btn.dataset.aba;
         $$('.adm-abas .evo-aba').forEach(b => b.classList.toggle('on', b === btn));
@@ -21318,6 +21416,8 @@ async function bootInterno() {
     setTimeout(atualizarBadgeDesafio, 2500);
     setTimeout(checarConvitesX1, 3000);
     setTimeout(pintarPilulaTreino, 1500);
+    // o coach já começa a montar o dia por trás (quando a pessoa chegar na Evolução, está pronto)
+    setTimeout(() => { try { prepararCoach(); } catch (_) {} }, 3500);
     setTimeout(registrarAcesso, 2000);
     setTimeout(checarConquistasNovas, 6000);
     setTimeout(checarQuedaCoach, 8000);
@@ -23313,7 +23413,7 @@ function planoSemanaHTML(plano, diasFeitos) {
     const hoje = dias[hojeIdx];
     const treinoHoje = hoje && (hoje.treino || remarcado[hojeIdx]) && !hoje.feito;
     return `<div class="chart-card pl-card">
-        <div class="pl-cab"><div><span class="chart-title">Sua semana</span><small>Montada pelo coach · meta ${meta} ${meta === 1 ? 'treino' : 'treinos'}</small></div><button class="ia-link" data-act="ia-plano-refazer">refazer</button></div>
+        <div class="pl-cab"><div><span class="chart-title">Sua semana</span><small>${plano.base ? 'Sua semana de costume' : 'Montada pelo coach'} · meta ${meta} ${meta === 1 ? 'treino' : 'treinos'}</small></div>${plano.base ? '' : '<button class="ia-link" data-act="ia-plano-refazer">refazer</button>'}</div>
         <div class="pl-dias">${dias.map(d => {
             const rem = remarcado[d.i];
             const ehHoje = d.i === hojeIdx;

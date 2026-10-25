@@ -6305,3 +6305,18 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .sd-pessoa::before{ content:''; position:absolute; inset:-6px 0; }
 .sd-pessoa i{ font-style:normal; color:var(--ink-faint); font-weight:500; }
 :root[data-theme="light"] .sd-barra{ background:rgba(0,0,0,.07); }
+/* coach por trás: cartão base, "ajustando" e troca suave */
+.ia-ajustando{ display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12px; color:var(--ink-faint); }
+.ia-ajustando i{ width:12px; height:12px; border-radius:50%; border:2px solid rgba(255,255,255,.12); border-top-color:#10B981; animation:fpGira .8s linear infinite; flex:none; }
+.ia-card{ position:relative; }
+.ia-ajustado{ position:absolute; right:12px; top:12px; font:600 11px var(--ff-body); color:#04130C; background:#34D399; border-radius:999px; padding:3px 9px; animation:iaTag 3.4s ease forwards; }
+@keyframes iaTag{ 0%{ opacity:0; transform:translateY(-4px); } 10%,80%{ opacity:1; transform:none; } 100%{ opacity:0; } }
+.ia-trocou > .ia-card{ animation:iaTroca .5s ease; }
+@keyframes iaTroca{ from{ opacity:.35; transform:scale(.985); } to{ opacity:1; transform:none; } }
+.ia-esq .esq{ display:block; }
+.ia-ajustado-wrap{ overflow:hidden; animation:iaTagSome 4s ease forwards; }
+.ia-ajustado{ position:static; display:inline-block; margin-bottom:8px; animation:none; color:#34D399; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.4); }
+@keyframes iaTagSome{ 0%{ max-height:0; opacity:0; } 12%,80%{ max-height:40px; opacity:1; } 100%{ max-height:0; opacity:0; } }
+.ia-card .ia-acoes{ flex-wrap:wrap; justify-content:flex-start; }
+.ia-card .ia-acoes .btn-ghost{ white-space:nowrap; flex:1 1 0; }
+.ia-card .ia-acoes .ia-comecar{ flex:1 1 100%; height:42px; font-size:14px; }
