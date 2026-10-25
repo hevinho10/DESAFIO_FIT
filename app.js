@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261264';
+const APP_VERSAO = '20261265';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1025,6 +1025,68 @@ async function hydrateAdminCapacidade() {
             <div class="cap-lista">${(data.tabelas || []).map(t => `<div class="cap-it"><span>${escapeHTML(t.nome)}</span><b>${fmtBytes(t.bytes)}</b></div>`).join('')}</div></div>
         <p class="faixa-nota" style="margin-bottom:0">Limites do plano gratuito do Supabase. Amarelo a partir de 70%, vermelho a partir de 90%.</p>`;
 }
+// ---- Onde as pessoas desistem: funis montados com os eventos de uso ----
+const NOME_PASSO_ONB = { objetivo: 'Objetivo', treino: 'O que curte', pessoas: 'Pessoas' };
+const NOME_KIND = { workout: 'Treino', meal: 'Refeição', water: 'Água', sleep: 'Sono', post: 'Post', story: 'Story', weight: 'Peso', '?': 'Sem tipo' };
+async function hydrateAdminFunil() {
+    const box = document.getElementById('admFunil'); if (!box) return;
+    box.innerHTML = '<div class="spinner"></div>';
+    const dias = state.funilDias || 7;
+    const { data: f, error } = await sb.rpc('admin_funil', { p_dias: dias });
+    if (!document.getElementById('admFunil')) return;
+    if (error || !f) { box.innerHTML = `<div class="chart-card"><p class="faixa-nota" style="margin:0">Não consegui carregar${error ? ': ' + escapeHTML(error.message) : ''}. Rode a seção 31 do SQL.</p></div>`; return; }
+    if (!f.eventos) { box.innerHTML = `<div class="chart-card"><p class="faixa-nota" style="margin:0">Ainda sem dados nesses ${dias} dias. Os números aparecem conforme a galera usa o app novo.</p></div>`; return; }
+    const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+    // barra de funil: cada etapa em relação à primeira
+    const funil = (titulo, etapas, nota = '') => {
+        const base = Math.max(1, etapas[0] ? etapas[0][1] : 1);
+        return `<div class="chart-card fn-card"><b class="fn-t">${titulo}</b>
+            ${etapas.map(([nome, n, alerta], k) => {
+                const p = pct(n, base), caiu = k ? pct((etapas[k - 1][1] || 0) - n, etapas[k - 1][1] || 0) : 0;
+                return `<div class="fn-linha${alerta ? ' alerta' : ''}"><span class="fn-nome">${escapeHTML(nome)}</span><span class="fn-barra"><i style="width:${Math.max(2, p)}%"></i></span><span class="fn-n">${n}${k ? `<small>${p}%</small>` : ''}</span></div>${k && caiu >= 30 ? `<div class="fn-queda">${caiu}% pararam antes daqui</div>` : ''}`;
+            }).join('')}
+            ${nota ? `<p class="faixa-nota" style="margin-bottom:0">${nota}</p>` : ''}</div>`;
+    };
+    let html = `<div class="stat-grid fn-topo">
+        <div class="stat-card"><div class="num">${f.pessoas || 0}</div><div class="lbl">Pessoas</div></div>
+        <div class="stat-card"><div class="num">${f.aberturas || 0}</div><div class="lbl">Aberturas</div></div>
+    </div>`;
+    const onb = f.onboarding || [];
+    if (onb.length) {
+        const ult = onb[onb.length - 1];
+        const etapas = onb.map(x => [`${x.i}. ${NOME_PASSO_ONB[x.passo] || x.passo}`, x.viram]);
+        etapas.push(['Terminou', onb.reduce((t, x) => t + (x.terminaram || 0), 0)]);
+        const pulos = onb.filter(x => x.pularam).map(x => `${x.pularam} no passo ${x.i}`).join(', ');
+        html += funil('Primeiro acesso', etapas, pulos ? `Tocaram em "Pular": ${pulos}.` : (ult ? '' : ''));
+    }
+    (f.registrar || []).forEach(r => {
+        html += funil(`Registrar ${(NOME_KIND[r.kind] || r.kind).toLowerCase()}`, [['Abriu', r.abriu], ['Salvou', r.salvou]],
+            r.desistiu ? `${r.desistiu} ${r.desistiu === 1 ? 'vez fechou' : 'vezes fecharam'} sem salvar${r.seg_desistiu != null ? `, em média depois de ${r.seg_desistiu}s` : ''}.` : '');
+    });
+    const st = f.story || {};
+    if (st.abriu) html += funil('Criar story', [['Abriu', st.abriu], ['Publicou', st.publicou]]);
+    const x1 = f.x1 || {};
+    if (x1.abriu) html += funil('Chamar pro X1', [['Abriu', x1.abriu], ['Enviou', x1.enviou]]);
+    const se = f.semana || {};
+    if (se.perguntou) html += funil('"Como é sua semana?" (depois do 1º treino)', [['Perguntou', se.perguntou], ['Montou', se.montou]], se.depois ? `${se.depois} tocaram em "Depois".` : '');
+    const ab = f.abertura || [];
+    if (ab.length) {
+        const linha = (et, cache) => { const x = ab.find(a => a.etapa === et && a.cache === cache); return x ? `${br(x.ms / 1000, 1)}s <small>(${x.vezes}x)</small>` : '-'; };
+        html += `<div class="chart-card fn-card"><b class="fn-t">Tempo pra abrir (mediana)</b>
+            <div class="fn-tab"><span></span><span>1ª vez</span><span>Com feed salvo</span>
+            <span>Perfil</span><b>${linha('perfil', false)}</b><b>${linha('perfil', true)}</b>
+            <span>Tela pronta</span><b>${linha('tela', false)}</b><b>${linha('tela', true)}</b></div></div>`;
+    }
+    const of = f.offline || {};
+    if (of.guardados || of.enviados) html += `<div class="chart-card fn-card"><b class="fn-t">Sem internet</b><p class="faixa-txt" style="margin:6px 0 0">${of.guardados || 0} registros guardados no aparelho · ${of.enviados || 0} enviados depois</p></div>`;
+    box.innerHTML = html;
+}
+document.addEventListener('click', e => {
+    const b = e.target.closest('[data-funil-dias]'); if (!b) return;
+    state.funilDias = Number(b.dataset.funilDias);
+    document.querySelectorAll('[data-funil-dias]').forEach(x => x.classList.toggle('on', x === b));
+    hydrateAdminFunil();
+});
 async function renderAdmin() {
     const c = $('#viewContainer');
     if (!state.profile.is_admin) {
@@ -1073,7 +1135,7 @@ async function renderAdmin() {
             </div>
 
             <div class="evo-abas adm-abas">
-                ${[['geral', 'Visão geral'], ['cadastros', 'Cadastros'], ['usuarios', 'Usuários'], ['erros', 'Erros'], ['ferramentas', 'Ferramentas']].map(([k, n]) =>
+                ${[['geral', 'Visão geral'], ['funil', 'Onde desistem'], ['cadastros', 'Cadastros'], ['usuarios', 'Usuários'], ['erros', 'Erros'], ['ferramentas', 'Ferramentas']].map(([k, n]) =>
                     `<button class="evo-aba${(state.abaAdmin || 'geral') === k ? ' on' : ''}" data-act="adm-aba" data-aba="${k}">${n}</button>`).join('')}
             </div>
 
@@ -1132,6 +1194,11 @@ async function renderAdmin() {
 
             </div>
 
+            <div class="adm-painel${state.abaAdmin === 'funil' ? '' : ' hidden'}" data-painel="funil">
+            <div class="fn-dias">${[7, 30].map(d => `<button type="button" class="fn-dia${(state.funilDias || 7) === d ? ' on' : ''}" data-funil-dias="${d}">${d} dias</button>`).join('')}</div>
+            <div id="admFunil"><div class="spinner"></div></div>
+            </div>
+
             <div class="adm-painel${state.abaAdmin === 'erros' ? '' : ' hidden'}" data-painel="erros">
             <div id="admErros"><div class="spinner"></div></div>
             </div>
@@ -1147,6 +1214,7 @@ async function renderAdmin() {
     hydrateAdminLog();
     hydrateAdminErros();
     hydrateAdminCapacidade();
+    hydrateAdminFunil();
     hydrateNovosCadastros().then(() => {
         const n = document.querySelectorAll('#cadastrosBox [data-status="aprovado"]').length - document.querySelectorAll('#cadastrosBox details [data-status="aprovado"]').length;
         const aba = document.querySelector('.adm-abas [data-aba="cadastros"]');
@@ -1573,24 +1641,118 @@ function openTermsSheet() {
     window.addEventListener('unhandledrejection', e => { const r = e && e.reason; mandar(r && (r.message || r), r && r.stack); });
 })();
 
+// ---- Eventos de uso: passos simples pra saber onde as pessoas desistem (painel no admin) ----
+// Junta em lote e manda a cada 15s, ao sair do app, ou quando juntar 20. Sem internet, espera.
+const filaEventos = [];
+let eventosDesligados = false, timerEventos = null;
+function evento(nome, dados = {}) {
+    try {
+        if (eventosDesligados) return;
+        filaEventos.push({ evento: String(nome).slice(0, 60), dados: dados || {}, tela: (typeof state !== 'undefined' && state.view) || null, criado_em: new Date().toISOString() });
+        if (filaEventos.length > 120) filaEventos.splice(0, filaEventos.length - 120);
+        if (filaEventos.length >= 20) enviarEventos();
+        else if (!timerEventos) timerEventos = setTimeout(enviarEventos, 15000);
+    } catch (_) {}
+}
+async function enviarEventos() {
+    clearTimeout(timerEventos); timerEventos = null;
+    if (eventosDesligados || !filaEventos.length || typeof sb === 'undefined' || !state.session || !navigator.onLine) return;
+    const lote = filaEventos.splice(0, 50);
+    const versao = typeof APP_VERSAO !== 'undefined' ? String(APP_VERSAO) : null;
+    try {
+        const { error } = await sb.from('eventos_uso').insert(lote.map(e => ({ ...e, user_id: state.session.user.id, versao })));
+        if (error) {
+            // tabela ainda não criada (seção 31 do SQL): para de tentar nessa sessão
+            if (/eventos_uso|relation|does not exist|schema cache|42P01/i.test(String(error.message || error.code || ''))) { eventosDesligados = true; filaEventos.length = 0; return; }
+            filaEventos.unshift(...lote);
+        }
+    } catch (_) { filaEventos.unshift(...lote); }
+    if (filaEventos.length && !timerEventos) timerEventos = setTimeout(enviarEventos, 15000);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') enviarEventos(); });
+// tempo de abertura (uma vez por etapa por sessão)
+const temposMarcados = new Set();
+function marcarTempo(etapa) {
+    if (temposMarcados.has(etapa)) return;
+    temposMarcados.add(etapa);
+    try { evento('abertura', { etapa, ms: Math.round(performance.now()), cache: !!lsGet('pulso-feed-snap-' + (state.session && state.session.user.id)) }); } catch (_) {}
+}
+
 // ---- Fila offline: o que você registrou sem internet ----
 function guardarNaFila(registro) {
     try {
         const fila = JSON.parse(localStorage.getItem('pulso-fila') || '[]');
-        fila.push({ ...registro, quando: Date.now() });
+        fila.push({ ...registro, quando: Date.now() + Math.random() });
         localStorage.setItem('pulso-fila', JSON.stringify(fila.slice(-30)));
+        setTimeout(atualizarPilulaFila, 50);
+        evento('salvo_offline', { tipo: registro.tipo, kind: registro.post && registro.post.kind, foto: !!registro.fotoId });
         return true;
     } catch (e) { return false; }
 }
 
-async function enviarFilaOffline() {
+function tamanhoFila() { try { return JSON.parse(localStorage.getItem('pulso-fila') || '[]').length; } catch (_) { return 0; } }
+// fotos de treino/refeição registradas sem internet ficam no aparelho até subir
+async function guardarFotoFila(file) {
+    try { return await rascunhoOp('readwrite', st => st.add({ blob: file, nome: file.name || 'foto.jpg', tipo: file.type || 'image/jpeg', quando: Date.now() }), 'fotos'); }
+    catch (_) { return null; }
+}
+async function lerFotoFila(id) {
+    try {
+        const r = await rascunhoOp('readonly', st => st.get(id), 'fotos');
+        if (!r || !r.blob) return null;
+        return r.blob instanceof File ? r.blob : new File([r.blob], r.nome || 'foto.jpg', { type: r.tipo || r.blob.type || 'image/jpeg' });
+    } catch (_) { return null; }
+}
+function apagarFotoFila(id) { return rascunhoOp('readwrite', st => st.delete(id), 'fotos').catch(() => {}); }
+
+// Pílula "esperando internet": aparece enquanto tem coisa na fila. Tocar tenta enviar na hora.
+function atualizarPilulaFila() {
+    const n = tamanhoFila();
+    let el = document.getElementById('filaPilula');
+    if (!n || !state.session) { if (el) el.remove(); pararRetryFila(); return; }
+    if (!el) {
+        el = document.createElement('button');
+        el.id = 'filaPilula'; el.className = 'fila-pilula';
+        el.addEventListener('click', () => { el.classList.add('girando'); enviarFilaOffline(true).finally(() => el && el.classList.remove('girando')); });
+        document.body.appendChild(el);
+    }
+    el.innerHTML = `<span class="fp-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg></span><span>${n === 1 ? '1 registro' : n + ' registros'} esperando internet</span>`;
+    el.setAttribute('aria-label', `${n} registros esperando internet. Toque pra tentar enviar agora.`);
+    ligarRetryFila();
+}
+let retryFilaId = null;
+function ligarRetryFila() { if (!retryFilaId) retryFilaId = setInterval(() => { if (document.visibilityState !== 'hidden') enviarFilaOffline(); }, 45000); }
+function pararRetryFila() { if (retryFilaId) { clearInterval(retryFilaId); retryFilaId = null; } }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && state.session && tamanhoFila()) enviarFilaOffline(); });
+
+let enviandoFila = false;
+async function enviarFilaOffline(manual = false) {
     let fila = [];
     try { fila = JSON.parse(localStorage.getItem('pulso-fila') || '[]'); } catch (e) { return; }
-    if (!fila.length || !navigator.onLine) return;
+    if (!fila.length || !state.session) { atualizarPilulaFila(); return; }
+    if (!navigator.onLine) { if (manual) toast('Ainda sem internet. Assim que voltar, envio sozinho.', 'err'); atualizarPilulaFila(); return; }
+    if (enviandoFila) return;
+    enviandoFila = true;
 
     const sobraram = [];
+    let caiu = false;
     for (const item of fila) {
+        if (caiu) { sobraram.push(item); continue; }
         try {
+            if (item.fotoId) {
+                const foto = await lerFotoFila(item.fotoId);
+                if (foto) {
+                    const dims = await medirFoto(foto).catch(() => null);
+                    if (item.privada) item.post.image_url = await uploadImagemPrivada(foto);
+                    else {
+                        const [url, thumb] = await Promise.all([uploadImage('post-images', foto), uploadMiniatura(foto)]);
+                        item.post.image_url = url; if (thumb) item.post.thumb_url = thumb;
+                    }
+                    if (dims) item.post.meta = { ...(item.post.meta || {}), ...dims };
+                } else { item.post.in_feed = false; if (item.post.meta) delete item.post.meta.analise_pendente; }
+                // a foto já subiu: daqui pra frente o item vale sem ela
+                const idFoto = item.fotoId; delete item.fotoId; apagarFotoFila(idFoto);
+            }
             if (item.tipo === 'sleep') {
                 const { error } = await sb.from('sleep_logs').upsert({
                     user_id: state.session.user.id, slept_on: item.dia, hours: item.horas,
@@ -1604,14 +1766,23 @@ async function enviarFilaOffline() {
             }
         } catch (e) {
             sobraram.push(item);
+            if (ehErroDeRede(e)) caiu = true; // sinal ruim: tenta o resto depois
         }
     }
-    localStorage.setItem('pulso-fila', JSON.stringify(sobraram));
+    // o que entrou na fila enquanto enviava não pode se perder
+    let novos = [];
+    try { novos = JSON.parse(localStorage.getItem('pulso-fila') || '[]').filter(n => !fila.some(f => f.quando === n.quando)); } catch (_) {}
+    localStorage.setItem('pulso-fila', JSON.stringify([...sobraram, ...novos]));
+    enviandoFila = false;
     const enviados = fila.length - sobraram.length;
+    atualizarPilulaFila();
     if (enviados > 0) {
+        evento('fila_enviada', { n: enviados });
+        setTimeout(tentarAnalisesPendentes, 3000);
         await loadScore();
         toast(`${plural(enviados, 'registro enviado', 'registros enviados')} agora que a internet voltou`, 'ok');
-    }
+        if (state.view === 'progress') renderProgress(); else if (state.view === 'feed') renderFeed();
+    } else if (manual && sobraram.length) toast('O sinal ainda tá fraco. Tento de novo daqui a pouco.', 'err');
 }
 
 window.addEventListener('online', () => { if (state.session) { enviarFilaOffline(); enviarRascunhos(); } });
@@ -1620,17 +1791,21 @@ window.addEventListener('online', () => { if (state.session) { enviarFilaOffline
 function dbRascunhos() {
     return new Promise((res, rej) => {
         if (!window.indexedDB) return rej(new Error('sem idb'));
-        const r = indexedDB.open('pulso-rascunhos', 1);
-        r.onupgradeneeded = () => r.result.createObjectStore('posts', { keyPath: 'id', autoIncrement: true });
+        const r = indexedDB.open('pulso-rascunhos', 2);
+        r.onupgradeneeded = () => {
+            const db = r.result;
+            if (!db.objectStoreNames.contains('posts')) db.createObjectStore('posts', { keyPath: 'id', autoIncrement: true });
+            if (!db.objectStoreNames.contains('fotos')) db.createObjectStore('fotos', { keyPath: 'id', autoIncrement: true });
+        };
         r.onsuccess = () => res(r.result);
         r.onerror = () => rej(r.error);
     });
 }
-async function rascunhoOp(modo, fn) {
+async function rascunhoOp(modo, fn, loja = 'posts') {
     const db = await dbRascunhos();
     return new Promise((res, rej) => {
-        const tx = db.transaction('posts', modo);
-        const req = fn(tx.objectStore('posts'));
+        const tx = db.transaction(loja, modo);
+        const req = fn(tx.objectStore(loja));
         tx.oncomplete = () => res(req && req.result);
         tx.onerror = () => rej(tx.error);
     });
@@ -1890,29 +2065,72 @@ async function abrirExtratoDia() {
     card.addEventListener('click', e => { if (e.target.closest('[data-act]')) sheet.remove(); });
 }
 
-// ---- Voltar do celular (botão do Android e gesto da borda): fecha o que está aberto ou volta uma tela ----
-function fecharTopo() {
-    const arco = document.querySelector('.fab-arco'); if (arco) { arco.click(); return true; }
-    const npT = document.getElementById('novoPostTela'); if (npT) { npT.remove(); document.body.style.overflow = ''; return true; }
-    const ndT = document.getElementById('newChallengeSheet'); if (ndT) { ndT.remove(); document.body.style.overflow = ''; return true; }
-    if (document.getElementById('criarTela')) { fecharCriar(); return true; }
-    if (document.getElementById('floatingPostMenu')) { hidePostMenu(); return true; }
-    const conf = document.getElementById('confirmarSheet'); if (conf) { const c = conf.querySelector('[data-r="0"]'); if (c) c.click(); else conf.remove(); return true; }
-    const conq = document.getElementById('conqSheet'); if (conq) { conq.remove(); return true; }
-    const dinamicas = [...document.querySelectorAll('.sheet.on')].filter(x => x.id !== 'composerSheet' && x.id !== 'termsSheet');
-    if (dinamicas.length) {
-        const s = dinamicas[dinamicas.length - 1];
-        s.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        if (document.body.contains(s) && s.classList.contains('on')) { s.remove(); }
-        document.body.style.overflow = document.querySelector('.sheet.on, .posts-viewer, .story-viewer.on, .sc.on') ? 'hidden' : '';
-        return true;
+// ---- Voltar do celular (botão do Android e gesto da borda): fecha só a camada de cima, ou volta uma tela ----
+// Todas as telas por cima (folhas, telas do X1, visualizadores, editores) entram nessa lista.
+// O "voltar" sempre acha a que está mais por cima (z-index e depois a mais nova) e fecha só ela.
+const CAMADAS_SEL = '.fab-arco, #floatingPostMenu, .menu-folha-fundo, .sheet.on, .x1-veu.on, .x1-tela.on, .posts-viewer:not(.oculta), .sem-tela, .retro-tela, .qr-tela, .foto-tela, .fe-tela, .fd-tela, .conq-tela, .np-tela, .nd-tela, .criar-tela, #storyCreator.on, #storyViewer.on';
+const BOTOES_FECHAR = '[data-x1f="fechar"], [data-fe="fechar"], [data-np="fechar"], [data-cr="fechar"], #conqFechar, .rt-fechar, .qr-x, .fd-x, .st-x, .pvm-voltar, [data-fechar], [aria-label="Fechar"], [aria-label="Voltar"], [aria-label="Cancelar"]';
+function zDaCamada(el) {
+    let topo = el;
+    while (topo.parentElement && topo.parentElement !== document.body) topo = topo.parentElement;
+    const z = parseInt(getComputedStyle(topo).zIndex, 10);
+    const zi = parseInt(getComputedStyle(el).zIndex, 10);
+    return (isNaN(z) ? 0 : z) * 1000 + (topo === el || isNaN(zi) ? 0 : zi);
+}
+function camadaDoTopo() {
+    let melhor = null, mz = -Infinity;
+    document.querySelectorAll(CAMADAS_SEL).forEach(el => {
+        if (el.id === 'termsSheet' || el.id === 'onbTela' || el.dataset.fechando || !el.isConnected) return;
+        if (el.closest('.oculta')) return;
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') return;
+        const z = zDaCamada(el);
+        if (z >= mz) { melhor = el; mz = z; }
+    });
+    return melhor;
+}
+function fecharCamada(el) {
+    const id = el.id;
+    if (el.classList.contains('fab-arco')) { el.click(); return; }
+    if (id === 'floatingPostMenu') { hidePostMenu(); return; }
+    if (id === 'novoPostTela' || id === 'newChallengeSheet') { el.remove(); return; }
+    if (el.classList.contains('criar-tela') && typeof fecharCriar === 'function') { fecharCriar(); return; }
+    if (id === 'confirmarSheet') { const c = el.querySelector('[data-r="0"]'); if (c) c.click(); else el.remove(); return; }
+    if (id === 'conqSheet') { el.remove(); return; }
+    if (id === 'storyCreator') { closeStoryCreator(); return; }
+    if (id === 'storyViewer') { closeStoryViewer(); return; }
+    if (id === 'composerSheet') { closeComposer(); return; }
+    if (el.classList.contains('x1-tela')) { x1FecharTela(id); return; }
+    if (el.classList.contains('x1-veu') || el.classList.contains('menu-folha-fundo')) { el.dispatchEvent(new MouseEvent('click', { bubbles: true })); if (el.classList.contains('menu-folha-fundo')) el.remove(); return; }
+    if (el.classList.contains('posts-viewer')) {
+        el.remove();
+        if (!document.querySelector('.posts-viewer')) state.arquivoStories = null;
+        return;
     }
-    if ($('#storyCreator').classList.contains('on')) { closeStoryCreator(); return true; }
-    if ($('#storyViewer').classList.contains('on')) { closeStoryViewer(); return true; }
-    const pv = [...document.querySelectorAll('.posts-viewer:not(.oculta)')];
-    if (pv.length) { pv[pv.length - 1].remove(); if (!document.querySelector('.posts-viewer')) { document.body.style.overflow = ''; state.arquivoStories = null; } return true; }
-    if ($('#composerSheet').classList.contains('on')) { closeComposer(); return true; }
-    return false;
+    // botão de fechar/voltar da própria camada (sem pegar o de uma camada de dentro)
+    const bt = [...el.querySelectorAll(BOTOES_FECHAR)].find(b => b.closest(CAMADAS_SEL) === el);
+    if (bt && bt.offsetParent !== null) { bt.click(); return; }
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    if (el.isConnected && (el.classList.contains('on') || !el.classList.contains('sheet'))) el.remove();
+}
+function fecharTopo() {
+    const el = camadaDoTopo();
+    if (!el) return false;
+    el.dataset.fechando = '1';
+    try { fecharCamada(el); } catch (_) { el.remove(); }
+    // se a camada não saiu (o fechar dela não fez nada), libera pra tentar de novo
+    setTimeout(() => { if (el.isConnected && el.classList.contains('on') !== false) delete el.dataset.fechando; }, 400);
+    setTimeout(() => { if (!camadaDoTopo() && !document.getElementById('onbTela')) document.body.style.overflow = ''; }, 300);
+    evento('voltar', { de: el.id || el.className.split(' ')[0] });
+    return true;
+}
+// "‹" das telas faz o mesmo que o voltar do celular: fecha o que estiver por cima, senão volta a tela anterior
+function voltarOu(destino) {
+    if (fecharTopo()) return;
+    if (voltarPraLista()) return;
+    const pilha = state.navPilha || [];
+    if (pilha.length) { const ant = pilha.pop(); switchView(ant.v, { ...(ant.p || {}), _voltando: true }); return; }
+    switchView(destino || 'feed', { _voltando: true });
 }
 function voltarUmPasso() {
     const ts = document.getElementById('termsSheet');
@@ -3136,6 +3354,37 @@ function talvezConvidarLembretes() {
         sb.from('profiles').update({ reminders_on: true }).eq('id', state.session.user.id).then(() => {});
         toast('Pronto, vou te avisar ✓', 'ok');
     };
+}
+
+// Primeiro acesso curto: "Como é sua semana?" só aparece depois do primeiro treino registrado
+function talvezPerguntarSemana(tentativa = 0) {
+    const p = state.profile;
+    if (!p || !state.session) return;
+    const temSemana = p.train_week && Object.keys(p.train_week).length;
+    const chave = 'pulso-pediu-semana-' + state.session.user.id;
+    if (temSemana || lsGet(chave)) return;
+    if (document.querySelector('.sheet.on, .sc.on, .story-viewer.on, #onbTela, .x1-tela, .tc-tela')) {
+        if (tentativa < 4) setTimeout(() => talvezPerguntarSemana(tentativa + 1), 8000);
+        return;
+    }
+    lsSet(chave, hojeISO());
+    evento('semana_pergunta', {});
+    const sheet = document.createElement('div');
+    sheet.id = 'semanaSheet';
+    sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <h3 class="sheet-title">Primeiro treino feito 💪 Como é sua semana?</h3>
+        <p class="sheet-sub">Conte o que você costuma fazer em cada dia. Aí o app sugere o treino certo no dia certo e te lembra na hora.</p>
+        <div class="sheet-footer">
+            <button class="bt-min cinza" id="ssNao">Depois</button>
+            <button class="bt-min" id="ssSim">Montar minha semana</button>
+        </div>
+    </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    sheet.querySelector('#ssNao').onclick = () => { sheet.remove(); evento('semana_depois', {}); };
+    sheet.querySelector('#ssSim').onclick = () => { sheet.remove(); evento('semana_montar', {}); abrirSemana(); };
 }
 
 // ---- Lembretes do dia ----
@@ -6538,7 +6787,15 @@ async function renderFeed() {
     sincronizarModoTela();
     state.x1NoFeed = new Set();
     const c = $('#viewContainer');
-    c.innerHTML = esqueleto('feed');
+    // Abrir rápido: na primeira vez da sessão mostra o último feed salvo enquanto o novo chega
+    const chaveSnap = 'pulso-feed-snap-' + state.session.user.id;
+    const snap = !state.cacheAtivo && !state.feedSnapUsado ? lsGet(chaveSnap) : null;
+    state.feedSnapUsado = true;
+    c.innerHTML = snap || esqueleto('feed');
+    // coisas que não dependem dos posts já saem junto
+    const anivP = carregarAniversariantes();
+    const sigoP = state.quantosSigo != null ? Promise.resolve(state.quantosSigo)
+        : Promise.resolve().then(() => sb.rpc('quantos_sigo')).then(r => (r && !r.error) ? (state.quantosSigo = Number(r.data || 0)) : null).catch(() => null);
 
     // Carrega stories em paralelo com posts
     const storiesPromise = sb.from('stories')
@@ -6567,7 +6824,15 @@ async function renderFeed() {
     state.feedMaisNovo = (posts || []).length ? posts[0].created_at : new Date().toISOString();
     const pilulaVelha = document.getElementById('novosPosts'); if (pilulaVelha) pilulaVelha.remove();
 
-    if (error) { c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro ao carregar: ${error.message}</p></div>`; return; }
+    if (error) {
+        if (snap || ehErroDeRede(error) || !navigator.onLine) {
+            if (!snap) { const s2 = lsGet(chaveSnap); if (s2) c.innerHTML = s2; }
+            if (c.querySelector('.feed-view') && !c.querySelector('.feed-offline')) c.querySelector('.feed-view').insertAdjacentHTML('afterbegin', '<div class="feed-offline">Sem internet. Mostrando o último feed salvo.</div>');
+            else if (!c.querySelector('.feed-view')) c.innerHTML = '<div class="view"><div class="feed-offline">Sem internet agora. Puxe pra baixo pra tentar de novo.</div></div>';
+            return;
+        }
+        c.innerHTML = `<div class="view"><p style="color:var(--danger)">Erro ao carregar: ${error.message}</p></div>`; return;
+    }
 
     // Busca os perfis dos autores dos stories numa consulta separada
     const storyUids = [...new Set((stories || []).map(s => s.user_id))];
@@ -6601,7 +6866,7 @@ async function renderFeed() {
     setTimeout(preCarregarBarraStories, 800);
 
     // aniversariantes do dia (anel colorido + 🎂). Quem não tem story também aparece: tocar abre o parabéns
-    const aniv = await carregarAniversariantes();
+    const aniv = await anivP;
     const anivIds = new Set(aniv.map(p => p.id));
     const souAniv = fazAniversarioHoje(state.profile.birth_date);
     // HTML da barra de stories
@@ -6651,8 +6916,7 @@ async function renderFeed() {
     // Sugestões de seguir: enquanto a pessoa segue menos de 10, a faixa fica sempre no topo.
     // Depois disso, aparece só na primeira vez que abre no dia (o resto fica na busca).
     const chaveDesc = 'pulso-descobrir-' + state.session.user.id;
-    let sigo = state.quantosSigo;
-    if (sigo == null) { try { const { data: q, error: eq } = await sb.rpc('quantos_sigo'); if (!eq) sigo = state.quantosSigo = Number(q || 0); } catch (_) {} }
+    const sigo = await sigoP;
     const poucos = sigo != null && sigo < 10;
     const jaViuHoje = lsGet(chaveDesc) === hojeISO();
     const suggestions = poucos ? await carregarSugestoesComeco(10) : jaViuHoje ? [] : await carregarSugestoes(6);
@@ -6706,6 +6970,7 @@ async function renderFeed() {
     }
     html += '</div>';
     c.innerHTML = html;
+    if (html.length < 350000) lsSet(chaveSnap, html);
 
     // Coach, lembretes e desafios aparecem depois, sem travar o feed
     hydrateCoachCard();
@@ -10681,8 +10946,11 @@ async function carregarSugestoes(lim = 8) {
     return data || [];
 }
 
-const ONB_PASSOS = ['objetivo', 'treino', 'semana', 'pessoas', 'avisos', 'desafios'];
+// Primeiro acesso curto: 3 passos. A semana de costume é pedida depois do primeiro treino,
+// os avisos depois do primeiro registro, e os desafios a pessoa descobre na aba.
+const ONB_PASSOS = ['objetivo', 'treino', 'pessoas'];
 async function abrirPrimeirosPassos(passo = 0) {
+    evento('onb_passo', { p: ONB_PASSOS[passo] || 'fim', i: passo + 1 });
     // avisos: só pergunta se o celular ainda não respondeu sobre notificações
     if (ONB_PASSOS[passo] === 'avisos' && !(typeof Notification !== 'undefined' && Notification.permission === 'default' && 'PushManager' in window)) passo++;
     let tela = document.getElementById('onbTela');
@@ -10717,7 +10985,7 @@ async function abrirPrimeirosPassos(passo = 0) {
         corpo = `<h2>Treinar junto é mais fácil</h2>
             <p>Siga quem combina com você pra ver os treinos da galera no seu feed.</p>
             <div class="follow-list onb-lista" id="onbPessoas"><div class="spinner"></div></div>
-            ${rodape()}`;
+            ${rodape('Começar a usar')}`;
     } else if (ONB_PASSOS[passo] === 'avisos') {
         corpo = `<span class="onb-sino">${SVG_C('<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>')}</span>
             <h2>Quer receber avisos?</h2>
@@ -10789,7 +11057,10 @@ document.addEventListener('click', async e => {
     const b = e.target.closest('[data-onb]');
     if (!b) return;
     const atual = ONB_PASSOS.findIndex((_, k) => tela.querySelectorAll('.onb-pontos i.on').length - 1 === k);
-    if (b.dataset.onb === 'pular' || (b.dataset.onb === 'proximo' && atual >= ONB_PASSOS.length - 1)) { concluirPrimeirosPassos(); return; }
+    if (b.dataset.onb === 'pular' || (b.dataset.onb === 'proximo' && atual >= ONB_PASSOS.length - 1)) {
+        evento(b.dataset.onb === 'pular' ? 'onb_pulou' : 'onb_fim', { p: ONB_PASSOS[atual], i: atual + 1 });
+        concluirPrimeirosPassos(); return;
+    }
     if (b.dataset.onb === 'avisos') {
         b.disabled = true; b.textContent = 'Ativando...';
         const ok = await ligarPush().catch(() => false);
@@ -14729,7 +15000,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'back') {
         if (!voltarUmPasso()) switchView('feed');
     } else if (act === 'back-profile') {
-        switchView('profile');
+        voltarOu('profile');
     } else if (act === 'open-body-data') {
         openBodyDataSheet();
     } else if (act === 'open-measure') {
@@ -15718,7 +15989,7 @@ document.addEventListener('click', async e => {
     } else if (act === 'go-coach') {
         switchView('coach');
     } else if (act === 'back-messages') {
-        switchView('messages');
+        voltarOu('messages');
     } else if (act === 'open-chat-item') {
         switchView('chat', {
             conversationId: btn.dataset.convId,
@@ -16793,6 +17064,8 @@ function adicionarMencaoStory(p) {
 }
 
 function openStoryCreator() {
+    evento('story_abriu', {});
+    state.storyPublicou = false;
     medirQuadroStory();
     Object.assign(sc, { mode: null, file: null, busy: false, bg: bgPadraoStory(), fonte: 'classico', fundoTxt: 'nenhum', pos: null, adesivo: null, adesivoPos: null, corLetra: null, alinhar: 'center', alvoCor: 'fundo', txtEsc: 1, txtRot: 0, adEsc: 1, adRot: 0 });
     sc.card = null; sc.cardPos = null; sc.cardEsc = 1; sc.cardRot = 0; sc.semFoco = false;
@@ -16839,6 +17112,8 @@ function openStoryCreator() {
 }
 
 function closeStoryCreator() {
+    if (state.storyPublicou === false) evento('story_desistiu', {});
+    state.storyPublicou = null;
     state.storyResumoSemana = null;
     const depois = state.depoisDoStory; state.depoisDoStory = null;
     if (depois) setTimeout(depois, 700);
@@ -18202,6 +18477,8 @@ el$('scPublish').addEventListener('click', async () => {
     state.storyResumoSemana = null;
     sc.busy = false;
     $('#scPublicarGrande').classList.remove('enviando');
+    state.storyPublicou = true;
+    evento('story_publicou', { foto: !!arquivo || !!repostFinal });
     closeStoryCreator();
     publicarStoryFundo(dados);
 });
@@ -19332,6 +19609,8 @@ const KIND_TITLES = { workout:'Novo treino', meal:'Refeição', water:'Água', s
 function abrirComposer() {
     $('#composerSheet').classList.add('on');
     document.body.style.overflow = 'hidden';
+    state.composerAberto = { t: Date.now() };
+    evento('registrar_abriu', { kind: state.composerKind || null });
 }
 function mostrarEscolhaDeTipo() {
     $('#composerPick').classList.remove('hidden');
@@ -19667,6 +19946,11 @@ el$('composerCancel').addEventListener('click', closeComposer);
 el$('composerSheet').addEventListener('click', e => { if (e.target.id === 'composerSheet') closeComposer(); });
 
 function closeComposer() {
+    if (state.composerAberto) {
+        const seg = Math.round((Date.now() - state.composerAberto.t) / 1000);
+        evento(state.publishing ? 'registrar_salvou' : 'registrar_desistiu', { kind: state.composerKind || null, seg, foto: !!state.composerPhoto });
+        state.composerAberto = null;
+    }
     $('#composerSheet').classList.remove('on');
     document.body.style.overflow = '';
     limparComposer();
@@ -20476,18 +20760,27 @@ el$('composerSubmit').addEventListener('click', async () => {
 
         // upload da foto se houver
         let thumbUrl = null, dimsFoto = null;
+        // treino e refeição com foto, sem internet: a foto fica no aparelho e sobe depois
+        let fotoOffline = false;
+        const fotoGuardavel = ['workout', 'meal'].includes(state.composerKind);
+        const soEu = state.composerDest !== 'feed' && state.composerKind === 'meal';
         if (state.composerPhoto) {
             btn.textContent = 'Enviando foto...';
             dimsFoto = await medirFoto(state.composerPhoto);
             // Refeição fora do feed fica "Só eu": a foto vai pra pasta privada
-            const soEu = state.composerDest !== 'feed' && state.composerKind === 'meal';
-            if (soEu) {
-                imageUrl = await uploadImagemPrivada(state.composerPhoto);
-            } else {
-                [imageUrl, thumbUrl] = await Promise.all([
-                    uploadImage('post-images', state.composerPhoto),
-                    uploadMiniatura(state.composerPhoto),
-                ]);
+            if (fotoGuardavel && !navigator.onLine) fotoOffline = true;
+            else try {
+                if (soEu) {
+                    imageUrl = await uploadImagemPrivada(state.composerPhoto);
+                } else {
+                    [imageUrl, thumbUrl] = await Promise.all([
+                        uploadImage('post-images', state.composerPhoto),
+                        uploadMiniatura(state.composerPhoto),
+                    ]);
+                }
+            } catch (eFoto) {
+                if (fotoGuardavel && ehErroDeRede(eFoto)) { fotoOffline = true; imageUrl = null; thumbUrl = null; }
+                else throw eFoto;
             }
 
             // Story ainda checa antes; post e registros no feed checam por trás (sem esperar)
@@ -20576,7 +20869,7 @@ el$('composerSubmit').addEventListener('click', async () => {
             }, { onConflict: 'user_id,slept_on' });
 
             if (erroSono) {
-                if (!navigator.onLine || String(erroSono.message || '').toLowerCase().includes('fetch')) {
+                if (ehErroDeRede(erroSono)) {
                     guardarNaFila({ tipo: 'sleep', dia, horas });
                     closeComposer();
                     toast('Sem internet agora. Guardei e envio assim que voltar.', 'ok');
@@ -20607,7 +20900,7 @@ el$('composerSubmit').addEventListener('click', async () => {
                 .insert({ ...registroAgua, user_id: state.session.user.id }).select().single();
 
             if (erroAgua) {
-                if (!navigator.onLine || String(erroAgua.message || '').toLowerCase().includes('fetch')) {
+                if (ehErroDeRede(erroAgua)) {
                     guardarNaFila({ tipo: 'post', post: registroAgua });
                     closeComposer();
                     toast('Sem internet agora. Guardei e envio assim que voltar.', 'ok');
@@ -20637,7 +20930,7 @@ el$('composerSubmit').addEventListener('click', async () => {
         }
 
         // ============ POST (tabela posts, permanente) ============
-        const toFeed = state.composerDest === 'feed' && !!imageUrl;
+        const toFeed = state.composerDest === 'feed' && !!(imageUrl || fotoOffline);
         const postVisibility = toFeed
             ? state.composerPrivacy
             : (state.composerKind === 'meal' ? 'private' : 'public');
@@ -20671,7 +20964,7 @@ el$('composerSubmit').addEventListener('click', async () => {
                 if (grupos.length) post.muscle_groups = grupos;
                 if (state.treinoCom.length) post.meta = { ...(post.meta || {}), com: state.treinoCom.map(u => ({ id: u.id, username: u.username, display_name: u.display_name })) };
             }
-            ptsToCredit = workoutPoints(post.activity_type, post.duration_min, !!imageUrl);
+            ptsToCredit = workoutPoints(post.activity_type, post.duration_min, !!(imageUrl || fotoOffline));
             state.semanaHist = null;
             ptsReason = 'workout';
         } else if (state.composerKind === 'meal') {
@@ -20697,32 +20990,45 @@ el$('composerSubmit').addEventListener('click', async () => {
             }
         }
 
-        // Sem internet: treino e água sem foto ficam guardados e são enviados quando a conexão voltar
-        if (!navigator.onLine && !imageUrl && post.kind === 'workout') {
-            guardarNaFila({ tipo: 'post', post: { ...post, created_at: new Date().toISOString() } });
+        // Sem internet: treino e refeição (com ou sem foto) ficam guardados e são enviados quando a conexão voltar
+        const guardarOffline = async (msg) => {
+            const item = { tipo: 'post', post: { ...post, created_at: new Date().toISOString() } };
+            if (fotoOffline && state.composerPhoto) {
+                const id = await guardarFotoFila(state.composerPhoto);
+                if (id != null) { item.fotoId = id; item.privada = soEu; if (post.kind === 'meal') item.post.meta = { ...(item.post.meta || {}), analise_pendente: true }; }
+                else item.post.in_feed = false;
+            }
+            guardarNaFila(item);
+            limparRascunho('pCaption');
             closeComposer();
-            toast('Sem internet agora. Guardei seu registro e envio assim que a conexão voltar.', 'ok');
+            toast(msg, 'ok');
+        };
+        if (fotoGuardavel && (fotoOffline || !navigator.onLine)) {
+            await guardarOffline('Sem internet agora. Guardei seu registro e envio sozinho quando a conexão voltar.');
             return;
         }
         let recordeAntes = null;
         if (post.kind === 'workout') {
-            const [{ data: maxDur }, { data: maxKm }] = await Promise.all([
-                sb.from('posts').select('duration_min').eq('user_id', state.session.user.id).eq('kind', 'workout')
-                    .not('duration_min', 'is', null).order('duration_min', { ascending: false }).limit(1),
-                sb.from('posts').select('distance_km').eq('user_id', state.session.user.id).eq('kind', 'workout')
-                    .not('distance_km', 'is', null).order('distance_km', { ascending: false }).limit(1),
-            ]);
-            recordeAntes = { dur: maxDur && maxDur[0] ? Number(maxDur[0].duration_min) : null, km: maxKm && maxKm[0] ? Number(maxKm[0].distance_km) : null };
+            // sinal fraco não pode travar o registro: se demorar, segue sem checar recorde
+            try {
+                const [{ data: maxDur }, { data: maxKm }] = await Promise.race([
+                    Promise.all([
+                        sb.from('posts').select('duration_min').eq('user_id', state.session.user.id).eq('kind', 'workout')
+                            .not('duration_min', 'is', null).order('duration_min', { ascending: false }).limit(1),
+                        sb.from('posts').select('distance_km').eq('user_id', state.session.user.id).eq('kind', 'workout')
+                            .not('distance_km', 'is', null).order('distance_km', { ascending: false }).limit(1),
+                    ]),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('demorou')), 4000)),
+                ]);
+                recordeAntes = { dur: maxDur && maxDur[0] ? Number(maxDur[0].duration_min) : null, km: maxKm && maxKm[0] ? Number(maxKm[0].distance_km) : null };
+            } catch (_) { recordeAntes = null; }
         }
         let created = null, postErr = null;
         try {
             ({ data: created, error: postErr } = await sb.from('posts').insert(post).select().single());
         } catch (errRede) { postErr = errRede; }
-        if (postErr && !imageUrl && post.kind === 'workout'
-            && /fetch|network|Failed|Load failed/i.test(String(postErr.message || postErr))) {
-            guardarNaFila({ tipo: 'post', post: { ...post, created_at: new Date().toISOString() } });
-            closeComposer();
-            toast('A conexão caiu. Guardei seu registro e envio assim que voltar.', 'ok');
+        if (postErr && fotoGuardavel && ehErroDeRede(postErr)) {
+            await guardarOffline('A conexão caiu. Guardei seu registro e envio sozinho quando voltar.');
             return;
         }
         if (created) setTimeout(checarConquistasNovas, 2500);
@@ -20796,6 +21102,7 @@ el$('composerSubmit').addEventListener('click', async () => {
         if (created && imageUrl && state.composerDest === 'feed') checarFotoDepois(created.id, imageUrl);
         // melhor hora pra pedir as notificações: logo depois de registrar algo
         if (created) setTimeout(talvezConvidarLembretes, eraTreino ? 7000 : 3500);
+        if (created && eraTreino) setTimeout(talvezPerguntarSemana, 14000);
 
         vibrar([10, 40, 14]);
         const oQue = post.kind === 'workout' ? `${post.activity_type || 'Treino'}${post.duration_min ? ' de ' + post.duration_min + ' min' : ''}`
@@ -20878,18 +21185,34 @@ async function bootInterno() {
     }
     state.session = session;
 
-    // carrega ou cria profile
-    let { data: prof } = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
-    if (!prof) {
-        const meta = session.user.user_metadata || {};
-        const insert = await sb.from('profiles').insert({
-            id: session.user.id,
-            username: (meta.username || `user_${session.user.id.slice(0,8)}`).toLowerCase(),
-            display_name: meta.display_name || 'Novo usuário'
-        }).select().single();
-        prof = insert.data;
-    }
+    // carrega ou cria profile. Pra abrir rápido: se já tem uma cópia salva do perfil, entra com ela
+    // e atualiza por trás. Seguidores e pontos vão em paralelo, sem esperar um pelo outro.
+    const uidBoot = session.user.id;
+    const chaveProf = 'pulso-prof-' + uidBoot;
+    let profCache = null;
+    try { profCache = JSON.parse(lsGet(chaveProf) || 'null'); } catch (_) {}
+    if (profCache && profCache.id !== uidBoot) profCache = null;
+    const profP = (async () => {
+        let { data: prof, error } = await sb.from('profiles').select('*').eq('id', uidBoot).maybeSingle();
+        if (error) return null;
+        if (!prof) {
+            const meta = session.user.user_metadata || {};
+            const insert = await sb.from('profiles').insert({
+                id: uidBoot,
+                username: (meta.username || `user_${uidBoot.slice(0,8)}`).toLowerCase(),
+                display_name: meta.display_name || 'Novo usuário'
+            }).select().single();
+            prof = insert.data;
+        }
+        if (prof) { try { localStorage.setItem(chaveProf, JSON.stringify(prof)); } catch (_) {} }
+        return prof;
+    })().catch(() => null);
+    const segP = Promise.resolve().then(() => sb.rpc('my_followers_count')).then(r => r && r.data).catch(() => null);
+    const cacheServe = profCache && (profCache.is_admin || !profCache.access_status || profCache.access_status === 'aprovado');
+    let prof = cacheServe ? profCache : await profP;
+    if (!prof) prof = profCache || await profP;
     state.profile = prof;
+    marcarTempo('perfil');
 
     // Cadastro esperando liberação do administrador
     if (prof && prof.access_status && prof.access_status !== 'aprovado' && !prof.is_admin) {
@@ -20903,12 +21226,21 @@ async function bootInterno() {
     $('#app').classList.add('on');
 
     // Ajusta privacidade padrão: se 0 seguidores, público; senão, seguidores
-    const { data: followersCount } = await sb.rpc('my_followers_count');
-    state.defaultPrivacy = (followersCount || 0) > 0 ? 'followers' : 'public';
-    state.composerPrivacy = state.defaultPrivacy;
-    updatePrivacyChip();
+    const chaveSeg = 'pulso-seg-' + uidBoot;
+    const aplicarSeg = n => {
+        state.defaultPrivacy = (Number(n) || 0) > 0 ? 'followers' : 'public';
+        state.composerPrivacy = state.defaultPrivacy;
+        updatePrivacyChip();
+    };
+    const segCache = lsGet(chaveSeg);
+    if (segCache != null) {
+        aplicarSeg(segCache);
+        segP.then(n => { if (n != null) { lsSet(chaveSeg, String(n)); if (!state.composerAberto) aplicarSeg(n); } });
+    } else {
+        const n = await segP; if (n != null) lsSet(chaveSeg, String(n)); aplicarSeg(n);
+    }
 
-    await loadScore();
+    loadScore();
     // Veio de uma notificação? Vai direto pro lugar. Senão, abre na aba mais usada.
     const ap = state.abrirPush; state.abrirPush = null;
     if (ap && ap.tela === 'desafio' && ap.x1) { await switchView('desafio'); abrirX1(ap.x1); }
@@ -20919,11 +21251,21 @@ async function bootInterno() {
     else if (ap && ap.tela === 'parabens' && ap.id) { await switchView('feed'); abrirParabens(ap.id); }
     else if (ap && ['notifications', 'messages', 'progress', 'coach'].includes(ap.tela)) await switchView(ap.tela);
     else await switchView(abaInicial());
+    marcarTempo('tela');
+    // perfil fresquinho do servidor (se entrou com a cópia salva)
+    if (prof === profCache) {
+        const fresco = await profP;
+        if (fresco) {
+            state.profile = fresco;
+            if (fresco.access_status && fresco.access_status !== 'aprovado' && !fresco.is_admin) { mostrarTelaAguardandoAcesso(fresco.access_status); return; }
+        }
+    }
     if (ap && ap.tela === 'treino' && trGet()) setTimeout(() => abrirTreinoVivo(), 300);
     if (ap && ap.tela === 'semana') setTimeout(() => abrirSemana(), 400);
     if (ap && ap.tela === 'treinar' && ap.id) setTimeout(() => abrirModoTreino({ a: 'Musculação', g: [ap.id] }), 400);
     if (ap && ap.tela === 'agua') setTimeout(() => { limparComposer(); setComposerKind('water'); abrirComposer(); }, 350);
     state.bootPronto = true;
+    evento('app_abriu', { instalado: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches), offline: !navigator.onLine });
     updateUnreadBadge();
     updateNotifBadge();
     checarConquistas(true);
@@ -21195,6 +21537,7 @@ function abrirRegrasX1(tipo, duracao = null, datas = null, aoAceitar = null) {
 
 // ---------- Criar ----------
 async function abrirCriarX1(alvo, base = {}) {
+    evento('x1_criar_abriu', {});
     let tipo = base.tipo || 'perfeito', dur = X1_DUR_NOVO.includes(base.duracao) ? base.duracao : null, mostrar = true;
     // começa sempre à 00h. Amanhã só vale se ainda der 12 h pra pessoa aceitar
     const hoje0 = x1SomaDias(new Date(), 0), primeiro = new Date().getHours() < 12 ? 1 : 2, MAX = 14;
@@ -21258,6 +21601,7 @@ async function abrirCriarX1(alvo, base = {}) {
             const { error } = await sb.rpc('x1_criar', { alvo: alvo.id, p_tipo: tipo, p_duracao: dur, p_prenda: t.querySelector('#x1Prenda').value.trim(), p_mostrar: mostrar, p_inicio: x1ISO(ini) });
             b.disabled = false;
             if (error) { toast(msgErro(error), 'err'); return; }
+            evento('x1_enviou', { tipo, dur });
             vibrar([10, 40, 14]);
             x1FecharTela('x1Criar');
             toast(`Desafio enviado! ${nome} pode aceitar até ${x1DiaTxt(datasAtual().aceite)} às 12h.`, 'ok');

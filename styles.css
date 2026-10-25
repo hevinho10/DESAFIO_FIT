@@ -6222,3 +6222,64 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .pvm-pontos i{ width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.2); cursor:pointer; transition:width .2s; }
 .pvm-pontos i.on{ width:18px; border-radius:4px; background:#34D399; }
 :root[data-theme="light"] .pvm-pontos i{ background:rgba(16,21,18,.2); }
+
+/* ============ ONDA 61: abrir rápido, sem internet, voltar igual, toque e contraste, funil ============ */
+/* contraste no preto total: textos cinza não somem */
+:root:not([data-theme="light"]){ --ink-dim:#AEB6AF; --ink-faint:#8A938B; }
+/* letras pequenas demais ficam com no mínimo 11px */
+.post-time, .stat-card .sub, .post-privacy-badge, .ch-status, .cmsg-hora, .x1-it small, .x1-pl small, .tr-h,
+.water-btn small, .qual-btn small, .dest-valor small, .cr-lado small, .ref-slots button small, .x1-agenda small,
+.x1f-m small, .goal-num .l, .unlock-tag, .badge-nivel, .cm-oculto-tag, .imc-legend, .badge-prog-txt, .cq-tag,
+.ed-data, .arq-item .ed-data, .adm-tag-adm, .adm-tag-bloq, .adm-tag-pend, .pd-tag{ font-size:11px !important; }
+.topbar-score .lbl{ font-size:10.5px; }
+/* alvo de toque de pelo menos 44px nos botões pequenos (a área cresce sem mudar o desenho) */
+.dc-x, .sug-x, .lb-x, .topbar-msg-btn, .x1-ib, .np-x, .cr-x, .fd-x, .st-x, .rt-fechar, .pw-toggle, .story-plus,
+.btn-mini, .bt-min, .fl-volta, .x1-voltar, .pvm-voltar{ touch-action:manipulation; }
+.dc-x::after, .sug-x::after, .topbar-msg-btn::after, .x1-ib::after, .np-x::after, .cr-x::after, .fd-x::after, .st-x::after,
+.rt-fechar::after, .pw-toggle::after{ content:''; position:absolute; inset:-7px; border-radius:50%; }
+.sug-x, .topbar-msg-btn, .x1-ib, .np-x, .cr-x, .pw-toggle{ position:relative; }
+.pw-toggle{ position:absolute; }
+.btn-mini, .bt-min, .fl-volta{ position:relative; }
+.btn-mini::before, .bt-min::before, .fl-volta::before{ content:''; position:absolute; left:0; right:0; top:-6px; bottom:-6px; }
+.dc-x, .lb-x{ width:36px; height:36px; top:2px; right:2px; }
+
+/* feed salvo sem internet */
+.feed-offline{ margin:4px 0 12px; padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:var(--bg-card);
+  color:var(--ink-dim); font-size:13px; text-align:center; }
+
+/* pílula "esperando internet" */
+.fila-pilula{ position:fixed; left:50%; transform:translateX(-50%); bottom:calc(84px + env(safe-area-inset-bottom)); z-index:60;
+  display:inline-flex; align-items:center; gap:8px; height:36px; padding:0 14px 0 10px; border-radius:999px;
+  background:rgba(11,11,12,.92); border:1px solid rgba(16,185,129,.45); color:#D1FAE5; font:600 12.5px var(--ff-body);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); box-shadow:0 6px 24px rgba(0,0,0,.4); animation:fpEntra .25s ease; }
+.fila-pilula::before{ content:''; position:absolute; inset:-5px 0; }
+.fila-pilula .fp-ic{ width:18px; height:18px; color:#10B981; display:grid; place-items:center; }
+.fila-pilula .fp-ic svg{ width:16px; height:16px; }
+.fila-pilula.girando .fp-ic svg{ animation:fpGira .8s linear infinite; }
+:root[data-theme="light"] .fila-pilula{ background:rgba(255,255,255,.95); color:#065F46; }
+@keyframes fpEntra{ from{ opacity:0; transform:translate(-50%, 8px); } to{ opacity:1; transform:translate(-50%, 0); } }
+@keyframes fpGira{ to{ transform:rotate(360deg); } }
+
+/* painel "Onde desistem" */
+.fn-dias{ display:flex; gap:8px; margin:2px 0 12px; }
+.fn-dia{ height:32px; padding:0 14px; border-radius:999px; border:1px solid var(--line); background:none; color:var(--ink-dim); font:600 12.5px var(--ff-body); }
+.fn-dia.on{ border-color:rgba(16,185,129,.55); color:#34D399; }
+.fn-topo{ margin-bottom:10px; }
+.fn-card{ margin-bottom:10px; }
+.fn-t{ display:block; font-size:14px; margin-bottom:10px; }
+.fn-linha{ display:grid; grid-template-columns:96px 1fr 52px; align-items:center; gap:10px; padding:5px 0; }
+.fn-nome{ font-size:12.5px; color:var(--ink-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fn-barra{ height:10px; border-radius:6px; background:rgba(255,255,255,.06); overflow:hidden; }
+.fn-barra i{ display:block; height:100%; border-radius:6px; background:#10B981; }
+.fn-n{ text-align:right; font-weight:700; font-size:13px; }
+.fn-n small{ display:block; font-weight:500; font-size:11px; color:var(--ink-faint); }
+.fn-queda{ margin:-2px 0 4px 106px; font-size:11.5px; color:#FBBF24; }
+.fn-tab{ display:grid; grid-template-columns:1fr auto auto; gap:8px 16px; font-size:12.5px; align-items:center; }
+.fn-tab > span:nth-child(-n+3){ color:var(--ink-faint); font-size:11px; }
+.fn-tab b{ text-align:right; } .fn-tab b small{ color:var(--ink-faint); font-weight:500; }
+:root[data-theme="light"] .fn-barra{ background:rgba(0,0,0,.06); }
+.fila-pilula{ white-space:nowrap; }
+/* botão do primeiro acesso no estilo fino (contorno verde) */
+.onb .onb-ok{ background:transparent !important; color:#34D399 !important; border:1px solid rgba(16,185,129,.6) !important; box-shadow:none !important; font-weight:600; }
+.onb .onb-ok:disabled{ color:var(--ink-faint) !important; border-color:var(--line) !important; opacity:1; }
+:root[data-theme="light"] .onb .onb-ok{ color:#059669 !important; }
