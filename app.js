@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261266';
+const APP_VERSAO = '20261267';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1025,6 +1025,29 @@ async function hydrateAdminCapacidade() {
             <div class="cap-lista">${(data.tabelas || []).map(t => `<div class="cap-it"><span>${escapeHTML(t.nome)}</span><b>${fmtBytes(t.bytes)}</b></div>`).join('')}</div></div>
         <p class="faixa-nota" style="margin-bottom:0">Limites do plano gratuito do Supabase. Amarelo a partir de 70%, vermelho a partir de 90%.</p>`;
 }
+// ---- Saúde dos desafios: quem registrou algo nos últimos 3 dias (pra ver desafio esfriando antes de morrer) ----
+async function hydrateSaudeDesafios() {
+    const box = document.getElementById('admSaude'); if (!box) return;
+    const { data, error } = await sb.rpc('admin_saude_desafios');
+    if (!document.getElementById('admSaude')) return;
+    if (error) { box.innerHTML = `<div class="chart-card"><p class="faixa-nota" style="margin:0">Não consegui carregar: ${escapeHTML(error.message)}. Rode a seção 32 do SQL.</p></div>`; return; }
+    const lista = data || [];
+    if (!lista.length) { box.innerHTML = `<div class="chart-card"><p class="faixa-nota" style="margin:0">Nenhum desafio rolando agora.</p></div>`; return; }
+    box.innerHTML = lista.map(c => {
+        const pct = Number(c.pct) || 0, cor = pct >= 60 ? 'bom' : pct >= 30 ? 'medio' : 'ruim';
+        const dif = (c.ativos || 0) - (c.ativos_antes || 0);
+        const tend = dif > 0 ? `<span class="sd-tend sobe">↑ ${dif} a mais que nos 3 dias antes</span>` : dif < 0 ? `<span class="sd-tend cai">↓ ${-dif} a menos que nos 3 dias antes</span>` : `<span class="sd-tend">igual aos 3 dias antes</span>`;
+        const sumidos = (c.sumidos || []);
+        return `<div class="chart-card sd-card ${cor}">
+            <div class="sd-topo"><div><b>${escapeHTML(c.nome || 'Desafio')}</b><small>dia ${Math.min(c.dia, c.de)} de ${c.de}</small></div><span class="sd-pct">${pct}%</span></div>
+            <div class="sd-barra"><i style="width:${Math.max(2, pct)}%"></i></div>
+            <p class="sd-txt"><b>${c.ativos || 0} de ${c.membros || 0}</b> registraram algo nos últimos 3 dias</p>
+            ${tend}
+            ${sumidos.length ? `<div class="sd-sumidos"><small>Sumidos:</small>${sumidos.map(u => `<button type="button" class="sd-pessoa" data-act="view-user" data-uid="${u.id}">${escapeHTML(u.nome || '?')}${u.dias != null ? ` <i>${u.dias}d</i>` : ' <i>nunca</i>'}</button>`).join('')}</div>` : ''}
+        </div>`;
+    }).join('') + '<p class="faixa-nota" style="margin-top:0">Verde: 60% ou mais ativos. Amarelo: de 30% a 59%. Vermelho: menos de 30%. Os que estão no vermelho aparecem primeiro.</p>';
+}
+
 // ---- Onde as pessoas desistem: funis montados com os eventos de uso ----
 const NOME_PASSO_ONB = { objetivo: 'Objetivo', treino: 'O que curte', pessoas: 'Pessoas' };
 const NOME_KIND = { workout: 'Treino', meal: 'Refeição', water: 'Água', sleep: 'Sono', post: 'Post', story: 'Story', weight: 'Peso', '?': 'Sem tipo' };
@@ -1086,6 +1109,7 @@ document.addEventListener('click', e => {
     state.funilDias = Number(b.dataset.funilDias);
     document.querySelectorAll('[data-funil-dias]').forEach(x => x.classList.toggle('on', x === b));
     hydrateAdminFunil();
+    hydrateSaudeDesafios();
 });
 async function renderAdmin() {
     const c = $('#viewContainer');
@@ -1159,6 +1183,9 @@ async function renderAdmin() {
                 </div>
             </div>
 
+            <h3 class="edit-section-title" style="margin-top:22px">Saúde dos desafios</h3>
+            <div id="admSaude"><div class="spinner"></div></div>
+
             <h3 class="edit-section-title" style="margin-top:22px">Uso do app</h3>
             <div id="metricasBox"><div class="spinner"></div></div>
 
@@ -1216,6 +1243,7 @@ async function renderAdmin() {
     hydrateAdminErros();
     hydrateAdminCapacidade();
     hydrateAdminFunil();
+    hydrateSaudeDesafios();
     hydrateNovosCadastros().then(() => {
         const n = document.querySelectorAll('#cadastrosBox [data-status="aprovado"]').length - document.querySelectorAll('#cadastrosBox details [data-status="aprovado"]').length;
         const aba = document.querySelector('.adm-abas [data-aba="cadastros"]');
@@ -21253,6 +21281,13 @@ async function bootInterno() {
     else if (ap && ap.tela === 'perfil' && ap.id) await switchView('user-profile', { uid: ap.id });
     else if (ap && ap.tela === 'depoimento' && ap.id) await abrirPedidoDepoimento(ap.id, '');
     else if (ap && ap.tela === 'parabens' && ap.id) { await switchView('feed'); abrirParabens(ap.id); }
+    else if (ap && ap.tela === 'postsemana') {
+        // aviso de domingo: abre direto a escolha do modelo da semana que acabou
+        await switchView('feed');
+        const ini = janelaDoResumo() ? semanaDoResumo() : new Date(inicioDaSemana(new Date()).getTime() - 7 * 86400000);
+        evento('resumo_push_abriu', {});
+        setTimeout(() => abrirModelosSemana(ini), 450);
+    }
     else if (ap && ['notifications', 'messages', 'progress', 'coach'].includes(ap.tela)) await switchView(ap.tela);
     else await switchView(abaInicial());
     marcarTempo('tela');

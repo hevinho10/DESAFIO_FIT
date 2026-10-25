@@ -6286,3 +6286,22 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 /* abas do admin: 6 abas não cabem, então rolam pro lado com espaço entre elas */
 .evo-abas.adm-abas{ overflow-x:auto; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity; gap:4px; padding:4px; }
 .adm-abas .evo-aba{ flex:0 0 auto !important; padding:8px 14px !important; border-radius:9px; font-size:13px !important; scroll-snap-align:start; }
+/* saúde dos desafios (admin) */
+.sd-card{ margin-bottom:10px; }
+.sd-topo{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.sd-topo b{ display:block; font-size:14.5px; } .sd-topo small{ color:var(--ink-faint); font-size:12px; }
+.sd-pct{ font:800 24px var(--ff-display); }
+.sd-barra{ height:8px; border-radius:6px; background:rgba(255,255,255,.07); overflow:hidden; margin:10px 0 8px; }
+.sd-barra i{ display:block; height:100%; border-radius:6px; }
+.sd-card.bom .sd-pct{ color:#34D399; } .sd-card.bom .sd-barra i{ background:#10B981; }
+.sd-card.medio .sd-pct{ color:#FBBF24; } .sd-card.medio .sd-barra i{ background:#F59E0B; }
+.sd-card.ruim .sd-pct{ color:#F87171; } .sd-card.ruim .sd-barra i{ background:#EF4444; }
+.sd-txt{ margin:0; font-size:13px; color:var(--ink-dim); } .sd-txt b{ color:var(--ink); }
+.sd-tend{ display:block; margin-top:4px; font-size:12px; color:var(--ink-faint); }
+.sd-tend.sobe{ color:#34D399; } .sd-tend.cai{ color:#F87171; }
+.sd-sumidos{ display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px; }
+.sd-sumidos small{ color:var(--ink-faint); font-size:12px; margin-right:2px; }
+.sd-pessoa{ height:30px; padding:0 10px; border-radius:999px; border:1px solid var(--line); background:none; color:var(--ink); font:600 12px var(--ff-body); position:relative; }
+.sd-pessoa::before{ content:''; position:absolute; inset:-6px 0; }
+.sd-pessoa i{ font-style:normal; color:var(--ink-faint); font-weight:500; }
+:root[data-theme="light"] .sd-barra{ background:rgba(0,0,0,.07); }
