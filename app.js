@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261269';
+const APP_VERSAO = '20261270';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -6692,6 +6692,18 @@ const INSIGHT_SPECS = {
     },
 };
 
+// de qual semana o recado fala (domingo a sábado). Gerado no domingo, fala da semana que acabou
+function semanaDoInsight(ins) {
+    const c = new Date(ins.created_at || Date.now());
+    return inicioDaSemana(c.getDay() === 0 && ins.kind === 'weekly_review' ? new Date(c.getTime() - 86400000) : c);
+}
+// meta batida vale até a semana virar; a retrospectiva vale até o fim do domingo
+function insightValidoAte(kind, criado) {
+    if (kind !== 'celebration' && kind !== 'weekly_review') return null;
+    const ini = semanaDoInsight({ kind, created_at: criado });
+    const fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + (kind === 'weekly_review' ? 8 : 7));
+    return fim;
+}
 async function loadActiveInsight() {
     const { data } = await sb.from('ai_insights')
         .select('*')
@@ -6699,8 +6711,32 @@ async function loadActiveInsight() {
         .eq('dismissed', false)
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
-        .limit(1);
-    return data?.[0] || null;
+        .limit(5);
+    return (data || []).find(ins => { const ate = insightValidoAte(ins.kind, ins.created_at); return !ate || ate > new Date(); }) || null;
+}
+// bolinha na aba Evolução quando tem recado novo do coach
+function marcarBolinhaCoach(ligar) {
+    const b = document.querySelector('.nav-btn[data-view="progress"]');
+    if (b) b.classList.toggle('tem-recado', !!ligar);
+}
+async function prepararInsight() {
+    if (!state.session) return;
+    try {
+        let ins = await loadActiveInsight();
+        if (!ins) {
+            const ctx = await getCoachContext(true);
+            const kind = decideInsightKind(ctx);
+            if (kind) {
+                const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+                const { count } = await sb.from('ai_insights').select('*', { count: 'exact', head: true })
+                    .eq('user_id', state.session.user.id).eq('kind', kind).gte('created_at', hoje.toISOString());
+                if (!count) ins = await generateInsight(kind, ctx).catch(() => null);
+            }
+        }
+        const naTela = state.view === 'progress' && (state.abaEvolucao || 'coach') === 'coach';
+        if (ins && naTela) { const slot = document.getElementById('coachSlot'); if (slot && !slot.innerHTML.trim()) hydrateCoachCard(); }
+        else marcarBolinhaCoach(ins && lsGet('pulso-insight-visto') !== String(ins.id));
+    } catch (_) {}
 }
 
 function decideInsightKind(ctx) {
@@ -6736,7 +6772,8 @@ ${brief}
 TAREFA:
 ${spec.ask(ctx)}
 
-Escreva apenas o texto da mensagem, sem título e sem saudação formal. Máximo 90 palavras.`;
+Escreva apenas o texto da mensagem, sem título e sem saudação formal. No máximo 2 frases curtas e 1 dica prática, até 45 palavras no total.
+${kind === 'plateau' ? '' : 'Não cite meta de peso, quilos nem ritmo de perda de peso: fale de treino, constância e descanso.'}`;
 
     const body = await callAI(prompt);
 
@@ -6747,6 +6784,7 @@ Escreva apenas o texto da mensagem, sem título e sem saudação formal. Máximo
         body: body.trim(),
         cta_label: spec.cta,
         cta_action: kind === 'nudge' ? 'register' : kind === 'celebration' || kind === 'weekly_review' ? 'progress' : 'chat',
+        ...(insightValidoAte(kind, new Date()) ? { expires_at: insightValidoAte(kind, new Date()).toISOString() } : {}),
     }).select().single();
 
     return data;
@@ -6754,17 +6792,27 @@ Escreva apenas o texto da mensagem, sem título e sem saudação formal. Máximo
 
 function insightCardHTML(ins) {
     const emo = { weekly_plan:'🗓️', celebration:'🎉', nudge:'👋', plateau:'📊', weekly_review:'📋', tip:'💡' }[ins.kind] || '💡';
+    const daSemana = ins.kind === 'celebration' || ins.kind === 'weekly_review';
+    const ini = daSemana ? semanaDoInsight(ins) : null;
+    const sub = escapeHTML(ins.title) + (ini ? ` · semana ${x1DM(ini)} a ${x1DM(new Date(ini.getTime() + 6 * 86400000))}` : '');
+    const cta = daSemana ? ['Ver minha semana', `data-act="insight-semana" data-ini="${isoDe(ini)}"`]
+        : ins.kind === 'nudge' ? ['Registrar treino', 'data-act="insight-cta" data-target="register"']
+        : ins.kind === 'plateau' ? ['Ver meu peso', 'data-act="insight-cta" data-target="peso"']
+        : ins.kind === 'weekly_plan' ? ['Ver o plano', 'data-act="insight-cta" data-target="plano"']
+        : ['Conversar com o coach', 'data-act="insight-cta" data-target="chat"'];
+    const longo = String(ins.body || '').length > 150;
     return `<div class="coach-card" data-insight-id="${ins.id}">
         <div class="coach-card-head">
             <span class="coach-avatar">${emo}</span>
             <div class="coach-card-meta">
                 <div class="coach-name">Coach Pulso</div>
-                <div class="coach-sub">${escapeHTML(ins.title)}</div>
+                <div class="coach-sub">${sub}</div>
             </div>
             <button class="coach-dismiss" data-act="dismiss-insight" data-id="${ins.id}" aria-label="Dispensar">×</button>
         </div>
-        <p class="coach-body">${escapeHTML(ins.body)}</p>
-        ${ins.cta_label ? `<button class="coach-cta" data-act="insight-cta" data-target="${ins.cta_action}">${escapeHTML(ins.cta_label)}</button>` : ''}
+        <p class="coach-body${longo ? ' curta' : ''}">${escapeHTML(ins.body)}</p>
+        ${longo ? '<button type="button" class="coach-mais" data-act="coach-ler-mais">ler mais</button>' : ''}
+        <button class="coach-cta" ${cta[1]}>${cta[0]}</button>
     </div>`;
 }
 
@@ -6796,6 +6844,7 @@ async function hydrateCoachCard() {
 
         const html = ins ? insightCardHTML(ins) : '';
         if (slot.innerHTML !== html) slot.innerHTML = html;
+        if (ins) { lsSet('pulso-insight-visto', String(ins.id)); marcarBolinhaCoach(false); }
     } catch (err) {
         console.error('coach card', err);
     }
@@ -6928,7 +6977,6 @@ async function renderFeed() {
 
     let html = '<div class="view feed-view">';
 
-    html += `<div id="coachSlot"></div>`;
     html += storiesHTML + '<div id="anivSlot"></div><div id="prontSlot"></div><div id="lembrancaSlot"></div><div id="semanaSlot"></div><div id="retroSlot"></div>';
     if (souAniv) setTimeout(hydrateAniversario, 300);
     setTimeout(hydrateLembranca, 400);
@@ -7014,8 +7062,7 @@ async function renderFeed() {
         if (full.length < 400000) lsSet(chaveSnap, JSON.stringify({ base: html, full }));
     }, 6000);
 
-    // Coach, lembretes e desafios aparecem depois, sem travar o feed
-    hydrateCoachCard();
+    // lembretes e desafios aparecem depois, sem travar o feed (o recado do coach mora na Evolução › Hoje)
     hydrateResumoSemana();
     hydrateDesafiosFeed();
 }
@@ -8313,6 +8360,41 @@ function planoBase() {
 }
 const esqueletoCoach = titulo => `<div class="chart-card ia-card ia-esq"><div class="chart-head"><span class="chart-title">${titulo}</span></div><span class="esq" style="width:60%;height:12px"></span><span class="esq" style="width:88%;height:12px;margin-top:8px"></span><span class="esq" style="width:42%;height:12px;margin-top:8px"></span></div>`;
 
+// "Semana passada: 3 de 3 ✓" na segunda e na terça, pra semana nova em 0 não parecer que apagou tudo
+async function linhaSemanaPassada() {
+    const ini = inicioDaSemana(new Date(Date.now() - 7 * 86400000)); ini.setHours(0, 0, 0, 0);
+    const fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 7);
+    const { data } = await sb.from('posts').select('created_at').eq('user_id', state.session.user.id).eq('kind', 'workout')
+        .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()).limit(200);
+    const dias = new Set((data || []).map(x => new Date(x.created_at).toDateString())).size;
+    const meta = state.profile.weekly_goal || 3;
+    return `<button type="button" class="sem-passada" data-act="insight-semana" data-ini="${isoDe(ini)}"><span>Semana passada</span><b>${dias} de ${meta}${dias >= meta ? ' ✓' : ''}</b><i>›</i></button>`;
+}
+// folha com uma semana fechada: anel, dias treinados, tempo, ofensiva e postar no story
+async function abrirSemanaFolha(ini) {
+    const { f } = x1Folha(`<div id="semFolha"><div class="spinner"></div></div>`, 'semanaFolha');
+    let d;
+    try { d = await dadosPostSemana(ini); } catch (_) { d = null; }
+    const box = f.querySelector('#semFolha'); if (!box) return;
+    if (!d) { box.innerHTML = '<p class="faixa-nota">Não consegui carregar essa semana agora.</p>'; return; }
+    const n = d.diasTreino, meta = d.meta, pct = Math.min(1, n / Math.max(1, meta));
+    const r = 42, c = 2 * Math.PI * r;
+    const tempo = d.minutos >= 60 ? `${Math.floor(d.minutos / 60)}h${d.minutos % 60 ? String(d.minutos % 60).padStart(2, '0') : ''}` : `${d.minutos} min`;
+    const letras = 'DSTQQSS';
+    state.evoDias = state.evoDias || {};
+    (d.diasP || []).forEach(x => { if (x.ws.length) state.evoDias[diaChave(x.ws[0].created_at)] = x.ws; });
+    box.innerHTML = `<h3 class="x1-folha-t">Semana ${x1DM(d.ini)} a ${x1DM(d.ult)}</h3>
+        <div class="sf-topo">
+            <svg class="sf-anel" viewBox="0 0 100 100"><circle cx="50" cy="50" r="${r}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8"/><circle cx="50" cy="50" r="${r}" fill="none" stroke="#10B981" stroke-width="8" stroke-linecap="round" stroke-dasharray="${c * pct} ${c}" transform="rotate(-90 50 50)"/><text x="50" y="57" text-anchor="middle">${n}/${meta}</text></svg>
+            <div><b>${n >= meta ? 'Meta batida ✓' : n ? `Faltou ${meta - n} pra meta` : 'Semana sem treino'}</b>
+                <small>${plural(d.treinos.length, 'treino', 'treinos')}${d.minutos ? ' · ' + tempo + ' suando' : ''}</small>
+                ${d.ofensiva > 1 ? `<small>${d.ofensiva} dias de ofensiva 🔥</small>` : ''}</div>
+        </div>
+        <div class="sf-dias">${(d.diasP || []).slice(0, 7).map((x, i) => { const ic = iconeDiaTreino(x.ws); return ic ? `<button type="button" class="sf-d ok" style="--c:${ic.c}" data-act="evo-dia" data-k="${diaChave(x.ws[0].created_at)}"><i>${ic.svg}</i>${letras[i]}</button>` : `<span class="sf-d"><i></i>${letras[i]}</span>`; }).join('')}</div>
+        ${d.treinos.length ? '<button type="button" class="bt-min sf-story" data-sf="story">Postar essa semana no story</button>' : ''}`;
+    box.querySelector('[data-sf="story"]')?.addEventListener('click', () => { const v = document.getElementById('semanaFolha'); if (v) v.remove(); abrirModelosSemana(d.ini); });
+}
+
 // ---------- Monta tudo na aba Hoje (cada parte chega sozinha) ----------
 async function hydrateIAEvolucao() {
     const slot = document.getElementById('iaSlot');
@@ -8320,7 +8402,8 @@ async function hydrateIAEvolucao() {
     const p = state.profile;
     const semPrefs = !(p.train_likes && p.train_likes.length);
     if (semPrefs) {
-        slot.innerHTML = semanaStripHTML() + `<div class="chart-card ia-card ia-convite">
+        if ([1, 2].includes(new Date().getDay())) linhaSemanaPassada().then(h => { const el = document.getElementById('cSemPassada'); if (h && el) el.innerHTML = h; }).catch(() => {});
+        slot.innerHTML = semanaStripHTML() + `<div id="cSemPassada"></div><div class="chart-card ia-card ia-convite">
             <div class="chart-head"><span class="chart-title">Seu treino de hoje</span></div>
             <p class="ia-porque">Me conta o que você gosta de fazer, quanto tempo tem e onde treina, que eu monto seu treino do dia e o plano da semana.</p>
             <button class="btn-primary-sm" data-act="m-go" data-view="jeito-treino">Contar pro coach</button>
@@ -8331,7 +8414,7 @@ async function hydrateIAEvolucao() {
     const prep = prepararCoach();
     const geracao = (state.coachGeracao = (state.coachGeracao || 0) + 1);
     const vivo = () => state.coachGeracao === geracao && document.getElementById('iaSlot') === slot && slot.isConnected;
-    slot.innerHTML = `<div id="cAlerta"></div><div id="cPront"></div>${semanaStripHTML()}
+    slot.innerHTML = `<div id="cAlerta"></div><div id="cPront"></div>${semanaStripHTML()}<div id="cSemPassada"></div>
         <div id="cTreino">${esqueletoCoach('Seu treino de hoje')}</div><div id="cPlano">${cache.plano ? '' : esqueletoCoach('Sua semana')}</div><div id="cCarta"></div>`;
     const pinta = (id, html) => { const el = vivo() && slot.querySelector('#' + id); if (el) el.innerHTML = html; return el; };
     try {
@@ -8349,6 +8432,7 @@ async function hydrateIAEvolucao() {
         if (state.treinosHoje.length) l.treinouHoje = true;
         const diasFeitos = new Set((semTreinos || []).map(x => new Date(x.created_at).getDay()));
         pinta('cPront', prontidaoHTML(prontidaoDoDia(l), l.treinouHoje, l.sonoOntem != null || !!prontidaoHoje()));
+        if ([1, 2].includes(new Date().getDay())) linhaSemanaPassada().then(h => { if (h) pinta('cSemPassada', h); }).catch(() => {});
         obterAlertaQueda(l).then(alerta => {
             if (alerta && alerta.mensagem) pinta('cAlerta', `<div class="chart-card ia-card ia-alerta"><div class="chart-head"><span class="chart-title">Tudo bem por aí?</span></div><p>${escapeHTML(alerta.mensagem || '')}</p>${alerta.passo ? `<p class="ia-passo">${escapeHTML(alerta.passo)}</p>` : ''}</div>`);
         }).catch(() => {});
@@ -9606,6 +9690,7 @@ async function renderProgress() {
             <div id="evoPeriodos" class="${aba === 'coach' ? 'hidden' : ''}">${ev.periodosHTML}</div>
 
             ${abaHTML('coach', `
+                <div id="coachSlot"></div>
                 <div id="corpoTeaser"></div>
                 ${sugestaoMetaHTML(aSeries || [])}
                 <div id="iaSlot"></div>
@@ -9664,6 +9749,7 @@ async function renderProgress() {
     hydrateMapaCorpo();
     hydrateRecordesExercicio();
     hydrateIAEvolucao();
+    hydrateCoachCard();
     hydrateProteina();
     hydrateSemanaEvo();
     hydrateLembretes();
@@ -10813,7 +10899,7 @@ async function abrirParabens(uid) {
         if (!caixa || document.getElementById('parabensSug')) return;
         const sug = document.createElement('div');
         sug.id = 'parabensSug'; sug.className = 'parabens-sug';
-        sug.innerHTML = `<small>🎂 Hoje é aniversário de ${escapeHTML(x1PrimeiroNome(p.display_name || p.username))}</small><div>${PARABENS_MSGS.map(m => `<button type="button" class="bt-min cinza">${m}</button>`).join('')}</div>`;
+        sug.innerHTML = `<small>🎂 Hoje é aniversário de ${escapeHTML(x1PrimeiroNome(p.display_name || p.username))}. Toque pra mandar:</small><div>${PARABENS_MSGS.map(m => `<button type="button" class="pb-op">${m}</button>`).join('')}</div>`;
         caixa.parentElement.insertBefore(sug, caixa);
         sug.addEventListener('click', e => {
             const b = e.target.closest('button'); if (!b) return;
@@ -16192,9 +16278,17 @@ document.addEventListener('click', async e => {
         const card = btn.closest('.coach-card');
         if (card) card.style.display = 'none';
         await sb.from('ai_insights').update({ dismissed: true }).eq('id', btn.dataset.id);
+    } else if (act === 'coach-ler-mais') {
+        const b = btn.closest('.coach-card').querySelector('.coach-body');
+        const abrir = b.classList.contains('curta');
+        b.classList.toggle('curta', !abrir); btn.textContent = abrir ? 'ler menos' : 'ler mais';
+    } else if (act === 'insight-semana') {
+        abrirSemanaFolha(new Date(btn.dataset.ini + 'T12:00:00'));
     } else if (act === 'insight-cta') {
         const target = btn.dataset.target;
         if (target === 'chat') switchView('coach');
+        else if (target === 'peso') switchView('medidas');
+        else if (target === 'plano') { const el = document.getElementById('cPlano'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); else switchView('progress'); }
         else if (target === 'progress') switchView('progress');
         else if (target === 'register') {
             limparComposer();
@@ -21429,6 +21523,7 @@ async function bootInterno() {
     setTimeout(atualizarBadgeDesafio, 2500);
     setTimeout(checarConvitesX1, 3000);
     setTimeout(pintarPilulaTreino, 1500);
+    setTimeout(() => { const vai = () => prepararInsight(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 12000);
     // o coach já começa a montar o dia por trás (quando a pessoa chegar na Evolução, está pronto)
     setTimeout(() => { const vai = () => { try { prepararCoach(); } catch (_) {} }; if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 4000 }); else vai(); }, 9000);
     setTimeout(registrarAcesso, 2000);

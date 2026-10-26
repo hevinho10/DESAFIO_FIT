@@ -6320,3 +6320,30 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .ia-card .ia-acoes{ flex-wrap:wrap; justify-content:flex-start; }
 .ia-card .ia-acoes .btn-ghost{ white-space:nowrap; flex:1 1 0; }
 .ia-card .ia-acoes .ia-comecar{ flex:1 1 100%; height:42px; font-size:14px; }
+/* ============ ONDA 62: coach na Evolução, folha da semana, parabéns em lista ============ */
+.coach-body.curta{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.coach-mais{ background:none; border:0; padding:4px 0; color:#34D399; font:600 12.5px var(--ff-body); position:relative; }
+.coach-mais::before{ content:''; position:absolute; inset:-8px -6px; }
+#coachSlot .coach-card{ margin-bottom:12px; }
+.coach-card .coach-cta{ background:transparent !important; border:1px solid rgba(16,185,129,.6) !important; color:#34D399 !important; }
+.nav-btn.tem-recado{ position:relative; }
+.nav-btn.tem-recado::after{ content:''; position:absolute; top:8px; right:calc(50% - 16px); width:8px; height:8px; border-radius:50%; background:#10B981; box-shadow:0 0 0 2px var(--bg); }
+.sem-passada{ width:100%; display:flex; align-items:center; gap:8px; margin:-2px 0 12px; padding:11px 14px; border-radius:14px; border:1px solid var(--line);
+  background:var(--bg-card); color:var(--ink-dim); font:500 13px var(--ff-body); text-align:left; }
+.sem-passada b{ margin-left:auto; color:var(--ink); font-weight:700; } .sem-passada i{ font-style:normal; color:var(--ink-faint); font-size:18px; line-height:1; }
+.sf-topo{ display:flex; gap:16px; align-items:center; margin:6px 0 14px; }
+.sf-anel{ width:92px; height:92px; flex:none; } .sf-anel text{ fill:var(--ink); font:800 20px var(--ff-display); }
+.sf-topo b{ display:block; font-size:16px; margin-bottom:4px; } .sf-topo small{ display:block; color:var(--ink-dim); font-size:13px; line-height:1.5; }
+.sf-dias{ display:flex; justify-content:space-between; margin-bottom:16px; }
+.sf-d{ display:flex; flex-direction:column; align-items:center; gap:5px; background:none; border:0; padding:0; color:var(--ink-faint); font:600 11px var(--ff-body); }
+.sf-d i{ width:36px; height:36px; border-radius:50%; border:1px dashed rgba(255,255,255,.18); display:grid; place-items:center; font-style:normal; }
+.sf-d.ok i{ border:1px solid rgb(var(--c)); background:rgba(var(--c),.16); color:rgb(var(--c)); }
+.sf-d.ok i svg{ width:18px; height:18px; } .sf-d.ok{ color:var(--ink); }
+.sf-story{ width:100%; height:44px; font-size:14px; }
+/* parabéns: uma mensagem embaixo da outra */
+.parabens-sug > div{ display:flex; flex-direction:column; gap:8px; overflow:visible; }
+.pb-op{ width:100%; text-align:left; padding:12px 14px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background:var(--bg-card); color:var(--ink); font:600 14.5px var(--ff-body); }
+.pb-op:active{ transform:scale(.98); border-color:rgba(16,185,129,.6); }
+:root[data-theme="light"] .pb-op{ border-color:var(--line); }
+.coach-mais{ display:block; margin:2px 0 4px; }
+.coach-card .coach-cta{ display:inline-flex; margin-top:6px; }
