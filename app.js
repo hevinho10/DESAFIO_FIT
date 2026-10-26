@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261276';
+const APP_VERSAO = '20261277';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1044,21 +1044,25 @@ async function carregarLiga(forcar = false) {
     } catch (_) { return null; }
 }
 function ligaNome(d) { const nv = LIGA_NIVEIS[d.nivel] || LIGA_NIVEIS[1]; return `Liga ${nv.nome}${d.grupos_no_nivel > 1 ? ' ' + d.numero : ''}`; }
-// onde eu estou: posição, zona e quanto falta
+// onde eu estou: posição e o que fazer (em pontos: "Mais 14 pts e você passa a Amanda")
 function ligaSituacao(d) {
     const lista = d.membros || [];
     const i = lista.findIndex(x => x.eu), pos = i + 1, n = lista.length;
     const meu = i >= 0 ? Number(lista[i].pts) : 0;
     const z = ligaZonas(d), eu = lista[i] || {};
-    const prox = LIGA_NIVEIS[d.nivel + 1], ant = LIGA_NIVEIS[d.nivel - 1];
-    if (!lista.some(x => Number(x.pts) > 0)) return { pos, n, titulo: 'A semana começou!', sub: 'Todo mundo em 0. O primeiro treino já te coloca na frente.', curto: 'A semana começou · bora pontuar', barra: null };
-    if (z.sobe.has(eu.id)) return { pos, n, titulo: `Você está subindo pra ${prox.nome} 🔥`, sub: 'Segura essa posição até sábado.', curto: `Na zona de subida pra ${prox.nome}`, barra: 1 };
-    if (z.cai.has(eu.id)) { const alvo = lista[n - d.caem - 1]; const f = Math.max(1, Number(alvo.pts) - meu + 1);
-        return { pos, n, titulo: `Faltam ${f} pts pra sair da zona de queda`, sub: `Passe ${alvo.eu ? 'a próxima pessoa' : String(alvo.nome || '').split(' ')[0]} e você fica na ${LIGA_NIVEIS[d.nivel].nome}.`, curto: `Zona de queda · ${f} pts pra sair`, barra: Math.min(1, meu / Math.max(1, Number(alvo.pts) + 1)) }; }
-    if (d.sobem && prox) { const alvo = lista[d.sobem - 1]; const f = Math.max(1, Number(alvo.pts) - meu + 1);
-        return { pos, n, titulo: `Faltam ${f} pts pra subir`, sub: `Passe ${String(alvo.nome || '').split(' ')[0]} e você vai pra Liga ${prox.nome}.`, curto: `Faltam ${f} pts pra subir`, barra: Math.min(1, meu / Math.max(1, Number(alvo.pts) + 1)) }; }
-    if (d.nivel === 4) return { pos, n, titulo: 'Você está no topo 💎', sub: 'Segura sua vaga na Diamante.', curto: 'No topo · segura sua vaga', barra: null };
-    return { pos, n, titulo: `${pos}º lugar`, sub: 'As outras ligas abrem quando tiver mais gente.', curto: `${pos}º lugar`, barra: null };
+    const prox = LIGA_NIVEIS[d.nivel + 1], atual = LIGA_NIVEIS[d.nivel];
+    const pn = x => String((x && x.nome) || '').split(' ')[0];
+    if (!lista.some(x => Number(x.pts) > 0)) return { pos, n, zerada: true, titulo: 'A semana começou!', sub: 'Todo mundo em 0. O primeiro registro já te coloca na frente.' };
+    if (z.sobe.has(eu.id)) return { pos, n, titulo: `Você está subindo pra ${prox.nome} 🔥`, sub: 'Segura essa posição até sábado.' };
+    if (pos === 1) return { pos, n, titulo: d.nivel === 4 ? 'Você está no topo 💎' : 'Você lidera a liga 👑', sub: 'Segura essa posição até sábado.' };
+    const frente = lista[i - 1];
+    const f = Math.max(1, Number(frente.pts) - meu + 1);
+    const titulo = `Mais ${f} ${f === 1 ? 'pt' : 'pts'} e você passa ${frente.eu ? 'a próxima pessoa' : pn(frente)} 💪`;
+    let sub = '';
+    if (z.cai.has(eu.id)) sub = `Assim você sai da zona de queda e fica na ${atual.nome}.`;
+    else if (z.sobe.has(frente.id) && prox) sub = `${pn(frente)} está na zona de subida pra ${prox.nome}.`;
+    else if (prox && d.sobem) sub = `Cada posição te deixa mais perto da ${prox.nome}.`;
+    return { pos, n, titulo, sub };
 }
 async function hydrateLigaCard() {
     const view = document.querySelector('#viewContainer .view'); if (!view) return;
@@ -1080,7 +1084,7 @@ async function hydrateLigaCard() {
     const dias = Math.max(1, Math.ceil((new Date(d.fim) - Date.now()) / 86400000));
     slot.innerHTML = `<button type="button" class="liga-card" data-act="liga-abrir" style="--c:${nv.c}">
         <span class="liga-med" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span>
-        <div><b>${ligaNome(d)}${zerada ? '' : ` · ${sit.pos}º de ${sit.n}`}</b><small>${sit.curto} · ${dias === 1 ? 'último dia' : dias + ' dias'}</small></div><i>›</i></button>`;
+        <div><b>${ligaNome(d)}</b><small>${zerada ? 'A semana começou · ' : `${sit.pos}º de ${sit.n} · `}${dias === 1 ? 'último dia' : `faltam ${dias} dias`}</small></div><i>›</i></button>`;
 }
 async function abrirLiga() {
     const d = await carregarLiga(true);
@@ -1096,9 +1100,8 @@ async function abrirLiga() {
     };
     const t = x1Tela('ligaTela', `<div class="x1-topo"><button class="x1-ib" data-lg="fechar" aria-label="Voltar">${SVG_X(IC_X1.voltar)}</button><b>Liga da semana</b><span style="width:40px"></span></div>
         <div class="x1-corpo lg-corpo">
-            <div class="lg-hero" style="--c:${nv.c}"><span class="liga-med grande" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span><b>${ligaNome(d)}</b></div>
-            <div class="lg-st"><div class="lg-pos">${zerada ? '–' : sit.pos + 'º'}<small>DE ${n}</small></div>
-                <div class="lg-st-tx"><b>${escapeHTML(sit.titulo)}</b>${sit.sub ? `<p>${escapeHTML(sit.sub)}</p>` : ''}${sit.barra != null ? `<div class="lg-barra"><i style="width:${Math.max(3, Math.round(sit.barra * 100))}%"></i></div>` : ''}</div></div>
+            <div class="lg-hero" style="--c:${nv.c}"><span class="liga-med grande" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span><b>${ligaNome(d)}</b>${zerada ? '' : `<small>Você está em ${sit.pos}º de ${n}</small>`}</div>
+            <div class="lg-st"><div class="lg-st-tx"><b>${escapeHTML(sit.titulo)}</b>${sit.sub ? `<p>${escapeHTML(sit.sub)}</p>` : ''}</div></div>
             <div class="lg-lista">${lista.map(linha).join('')}</div>
             ${z.sobe.size || z.cai.size ? `<div class="lg-leg">${z.sobe.size ? `<span class="a">sobe pra ${LIGA_NIVEIS[d.nivel + 1].nome}</span>` : ''}${z.cai.size ? `<span class="b">cai pra ${LIGA_NIVEIS[d.nivel - 1].nome}</span>` : ''}</div>` : ''}
         </div>`);
@@ -10458,7 +10461,7 @@ function htmlRankingDesafio(lista, { ontemPos = {}, unidade = 'pts', limite = 10
             falta = `<div class="rk-falta lider"><span>👑</span><span>Você lidera${dif > 0 ? ` com <b>${dif} pts</b> de vantagem sobre <b>${escapeHTML(String(seg.display_name || '').split(' ')[0])}</b>` : ''}. Segura essa!</span></div>`;
         }
     }
-    return podio + falta + `<div class="cw-rank-list">${visiveis.map(u => linha(u)).join('')}
+    return podio + `<div class="cw-rank-list">${visiveis.map(u => linha(u)).join('')}
         ${euEscondido ? `<div class="rk-sep rk-so-fechado">···</div>${linha(lista[meuIdx], ' rk-so-fechado')}` : ''}
         ${resto.length ? `<div class="rk-resto hidden">${resto.map(u => linha(u)).join('')}</div>
             <button type="button" class="rk-mais" data-rk-mais data-total="${lista.length}">Ver todos (${lista.length})</button>` : ''}</div>`

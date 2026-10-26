@@ -6462,3 +6462,4 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .dz-ic.verde{ background:rgba(16,185,129,.15); color:#34D399; } .dz-ic.roxo{ background:rgba(167,139,250,.15); color:#C4B5FD; }
 .dz-tx{ flex:1; min-width:0; } .dz-tx b{ display:block; font-size:14.5px; } .dz-tx small{ display:block; margin-top:2px; color:var(--ink-faint); font-size:12px; }
 .dz-link > i{ font-style:normal; color:var(--ink-faint); font-size:18px; }
+.lg-hero small{ color:var(--ink-dim); font-size:13px; margin-top:4px; }
