@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261277';
+const APP_VERSAO = '20261278';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1330,6 +1330,11 @@ async function renderAdmin() {
             <div class="chart-card" id="admCapacidade"><div class="spinner"></div></div>
             <h3 class="edit-section-title" style="margin-top:22px">Alterações feitas por você</h3>
             <div class="chart-card" id="admLog"><div class="spinner"></div></div>
+            <h3 class="edit-section-title" style="margin-top:22px">Retrospectiva do ano</h3>
+            <div class="chart-card">
+                <p class="faixa-txt" style="margin-top:0">Aparece pra todo mundo de 1 a 31 de dezembro. Aqui você vê a sua antes, e pode ligar o cartão no seu feed pra conferir como fica.</p>
+                <button class="btn-mini" data-ra="previa" style="margin-top:12px">${lsGet('pulso-retroano-previa') === '1' ? 'Desligar prévia no meu feed' : 'Ver prévia agora'}</button>
+            </div>
             <h3 class="edit-section-title" style="margin-top:22px">Backup</h3>
             <div class="chart-card">
                 <p class="faixa-txt" style="margin-top:0">Baixa uma cópia dos dados do app (perfis, registros, desafios, stories) num arquivo. As fotos não entram no arquivo; elas continuam guardadas no Supabase. Faça pelo menos uma vez por semana e guarde num lugar seguro (Google Drive, por exemplo).</p>
@@ -2215,7 +2220,7 @@ async function abrirExtratoDia() {
 // ---- Voltar do celular (botão do Android e gesto da borda): fecha só a camada de cima, ou volta uma tela ----
 // Todas as telas por cima (folhas, telas do X1, visualizadores, editores) entram nessa lista.
 // O "voltar" sempre acha a que está mais por cima (z-index e depois a mais nova) e fecha só ela.
-const CAMADAS_SEL = '.fab-arco, #floatingPostMenu, .menu-folha-fundo, .sheet.on, .x1-veu.on, .x1-tela.on, .posts-viewer:not(.oculta), .sem-tela, .retro-tela, .qr-tela, .foto-tela, .fe-tela, .fd-tela, .conq-tela, .np-tela, .nd-tela, .criar-tela, #storyCreator.on, #storyViewer.on';
+const CAMADAS_SEL = '.fab-arco, #floatingPostMenu, .menu-folha-fundo, .sheet.on, .x1-veu.on, .x1-tela.on, .posts-viewer:not(.oculta), .sem-tela, .retro-tela, .ra-tela, .qr-tela, .foto-tela, .fe-tela, .fd-tela, .conq-tela, .np-tela, .nd-tela, .criar-tela, #storyCreator.on, #storyViewer.on';
 const BOTOES_FECHAR = '[data-x1f="fechar"], [data-fe="fechar"], [data-np="fechar"], [data-cr="fechar"], #conqFechar, .rt-fechar, .qr-x, .fd-x, .st-x, .pvm-voltar, [data-fechar], [aria-label="Fechar"], [aria-label="Voltar"], [aria-label="Cancelar"]';
 function zDaCamada(el) {
     let topo = el;
@@ -2812,6 +2817,256 @@ async function hydrateRetroFeed() {
         <button class="lb-x" data-act="retro-fechar" aria-label="Fechar">×</button>
     </div>`;
 }
+
+// ---- Treinando agora: anel AO VIVO nos stories de quem você segue ----
+let aoVivoUlt = null;
+function aoVivoAvisar(ativ) {
+    if (!state.session) return;
+    const chave = ativ ? 'ini' : 'fim';
+    if (aoVivoUlt === chave) return;
+    aoVivoUlt = chave;
+    (ativ ? sb.rpc('aovivo_iniciar', { p_ativ: String(ativ).slice(0, 40) }) : sb.rpc('aovivo_fim')).then(() => {}, () => {});
+}
+async function hydrateAoVivo() {
+    const barra = document.querySelector('.feed-view .stories-bar');
+    if (!barra || !state.session) return;
+    let vivos = [];
+    try { const { data } = await sb.rpc('aovivo_seguidos'); vivos = (data || []).filter(v => Date.now() - new Date(v.inicio).getTime() < 3 * 3600000); } catch (_) { return; }
+    state.aoVivo = Object.fromEntries(vivos.map(v => [v.user_id, v]));
+    barra.querySelectorAll('.story-item.aovivo-it').forEach(el => {
+        if (el.dataset.aovivoSo) el.remove(); else { el.classList.remove('aovivo-it'); el.removeAttribute('data-aovivo'); const t = el.querySelector('.av-tag'); if (t) t.remove(); }
+    });
+    if (!vivos.length) return;
+    const naBarra = new Set();
+    barra.querySelectorAll('[data-story-idx]:not([data-add-story])').forEach(el => {
+        const g = (state.storiesData || [])[Number(el.dataset.storyIdx)];
+        const id = g && g.user && g.user.id;
+        if (!id || !state.aoVivo[id]) return;
+        naBarra.add(id);
+        el.classList.add('aovivo-it'); el.dataset.aovivo = id;
+        el.querySelector('.story-avatar').insertAdjacentHTML('beforeend', '<span class="av-tag">AO VIVO</span>');
+    });
+    const faltam = vivos.filter(v => !naBarra.has(v.user_id)).map(v => v.user_id);
+    if (faltam.length) {
+        const { data: perfis } = await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', faltam);
+        const meu = barra.querySelector('[data-add-story]');
+        (perfis || []).reverse().forEach(p => {
+            state.aoVivoPerfis = { ...(state.aoVivoPerfis || {}), [p.id]: p };
+            meu.insertAdjacentHTML('afterend', `<div class="story-item aovivo-it" data-aovivo="${p.id}" data-aovivo-so="1">
+                <div class="story-avatar"><div class="story-avatar-in">${avatarHTML(p, 'md').replace('avatar-md', 'avatar')}</div><span class="av-tag">AO VIVO</span></div>
+                <span class="story-name">${escapeHTML(p.display_name || p.username)}</span></div>`);
+        });
+    }
+}
+const AV_EMOS = ['💪', '🔥', '👏', '🚀'];
+function abrirAoVivo(uid, temStory) {
+    const v = (state.aoVivo || {})[uid];
+    if (!v) return;
+    const g = (state.storiesData || []).find(x => x.user && x.user.id === uid);
+    const p = (g && g.user) || (state.aoVivoPerfis || {})[uid] || {};
+    const nome = String(p.display_name || p.username || '').split(' ')[0];
+    const min = Math.max(1, Math.round((Date.now() - new Date(v.inicio).getTime()) / 60000));
+    const { f, fechar } = x1Folha(`<div class="av-folha">
+        <div class="av-cab">${avatarHTML(p, 'md')}<div><b>${escapeHTML(nome)} está treinando agora</b><small><i class="av-ponto"></i>${escapeHTML(v.ativ || 'Treino')} · há ${min} min</small></div></div>
+        ${v.ja_mandei ? '<p class="av-ok">Você já mandou força nesse treino 💚</p>' : `<p class="av-tx">Manda uma força? ${escapeHTML(nome)} recebe na hora.</p>
+        <div class="av-emos">${AV_EMOS.map(e => `<button type="button" data-av-emo="${e}">${e}</button>`).join('')}</div>`}
+        ${temStory ? '<button class="bt-min av-story" data-av-story="1">Ver story</button>' : ''}
+    </div>`, 'aoVivoFolha');
+    f.addEventListener('click', async e => {
+        if (e.target.closest('[data-av-story]')) {
+            fechar();
+            const i = (state.storiesData || []).indexOf(g);
+            const el = document.querySelector(`.stories-bar [data-story-idx="${i}"]`);
+            if (el) { el.dataset.aovivoPula = '1'; el.click(); delete el.dataset.aovivoPula; }
+            return;
+        }
+        const b = e.target.closest('[data-av-emo]'); if (!b) return;
+        f.querySelectorAll('[data-av-emo]').forEach(x => x.disabled = true);
+        b.classList.add('on');
+        let r = null;
+        try { const { data } = await sb.rpc('aovivo_forca', { alvo: uid, emo: b.dataset.avEmo }); r = data; } catch (_) {}
+        if (r === 'ok' || r === 'ja_mandou') { v.ja_mandei = true; toast(`${b.dataset.avEmo} Força enviada pra ${nome}!`); fechar(); }
+        else if (r === 'acabou') { toast(`${nome} já terminou o treino`); fechar(); hydrateAoVivo(); }
+        else { toast('Não deu pra enviar agora', 'erro'); f.querySelectorAll('[data-av-emo]').forEach(x => x.disabled = false); }
+    });
+}
+document.addEventListener('click', e => {
+    const it = e.target.closest('.stories-bar [data-aovivo]');
+    if (!it || it.dataset.aovivoPula) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    abrirAoVivo(it.dataset.aovivo, !it.dataset.aovivoSo);
+}, true);
+
+// ---- "O que aconteceu?": depois de 4 dias sem registro, pergunta uma vez e o coach se adapta ----
+const PAUSA_OPC = {
+    tempo: { t: 'Sem tempo', s: 'Treinos de 15 min até a rotina voltar', ic: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>' },
+    dor: { t: 'Lesão ou dor', s: 'Mobilidade e caminhada leve, sem forçar', ic: '<path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"/>' },
+    desanimo: { t: 'Desanimei', s: 'Uma meta pequena por dia pra pegar o ritmo', ic: '<path d="M4 18l5-5 4 3 7-8M15 8h5v5"/>' },
+    viagem: { t: 'Viagem', s: 'Treinos sem equipamento, onde você estiver', ic: '<path d="M10.5 17.5L3 13l1.5-1.5 6 1.5 4-4-7-4.5L9 3l9 3 2.5-2.5a1.4 1.4 0 0 1 2 2L20 8l3 9-1.5 1.5-4.5-7-4 4 1.5 6L13 23z"/>' },
+};
+const chavePausa = () => 'pulso-pausa-' + state.session.user.id;
+function pausaAtual() {
+    if (!state.session) return null;
+    try { const p = JSON.parse(lsGet(chavePausa()) || 'null'); if (p && Date.now() - p.em < 21 * 86400000) return p; } catch (_) {}
+    return null;
+}
+function pausaLimpar() {
+    if (!state.session || !lsGet(chavePausa())) return;
+    try { localStorage.removeItem(chavePausa()); } catch (_) {}
+    coachInvalidar();
+}
+function pausaPrompt() {
+    const p = pausaAtual(); if (!p) return '';
+    const m = {
+        tempo: 'ESTÁ SEM TEMPO: faça um treino de no máximo 15 minutos, intenso e simples, sem deslocamento.',
+        dor: 'ESTÁ COM LESÃO OU DOR: nada de impacto nem carga. Só mobilidade, alongamento e caminhada leve, 20 min no máximo. Lembre de respeitar a dor e procurar um profissional se continuar.',
+        desanimo: 'ESTÁ DESANIMADA: a meta de hoje é pequena e fácil de cumprir (10 a 15 min, algo que ela gosta). O objetivo é só voltar ao hábito.',
+        viagem: 'ESTÁ VIAJANDO: treino sem nenhum equipamento, que cabe num quarto de hotel, 20 a 25 min.',
+    }[p.motivo];
+    return m ? `- A PESSOA FICOU ${p.dias || 4}+ DIAS PARADA E CONTOU QUE ${m}` : '';
+}
+function pausaTreinoBase(p) {
+    const gosto = ((state.profile || {}).train_likes || ['Caminhada'])[0];
+    const tipo = v => TIPOS_TREINO.includes(v) ? v : 'Outro';
+    if (p.motivo === 'tempo') return { base: true, tipo: tipo('Funcional'), minutos: 15, titulo: 'Treino rápido · 15 min', porque: 'Você contou que está sem tempo: 15 minutos já mantêm o ritmo.',
+        blocos: [{ nome: 'Circuito (3 voltas)', itens: ['Agachamento · 15', 'Flexão (pode ser no joelho) · 10', 'Polichinelo · 30 s', 'Prancha · 30 s'] }] };
+    if (p.motivo === 'dor') return { base: true, leve: true, tipo: tipo('Caminhada'), minutos: 20, titulo: 'Mobilidade e caminhada · 20 min', porque: 'Você contou que está com dor: hoje é só movimento leve, sem forçar. Se a dor continuar, procure um profissional.',
+        blocos: [{ nome: 'Mobilidade', itens: ['Círculos de ombro e quadril · 1 min cada', 'Gato e vaca · 10', 'Alongamento leve · 5 min'] }, { nome: 'Caminhada', itens: ['Caminhada leve · 10 min, no seu ritmo'] }] };
+    if (p.motivo === 'viagem') return { base: true, tipo: tipo('Funcional'), minutos: 20, titulo: 'Sem equipamento · 20 min', porque: 'Você está viajando: dá pra fazer no quarto, sem nada.',
+        blocos: [{ nome: 'Circuito (4 voltas)', itens: ['Agachamento · 15', 'Flexão · 10', 'Afundo alternado · 12', 'Prancha · 40 s', 'Abdominal · 15'] }] };
+    return { base: true, tipo: tipo(gosto), minutos: 10, titulo: `Só 10 min de ${String(gosto).toLowerCase()}`, porque: 'Meta pequena de propósito: hoje vale só voltar. O resto vem.',
+        blocos: [{ nome: 'Hoje', itens: [`${gosto} leve · 10 min`, 'Se quiser mais, continue. Se não, já valeu.'] }] };
+}
+async function talvezPerguntarPausa() {
+    if (!state.session || !state.profile) return;
+    if (document.querySelector('.sheet.on, .x1-veu.on, .x1-tela.on, .sc.on, .story-viewer.on, #storyViewer.on, .conq-tela')) { setTimeout(talvezPerguntarPausa, 20000); return; }
+    let ult = null;
+    try {
+        const { data } = await sb.from('posts').select('created_at').eq('user_id', state.session.user.id).in('kind', ['workout', 'meal', 'water', 'weight'])
+            .order('created_at', { ascending: false }).limit(1);
+        ult = data && data[0] && data[0].created_at;
+    } catch (_) { return; }
+    if (!ult) return;
+    const p = pausaAtual();
+    if (p && new Date(ult).getTime() > p.ultimo) { pausaLimpar(); return; }   // voltou a registrar: coach volta ao normal
+    const dias = Math.floor((Date.now() - new Date(ult).getTime()) / 86400000);
+    if (dias < 4 || p) return;
+    const chave = 'pulso-pausa-perg-' + state.session.user.id + '-' + ult.slice(0, 10);
+    if (lsGet(chave)) return;
+    lsSet(chave, '1');
+    evento('pausa_pergunta', { dias });
+    const nome = String(state.profile.display_name || state.profile.username || '').split(' ')[0];
+    const { f, fechar } = x1Folha(`<div class="pz-folha">
+        <b class="pz-tit">Sentimos sua falta${nome ? ', ' + escapeHTML(nome) : ''}</b>
+        <p class="pz-sub">Faz ${dias} dias sem registro. O que aconteceu? O coach ajusta o treino pra você.</p>
+        <div class="pz-ops">${Object.entries(PAUSA_OPC).map(([k, o]) => `<button type="button" class="pz-op" data-pz="${k}">
+            <span class="pz-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${o.ic}</svg></span>
+            <span><b>${o.t}</b><small>${o.s}</small></span></button>`).join('')}</div>
+        <button type="button" class="link-btn pz-pular" data-x1f="fechar">Prefiro não dizer</button>
+    </div>`, 'pausaFolha');
+    f.addEventListener('click', e => {
+        const b = e.target.closest('[data-pz]'); if (!b) return;
+        const motivo = b.dataset.pz;
+        lsSet(chavePausa(), JSON.stringify({ motivo, em: Date.now(), ultimo: new Date(ult).getTime(), dias }));
+        iaGuardar('pausa', hojeISO(), { motivo, dias }).catch(() => {});
+        evento('pausa_motivo', { motivo, dias });
+        coachInvalidar(); state.iaTreinoForcar = true;
+        obterTreinoDoDia(true).then(t => { if (t && t.titulo) coachCacheGravar('treino', t); }, () => {});
+        fechar();
+        toast('Combinado! O treino de hoje já vem ajustado 💚');
+    });
+}
+
+// ---- Retrospectiva do ano: dezembro inteiro, no topo do feed e em Evolução ----
+const retroAnoAtual = () => new Date().getFullYear();
+function retroAnoLiberada() {
+    if (new Date().getMonth() === 11) return true;
+    return !!(state.profile && state.profile.is_admin && lsGet('pulso-retroano-previa') === '1');
+}
+function retroAnoAvisoHTML(onde) {
+    const ano = retroAnoAtual();
+    return `<button type="button" class="ra-aviso${onde === 'evo' ? ' evo' : ''}" data-ra="abrir">
+        <span class="ra-ano">${ano}</span>
+        <span class="ra-tx"><b>Seu ${ano} no Pulso</b><small>Treinos, recordes e quem mais te deu força</small></span>
+        <span class="ra-seta">›</span></button>`;
+}
+function hydrateRetroAno() {
+    if (!retroAnoLiberada() || !state.session) return;
+    if (lsGet(`pulso-retroano-x-${state.session.user.id}-${retroAnoAtual()}`) === hojeISO()) return;
+    const sl = document.getElementById('retroAnoSlot'); if (sl) sl.innerHTML = retroAnoAvisoHTML('feed');
+    const ev = document.getElementById('retroAnoEvo'); if (ev) ev.innerHTML = retroAnoAvisoHTML('evo');
+}
+const fmtHoras = min => { const h = Math.floor(min / 60), m = min % 60; return h ? `${h}h${m ? String(m).padStart(2, '0') : ''}` : `${m} min`; };
+function retroAnoSlides(r) {
+    const nm = String(r.forca && r.forca.nome || '').split(' ')[0];
+    const MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const sl = [];
+    sl.push(`<small class="ra-rot">Seu ${r.ano} no Pulso</small><b class="ra-big">${r.treinos}</b><span class="ra-un">${r.treinos === 1 ? 'treino' : 'treinos'}</span>
+        <p class="ra-p">${fmtHoras(r.minutos || 0)} de atividade em ${r.dias} ${r.dias === 1 ? 'dia' : 'dias'}${r.km ? ` · ${br(r.km)} km` : ''}</p>`);
+    if (r.modalidade) sl.push(`<small class="ra-rot">Sua modalidade</small><b class="ra-mid">${escapeHTML(r.modalidade)}</b>
+        <p class="ra-p">${r.modalidade_n} ${r.modalidade_n === 1 ? 'vez' : 'vezes'} no ano${r.melhor_mes ? `. Seu melhor mês foi <b>${MES[r.melhor_mes - 1]}</b>, com ${r.melhor_mes_dias} dias ativos` : ''}.</p>`);
+    sl.push(`<small class="ra-rot">Maior ofensiva</small><b class="ra-big">${r.ofensiva || 0}</b><span class="ra-un">dias seguidos</span>
+        ${r.recorde && r.recorde.kg ? `<p class="ra-p">Recorde de carga: <b>${br(r.recorde.kg, Number.isInteger(Number(r.recorde.kg)) ? 0 : 1)} kg</b> no ${escapeHTML(r.recorde.ex)}</p>` : ''}`);
+    if (r.forca) sl.push(`<small class="ra-rot">Quem mais te deu força</small><span class="ra-av">${avatarHTML({ id: r.forca.id, display_name: r.forca.nome, avatar_url: r.forca.avatar }, 'lg')}</span>
+        <b class="ra-mid">${escapeHTML(nm)}</b><p class="ra-p">${r.forca.n} ${r.forca.n === 1 ? 'reação' : 'reações'} nos seus posts. No total foram ${Number(r.curtidas || 0).toLocaleString("pt-BR")}.</p>`);
+    sl.push(`<small class="ra-rot">No ranking do ano</small><b class="ra-big">${r.percentil >= 50 ? 'Top ' + Math.max(1, 100 - r.percentil) + '%' : r.treinos}</b>
+        <span class="ra-un">${r.percentil >= 50 ? 'de quem mais treinou no Pulso' : 'treinos. Bora pra mais em ' + (r.ano + 1) + '!'}</span>
+        <button class="bt-min ra-post" data-ra="story">Postar no story</button>`);
+    return sl;
+}
+async function abrirRetroAno() {
+    const old = document.getElementById('raTela'); if (old) old.remove();
+    const tela = document.createElement('div');
+    tela.id = 'raTela'; tela.className = 'ra-tela';
+    tela.innerHTML = '<div class="spinner"></div>';
+    document.body.appendChild(tela);
+    document.body.style.overflow = 'hidden';
+    const fecharTela = () => { clearTimeout(tela._t); tela.remove(); document.body.style.overflow = ''; };
+    let r = null;
+    try { const { data } = await sb.rpc('retro_ano', { ano: retroAnoAtual() }); r = data; } catch (_) {}
+    if (!document.getElementById('raTela')) return;
+    if (!r || !r.treinos) {
+        tela.innerHTML = `<button class="rt-fechar" aria-label="Fechar">×</button><div class="ra-vazio"><b>Ainda não tem treinos em ${retroAnoAtual()}</b><small>Registre o primeiro e a sua retrospectiva começa a ganhar forma.</small></div>`;
+        tela.querySelector('.rt-fechar').onclick = fecharTela; return;
+    }
+    state.retroAno = r;
+    evento('retroano_abriu');
+    const slides = retroAnoSlides(r);
+    let i = 0;
+    tela.innerHTML = `<div class="ra-barras">${slides.map(() => '<i><b></b></i>').join('')}</div>
+        <button class="rt-fechar" aria-label="Fechar">×</button>
+        <div class="ra-palco"></div><b class="ra-marca">Pulso.</b>`;
+    const palco = tela.querySelector('.ra-palco');
+    const ir = n => {
+        clearTimeout(tela._t);
+        i = Math.max(0, Math.min(slides.length - 1, n));
+        palco.innerHTML = `<div class="ra-slide s${i}">${slides[i]}</div>`;
+        tela.querySelectorAll('.ra-barras i').forEach((b, k) => { b.className = k < i ? 'ok' : k === i ? 'on' : ''; });
+        if (i < slides.length - 1) tela._t = setTimeout(() => ir(i + 1), 5200);
+    };
+    tela.querySelector('.rt-fechar').onclick = fecharTela;
+    tela.addEventListener('click', e => {
+        if (e.target.closest('.rt-fechar')) return;
+        if (e.target.closest('[data-ra="story"]')) {
+            fecharTela();
+            abrirEditorComCard({ card: { tipo: 'retroano', ano: r.ano, treinos: r.treinos, minutos: r.minutos, dias: r.dias, ofensiva: r.ofensiva, modalidade: r.modalidade, percentil: r.percentil } });
+            return;
+        }
+        ir(e.clientX < window.innerWidth / 3 ? i - 1 : i + 1);
+    });
+    ir(0);
+}
+document.addEventListener('click', e => {
+    const b = e.target.closest('[data-ra="abrir"], [data-ra="previa"]'); if (!b) return;
+    if (b.dataset.ra === 'previa') {
+        const on = lsGet('pulso-retroano-previa') === '1';
+        lsSet('pulso-retroano-previa', on ? '0' : '1');
+        b.textContent = on ? 'Ligar prévia no meu feed' : 'Desligar prévia no meu feed';
+        if (!on) abrirRetroAno();
+        return;
+    }
+    abrirRetroAno();
+});
 
 // ---- IA com foto: cardápio, geladeira e foto pro Coach ----
 function contextoCurtoIA() {
@@ -3624,60 +3879,132 @@ function vazioAcao(ic, titulo, texto, botao = '', attrs = '') {
     return `<div class="grid-empty grid-empty-cta vazio-acao">${ic ? icon(ic) : ''}<b>${titulo}</b>${texto ? `<span>${texto}</span>` : ''}${botao ? `<button class="btn-mini" ${attrs}>${botao}</button>` : ''}</div>`;
 }
 
-// ---- Conquistas ----
+// ---- Conquistas: álbum de medalhas hexagonais ----
+// ícones desenhados (sem emoji: o emoji de calendário do celular mostra sempre a mesma data)
+const IC_CONQ = {
+    fogo: '<path d="M12 3c1 3 4 4.5 4 8.5A4 4 0 0 1 8 12c0-1.5.6-2.6 1.5-3.5C9.5 10 11 10 11 8c0-2 .5-3.5 1-5z"/>',
+    halter: '<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>',
+    cal: '<rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4M8.5 15l2 2 4-4"/>',
+    corrida: '<circle cx="14" cy="4.5" r="1.8"/><path d="M8 21l3-6 3 2 1 5M6 12l3-4 4 1 2 4 3 1"/>',
+    gota: '<path d="M12 3s6 6.4 6 10a6 6 0 0 1-12 0c0-3.6 6-10 6-10z"/>',
+    trofeu: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
+    desce: '<path d="M3 7l6 6 4-4 8 8M15 17h6v-6"/>',
+    lua: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>',
+    prato: '<path d="M5 3v7a2 2 0 0 0 4 0V3M7 10v11M15 3c-1.5 1-2 2.5-2 4.5S14 12 15 12v9"/>',
+    estrela: '<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>',
+    pessoas: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/>',
+    subir: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+    raio: '<path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12z"/>',
+    cadeado: '<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>',
+};
+const MES_CURTO = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+// "primeira vez" e "entrou/aceitou" não viram figurinha (continuam só como aviso e post do feed)
+function conqTrivial(a) {
+    const t = semAcento(`${a.code || ''} ${a.nome || ''} ${a.desc || ''}`);
+    if (/streak|treinos_|perda_|ofensiva/.test(t)) return false;
+    return /primeir|first|aceit|entrou|entrar n|bem.vind|boas.vind|1o |1º|cadastr|perfil complet|foto de perfil|seguiu|seguidor/.test(t);
+}
+// como a conquista vira medalha: cor do nível, ícone, número e unidade
+function conqHex(a, quando = null) {
+    const t = semAcento(`${a.code || ''} ${a.nome || ''} ${a.desc || ''}`);
+    const codigo = String(a.codeAtual || a.code || '');
+    let nv = String(a.nivel || '').toLowerCase();
+    if (!nv) { const g = NIVEIS_CONQ.find(g => g.codes.includes(codigo)); if (g) nv = NOMES_NIVEL[g.codes.indexOf(codigo)].toLowerCase(); }
+    const cor = nv === 'bronze' ? 'bronze' : nv === 'prata' ? 'prata' : nv === 'ouro' ? 'ouro' : (a.cor || 'diam');
+    const ic = a.ic || (/streak|ofensiva|fogo|seguid/.test(t) ? 'fogo' : /mes|rendendo|semana/.test(t) ? 'cal' : /agua|hidrat/.test(t) ? 'gota'
+        : /km|corr|corrida|caminh|distanc/.test(t) ? 'corrida' : /perda|peso|kg/.test(t) ? 'desce' : /x1|venc|campe|desafio|liga/.test(t) ? 'trofeu'
+        : /sono|dorm/.test(t) ? 'lua' : /refei|prato|comida|nota/.test(t) ? 'prato' : /treino|forca|muscul/.test(t) ? 'halter' : /perfeit/.test(t) ? 'estrela' : 'raio');
+    let num = a.num != null ? String(a.num) : '', un = a.un || '';
+    if (!num) {
+        let m;
+        if ((m = codigo.match(/^streak_(\d+)/))) { num = m[1]; un = 'DIAS'; }
+        else if ((m = codigo.match(/^treinos_(\d+)/))) { num = m[1]; un = 'TREINOS'; }
+        else if ((m = codigo.match(/^perda_(\d+)/))) { num = m[1]; un = 'KG'; }
+        else if (/mes|rendendo/.test(t)) { const d = quando ? new Date(quando) : new Date(); num = MES_CURTO[d.getMonth()]; un = String(d.getFullYear()); }
+        else if ((m = `${a.nome || ''} ${a.desc || ''}`.match(/(\d+[.,]?\d*)\s*(km|dias?|treinos?|kg|semanas?|min|litros?|l\b|vezes|x1)/i))) {
+            num = m[1].replace('.', ','); const u = m[2].toLowerCase();
+            un = /^dia/.test(u) ? 'DIAS' : /^treino/.test(u) ? 'TREINOS' : /^semana/.test(u) ? 'SEMANAS' : /^litro|^l$/.test(u) ? 'LITROS' : u === 'vezes' ? 'VEZES' : u.toUpperCase();
+        }
+    }
+    return { cor, ic, num, un };
+}
+function hexHTML(h, extra = '') {
+    const curto = String(h.num || '').length > 2;
+    return `<span class="hx ${h.cor}${extra}"><span class="hx-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC_CONQ[h.ic] || IC_CONQ.raio}</svg>${h.num ? `<b class="${curto ? 'longo' : ''}">${escapeHTML(h.num)}</b>` : ''}${h.un ? `<em>${escapeHTML(h.un)}</em>` : ''}</span></span>`;
+}
+// conquistas que o app calcula (não vêm do banco): subiu de liga e 5 vitórias no X1
+async function conquistasExtras() {
+    const out = [];
+    try {
+        const [{ data: sub }, { data: x1 }] = await Promise.all([
+            sb.rpc('liga_subidas').then(r => r, () => ({ data: null })),
+            sb.rpc('x1_historico').then(r => r, () => ({ data: null })),
+        ]);
+        if (sub != null) out.push({ code: 'extra_liga', nome: 'Subiu de liga', desc: 'Terminar a semana na zona de subida da sua liga', ok: Number(sub) > 0, prog: Math.min(1, Number(sub)), meta: 1, cor: 'ouro', ic: 'subir', num: Number(sub) > 1 ? String(sub) : '', un: Number(sub) > 1 ? 'VEZES' : 'LIGA', extra: true });
+        if (x1) { const v = Number(x1.vitorias || 0); out.push({ code: 'extra_x1', nome: 'Venceu 5 X1', desc: 'Ganhar 5 desafios X1', ok: v >= 5, prog: Math.min(5, v), meta: 5, cor: 'prata', ic: 'trofeu', num: '5', un: 'X1', extra: true }); }
+    } catch (_) {}
+    return out;
+}
 async function renderAchievements(uid) {
     const alvo = uid || state.session.user.id;
     const ehMeu = alvo === state.session.user.id;
     const body = $('#profileTabBody');
     if (!body) return;
     body.innerHTML = esqueletoAba('badges');
-    const [{ data, error }, { data: jaCompartilhadas }] = await Promise.all([
+    const [{ data, error }, { data: jaCompartilhadas }, extras] = await Promise.all([
         sb.rpc('user_achievements', { alvo }),
         ehMeu ? sb.rpc('shared_achievements') : Promise.resolve({ data: [] }),
+        ehMeu ? conquistasExtras() : Promise.resolve([]),
     ]);
     const compartilhadas = new Set((jaCompartilhadas || []).map(r => r.code));
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
 
-    const brutas = data || [];
+    const brutas = (data || []).filter(a => !conqTrivial(a));
     if (!ehMeu && brutas.length === 0) {
         body.innerHTML = '<div class="grid-empty">Essa pessoa prefere manter as conquistas dela em particular.</div>';
         return;
     }
-    const todas = agruparNiveis(brutas);
+    const todas = [...agruparNiveis(brutas), ...extras];
     const datas = ehMeu ? datasConquistas() : {};
     const ganhas = todas.filter(a => a.ok);
-    // em andamento: só as que já começaram (progresso > 0); o resto aparece de surpresa
-    const andamento = ehMeu ? todas.filter(a => !a.okTotal && a.meta && a.prog > 0) : [];
+    const faltam = todas.filter(a => !a.ok);
     if (!ehMeu && !ganhas.length) { body.innerHTML = '<div class="grid-empty">Nenhuma conquista ainda.</div>'; return; }
-    const proxima = andamento.slice().sort((x, y) => (y.prog / y.meta) - (x.prog / x.meta))[0] || null;
-    const faltam = proxima ? Math.max(1, proxima.meta - proxima.prog) : 0;
-    const card = (a, ehGanha) => {
-        const nova = ehGanha && datas[a.codeAtual] && Date.now() - datas[a.codeAtual] < 7 * 86400000;
-        const jaFoi = compartilhadas.has(a.codeAtual);
-        const podeCompartilhar = ehGanha && ehMeu && !jaFoi;
-        const prog = (!ehGanha && a.meta) || (ehGanha && a.proximoNivel && ehMeu)
-            ? `<div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (a.prog / a.meta) * 100)}%"></div></div><span class="badge-prog-txt">${a.prog}/${a.meta}${ehGanha && a.proximoNivel ? ` pro ${a.proximoNivel}` : ''}</span>` : '';
-        return `<div class="badge-card${ehGanha ? ' ok brilho-borda' : ''}${nova ? ' nova' : ''}"${ehGanha ? ` style="${brilhoNivel(a.nivel)};--atraso:${(a.nome || '').length % 6}s"` : ''}${podeCompartilhar ? ` data-act="share-badge" data-code="${a.codeAtual}"` : ''}>${ehGanha ? '<span class="dep-brilho"></span>' : ''}
-            ${nova ? '<span class="badge-nova">nova</span>' : ''}
-            <span class="badge-emo">${a.emo}</span>
-            <div class="badge-name">${escapeHTML(a.nome)}</div>
-            ${a.nivel ? `<span class="badge-nivel ${a.nivel.toLowerCase()}">${a.nivel}</span>` : ''}
-            <div class="badge-desc">${escapeHTML(a.desc)}</div>
-            ${prog}
-            ${ehGanha && ehMeu ? `<span class="badge-share${jaFoi ? ' feito' : ''}">${jaFoi ? 'compartilhado' : 'compartilhar'}</span>` : ''}
-        </div>`;
+    state.album = { todas, ehMeu, datas, compartilhadas };
+    const item = (a, i) => {
+        const nova = a.ok && datas[a.codeAtual] && Date.now() - datas[a.codeAtual] < 7 * 86400000;
+        const h = a.ok ? conqHex(a, datas[a.codeAtual]) : { ...conqHex(a), cor: 'off', num: '', un: '', ic: 'cadeado' };
+        const sub = a.ok ? (datas[a.codeAtual] ? new Date(datas[a.codeAtual]).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '').replace(' de ', ' ') : (a.nivel || 'conquistada'))
+            : a.meta ? `${Math.min(a.prog || 0, a.meta)} de ${a.meta}` : 'falta';
+        return `<button type="button" class="al-it${a.ok ? '' : ' off'}" data-al="${i}">${hexHTML(h, nova ? ' nova' : '')}<b>${escapeHTML(a.nome)}</b><small>${escapeHTML(sub)}</small></button>`;
     };
-    body.innerHTML = `
-        ${proxima ? `<div class="prox-conq">
-            <span class="prox-emo">${proxima.emo}</span>
-            <div class="prox-txt"><small>Sua próxima conquista</small><b>${escapeHTML(proxima.nomeProximo || proxima.nome)}</b><span>Falta${faltam > 1 ? 'm' : ''} ${faltam} pra chegar lá · ${escapeHTML(proxima.descProximo || proxima.desc)}</span>
-                <div class="badge-prog"><div class="badge-prog-fill" style="width:${Math.min(100, (proxima.prog / proxima.meta) * 100)}%"></div></div></div>
-        </div>` : ''}
-        ${ehMeu ? `<div class="wk-summary"><b>${ganhas.length}</b> ${ganhas.length === 1 ? 'conquista' : 'conquistas'}${andamento.filter(x => !x.ok).length ? ` · ${andamento.filter(x => !x.ok).length} em andamento` : ''} · <button class="link-btn" data-act="toggle-badges-public">${state.profile.show_badges ? 'visíveis no seu perfil' : 'só você vê'}</button></div>` : ''}
-        ${ganhas.length ? `${ehMeu ? '<div class="badge-secao">Conquistadas</div>' : ''}<div class="badge-grid">${ganhas.map(a => card(a, true)).join('')}</div>` : ''}
-        ${andamento.filter(a => !a.ok).length ? `<div class="badge-secao">Em andamento</div><div class="badge-grid">${andamento.filter(a => !a.ok).map(a => card(a, false)).join('')}</div>` : ''}
-        ${ehMeu && !ganhas.length && !andamento.length ? vazioAcao('medalha', 'Suas conquistas começam aqui', 'Registre seu primeiro treino e elas vão aparecendo.', 'Registrar treino', 'data-act="quick-kind" data-kind="workout"') : ''}`;
+    const ordem = [...ganhas, ...(ehMeu ? faltam : [])];
+    const pct = todas.length ? Math.round(ganhas.length / todas.length * 100) : 0;
+    body.innerHTML = `<div class="album">
+        <div class="al-topo"><div><b>${ehMeu ? 'Seu álbum' : 'Álbum'}</b><small>${ganhas.length} de ${todas.length} conquistas</small></div>
+            ${ehMeu ? `<button class="link-btn al-vis" data-act="toggle-badges-public">${state.profile.show_badges ? 'visível no perfil' : 'só você vê'}</button>` : ''}</div>
+        <div class="al-prog"><i style="width:${Math.max(2, pct)}%"></i></div>
+        <div class="al-grade">${ordem.map(a => item(a, todas.indexOf(a))).join('')}</div>
+        <div class="al-painel hidden" id="alPainel"></div>
+    </div>`;
+    body.querySelector('.al-grade').addEventListener('click', e => {
+        const b = e.target.closest('[data-al]'); if (!b) return;
+        const a = state.album.todas[Number(b.dataset.al)];
+        const painel = document.getElementById('alPainel');
+        if (painel.dataset.i === b.dataset.al && !painel.classList.contains('hidden')) { painel.classList.add('hidden'); b.classList.remove('sel'); return; }
+        body.querySelectorAll('.al-it.sel').forEach(x => x.classList.remove('sel')); b.classList.add('sel');
+        painel.dataset.i = b.dataset.al;
+        const h = a.ok ? conqHex(a, datas[a.codeAtual]) : { cor: 'off', ic: 'cadeado', num: '', un: '' };
+        const podePostar = a.ok && ehMeu;
+        painel.innerHTML = `${hexHTML(h)}<div class="al-p-tx"><b>${escapeHTML(a.nome)}${a.nivel ? ` · ${escapeHTML(a.nivel)}` : ''}</b><small>${escapeHTML(a.ok ? a.desc : 'Como ganhar: ' + (a.descProximo || a.desc))}</small></div>${podePostar ? `<button class="bt-min" data-al-postar="${b.dataset.al}">Postar</button>` : ''}`;
+        painel.classList.remove('hidden');
+    });
+    body.addEventListener('click', e => {
+        const b = e.target.closest('[data-al-postar]'); if (!b) return;
+        const a = state.album.todas[Number(b.dataset.alPostar)];
+        if (a.extra) { abrirEditorComCard({ card: { tipo: 'conquista', nome: a.nome, desc: a.desc, hex: conqHex(a) } }); return; }
+        escolherOndeCompartilharConquista(a.codeAtual);
+    });
 }
 
 // Conquistas em níveis: Treinos, Ofensiva e Evolução no peso viram um card só (bronze → prata → ouro)
@@ -3746,8 +4073,8 @@ function comemorarConquista(a) {
     const confete = Array.from({ length: 26 }, (_, k) => `<i style="left:${(k * 37) % 100}%;animation-delay:${(k % 9) * 0.08}s;background:${['#35E19B', '#FFC24B', '#5FB0FF', '#FF7A4D', '#C08BFF'][k % 5]}"></i>`).join('');
     tela.innerHTML = `<div class="conq-confete">${confete}</div>
         <div class="conq-card brilho-borda" style="${brilhoNivel(a.nivel)}"><span class="dep-brilho"></span>
+            ${hexHTML(conqHex(a), ' grande nova')}
             <small>Nova conquista</small>
-            <span class="conq-emo">${a.emo}</span>
             <h2>${escapeHTML(a.nome)}</h2>
             <p>${escapeHTML(a.desc)}</p>
             <button class="btn-primary" data-act="share-badge" data-code="${a.code}">Compartilhar</button>
@@ -3927,7 +4254,7 @@ function mostrarConquista(conq, extras) {
     sheet.className = 'sheet on';
     sheet.innerHTML = `<div class="sheet-card badge-unlock">
         <div class="sheet-handle"></div>
-        <span class="unlock-emo">${conq.emo}</span>
+        ${hexHTML(conqHex(conq), ' grande nova')}
         <div class="unlock-tag">Conquista desbloqueada</div>
         <h3 class="unlock-nome">${escapeHTML(conq.nome)}</h3>
         <p class="unlock-desc">${escapeHTML(conq.desc)}</p>
@@ -7143,10 +7470,12 @@ async function renderFeed() {
 
     let html = '<div class="view feed-view">';
 
-    html += storiesHTML + '<div id="anivSlot"></div><div id="prontSlot"></div><div id="lembrancaSlot"></div><div id="semanaSlot"></div><div id="retroSlot"></div>';
+    html += storiesHTML + '<div id="anivSlot"></div><div id="prontSlot"></div><div id="lembrancaSlot"></div><div id="semanaSlot"></div><div id="retroAnoSlot"></div><div id="retroSlot"></div>';
     if (souAniv) setTimeout(hydrateAniversario, 300);
     setTimeout(hydrateLembranca, 400);
     setTimeout(hydrateRetroFeed, 600);
+    setTimeout(hydrateRetroAno, 350);
+    setTimeout(hydrateAoVivo, 500);
     setTimeout(hydrateSemanaFeed, 700);
     setTimeout(hydrateProntidaoFeed, 400);
     html += `<div id="resumoSlot"></div>`;
@@ -7289,7 +7618,7 @@ function renderPost(p) {
         const partes = String(p.caption || '').split('|');
         if (partes.length === 3) {
             badge = `<div class="conquista-card">
-                <span class="cq-emo">${partes[0]}</span>
+                ${hexHTML(conqHex({ code: p.achievement_code, nome: partes[1], desc: partes[2] }, p.created_at))}
                 <div class="cq-txt">
                     <div class="cq-tag">Nova conquista</div>
                     <div class="cq-nome">${escapeHTML(partes[1])}</div>
@@ -8257,6 +8586,7 @@ COMO DECIDIR:
 - PRONTIDÃO DE HOJE: ${pr.n}/100 (${pr.motivos.join(', ') || 'sem sinais fortes'}). ${pr.nivel === 'forte' ? 'Pode puxar mais hoje.' : pr.nivel === 'moderado' ? 'Intensidade moderada.' : ''}
 - ${leve ? 'HOJE É DIA LEVE: sequência longa, sono curto ou esforço alto recente. Sugira mobilidade, alongamento ou cardio bem leve, curto.' : 'Pode ser um treino normal, na duração que a pessoa tem disponível.'}
 - Ajuste ao nível, ao local e ao equipamento. Sem equipamento, use peso do corpo.
+${pausaPrompt()}
 ${trocarDe ? `- A pessoa pediu pra TROCAR a sugestão "${trocarDe}". Proponha algo diferente, mantendo o equilíbrio.` : ''}
 ${REGRAS_SEGURAS}
 
@@ -8491,6 +8821,7 @@ function prepararCoach() {
 }
 // treino que o app monta sem a IA: da semana de costume (ou do que a pessoa curte). Nunca fica vazio.
 function treinoBase() {
+    const pz = pausaAtual(); if (pz) return pausaTreinoBase(pz);
     const p = state.profile || {};
     const dia = new Date().getDay();
     let itens = [];
@@ -9996,6 +10327,7 @@ async function renderProgress() {
             <div id="evoPeriodos" class="${aba === 'coach' ? 'hidden' : ''}">${ev.periodosHTML}</div>
 
             ${abaHTML('coach', `
+                <div id="retroAnoEvo"></div>
                 <div id="coachSlot"></div>
                 <div id="corpoTeaser"></div>
                 ${sugestaoMetaHTML(aSeries || [])}
@@ -17276,12 +17608,22 @@ function htmlCardStory(st, comFoto) {
         </div>`;
     }
     if (c.tipo === 'conquista') {
-        return `<div class="card-story${comFoto ? ' sobre-foto' : ''}">
-            <small class="cs-rot">Nova conquista</small>
-            <span class="cs-emo">${escapeHTML(c.emo || '🏆')}</span>
+        const h = c.hex || conqHex(c);
+        return `<div class="card-story conq-cs${comFoto ? ' sobre-foto' : ''}">
+            ${hexHTML(h, ' grande')}
+            <small class="cs-rot">Conquista desbloqueada</small>
             <h2>${escapeHTML(c.nome || '')}</h2>
-            ${c.nivel ? `<span class="badge-nivel ${String(c.nivel).toLowerCase()}">${escapeHTML(c.nivel)}</span>` : ''}
             <p>${escapeHTML(c.desc || '')}</p>
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
+    if (c.tipo === 'retroano') {
+        return `<div class="card-story retroano${comFoto ? ' sobre-foto' : ''}">
+            <small class="cs-rot">Meu ${c.ano} no Pulso</small>
+            <h2 class="ra-cs-big">${c.treinos || 0}<small>treinos</small></h2>
+            <div class="cs-stats"><div><b>${fmtHoras(c.minutos || 0)}</b><small>ativo</small></div><div><b>${c.dias || 0}</b><small>dias</small></div><div><b>${c.ofensiva || 0}</b><small>seguidos</small></div></div>
+            ${c.modalidade ? `<p>Minha modalidade: <b>${escapeHTML(c.modalidade)}</b></p>` : ''}
+            ${c.percentil >= 50 ? `<span class="ra-cs-top">Top ${Math.max(1, 100 - c.percentil)}% do Pulso</span>` : ''}
             <b class="cs-marca">Pulso.</b>
         </div>`;
     }
@@ -17463,7 +17805,7 @@ async function compartilharConquista(code, onde) {
         const nivel = grupo ? NOMES_NIVEL[grupo.codes.indexOf(code)] : null;
         const nome = grupo ? grupo.nome : conq.nome;
         if (okFeed) toast('Conquista no feed! Agora ajuste o story.', 'ok');
-        await abrirEditorComCard({ card: { tipo: 'conquista', emo: conq.emo, nome, desc: conq.desc, nivel } });
+        await abrirEditorComCard({ card: { tipo: 'conquista', emo: conq.emo, nome, desc: conq.desc, nivel, hex: conqHex({ ...conq, nivel }, datasConquistas()[code]) } });
         if (document.getElementById('profileTabBody') && state.view === 'profile') renderAchievements();
         return;
     }
@@ -20558,6 +20900,7 @@ el$('composerSheet').addEventListener('click', e => { if (e.target.id === 'compo
 function closeComposer() {
     if (state.composerAberto) {
         const seg = Math.round((Date.now() - state.composerAberto.t) / 1000);
+        if (state.publishing) pausaLimpar();
         evento(state.publishing ? 'registrar_salvou' : 'registrar_desistiu', { kind: state.composerKind || null, seg, foto: !!state.composerPhoto });
         state.composerAberto = null;
     }
@@ -21897,6 +22240,7 @@ async function bootInterno() {
     setTimeout(checarConvitesX1, 3000);
     setTimeout(pintarPilulaTreino, 1500);
     setTimeout(() => { const vai = () => prepararInsight(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 12000);
+    setTimeout(() => { const vai = () => talvezPerguntarPausa(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 4500);
     setTimeout(() => { const vai = () => talvezResultadoLiga(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 7000);
     // o coach já começa a montar o dia por trás (quando a pessoa chegar na Evolução, está pronto)
     setTimeout(() => { const vai = () => { try { prepararCoach(); } catch (_) {} }; if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 4000 }); else vai(); }, 9000);
@@ -23042,7 +23386,7 @@ const trGet = () => {
     if (t && !t.inicio && t.pronto && Date.now() - (t.prontoEm || 0) > TREINO_PRONTO_VALE) { try { localStorage.removeItem(CHAVE_TREINO()); } catch (_) {} return null; }
     return t;
 };
-const trSet = t => { try { if (t) lsSet(CHAVE_TREINO(), JSON.stringify(t)); else { localStorage.removeItem(CHAVE_TREINO()); trSyncPushDescanso(null); } } catch (_) {} };
+const trSet = t => { try { if (t) lsSet(CHAVE_TREINO(), JSON.stringify(t)); else { localStorage.removeItem(CHAVE_TREINO()); trSyncPushDescanso(null); aoVivoAvisar(null); } } catch (_) {} };
 const trTempo = ms => { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(ss).padStart(2, '0'); };
 let trRelogio = null, trAudio = null, trLuz = null;
 // tempo de treino sem contar as pausas
@@ -23351,7 +23695,7 @@ async function abrirTreinoVivo() {
     tela.classList.add('tr-tela', 'tr-vivo');
     const salvar = () => { trSet(s); trSyncPushDescanso(s); };
     const abertos = new Set(); // exercícios terminados que a pessoa abriu de novo
-    const comecarAgora = () => { if (s.inicio) return; s.inicio = Date.now(); s.pronto = false; s.pausaTotal = 0; s.pausadoEm = null; abertos.clear(); salvar(); trManterTelaAcesa(true); pintar(); };
+    const comecarAgora = () => { if (s.inicio) return; s.inicio = Date.now(); aoVivoAvisar(s.ativ); s.pronto = false; s.pausaTotal = 0; s.pausadoEm = null; abertos.clear(); salvar(); trManterTelaAcesa(true); pintar(); };
     const num = v => parseFloat(String(v || '').replace(',', '.'));
     const kgTxt = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
     s.exercicios.forEach(ex => { if (!ex.tipo) ex.tipo = tipoEx(ex.nome); });
