@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261278';
+const APP_VERSAO = '20261279';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -3932,18 +3932,14 @@ function hexHTML(h, extra = '') {
     const curto = String(h.num || '').length > 2;
     return `<span class="hx ${h.cor}${extra}"><span class="hx-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC_CONQ[h.ic] || IC_CONQ.raio}</svg>${h.num ? `<b class="${curto ? 'longo' : ''}">${escapeHTML(h.num)}</b>` : ''}${h.un ? `<em>${escapeHTML(h.un)}</em>` : ''}</span></span>`;
 }
-// conquistas que o app calcula (não vêm do banco): subiu de liga e 5 vitórias no X1
-async function conquistasExtras() {
-    const out = [];
+// conquistas novas calculadas no banco (horas, km, semana perfeita, X1, recordes, campeão, ligas...): só as já ganhas
+async function conquistasExtras(alvo) {
     try {
-        const [{ data: sub }, { data: x1 }] = await Promise.all([
-            sb.rpc('liga_subidas').then(r => r, () => ({ data: null })),
-            sb.rpc('x1_historico').then(r => r, () => ({ data: null })),
-        ]);
-        if (sub != null) out.push({ code: 'extra_liga', nome: 'Subiu de liga', desc: 'Terminar a semana na zona de subida da sua liga', ok: Number(sub) > 0, prog: Math.min(1, Number(sub)), meta: 1, cor: 'ouro', ic: 'subir', num: Number(sub) > 1 ? String(sub) : '', un: Number(sub) > 1 ? 'VEZES' : 'LIGA', extra: true });
-        if (x1) { const v = Number(x1.vitorias || 0); out.push({ code: 'extra_x1', nome: 'Venceu 5 X1', desc: 'Ganhar 5 desafios X1', ok: v >= 5, prog: Math.min(5, v), meta: 5, cor: 'prata', ic: 'trofeu', num: '5', un: 'X1', extra: true }); }
-    } catch (_) {}
-    return out;
+        const { data } = await sb.rpc('conquistas_extras', { alvo });
+        const l = (data || []).map(a => ({ ...a, codeAtual: a.code, extra: true }));
+        if (state.session && alvo === state.session.user.id) state.conqExtras = Object.fromEntries(l.map(a => [a.code, a]));
+        return l;
+    } catch (_) { return []; }
 }
 async function renderAchievements(uid) {
     const alvo = uid || state.session.user.id;
@@ -3954,38 +3950,36 @@ async function renderAchievements(uid) {
     const [{ data, error }, { data: jaCompartilhadas }, extras] = await Promise.all([
         sb.rpc('user_achievements', { alvo }),
         ehMeu ? sb.rpc('shared_achievements') : Promise.resolve({ data: [] }),
-        ehMeu ? conquistasExtras() : Promise.resolve([]),
+        conquistasExtras(alvo),
     ]);
     const compartilhadas = new Set((jaCompartilhadas || []).map(r => r.code));
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
 
-    const brutas = (data || []).filter(a => !conqTrivial(a));
-    if (!ehMeu && brutas.length === 0) {
-        body.innerHTML = '<div class="grid-empty">Essa pessoa prefere manter as conquistas dela em particular.</div>';
+    // só o que a pessoa já conquistou: nada de cadeado nem "falta X"
+    const ganhas = [...agruparNiveis((data || []).filter(a => !conqTrivial(a))), ...extras].filter(a => a.ok);
+    const datas = ehMeu ? datasConquistas() : {};
+    const todas = ganhas;
+    state.album = { todas, ehMeu, datas, compartilhadas };
+    const chave = ehMeu ? linhaSwitch('toggle-badges-public', '', 'Mostrar no meu perfil', state.profile.show_badges ? 'Quem visita seu perfil vê suas medalhas' : 'Por enquanto só você vê suas medalhas', !!state.profile.show_badges, ' style="margin-top:14px"') : '';
+    if (!ganhas.length) {
+        body.innerHTML = `<div class="album"><div class="al-topo"><div><b>${ehMeu ? 'Seu álbum' : 'Álbum'}</b><small>Nenhuma conquista ainda</small></div></div>
+            <div class="al-vazio">${hexHTML({ cor: 'off', ic: 'estrela' }, ' grande')}
+            <b>${ehMeu ? 'Seu álbum começa no primeiro marco' : 'Ainda sem medalhas por aqui'}</b>
+            <small>${ehMeu ? 'Continue registrando. Quando você conquistar algo de verdade, a medalha aparece aqui.' : 'Quando conquistar algo, as medalhas aparecem aqui.'}</small></div>${chave}</div>`;
         return;
     }
-    const todas = [...agruparNiveis(brutas), ...extras];
-    const datas = ehMeu ? datasConquistas() : {};
-    const ganhas = todas.filter(a => a.ok);
-    const faltam = todas.filter(a => !a.ok);
-    if (!ehMeu && !ganhas.length) { body.innerHTML = '<div class="grid-empty">Nenhuma conquista ainda.</div>'; return; }
-    state.album = { todas, ehMeu, datas, compartilhadas };
     const item = (a, i) => {
-        const nova = a.ok && datas[a.codeAtual] && Date.now() - datas[a.codeAtual] < 7 * 86400000;
-        const h = a.ok ? conqHex(a, datas[a.codeAtual]) : { ...conqHex(a), cor: 'off', num: '', un: '', ic: 'cadeado' };
-        const sub = a.ok ? (datas[a.codeAtual] ? new Date(datas[a.codeAtual]).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '').replace(' de ', ' ') : (a.nivel || 'conquistada'))
-            : a.meta ? `${Math.min(a.prog || 0, a.meta)} de ${a.meta}` : 'falta';
-        return `<button type="button" class="al-it${a.ok ? '' : ' off'}" data-al="${i}">${hexHTML(h, nova ? ' nova' : '')}<b>${escapeHTML(a.nome)}</b><small>${escapeHTML(sub)}</small></button>`;
+        const nova = datas[a.codeAtual] && Date.now() - datas[a.codeAtual] < 7 * 86400000;
+        const h = conqHex(a, datas[a.codeAtual]);
+        const sub = a.nivel || (datas[a.codeAtual] ? new Date(datas[a.codeAtual]).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '').replace(' de ', ' ') : '');
+        return `<button type="button" class="al-it" data-al="${i}">${hexHTML(h, nova ? ' nova' : '')}<b>${escapeHTML(a.nome)}</b>${sub ? `<small>${escapeHTML(sub)}</small>` : ''}</button>`;
     };
-    const ordem = [...ganhas, ...(ehMeu ? faltam : [])];
-    const pct = todas.length ? Math.round(ganhas.length / todas.length * 100) : 0;
     body.innerHTML = `<div class="album">
-        <div class="al-topo"><div><b>${ehMeu ? 'Seu álbum' : 'Álbum'}</b><small>${ganhas.length} de ${todas.length} conquistas</small></div>
-            ${ehMeu ? `<button class="link-btn al-vis" data-act="toggle-badges-public">${state.profile.show_badges ? 'visível no perfil' : 'só você vê'}</button>` : ''}</div>
-        <div class="al-prog"><i style="width:${Math.max(2, pct)}%"></i></div>
-        <div class="al-grade">${ordem.map(a => item(a, todas.indexOf(a))).join('')}</div>
+        <div class="al-topo"><div><b>${ehMeu ? 'Seu álbum' : 'Álbum'}</b><small>${ganhas.length} ${ganhas.length === 1 ? 'conquista' : 'conquistas'}</small></div></div>
+        <div class="al-grade">${ganhas.map(item).join('')}</div>
         <div class="al-painel hidden" id="alPainel"></div>
+        ${chave}
     </div>`;
     body.querySelector('.al-grade').addEventListener('click', e => {
         const b = e.target.closest('[data-al]'); if (!b) return;
@@ -3994,16 +3988,15 @@ async function renderAchievements(uid) {
         if (painel.dataset.i === b.dataset.al && !painel.classList.contains('hidden')) { painel.classList.add('hidden'); b.classList.remove('sel'); return; }
         body.querySelectorAll('.al-it.sel').forEach(x => x.classList.remove('sel')); b.classList.add('sel');
         painel.dataset.i = b.dataset.al;
-        const h = a.ok ? conqHex(a, datas[a.codeAtual]) : { cor: 'off', ic: 'cadeado', num: '', un: '' };
-        const podePostar = a.ok && ehMeu;
-        painel.innerHTML = `${hexHTML(h)}<div class="al-p-tx"><b>${escapeHTML(a.nome)}${a.nivel ? ` · ${escapeHTML(a.nivel)}` : ''}</b><small>${escapeHTML(a.ok ? a.desc : 'Como ganhar: ' + (a.descProximo || a.desc))}</small></div>${podePostar ? `<button class="bt-min" data-al-postar="${b.dataset.al}">Postar</button>` : ''}`;
+        const h = conqHex(a, datas[a.codeAtual]);
+        const podePostar = ehMeu;
+        painel.innerHTML = `${hexHTML(h)}<div class="al-p-tx"><b>${escapeHTML(a.nome)}${a.nivel ? ` · ${escapeHTML(a.nivel)}` : ''}</b><small>${escapeHTML(a.desc || '')}</small></div>${podePostar ? `<button class="bt-min" data-al-postar="${b.dataset.al}">Postar</button>` : ''}`;
         painel.classList.remove('hidden');
     });
     body.addEventListener('click', e => {
         const b = e.target.closest('[data-al-postar]'); if (!b) return;
         const a = state.album.todas[Number(b.dataset.alPostar)];
-        if (a.extra) { abrirEditorComCard({ card: { tipo: 'conquista', nome: a.nome, desc: a.desc, hex: conqHex(a) } }); return; }
-        escolherOndeCompartilharConquista(a.codeAtual);
+        escolherOndeCompartilharConquista(a.codeAtual, a.extra ? a : null);
     });
 }
 
@@ -4048,7 +4041,21 @@ function datasConquistas() {
 // ---- Comemoração quando ganha uma conquista nova ----
 async function checarConquistasNovas() {
     if (!state.session) return;
-    const { data } = await sb.rpc('user_achievements', { alvo: state.session.user.id });
+    const [{ data }, extras] = await Promise.all([sb.rpc('user_achievements', { alvo: state.session.user.id }), conquistasExtras(state.session.user.id)]);
+    // as novas têm a lista delas: quem já tinha não vê comemoração de coisa antiga quando elas chegam
+    const chaveX = 'pulso-conq-extras-' + state.session.user.id;
+    let vistasX = null;
+    try { vistasX = JSON.parse(localStorage.getItem(chaveX) || 'null'); } catch (_) {}
+    localStorage.setItem(chaveX, JSON.stringify(extras.map(a => a.code)));
+    if (vistasX) {
+        const novasX = extras.filter(a => !vistasX.includes(a.code));
+        if (novasX.length) {
+            const d = datasConquistas(); novasX.forEach(a => { d[a.code] = Date.now(); });
+            localStorage.setItem('pulso-conq-datas-' + state.session.user.id, JSON.stringify(d));
+            comemorarConquista({ ...novasX[0], nome: novasX[0].nome + (novasX[0].nivel ? ' · ' + novasX[0].nivel : '') });
+            return;
+        }
+    }
     const ganhas = (data || []).filter(a => a.ok);
     const chave = 'pulso-conquistas-' + state.session.user.id;
     let vistas = null;
@@ -4077,7 +4084,7 @@ function comemorarConquista(a) {
             <small>Nova conquista</small>
             <h2>${escapeHTML(a.nome)}</h2>
             <p>${escapeHTML(a.desc)}</p>
-            <button class="btn-primary" data-act="share-badge" data-code="${a.code}">Compartilhar</button>
+            <button class="bt-min" data-act="share-badge" data-code="${a.code}">Compartilhar</button>
             <button class="btn-ghost" id="conqFechar">Agora não</button>
         </div>`;
     document.body.appendChild(tela);
@@ -7618,7 +7625,7 @@ function renderPost(p) {
         const partes = String(p.caption || '').split('|');
         if (partes.length === 3) {
             badge = `<div class="conquista-card">
-                ${hexHTML(conqHex({ code: p.achievement_code, nome: partes[1], desc: partes[2] }, p.created_at))}
+                ${hexHTML(partes[0].startsWith('#') ? (([ic, cor, num, un]) => ({ ic, cor, num, un }))(partes[0].slice(1).split(',')) : conqHex({ code: p.achievement_code, nome: partes[1], desc: partes[2] }, p.created_at))}
                 <div class="cq-txt">
                     <div class="cq-tag">Nova conquista</div>
                     <div class="cq-nome">${escapeHTML(partes[1])}</div>
@@ -16628,7 +16635,7 @@ document.addEventListener('click', async e => {
         toast(novo ? 'Suas conquistas agora aparecem no seu perfil' : 'Suas conquistas voltaram a ser privadas', 'ok');
         renderAchievements();
     } else if (act === 'share-badge') {
-        escolherOndeCompartilharConquista(btn.dataset.code);
+        escolherOndeCompartilharConquista(btn.dataset.code, (state.conqExtras || {})[btn.dataset.code] || null);
     } else if (act === 'lembranca-fechar') {
         lsSet('pulso-lembranca-' + state.session.user.id, hojeISO());
         const sl = document.getElementById('lembrancaSlot'); if (sl) sl.innerHTML = '';
@@ -17765,7 +17772,7 @@ async function publicarStoryPronto({ caption, image_url = null, background_color
     return { story, pts: Number(pts || 0) };
 }
 // Conquista: escolher feed, story ou os dois
-function escolherOndeCompartilharConquista(code) {
+function escolherOndeCompartilharConquista(code, extra = null) {
     const old = document.getElementById('compConqSheet'); if (old) old.remove();
     const sheet = document.createElement('div');
     sheet.id = 'compConqSheet';
@@ -17782,10 +17789,28 @@ function escolherOndeCompartilharConquista(code) {
         if (e.target === sheet) { sheet.remove(); return; }
         const b = e.target.closest('[data-cc]'); if (!b) return;
         sheet.remove();
-        await compartilharConquista(code, b.dataset.cc);
+        await compartilharConquista(code, b.dataset.cc, extra);
     });
 }
-async function compartilharConquista(code, onde) {
+// conquistas novas (vêm do conquistas_extras): o desenho da medalha vai junto na legenda
+async function compartilharConquistaExtra(a, onde) {
+    const h = conqHex(a);
+    if (onde === 'feed' || onde === 'ambos') {
+        const caption = `#${[h.ic, h.cor, h.num, h.un].join(',')}|${a.nome}${a.nivel ? ' · ' + a.nivel : ''}|${a.desc}`;
+        const { count } = await sb.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', state.session.user.id).eq('kind', 'achievement').eq('caption', caption);
+        if (count) { if (onde === 'feed') { toast('Essa conquista já está no seu feed', 'ok'); return; } }
+        else {
+            const { error } = await sb.from('posts').insert({ user_id: state.session.user.id, kind: 'achievement', caption,
+                visibility: state.defaultPrivacy || 'public', is_public: (state.defaultPrivacy || 'public') === 'public', in_feed: true });
+            if (error) { toast('Erro ao compartilhar', 'err'); return; }
+            if (onde === 'feed') { toast('Conquista no feed!', 'ok'); return; }
+            toast('Conquista no feed! Agora ajuste o story.', 'ok');
+        }
+    }
+    await abrirEditorComCard({ card: { tipo: 'conquista', nome: a.nome, desc: a.desc, nivel: a.nivel, hex: h } });
+}
+async function compartilharConquista(code, onde, extra = null) {
+    if (extra) return compartilharConquistaExtra(extra, onde);
     const { data: lista } = await sb.rpc('my_achievements');
     const conq = (lista || []).find(x => x.code === code);
     if (!conq) return;
