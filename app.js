@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261274';
+const APP_VERSAO = '20261275';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1025,6 +1025,108 @@ async function hydrateAdminCapacidade() {
             <div class="cap-lista">${(data.tabelas || []).map(t => `<div class="cap-it"><span>${escapeHTML(t.nome)}</span><b>${fmtBytes(t.bytes)}</b></div>`).join('')}</div></div>
         <p class="faixa-nota" style="margin-bottom:0">Limites do plano gratuito do Supabase. Amarelo a partir de 70%, vermelho a partir de 90%.</p>`;
 }
+// ============================================================
+// LIGAS DA SEMANA (4 níveis, no máximo 10 pessoas por liga, você só vê a sua)
+// ============================================================
+const LIGA_NIVEIS = [null,
+    { nome: 'Bronze', emo: '🥉', a: '#F3C29B', b: '#8A4B1F', c: '240,170,120' },
+    { nome: 'Prata', emo: '🥈', a: '#F1F5F9', b: '#64748B', c: '203,213,225' },
+    { nome: 'Ouro', emo: '🥇', a: '#FDE68A', b: '#B45309', c: '251,191,36' },
+    { nome: 'Diamante', emo: '💎', a: '#A5F3FC', b: '#0E7490', c: '103,232,249' }];
+async function carregarLiga(forcar = false) {
+    if (!forcar && state.liga && Date.now() - state.liga.em < 60000) return state.liga.d;
+    try {
+        const { data, error } = await sb.rpc('liga_minha');
+        if (error) return null;
+        state.liga = { d: data, em: Date.now() };
+        state.ligaFora = !!(data && data.fora);
+        return data;
+    } catch (_) { return null; }
+}
+function ligaNome(d) { const nv = LIGA_NIVEIS[d.nivel] || LIGA_NIVEIS[1]; return `Liga ${nv.nome}${d.grupos_no_nivel > 1 ? ' ' + d.numero : ''}`; }
+// onde eu estou: posição, zona e quanto falta
+function ligaSituacao(d) {
+    const lista = d.membros || [];
+    const i = lista.findIndex(x => x.eu), pos = i + 1, n = lista.length;
+    const meu = i >= 0 ? Number(lista[i].pts) : 0;
+    let txt;
+    if (d.sobem && pos <= d.sobem) txt = `Na zona de subida pra ${LIGA_NIVEIS[d.nivel + 1].nome} 🔥`;
+    else if (d.caem && pos > n - d.caem) { const alvo = lista[n - d.caem - 1]; const f = alvo ? Math.max(1, Number(alvo.pts) - meu + 1) : 1; txt = `Zona de queda · ${f} pts pra sair dela`; }
+    else if (d.sobem) { const alvo = lista[d.sobem - 1]; const f = alvo ? Math.max(1, Number(alvo.pts) - meu + 1) : 1; txt = `Faltam ${f} pts pra zona de subida`; }
+    else if (d.nivel === 4) txt = 'Você está no topo. Segura sua vaga!';
+    else txt = 'Mais gente entrando abre as outras ligas';
+    return { pos, n, txt };
+}
+async function hydrateLigaCard() {
+    const view = document.querySelector('#viewContainer .view'); if (!view) return;
+    let slot = document.getElementById('ligaSlot');
+    if (!slot) {
+        slot = document.createElement('div'); slot.id = 'ligaSlot';
+        const tit = view.querySelector(':scope > .user-topbar, :scope > h1, :scope > .pd-topo, h1');
+        if (tit) tit.insertAdjacentElement('afterend', slot); else view.prepend(slot);
+    }
+    const d = await carregarLiga();
+    if (!document.getElementById('ligaSlot')) return;
+    if (!d || d.fora) { slot.innerHTML = ''; return; }
+    if (d.sem_liga) {
+        slot.innerHTML = `<div class="liga-card sem"><span class="liga-med" style="--a:#3f3f46;--b:#18181b">🏅</span><div><b>Ligas da semana</b><small>Registre um treino, água ou refeição e você entra numa liga na próxima semana.</small></div></div>`;
+        return;
+    }
+    const nv = LIGA_NIVEIS[d.nivel] || LIGA_NIVEIS[1], sit = ligaSituacao(d);
+    slot.innerHTML = `<button type="button" class="liga-card" data-act="liga-abrir" style="--c:${nv.c}">
+        <span class="liga-med" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span>
+        <div><b>${ligaNome(d)} · ${sit.pos}º de ${sit.n}</b><small>${sit.txt} · termina sábado</small></div><i>›</i></button>`;
+}
+async function abrirLiga() {
+    const d = await carregarLiga(true);
+    if (!d || d.sem_liga || d.fora) { toast('Você ainda não está numa liga essa semana.', 'err'); return; }
+    const nv = LIGA_NIVEIS[d.nivel] || LIGA_NIVEIS[1];
+    const lista = d.membros || [], n = lista.length;
+    const fim = new Date(d.fim), ini = new Date(d.semana + 'T12:00:00'), ult = new Date(ini.getTime() + 6 * 86400000);
+    const linha = (x, i) => `<div class="lg-l${x.eu ? ' eu' : ''}" data-act="view-user" data-uid="${x.id}"><span class="lg-p">${i + 1}</span>${avatarHTML({ id: x.id, display_name: x.nome, username: x.username, avatar_url: x.avatar }, 'sm')}<span class="lg-n">${x.eu ? 'Você' : escapeHTML(x.nome || '')}</span><b class="lg-pt">${x.pts}</b></div>`;
+    let corpo = '';
+    lista.forEach((x, i) => {
+        if (d.sobem && i === 0) corpo += `<div class="lg-zona sobe">▲ SOBEM PRA ${LIGA_NIVEIS[d.nivel + 1].nome.toUpperCase()}</div>`;
+        if (d.sobem && i === d.sobem) corpo += '<div class="lg-sep"></div>';
+        if (d.caem && i === n - d.caem) corpo += `<div class="lg-zona cai">▼ CAEM PRA ${LIGA_NIVEIS[d.nivel - 1].nome.toUpperCase()}</div>`;
+        corpo += linha(x, i);
+    });
+    const abertos = d.niveis_abertos || 4;
+    const t = x1Tela('ligaTela', `<div class="x1-topo"><button class="x1-ib" data-lg="fechar" aria-label="Voltar">${SVG_X(IC_X1.voltar)}</button><b>Ligas da semana</b><span style="width:40px"></span></div>
+        <div class="x1-corpo lg-corpo">
+            <div class="lg-hd" style="--c:${nv.c}"><span class="liga-med grande" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span><div><b>${ligaNome(d)}</b><small>${x1DM(ini)} a ${x1DM(ult)} · termina sábado às 23h59</small></div></div>
+            <div class="lg-trilha">${[1, 2, 3, 4].map(k => `<span class="${k === d.nivel ? 'on' : ''}${k > abertos ? ' fechada' : ''}" style="--a:${LIGA_NIVEIS[k].a};--b:${LIGA_NIVEIS[k].b}">${LIGA_NIVEIS[k].nome}</span>`).join('')}</div>
+            <div class="lg-sit">${escapeHTML(ligaSituacao(d).txt)}</div>
+            <div class="chart-card lg-lista">${corpo}</div>
+            <p class="faixa-nota">Contam os mesmos pontos de sempre (treino, água, refeições...), só os desta semana. Só quem está na sua liga vê esses pontos. Cada liga tem no máximo 10 pessoas.${abertos < 4 ? ' As outras ligas abrem quando tiver mais gente.' : ''}</p>
+        </div>`);
+    t.addEventListener('click', e => { if (e.target.closest('[data-lg="fechar"]')) x1FecharTela('ligaTela'); });
+    evento('liga_abriu', { nivel: d.nivel });
+}
+// domingo: resultado da semana que fechou (aparece uma vez)
+async function talvezResultadoLiga() {
+    if (!state.session || document.getElementById('onbTela')) return;
+    const d = await carregarLiga(true);
+    const a = d && d.anterior; if (!a) return;
+    if (document.querySelector('.sheet.on, .x1-tela, .sc.on, .story-viewer.on')) { setTimeout(talvezResultadoLiga, 20000); return; }
+    const novo = a.resultado === 'subiu' ? a.nivel + 1 : a.resultado === 'caiu' ? a.nivel - 1 : a.nivel;
+    const nv = LIGA_NIVEIS[novo] || LIGA_NIVEIS[1], antes = LIGA_NIVEIS[a.nivel] || LIGA_NIVEIS[1];
+    const titulo = a.resultado === 'subiu' ? `Você subiu pra Liga ${nv.nome}!` : a.resultado === 'caiu' ? `Semana nova na Liga ${nv.nome}` : `Você continua na Liga ${nv.nome}`;
+    const sub = a.resultado === 'subiu' ? `Terminou em ${a.pos}º na Liga ${antes.nome} com ${a.pts} pts. Agora é com gente do seu novo nível.`
+        : a.resultado === 'caiu' ? `Semana passada foi mais puxada (${a.pts} pts). Semana nova, bora voltar pra ${antes.nome}!`
+        : `Terminou em ${a.pos}º com ${a.pts} pts. Essa semana é a vez de subir!`;
+    const t = x1Tela('ligaRes', `<div class="lg-res" style="--c:${nv.c}"><span class="liga-med enorme" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span>
+        <b>${titulo}</b><p>${escapeHTML(sub)}</p><button class="bt-min lg-res-bt" data-lg="ver">Ver minha liga</button><button class="lg-res-x" data-lg="ok">Fechar</button></div>`);
+    sb.rpc('liga_visto').then(() => {}, () => {});
+    if (state.liga && state.liga.d) state.liga.d.anterior = null;
+    if (a.resultado === 'subiu') vibrar([20, 40, 20, 40, 80]);
+    t.addEventListener('click', e => {
+        const b = e.target.closest('[data-lg]'); if (!b) return;
+        x1FecharTela('ligaRes');
+        if (b.dataset.lg === 'ver') setTimeout(abrirLiga, 200);
+    });
+}
+
 // ---- Saúde dos desafios: quem registrou algo nos últimos 3 dias (pra ver desafio esfriando antes de morrer) ----
 async function hydrateSaudeDesafios() {
     const box = document.getElementById('admSaude'); if (!box) return;
@@ -4974,6 +5076,7 @@ function renderSettings() {
                 ${linhaConfig('cfg-page', 'storyOculto', 'Ocultar story de', '<span id="cfgOcultos"></span>', ' data-page="set-hide-story"')}
                 ${linhaConfig('go-blocked', 'bloquear', 'Bloqueados', '<span id="cfgBloq"></span>')}
                 ${linhaSwitch('toggle-aniversario', 'perfil', 'Mostrar meu aniversário', 'Seus amigos ficam sabendo no dia. Nunca o ano ou a idade.', p.mostrar_aniversario !== false)}
+                ${linhaSwitch('toggle-liga', 'medalha', 'Participar das ligas da semana', 'Você compete com até 9 pessoas de ritmo parecido. Só elas veem seus pontos da semana.', !state.ligaFora)}
             </div>
 
             <div class="cfg-grupo">
@@ -15203,7 +15306,7 @@ async function switchView(v, params = {}) {
     else if (v === 'saved') await renderSalvos();
     else if (v.startsWith('set-')) await renderPaginaConfig(v);
     else if (v === 'challenge') await renderChallengeDetail(params.id);
-    else if (v === 'desafio') { await renderPainelDesafio(params.id); if (!state.semDesafioAtivo) avisoPesoDesafio(); }
+    else if (v === 'desafio') { await renderPainelDesafio(params.id); if (!state.semDesafioAtivo) avisoPesoDesafio(); if (!params.id) hydrateLigaCard(); }
     else if (v === 'install') renderInstall();
     else if (v === 'search') renderSearch();
     else if (v === 'notifications') await renderNotifications();
@@ -16521,6 +16624,15 @@ document.addEventListener('click', async e => {
         const card = btn.closest('.coach-card');
         if (card) card.style.display = 'none';
         await sb.from('ai_insights').update({ dismissed: true }).eq('id', btn.dataset.id);
+    } else if (act === 'liga-abrir') {
+        abrirLiga();
+    } else if (act === 'toggle-liga') {
+        const on = !!state.ligaFora;
+        state.ligaFora = !on;
+        btn.setAttribute('aria-checked', on); btn.querySelector('.cfg-switch').classList.toggle('on', on);
+        const { error } = await sb.rpc('liga_participar', { sim: on });
+        if (error) { state.ligaFora = on; btn.querySelector('.cfg-switch').classList.toggle('on', !on); toast(msgErro(error), 'err'); }
+        else { state.liga = null; toast(on ? 'Você volta pras ligas na próxima semana' : 'Você saiu das ligas', 'ok'); }
     } else if (act === 'carga-ex') {
         abrirCargaExercicio(btn.dataset.ex);
     } else if (act === 'coach-ler-mais') {
@@ -21769,6 +21881,7 @@ async function bootInterno() {
     setTimeout(checarConvitesX1, 3000);
     setTimeout(pintarPilulaTreino, 1500);
     setTimeout(() => { const vai = () => prepararInsight(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 12000);
+    setTimeout(() => { const vai = () => talvezResultadoLiga(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 7000);
     // o coach já começa a montar o dia por trás (quando a pessoa chegar na Evolução, está pronto)
     setTimeout(() => { const vai = () => { try { prepararCoach(); } catch (_) {} }; if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 4000 }); else vai(); }, 9000);
     setTimeout(registrarAcesso, 2000);

@@ -6402,3 +6402,33 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 /* mapa do corpo: atividades que trabalharam o músculo */
 .mc-ativ span{ display:inline-flex; align-items:center; gap:8px; }
 .mc-ativ span svg{ width:16px; height:16px; color:var(--ink-dim); flex:none; }
+/* ============ ONDA 65: ligas da semana ============ */
+.liga-card{ width:100%; display:flex; align-items:center; gap:12px; padding:12px 13px; margin:4px 0 14px; border-radius:16px; text-align:left; color:var(--ink);
+  border:1px solid rgba(var(--c,251,191,36),.45); background:linear-gradient(140deg, rgba(var(--c,251,191,36),.15), var(--bg-card) 70%); font:inherit; }
+.liga-card.sem{ border-color:var(--line); background:var(--bg-card); }
+.liga-card b{ display:block; font-size:14.5px; } .liga-card small{ display:block; margin-top:2px; font-size:12px; color:var(--ink-dim); }
+.liga-card > i{ font-style:normal; margin-left:auto; color:var(--ink-faint); font-size:20px; }
+.liga-med{ width:46px; height:46px; border-radius:13px; flex:none; display:grid; place-items:center; font-size:22px; background:linear-gradient(140deg, var(--a), var(--b)); box-shadow:0 6px 18px rgba(0,0,0,.35); }
+.liga-med.grande{ width:58px; height:58px; font-size:28px; border-radius:16px; }
+.liga-med.enorme{ width:112px; height:112px; font-size:54px; border-radius:30px; margin-bottom:20px; box-shadow:0 0 70px rgba(var(--c),.4); }
+.lg-corpo{ padding:6px 16px 30px; }
+.lg-hd{ display:flex; align-items:center; gap:14px; margin:4px 0 14px; } .lg-hd b{ display:block; font:800 21px var(--ff-display); } .lg-hd small{ color:var(--ink-faint); font-size:12px; }
+.lg-trilha{ display:flex; gap:6px; margin-bottom:10px; }
+.lg-trilha span{ flex:1; text-align:center; padding:7px 0; border-radius:9px; font:700 11px var(--ff-body); color:var(--ink-faint); background:var(--bg-card); border:1px solid var(--line); }
+.lg-trilha span.on{ color:#1a1206; background:linear-gradient(140deg, var(--a), var(--b)); border-color:transparent; }
+.lg-trilha span.fechada{ opacity:.4; }
+.lg-sit{ font-size:13px; color:var(--ink-dim); margin:0 2px 10px; }
+.lg-lista{ padding:8px 12px; }
+.lg-l{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:10px; }
+.lg-l.eu{ background:rgba(16,185,129,.10); }
+.lg-p{ width:20px; color:var(--ink-faint); font-weight:700; font-size:13px; text-align:center; }
+.lg-n{ flex:1; font-weight:600; font-size:14px; } .lg-l.eu .lg-n, .lg-l.eu .lg-pt{ color:#34D399; }
+.lg-pt{ font:800 14px var(--ff-display); }
+.lg-zona{ font:700 10.5px var(--ff-body); letter-spacing:.08em; padding:8px 6px 2px; }
+.lg-zona.sobe{ color:#34D399; } .lg-zona.cai{ color:#F87171; margin-top:4px; }
+.lg-sep{ height:1px; background:var(--line); margin:6px 0; }
+.lg-res{ min-height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 28px;
+  background:radial-gradient(circle at 50% 38%, rgba(var(--c),.22), transparent 60%); }
+.lg-res b{ font:800 26px var(--ff-display); line-height:1.2; } .lg-res p{ color:var(--ink-dim); font-size:14px; line-height:1.5; margin:10px 0 24px; max-width:300px; }
+.lg-res-bt{ height:46px; padding:0 22px; font-size:14.5px; }
+.lg-res-x{ margin-top:14px; background:none; border:0; color:var(--ink-faint); font:600 13px var(--ff-body); padding:10px; }
