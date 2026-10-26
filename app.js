@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261270';
+const APP_VERSAO = '20261271';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -8829,19 +8829,19 @@ function montarEvolucao(d) {
 
     // ---- recordes pessoais (de todo o histórico) ----
     const rec = [];
-    if (d.streak?.longest_streak) rec.push(['🔥', `${d.streak.longest_streak} dias`, 'maior ofensiva']);
+    if (d.streak?.longest_streak) rec.push(['🔥', `${d.streak.longest_streak} dias`, 'Maior ofensiva', '']);
     // melhor semana (domingo a sábado): mais dias com treino
     const diasPorSem = {};
     [...diasComTreino].forEach(k => { const [a, m, dd] = k.split('-').map(Number); const w = semIni(new Date(a, m, dd)); (diasPorSem[+w] = diasPorSem[+w] || new Set()).add(k); });
     const melhorSem = Object.entries(diasPorSem).reduce((m, [k, v]) => (v.size > (m ? m[1] : 0) ? [Number(k), v.size] : m), null);
-    if (melhorSem) rec.push(['📅', `${melhorSem[1]} ${melhorSem[1] === 1 ? 'dia' : 'dias'}`, `melhor semana (${new Date(melhorSem[0]).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`]);
+    if (melhorSem) rec.push(['📅', `${melhorSem[1]} ${melhorSem[1] === 1 ? 'dia' : 'dias'}`, 'Melhor semana', `semana de ${new Date(melhorSem[0]).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`]);
     const longo = treinos.reduce((m, p) => ((p.duration_min || 0) > (m ? m.duration_min : 0) ? p : m), null);
-    if (longo) rec.push(['⏱️', `${longo.duration_min} min`, `treino mais longo (${escapeHTML(longo.activity_type || 'treino')})`]);
+    if (longo) rec.push(['⏱️', `${longo.duration_min} min`, 'Treino mais longo', escapeHTML(longo.activity_type || 'Treino')]);
     const dist = treinos.reduce((m, p) => (Number(p.distance_km || 0) > (m ? Number(m.distance_km) : 0) ? p : m), null);
-    if (dist) rec.push(['🏃', `${num1(Number(dist.distance_km))} km`, `maior distância (${escapeHTML(dist.activity_type || '')})`]);
+    if (dist) rec.push(['🏃', `${num1(Number(dist.distance_km))} km`, 'Maior distância', escapeHTML(dist.activity_type || '')]);
     const recordesHTML = `<div class="chart-card" id="recordesCard"${rec.length ? '' : ' hidden'}>
         <div class="chart-head"><span class="chart-title">Seus recordes</span><span class="chart-legend">de todos os tempos</span></div>
-        ${rec.length ? `<div class="tz-recs">${rec.map(([e, v, l]) => `<div class="tz-rec"><span>${e} ${l.replace(/^./, c => c.toUpperCase())}</span><b>${v}</b></div>`).join('')}</div>` : ''}
+        ${rec.length ? `<div class="rc-lista">${rec.map(([e, v, l, det]) => `<div class="rc-l"><span class="rc-ic">${e}</span><div class="rc-n"><span>${l}</span>${det ? `<small>${det}</small>` : ''}</div><div class="rc-v"><b>${v}</b></div></div>`).join('')}</div>` : ''}
         <div id="recExBox"></div>
     </div>`;
 
@@ -8891,7 +8891,7 @@ function montarEvolucao(d) {
         if (tR.length) {
             state.resumoMes = { titulo, subtitulo: cap(legenda), candidatos,
                 periodo: titulo.startsWith('Meu ') && !/\d{4}$/.test(titulo) ? { tipo: 'mes', ini: iniR, fim: (() => { const a = new Date(iniR); return +new Date(a.getFullYear(), a.getMonth() + 1, 1); })() } : null };
-            mesHTML = `<div class="chart-card">
+            mesHTML = `<div class="chart-card" id="mesCard">
                 <div class="chart-head"><span class="chart-title">${rotuloCard}</span><span class="chart-legend">${legenda}</span></div>
                 <div class="mini-stats">${itens.map(([v, l]) => `<div><b>${escapeHTML(v)}</b><span>${escapeHTML(l)}</span></div>`).join('')}</div>
                 <button class="btn-secondary resumo-story" data-act="mes-story">Postar como story</button>
@@ -9561,15 +9561,106 @@ function celebrarRecorde(ex, kg, antes) {
 }
 
 // maiores cargas por exercício (e quanto subiu desde o começo)
+// Atalhos no topo do Resumo: leva direto pra cada parte e fica preso no topo enquanto rola
+function montarAtalhosResumo() {
+    const painel = document.querySelector('.evo-painel[data-painel="resumo"]'); if (!painel) return;
+    const alvos = [['Semana', '.anel-card'], ['Números', '.stat-grid'], ['Constância', '#calMesSlot'], ['Mês', '#mesCard'], ['Pontos', '.pts-sem'], ['Padrões', '#reportCard']]
+        .filter(([, sel]) => painel.querySelector(sel));
+    if (alvos.length < 3) return;
+    const bar = document.createElement('div');
+    bar.className = 'rs-atalhos';
+    bar.innerHTML = alvos.map(([n, sel], i) => `<button type="button" class="rs-at${i === 0 ? ' on' : ''}" data-sel="${sel}">${n}</button>`).join('');
+    painel.prepend(bar);
+    const topo = () => { const tb = document.querySelector('.topbar'); return tb ? Math.max(0, tb.getBoundingClientRect().bottom) : 0; };
+    bar.style.top = topo() + 'px';
+    let clicando = 0;
+    bar.addEventListener('click', e => {
+        const b = e.target.closest('.rs-at'); if (!b) return;
+        const el = painel.querySelector(b.dataset.sel); if (!el) return;
+        clicando = Date.now();
+        bar.querySelectorAll('.rs-at').forEach(x => x.classList.toggle('on', x === b));
+        b.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        const y = el.getBoundingClientRect().top + window.scrollY - topo() - bar.offsetHeight - 10;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    });
+    // marca a parte que está na tela enquanto rola
+    const aoRolar = () => {
+        if (!bar.isConnected) { window.removeEventListener('scroll', aoRolar); return; }
+        if (Date.now() - clicando < 800 || painel.classList.contains('hidden') || !painel.offsetParent) return;
+        const lim = topo() + bar.offsetHeight + 40;
+        let atual = null;
+        bar.querySelectorAll('.rs-at').forEach(b => { const el = painel.querySelector(b.dataset.sel); if (el && el.offsetParent && el.getBoundingClientRect().height && el.getBoundingClientRect().top <= lim) atual = b; });
+        atual = atual || bar.querySelector('.rs-at');
+        if (!atual.classList.contains('on')) { bar.querySelectorAll('.rs-at').forEach(x => x.classList.toggle('on', x === atual)); bar.scrollLeft = Math.max(0, atual.offsetLeft - (bar.clientWidth - atual.offsetWidth) / 2); }
+    };
+    window.addEventListener('scroll', aoRolar, { passive: true });
+}
+// "hoje", "ontem", "há 3 dias" na semana; antes disso "17/10"
+function quandoCurto(iso) {
+    if (!iso) return '';
+    const d = new Date(iso), h = new Date(); h.setHours(0, 0, 0, 0);
+    const d0 = new Date(d); d0.setHours(0, 0, 0, 0);
+    const dias = Math.round((h - d0) / 86400000);
+    if (dias <= 0) return 'hoje';
+    if (dias === 1) return 'ontem';
+    if (dias < 7) return `há ${dias} dias`;
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+// tocar num exercício: gráfico da carga e o histórico de cada treino
+async function abrirCargaExercicio(nome) {
+    const { f } = x1Folha(`<div id="cxFolha"><h3 class="x1-folha-t">${escapeHTML(nome)}</h3><div class="spinner"></div></div>`, 'cargaFolha');
+    const { data, error } = await sb.from('treino_series').select('kg, reps, serie, feito_em, post_id').eq('exercicio', nome).order('feito_em', { ascending: true }).limit(2000);
+    const box = f.querySelector('#cxFolha'); if (!box) return;
+    if (error || !data || !data.length) { box.innerHTML = `<h3 class="x1-folha-t">${escapeHTML(nome)}</h3><p class="faixa-nota">Ainda não tenho as séries desse exercício.</p>`; return; }
+    // cada treino = um post (ou um dia, se não tiver post)
+    const ses = [];
+    data.forEach(r => {
+        const chave = r.post_id || new Date(r.feito_em).toDateString();
+        let s0 = ses.find(x => x.k === chave);
+        if (!s0) ses.push(s0 = { k: chave, quando: r.feito_em, series: [] });
+        s0.series.push(r);
+    });
+    ses.forEach(x => {
+        const comKg = x.series.filter(r => Number(r.kg) > 0);
+        x.max = comKg.length ? Math.max(...comKg.map(r => Number(r.kg))) : 0;
+        const top = comKg.find(r => Number(r.kg) === x.max) || x.series[0];
+        x.txt = `${x.series.length}x${top && top.reps ? top.reps : '?'}`;
+    });
+    const pts = ses.filter(x => x.max > 0);
+    const kgf = v => br(v, Number.isInteger(v) ? 0 : 1);
+    const recorde = Math.max(0, ...pts.map(x => x.max));
+    const primeira = pts.length ? pts[0].max : 0;
+    const ganho = recorde - primeira;
+    // gráfico
+    const W = 300, H = 150, pl = 8, pr = 12, pt = 18, pb = 26;
+    const minV = Math.min(...pts.map(x => x.max)), maxV = Math.max(...pts.map(x => x.max));
+    const faixa = Math.max(1, maxV - minV);
+    const X = i => pts.length === 1 ? W / 2 : pl + (W - pl - pr) * i / (pts.length - 1);
+    const Y = v => pt + (H - pt - pb) * (1 - (v - minV) / faixa);
+    const iRec = pts.findIndex(x => x.max === recorde);
+    const grafico = pts.length ? `<svg class="cx-gr" viewBox="0 0 ${W} ${H}">
+        ${[0, .5, 1].map(t => `<line x1="0" x2="${W}" y1="${pt + (H - pt - pb) * t}" y2="${pt + (H - pt - pb) * t}" stroke="rgba(255,255,255,.07)"/>`).join('')}
+        ${pts.length > 1 ? `<polyline fill="none" stroke="#10B981" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" points="${pts.map((x, i) => `${X(i).toFixed(1)},${Y(x.max).toFixed(1)}`).join(' ')}"/>` : ''}
+        ${pts.map((x, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(x.max).toFixed(1)}" r="${i === iRec ? 6 : 4}" fill="${i === iRec ? '#FBBF24' : '#10B981'}"/>`).join('')}
+        <text x="${pl}" y="${H - 6}" class="cx-t">${new Date(pts[0].quando).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</text>
+        ${pts.length > 1 ? `<text x="${W - pr}" y="${H - 6}" text-anchor="end" class="cx-t">${new Date(pts[pts.length - 1].quando).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</text>` : ''}
+    </svg>` : '';
+    box.innerHTML = `<h3 class="x1-folha-t">${escapeHTML(nome)}</h3>
+        <div class="cx-big">${kgf(recorde)} kg<small>recorde</small></div>
+        <p class="cx-sub">${ganho > 0 ? `+${kgf(ganho)} kg desde ${new Date(pts[0].quando).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · ` : ''}${plural(ses.length, 'treino', 'treinos')}</p>
+        ${grafico}
+        <div class="rc-sec">Histórico</div>
+        <div class="rc-lista cx-hist">${[...ses].reverse().slice(0, 30).map(x => `<div class="rc-l"><div class="rc-n"><span>${new Date(x.quando).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} · ${x.txt}</span></div><div class="rc-v"><b>${x.max ? kgf(x.max) + ' kg' : 'sem carga'}</b></div></div>`).join('')}</div>`;
+}
 async function hydrateRecordesExercicio() {
     const box = document.getElementById('recExBox'); if (!box) return;
     const { data, error } = await sb.rpc('meus_recordes_exercicio');
     if (error || !data || !data.length || !document.getElementById('recExBox')) return;
     const card = document.getElementById('recordesCard'); if (card) card.hidden = false;
     const k = v => br(v, Number.isInteger(Number(v)) ? 0 : 1);
-    box.innerHTML = `<div class="rec-ex-tit">🏋️ Maiores cargas</div><div class="rec-ex">${data.map(r => {
+    box.innerHTML = `<div class="rc-sec">Maiores cargas</div><div class="rc-lista">${data.map(r => {
         const ganho = Number(r.recorde) - Number(r.primeira || r.recorde);
-        return `<div class="rec-ex-l"><span>${escapeHTML(r.exercicio)}</span><b>${k(r.recorde)} kg</b>${ganho > 0 ? `<em>+${k(ganho)}</em>` : '<i></i>'}<small>${timeAgo(r.quando)}</small></div>`;
+        return `<button type="button" class="rc-l rc-ex" data-act="carga-ex" data-ex="${escapeHTML(r.exercicio)}"><div class="rc-n"><span>${escapeHTML(r.exercicio)}</span><small>${quandoCurto(r.quando)}</small></div><div class="rc-v"><b>${k(r.recorde)} kg</b>${ganho > 0 ? `<small>+${k(ganho)} kg</small>` : ''}</div><i class="rc-seta">›</i></button>`;
     }).join('')}</div>`;
 }
 async function renderProgress() {
@@ -9750,6 +9841,7 @@ async function renderProgress() {
     hydrateRecordesExercicio();
     hydrateIAEvolucao();
     hydrateCoachCard();
+    montarAtalhosResumo();
     hydrateProteina();
     hydrateSemanaEvo();
     hydrateLembretes();
@@ -11470,7 +11562,11 @@ function dicaDoMais() {
         alvo = null;
         if (document.querySelector('.sheet.on, .story-viewer.on, .posts-viewer, .msg-camada, #onbTela')) return;
         const t = e.target;
-        if (t.closest('.cal-mes, .ed-grade, .tr-chips, .cm-grade, input, textarea, .chart-card svg, .destaques, .stories-row, .pd-card, .adm-filtros, .evo-abas, .ig-tabs')) return;
+        if (t.closest('.cal-mes, .ed-grade, .tr-chips, .cm-grade, input, textarea, .chart-card svg, .destaques, .stories-row, .pd-card, .adm-filtros, .evo-abas, .ig-tabs, .rs-atalhos, .gd-scroll, [id^="gd-"], .cx-gr')) return;
+        // qualquer coisa que rola pro lado (gráficos de água/sono, calendários, fileiras) só rola: nunca troca de aba
+        for (let el = t; el && el !== document.body; el = el.parentElement) {
+            if (el.scrollWidth > el.clientWidth + 2) { const ox = getComputedStyle(el).overflowX; if (ox === 'auto' || ox === 'scroll') return; }
+        }
         if (state.view === 'progress') alvo = '.evo-abas .evo-aba';
         else if (state.view === 'profile' || state.view === 'user-profile') alvo = '.ig-tabs .ig-tab';
         else return;
@@ -16278,6 +16374,8 @@ document.addEventListener('click', async e => {
         const card = btn.closest('.coach-card');
         if (card) card.style.display = 'none';
         await sb.from('ai_insights').update({ dismissed: true }).eq('id', btn.dataset.id);
+    } else if (act === 'carga-ex') {
+        abrirCargaExercicio(btn.dataset.ex);
     } else if (act === 'coach-ler-mais') {
         const b = btn.closest('.coach-card').querySelector('.coach-body');
         const abrir = b.classList.contains('curta');
