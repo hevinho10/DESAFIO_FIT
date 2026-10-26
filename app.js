@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261272';
+const APP_VERSAO = '20261273';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -4419,21 +4419,54 @@ async function renderNotifications() {
     const jaPedi = new Set((meusPedidos || []).map(x => x.target_id));
     const tudo = [...(base || []), ...(extras || [])]
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    // agrupa curtidas e comentários do mesmo post: "Maria e mais 4 pessoas curtiram"
+    // agrupa curtidas e comentários do mesmo post: "Kelly, Wagner e mais 3 curtiram seu treino de corrida"
+    // e quem começou a te seguir no mesmo período: "Brito e Tali começaram a te seguir"
     const data = [];
     const grupos = {};
+    const faixaNt = iso => { const d = new Date(iso), hoje = diaLocal(new Date()); return d >= hoje ? 'h' : d >= new Date(hoje.getTime() - 6 * 86400000) ? 's' : 'a'; };
     tudo.forEach(n => {
-        if ((n.kind === 'reaction' || n.kind === 'comment') && n.post_id) {
-            const k = n.kind + '|' + n.post_id;
+        const ehPost = (n.kind === 'reaction' || n.kind === 'comment') && n.post_id;
+        const ehSeg = n.kind === 'follow' && n.actor_id;
+        if (ehPost || ehSeg) {
+            const k = ehPost ? n.kind + '|' + n.post_id : 'follow|' + faixaNt(n.created_at);
+            const ator = { id: n.actor_id, display_name: n.actor_name, username: n.actor_username, avatar_url: n.actor_avatar };
             if (grupos[k]) {
-                if (n.actor_id && !grupos[k].atores.has(n.actor_id)) { grupos[k].atores.add(n.actor_id); grupos[k].n.outros++; }
+                if (n.actor_id && !grupos[k].atores.has(n.actor_id)) { grupos[k].atores.add(n.actor_id); grupos[k].n.outros++; grupos[k].n.atores.push(ator); grupos[k].n.itens.push(n); }
+                if (!n.read_at) grupos[k].n.read_at = null;
                 return;
             }
-            n.outros = 0;
+            n.outros = 0; n.atores = [ator]; n.itens = [n];
             grupos[k] = { n, atores: new Set([n.actor_id]) };
         }
         data.push(n);
     });
+    // o que foi curtido: treino de corrida, refeição, foto... e a miniatura
+    const idsPost = [...new Set(data.filter(n => (n.kind === 'reaction' || n.kind === 'comment') && n.post_id).map(n => n.post_id))].slice(0, 200);
+    const infoPost = {};
+    if (idsPost.length) {
+        try {
+            const { data: ps } = await sb.from('posts').select('id, kind, activity_type, image_url, thumb_url').in('id', idsPost);
+            (ps || []).forEach(p => { infoPost[p.id] = p; });
+        } catch (_) {}
+    }
+    const oQueFoi = id => {
+        const p = infoPost[id]; if (!p) return 'seu post';
+        if (p.kind === 'workout') return `seu treino${p.activity_type ? ' de ' + escapeHTML(String(p.activity_type).toLowerCase()) : ''}`;
+        if (p.kind === 'meal') return 'sua refeição';
+        if (p.image_url) return 'sua foto';
+        return 'seu post';
+    };
+    const miniPost = id => {
+        const p = infoPost[id]; const u = p && (p.thumb_url || p.image_url);
+        return u && !String(u).startsWith('privado:') ? `<img class="nt-mini" src="${u}" alt="" loading="lazy" onerror="this.remove()">` : '';
+    };
+    const nomesGrupo = n => {
+        const nm = a => `<b>${escapeHTML(a.display_name || a.username || 'Alguém')}</b>`;
+        const at = n.atores || [];
+        if (at.length <= 1) return nm(at[0] || { display_name: n.actor_name });
+        if (at.length === 2) return `${nm(at[0])} e ${nm(at[1])}`;
+        return `${nm(at[0])}, ${nm(at[1])} e mais ${at.length - 2}`;
+    };
     const box = $('#notifList');
     if (!box) return;
     if (error) { box.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
@@ -4475,11 +4508,15 @@ async function renderNotifications() {
         let texto, emo, act = '', extra = '';
         const mais = n.outros > 0 ? ` e mais ${n.outros} ${n.outros === 1 ? 'pessoa' : 'pessoas'}` : '';
         if (n.kind === 'comment') {
-            emo = '💬'; texto = `<b>${quem}</b>${mais} ${n.outros > 0 ? 'comentaram' : 'comentou'} no seu post`;
-            act = ` data-act="view-post" data-id="${n.post_id}"`;
+            emo = '💬'; texto = `${nomesGrupo(n)} ${n.outros > 0 ? 'comentaram' : 'comentou'} ${oQueFoi(n.post_id).replace(/^seu /, 'no seu ').replace(/^sua /, 'na sua ')}`;
+            act = ` data-act="view-post" data-id="${n.post_id}"`; extra = ''; n._mini = miniPost(n.post_id);
         } else if (n.kind === 'reaction') {
-            emo = '❤️'; texto = `<b>${quem}</b>${mais} ${n.outros > 0 ? 'curtiram' : 'curtiu'} seu post`;
-            act = ` data-act="view-post" data-id="${n.post_id}"`;
+            emo = '❤️'; texto = `${nomesGrupo(n)} ${n.outros > 0 ? 'curtiram' : 'curtiu'} ${oQueFoi(n.post_id)}`;
+            act = ` data-act="view-post" data-id="${n.post_id}"`; n._mini = miniPost(n.post_id);
+        } else if (n.kind === 'follow' && n.outros > 0) {
+            emo = '👤'; texto = `${nomesGrupo(n)} começaram a te seguir<span class="nt-sub">Toque pra ver e seguir de volta</span>`;
+            act = ' data-act="nt-expandir"';
+            n._lista = (n.atores || []).map(a => `<div class="nt-pessoa" data-act="view-user" data-uid="${a.id}">${avatarHTML(a, 'sm')}<b class="nt-nm">${escapeHTML(a.display_name || a.username || '')}</b>${!jaSigo.has(a.id) ? (jaPedi.has(a.id) ? `<button class="btn-mini feito" data-act="cancelar-pedido-notif" data-uid="${a.id}" data-nome="${escapeHTML(a.display_name || '')}">Solicitado</button>` : `<button class="btn-mini" data-act="seguir-de-volta" data-uid="${a.id}">Seguir de volta</button>`) : '<small>seguindo</small>'}</div>`).join('');
         } else if (n.kind === 'follow') {
             emo = '👤'; texto = `<b>${quem}</b> começou a te seguir`
                 + (n.actor_id && !jaSigo.has(n.actor_id) ? `<span class="nt-acoes">${jaPedi.has(n.actor_id)
@@ -4586,14 +4623,17 @@ async function renderNotifications() {
             emo = '🏆'; texto = `<b>${quem}</b> te adicionou no desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         }
-        return `${cabNot}<div class="notif-row${n.read_at ? '' : ' nova'}"${act}>
-            <span class="notif-av">${avatarHTML(autor, 'sm')}${marcaNotif(emo)}</span>
+        const varios = (n.atores || []).length > 1;
+        const avs = varios ? `<span class="nt-pilha">${avatarHTML(n.atores[1], 'sm')}${avatarHTML(n.atores[0], 'sm')}</span>` : avatarHTML(autor, 'sm');
+        return `${cabNot}<div class="notif-row${n.read_at ? '' : ' nova'}${varios ? ' agrupada' : ''}"${act}>
+            <span class="notif-av">${avs}${marcaNotif(emo)}</span>
             <div class="notif-body">
                 <div class="notif-text">${texto}</div>
                 ${extra}
                 <div class="notif-time">${timeAgo(n.created_at)}</div>
             </div>
-        </div>`;
+            ${n._mini || ''}
+        </div>${n._lista ? `<div class="nt-lista hidden">${n._lista}</div>` : ''}`;
     }).join('');
 
     await Promise.all([sb.rpc('mark_notifications_read'), sb.rpc('mark_app_notifications_read')]);
@@ -10251,7 +10291,20 @@ function htmlRankingDesafio(lista, { ontemPos = {}, unidade = 'pts', limite = 10
     const resto = corpo.slice(visiveis.length);
     const meuIdx = lista.findIndex(u => u.user_id === eu);
     const euEscondido = meuIdx >= 0 && resto.includes(lista[meuIdx]);
-    return podio + `<div class="cw-rank-list">${visiveis.map(u => linha(u)).join('')}
+    // quanto falta pra subir (ou quanto de vantagem, se estiver na frente)
+    let falta = '';
+    if (meuIdx >= 0 && unidade === 'pts' && lista.length > 1) {
+        const meu = Math.round(lista[meuIdx].points);
+        if (meuIdx > 0) {
+            const alvo = lista[meuIdx - 1], dif = Math.round(alvo.points) - meu, nm = escapeHTML(String(alvo.display_name || '').split(' ')[0]);
+            const dica = dif <= 0 ? 'Um registro hoje te coloca na frente.' : dif <= 15 ? 'Um treino com foto resolve.' : dif <= 45 ? `Uns ${Math.ceil(dif / 15)} treinos resolvem.` : 'Cada treino conta: bora!';
+            falta = `<div class="rk-falta"><span>⚡</span><span>${dif <= 0 ? `Você está empatado com <b>${nm}</b>.` : `Faltam <b>${dif} pts</b> pra passar ${alvo.user_id === eu ? 'você' : `<b>${nm}</b>`}.`} ${dica}</span></div>`;
+        } else {
+            const seg = lista[1], dif = meu - Math.round(seg.points);
+            falta = `<div class="rk-falta lider"><span>👑</span><span>Você lidera${dif > 0 ? ` com <b>${dif} pts</b> de vantagem sobre <b>${escapeHTML(String(seg.display_name || '').split(' ')[0])}</b>` : ''}. Segura essa!</span></div>`;
+        }
+    }
+    return podio + falta + `<div class="cw-rank-list">${visiveis.map(u => linha(u)).join('')}
         ${euEscondido ? `<div class="rk-sep rk-so-fechado">···</div>${linha(lista[meuIdx], ' rk-so-fechado')}` : ''}
         ${resto.length ? `<div class="rk-resto hidden">${resto.map(u => linha(u)).join('')}</div>
             <button type="button" class="rk-mais" data-rk-mais data-total="${lista.length}">Ver todos (${lista.length})</button>` : ''}</div>`
@@ -15288,6 +15341,9 @@ document.addEventListener('click', async e => {
         hidePostMenu();
         const link = `${location.origin}${location.pathname}?u=${encodeURIComponent(btn.dataset.username)}`;
         try { await navigator.clipboard.writeText(link); toast('Link copiado', 'ok'); } catch (_) { toast(link, 'ok'); }
+    } else if (act === 'nt-expandir') {
+        const l = btn.nextElementSibling;
+        if (l && l.classList.contains('nt-lista')) { l.classList.toggle('hidden'); btn.classList.toggle('aberta', !l.classList.contains('hidden')); }
     } else if (act === 'seguir-de-volta') {
         e.stopPropagation();
         btn.disabled = true;
