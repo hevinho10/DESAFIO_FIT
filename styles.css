@@ -6399,3 +6399,6 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .rk-falta.lider b{ color:#34D399; }
 :root[data-theme="light"] .rk-falta{ color:#92400E; } :root[data-theme="light"] .rk-falta b{ color:#B45309; }
 :root[data-theme="light"] .rk-falta.lider{ color:#065F46; } :root[data-theme="light"] .rk-falta.lider b{ color:#047857; }
+/* mapa do corpo: atividades que trabalharam o músculo */
+.mc-ativ span{ display:inline-flex; align-items:center; gap:8px; }
+.mc-ativ span svg{ width:16px; height:16px; color:var(--ink-dim); flex:none; }

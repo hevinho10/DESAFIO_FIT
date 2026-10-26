@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261273';
+const APP_VERSAO = '20261274';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -2319,6 +2319,7 @@ async function enviarFotoNoChat(file) {
     try {
         const url = await uploadImage('post-images', file, { maxSide: 1400, quality: 0.82 });
         const { data, error } = await sb.from('messages').insert({ conversation_id: conv, sender_id: state.session.user.id, body: MARCA_FOTO + url }).select().single();
+        if (!error && conv === state.chatConversationId) marcarFaleiHoje(state.chatOutroId);
         if (error) throw error;
         if (data && !state.chatMessages.some(m => m.id === data.id)) { state.chatMessages.push(data); paintChatMessages(); }
     } catch (err) { toast(msgErro(err), 'err'); }
@@ -2540,6 +2541,7 @@ async function enviarAudioNoChat(conv, blob, seg) {
         if (eu) throw eu;
         const url = sb.storage.from('chat-audio').getPublicUrl(caminho).data.publicUrl;
         const { data, error } = await sb.from('messages').insert({ conversation_id: conv, sender_id: uid, body: MARCA_AUDIO + url + '|' + seg }).select().single();
+        if (!error && conv === state.chatConversationId) marcarFaleiHoje(state.chatOutroId);
         if (error) throw error;
         if (data && !state.chatMessages.some(m => m.id === data.id)) { state.chatMessages.push(data); paintChatMessages(); }
     } catch (err) {
@@ -5890,6 +5892,7 @@ async function loadChatMessages(conversationId) {
 async function renderChat(conversationId, otherUser) {
     stopChatSync();
     state.chatConversationId = conversationId;
+    state.chatOutroId = otherUser && otherUser.id;
 
     const c = $('#viewContainer');
     c.innerHTML = `
@@ -6368,6 +6371,7 @@ async function sendChatMessage(conversationId) {
     }
     const sendBtn = $('#chatSend'); if (sendBtn) sendBtn.classList.remove('pronto');
     const msgNova = { id: novoId, conversation_id: conversationId, sender_id: state.session.user.id, body: corpoMsg };
+    marcarFaleiHoje(state.chatOutroId);
     // sem internet: guarda e manda sozinho quando voltar
     if (!navigator.onLine) { guardarNaFilaChat(msgNova); return; }
     const { data, error } = await sb.from('messages').insert(msgNova).select().single();
@@ -6980,7 +6984,10 @@ async function renderFeed() {
     setTimeout(preCarregarBarraStories, 800);
 
     // aniversariantes do dia (anel colorido + 🎂). Quem não tem story também aparece: tocar abre o parabéns
-    const aniv = await anivP;
+    const anivTodos = await anivP;
+    // já mandou mensagem pra pessoa hoje: parabéns dado, sai a bolinha e o 🎂
+    const falei = anivTodos.length ? await faleiHoje() : new Set();
+    const aniv = anivTodos.filter(p => !falei.has(p.id));
     const anivIds = new Set(aniv.map(p => p.id));
     const souAniv = fazAniversarioHoje(state.profile.birth_date);
     // HTML da barra de stories
@@ -9030,6 +9037,20 @@ const EX_MUSC = [
     [/tibial/, ['tibialis'], []],
     [/burpee|thruster|clean|snatch|arranco|kettlebell swing|swing/, ['quadriceps', 'gluteal', 'deltoids', 'chest'], ['abs', 'upper-back']],
 ];
+// atividades que não são musculação também trabalham músculos: contam como meio treino (tom mais claro)
+const PERNAS_C = ['calves', 'quadriceps', 'hamstring', 'gluteal'];
+const CORPO_TODO_C = ['chest', 'upper-back', 'deltoids', 'biceps', 'triceps', 'abs', 'gluteal', 'quadriceps', 'hamstring', 'calves'];
+const ATIV_MUSC = {
+    'Corrida': PERNAS_C, 'Caminhada': PERNAS_C, 'Trilha': [...PERNAS_C, 'abs', 'lower-back'],
+    'Ciclismo': ['quadriceps', 'gluteal', 'calves'], 'Spinning': ['quadriceps', 'gluteal', 'calves'],
+    'Natação': ['upper-back', 'deltoids', 'chest', 'triceps', 'abs'], 'Remo': ['upper-back', 'biceps', 'quadriceps', 'gluteal'],
+    'Futebol': [...PERNAS_C, 'adductors', 'abs'], 'Beach tennis': [...PERNAS_C, 'abs', 'deltoids'],
+    'Vôlei': [...PERNAS_C, 'abs', 'deltoids'], 'Basquete': [...PERNAS_C, 'abs', 'deltoids'], 'Tênis': [...PERNAS_C, 'abs', 'deltoids'],
+    'Jiu-jitsu': CORPO_TODO_C, 'Muay thai': CORPO_TODO_C, 'Boxe': CORPO_TODO_C, 'Funcional': CORPO_TODO_C, 'Crossfit': CORPO_TODO_C,
+    'HIIT': CORPO_TODO_C, 'Calistenia': CORPO_TODO_C, 'Dança': [...PERNAS_C, 'abs'],
+    'Pilates': ['abs', 'lower-back', 'gluteal'], 'Yoga': ['abs', 'lower-back', 'gluteal'], 'Alongamento': ['abs', 'lower-back', 'gluteal'],
+    'Skate': PERNAS_C, 'Surf': ['upper-back', 'deltoids', 'abs', 'quadriceps'],
+};
 function musculosDoExercicio(nome) {
     const n = semAcento(nome);
     for (const [re, p, s] of EX_MUSC) if (re.test(n)) return { p, s };
@@ -9057,15 +9078,31 @@ function calcularMapaMuscular(treinos, agora = Date.now()) {
         });
         // sem exercício reconhecido: usa os grupos marcados
         if (!Object.keys(peso).length) (t.muscle_groups || []).forEach(g => (GRUPO_PARA_MUSC[g] || []).forEach(s => { peso[s] = 1; }));
-        Object.entries(peso).forEach(([s, p]) => { if (origem[s]) origem[s].forEach(ex => marcar(s, quando, p, ex)); else marcar(s, quando, p, null); });
+        if (Object.keys(peso).length) {
+            Object.entries(peso).forEach(([s, p]) => { if (origem[s]) origem[s].forEach(ex => marcar(s, quando, p, ex)); else marcar(s, quando, p, null); });
+            Object.keys(peso).forEach(s => { if (M[s] && quando > (M[s].ultimoForca || 0)) M[s].ultimoForca = quando; });
+            return;
+        }
+        // corrida, trilha, futebol...: meio treino nos músculos que a atividade trabalha
+        const ativ = t.activity_type;
+        (ATIV_MUSC[ativ] || []).forEach(s => {
+            marcar(s, quando, 0.5, null);
+            const m = M[s];
+            m.ativ = m.ativ || {};
+            const a = m.ativ[ativ] || (m.ativ[ativ] = { n: 0, ultimo: 0 }); a.n++; if (quando > a.ultimo) a.ultimo = quando;
+        });
     });
-    Object.values(M).forEach(m => { m.dias = m.ultimo ? Math.max(0, Math.floor((agora - m.ultimo) / 86400000)) : null; });
+    Object.values(M).forEach(m => {
+        m.dias = m.ultimo ? Math.max(0, Math.floor((agora - m.ultimo) / 86400000)) : null;
+        // só cardio nos últimos dias: acende, mas num tom mais claro que treino de força
+        m.soCardio = !!m.ativ && (!m.ultimoForca || agora - m.ultimoForca > 3 * 86400000);
+    });
     return M;
 }
 // quente: treinou ontem ou hoje, ou 2+ vezes na semana / morno: até 6 dias / esfriando: até 4 semanas / nada: sem treino
 function intensidadeMusc(m) {
     if (!m || m.dias == null || m.dias > 28) return 'nenhuma';
-    if (m.dias <= 1 || (m.dias <= 3 && m.semana >= 2)) return 'alta';
+    if (m.dias <= 1 || (m.dias <= 3 && m.semana >= 2)) return m.soCardio ? 'media' : 'alta';
     if (m.dias <= 6) return 'media';
     return 'baixa';
 }
@@ -9073,7 +9110,7 @@ function intensidadeMusc(m) {
 function intensidadeMusc30(m) {
     if (!m || m.dias == null || m.dias > 28 || !(m.mes > 0)) return 'nenhuma';
     const muito = m.mes >= 6;
-    if (m.dias <= 2) return 'alta';
+    if (m.dias <= 2) return m.soCardio ? 'media' : 'alta';
     if (m.dias <= 6) return muito ? 'quente' : 'media';
     if (m.dias <= 14) return muito ? 'media' : 'baixa';
     return 'baixa';
@@ -9148,7 +9185,7 @@ async function hydrateMapaCorpo() {
         treinos = todos.filter(t => t.activity_type === 'Musculação' || (t.muscle_groups || []).length || (t.meta && (t.meta.exercicios || []).length));
     } catch (_) { box.innerHTML = '<p class="faixa-nota">Não consegui carregar o mapa agora.</p>'; const t = document.getElementById('corpoTeaser'); if (t) t.classList.add('vazio'); return; }
     if (!document.getElementById('mapaCorpoBox')) return;
-    const M = calcularMapaMuscular(treinos);
+    const M = calcularMapaMuscular(todos);
     // quantos treinos (de qualquer tipo) em cada período, pro story
     const agora = Date.now();
     M.__treinos = { 7: todos.filter(t => agora - new Date(t.created_at) <= 7 * 86400000).length, 30: todos.filter(t => agora - new Date(t.created_at) <= 30 * 86400000).length };
@@ -9261,6 +9298,7 @@ async function abrirMusculo(slug, M) {
         <div class="mc-folha-num"><div><b>${m && m.dias != null ? (m.dias === 0 ? 'hoje' : m.dias + 'd') : '–'}</b><small>último treino</small></div><div><b>${String(semana).replace('.', ',')}</b><small>treinos na semana</small></div><div><b>${String(Math.round(((m && m.mes) || 0) * 2) / 2).replace('.', ',')}</b><small>no mês</small></div></div>
         <p class="mc-folha-q">${quando}</p>
         ${exs.length ? `<div class="x1-sec">O QUE VOCÊ FEZ</div><div class="mc-exs" id="mcExs">${exs.map(([n, e]) => `<div class="mc-ex" data-ex="${escapeHTML(n)}"><span>${escapeHTML(n)}</span><small>${e.n}x · ${timeAgo(new Date(e.ultimo).toISOString())}</small><b></b></div>`).join('')}</div>` : ''}
+        ${m && m.ativ ? `<div class="x1-sec">ATIVIDADES QUE TRABALHARAM</div><div class="mc-exs">${Object.entries(m.ativ).sort((a, b) => b[1].ultimo - a[1].ultimo).slice(0, 4).map(([n, a]) => `<div class="mc-ex mc-ativ"><span>${svgAtividade(n)}${escapeHTML(n)}</span><small>${a.n}x · ${quandoCurto(new Date(a.ultimo).toISOString())}</small></div>`).join('')}</div>${m.soCardio ? '<p class="faixa-nota" style="margin-top:6px">Atividade conta como meio treino. Pra fortalecer, vale um treino de força de vez em quando.</p>' : ''}` : ''}
         <button class="btn x1-btn" id="mcTreinar">Montar treino de ${escapeHTML(grupo.toLowerCase())}</button>`);
     f.querySelector('#mcTreinar').onclick = () => { fechar(); abrirModoTreino({ a: 'Musculação', g: [grupo] }); };
     // última carga e recorde de cada exercício
@@ -11010,6 +11048,31 @@ function fazAniversarioHoje(bd) {
     // quem nasceu em 29/02 comemora no dia 28 nos anos sem 29
     return md === '02-29' && hoje === '02-28' && new Date(h.getFullYear(), 1, 29).getMonth() !== 1;
 }
+// com quem você já conversou hoje (mandou mensagem): a bolinha de aniversário e as frases prontas somem
+function marcarFaleiHoje(uid) {
+    if (!uid) return;
+    const k = 'pulso-falei-' + hojeISO();
+    let l = []; try { l = JSON.parse(lsGet(k) || '[]'); } catch (_) {}
+    if (!l.includes(uid)) { l.push(uid); lsSet(k, JSON.stringify(l)); }
+    if (state.faleiHoje && state.faleiHoje.dia === hojeISO()) state.faleiHoje.ids.add(uid);
+}
+async function faleiHoje() {
+    const dia = hojeISO();
+    let local = []; try { local = JSON.parse(lsGet('pulso-falei-' + dia) || '[]'); } catch (_) {}
+    const ids = new Set(local);
+    if (state.faleiHoje && state.faleiHoje.dia === dia && Date.now() - state.faleiHoje.em < 60000) { state.faleiHoje.ids.forEach(x => ids.add(x)); return ids; }
+    try {
+        const ini = new Date(); ini.setHours(0, 0, 0, 0);
+        const { data: msgs } = await sb.from('messages').select('conversation_id').eq('sender_id', state.session.user.id).gte('created_at', ini.toISOString()).limit(500);
+        const convs = new Set((msgs || []).map(m => m.conversation_id));
+        if (convs.size) {
+            const { data: lista } = await sb.rpc('list_conversations');
+            (lista || []).forEach(c => { if (convs.has(c.conversation_id) && c.other_id) ids.add(c.other_id); });
+        }
+    } catch (_) {}
+    state.faleiHoje = { dia, ids, em: Date.now() };
+    return ids;
+}
 async function carregarAniversariantes() {
     const dia = hojeISO();
     if (state.anivCache && state.anivCache.dia === dia) return state.anivCache.lista;
@@ -11055,7 +11118,9 @@ async function abrirParabens(uid) {
         return;
     }
     await switchView('chat', { conversationId: convId, otherUser: p });
+    const jaFalei = (await faleiHoje()).has(uid);
     const poeSug = (tent = 0) => {
+        if (jaFalei) return;
         const input = document.getElementById('chatInput');
         if (!input) { if (tent < 20) setTimeout(() => poeSug(tent + 1), 150); return; }
         const caixa = document.getElementById('chatComposer') || input.parentElement;
