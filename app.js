@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261271';
+const APP_VERSAO = '20261272';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -9561,7 +9561,25 @@ function celebrarRecorde(ex, kg, antes) {
 }
 
 // maiores cargas por exercício (e quanto subiu desde o começo)
-// Atalhos no topo do Resumo: leva direto pra cada parte e fica preso no topo enquanto rola
+// Abas da Evolução presas no topo ao rolar (finas), pra trocar de aba de qualquer lugar
+function prenderAbasEvolucao() {
+    const abas = document.querySelector('#viewContainer .evo-abas'); if (!abas) return;
+    const tb = document.querySelector('.topbar');
+    const ajustar = () => { abas.style.top = (tb ? tb.offsetHeight : 0) + 'px'; };
+    ajustar();
+    // um marcador logo acima das abas diz quando elas grudaram no topo
+    const marca = document.createElement('div'); marca.className = 'evo-abas-marca';
+    abas.parentElement.insertBefore(marca, abas);
+    if (window.IntersectionObserver) {
+        const io = new IntersectionObserver(([en]) => {
+            if (!abas.isConnected) { io.disconnect(); return; }
+            ajustar();
+            abas.classList.toggle('presa', !en.isIntersecting && en.boundingClientRect.top < (tb ? tb.offsetHeight : 0) + 1);
+        }, { rootMargin: `-${(tb ? tb.offsetHeight : 0) + 1}px 0px 0px 0px`, threshold: 0 });
+        io.observe(marca);
+    }
+}
+// (atalhos do Resumo: trocados pelas abas presas no topo)
 function montarAtalhosResumo() {
     const painel = document.querySelector('.evo-painel[data-painel="resumo"]'); if (!painel) return;
     const alvos = [['Semana', '.anel-card'], ['Números', '.stat-grid'], ['Constância', '#calMesSlot'], ['Mês', '#mesCard'], ['Pontos', '.pts-sem'], ['Padrões', '#reportCard']]
@@ -9841,7 +9859,7 @@ async function renderProgress() {
     hydrateRecordesExercicio();
     hydrateIAEvolucao();
     hydrateCoachCard();
-    montarAtalhosResumo();
+    prenderAbasEvolucao();
     hydrateProteina();
     hydrateSemanaEvo();
     hydrateLembretes();
@@ -15720,6 +15738,12 @@ document.addEventListener('click', async e => {
     } else if (act === 'go-challenges-lista') {
         switchView('challenges');
     } else if (act === 'evo-aba') {
+        const abasEl = btn.closest('.evo-abas');
+        const marca = document.querySelector('.evo-abas-marca');
+        const ancora = marca ? marca.getBoundingClientRect().top + window.scrollY - ((document.querySelector('.topbar') || {}).offsetHeight || 0) : 0;
+        // tocar na aba que já está aberta volta pro começo dela
+        if (btn.classList.contains('on')) { window.scrollTo({ top: window.scrollY > ancora + 4 ? Math.max(0, ancora) : 0, behavior: 'smooth' }); return; }
+        const estavaPresa = abasEl && abasEl.classList.contains('presa');
         state.abaEvolucao = btn.dataset.aba;
         $$('.evo-aba').forEach(b => b.classList.toggle('on', b.dataset.aba === state.abaEvolucao));
         $$('.evo-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== state.abaEvolucao));
@@ -15727,6 +15751,8 @@ document.addEventListener('click', async e => {
         if (per) per.classList.toggle('hidden', state.abaEvolucao === 'coach');
         const cal = document.querySelector('.cal-scroll');
         if (cal) cal.scrollLeft = cal.scrollWidth;
+        // trocou de aba lá embaixo: a aba nova começa do topo dela, com as abas ainda à vista
+        if (estavaPresa) window.scrollTo(0, Math.max(0, ancora));
     } else if (act === 'set-cenario') {
         state.cenario = btn.dataset.c;
         const y = window.scrollY;
