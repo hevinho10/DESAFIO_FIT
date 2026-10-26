@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261275';
+const APP_VERSAO = '20261276';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1049,13 +1049,16 @@ function ligaSituacao(d) {
     const lista = d.membros || [];
     const i = lista.findIndex(x => x.eu), pos = i + 1, n = lista.length;
     const meu = i >= 0 ? Number(lista[i].pts) : 0;
-    let txt;
-    if (d.sobem && pos <= d.sobem) txt = `Na zona de subida pra ${LIGA_NIVEIS[d.nivel + 1].nome} 🔥`;
-    else if (d.caem && pos > n - d.caem) { const alvo = lista[n - d.caem - 1]; const f = alvo ? Math.max(1, Number(alvo.pts) - meu + 1) : 1; txt = `Zona de queda · ${f} pts pra sair dela`; }
-    else if (d.sobem) { const alvo = lista[d.sobem - 1]; const f = alvo ? Math.max(1, Number(alvo.pts) - meu + 1) : 1; txt = `Faltam ${f} pts pra zona de subida`; }
-    else if (d.nivel === 4) txt = 'Você está no topo. Segura sua vaga!';
-    else txt = 'Mais gente entrando abre as outras ligas';
-    return { pos, n, txt };
+    const z = ligaZonas(d), eu = lista[i] || {};
+    const prox = LIGA_NIVEIS[d.nivel + 1], ant = LIGA_NIVEIS[d.nivel - 1];
+    if (!lista.some(x => Number(x.pts) > 0)) return { pos, n, titulo: 'A semana começou!', sub: 'Todo mundo em 0. O primeiro treino já te coloca na frente.', curto: 'A semana começou · bora pontuar', barra: null };
+    if (z.sobe.has(eu.id)) return { pos, n, titulo: `Você está subindo pra ${prox.nome} 🔥`, sub: 'Segura essa posição até sábado.', curto: `Na zona de subida pra ${prox.nome}`, barra: 1 };
+    if (z.cai.has(eu.id)) { const alvo = lista[n - d.caem - 1]; const f = Math.max(1, Number(alvo.pts) - meu + 1);
+        return { pos, n, titulo: `Faltam ${f} pts pra sair da zona de queda`, sub: `Passe ${alvo.eu ? 'a próxima pessoa' : String(alvo.nome || '').split(' ')[0]} e você fica na ${LIGA_NIVEIS[d.nivel].nome}.`, curto: `Zona de queda · ${f} pts pra sair`, barra: Math.min(1, meu / Math.max(1, Number(alvo.pts) + 1)) }; }
+    if (d.sobem && prox) { const alvo = lista[d.sobem - 1]; const f = Math.max(1, Number(alvo.pts) - meu + 1);
+        return { pos, n, titulo: `Faltam ${f} pts pra subir`, sub: `Passe ${String(alvo.nome || '').split(' ')[0]} e você vai pra Liga ${prox.nome}.`, curto: `Faltam ${f} pts pra subir`, barra: Math.min(1, meu / Math.max(1, Number(alvo.pts) + 1)) }; }
+    if (d.nivel === 4) return { pos, n, titulo: 'Você está no topo 💎', sub: 'Segura sua vaga na Diamante.', curto: 'No topo · segura sua vaga', barra: null };
+    return { pos, n, titulo: `${pos}º lugar`, sub: 'As outras ligas abrem quando tiver mais gente.', curto: `${pos}º lugar`, barra: null };
 }
 async function hydrateLigaCard() {
     const view = document.querySelector('#viewContainer .view'); if (!view) return;
@@ -1073,35 +1076,45 @@ async function hydrateLigaCard() {
         return;
     }
     const nv = LIGA_NIVEIS[d.nivel] || LIGA_NIVEIS[1], sit = ligaSituacao(d);
+    const zerada = !(d.membros || []).some(x => Number(x.pts) > 0);
+    const dias = Math.max(1, Math.ceil((new Date(d.fim) - Date.now()) / 86400000));
     slot.innerHTML = `<button type="button" class="liga-card" data-act="liga-abrir" style="--c:${nv.c}">
         <span class="liga-med" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span>
-        <div><b>${ligaNome(d)} · ${sit.pos}º de ${sit.n}</b><small>${sit.txt} · termina sábado</small></div><i>›</i></button>`;
+        <div><b>${ligaNome(d)}${zerada ? '' : ` · ${sit.pos}º de ${sit.n}`}</b><small>${sit.curto} · ${dias === 1 ? 'último dia' : dias + ' dias'}</small></div><i>›</i></button>`;
 }
 async function abrirLiga() {
     const d = await carregarLiga(true);
     if (!d || d.sem_liga || d.fora) { toast('Você ainda não está numa liga essa semana.', 'err'); return; }
     const nv = LIGA_NIVEIS[d.nivel] || LIGA_NIVEIS[1];
     const lista = d.membros || [], n = lista.length;
-    const fim = new Date(d.fim), ini = new Date(d.semana + 'T12:00:00'), ult = new Date(ini.getTime() + 6 * 86400000);
-    const linha = (x, i) => `<div class="lg-l${x.eu ? ' eu' : ''}" data-act="view-user" data-uid="${x.id}"><span class="lg-p">${i + 1}</span>${avatarHTML({ id: x.id, display_name: x.nome, username: x.username, avatar_url: x.avatar }, 'sm')}<span class="lg-n">${x.eu ? 'Você' : escapeHTML(x.nome || '')}</span><b class="lg-pt">${x.pts}</b></div>`;
-    let corpo = '';
-    lista.forEach((x, i) => {
-        if (d.sobem && i === 0) corpo += `<div class="lg-zona sobe">▲ SOBEM PRA ${LIGA_NIVEIS[d.nivel + 1].nome.toUpperCase()}</div>`;
-        if (d.sobem && i === d.sobem) corpo += '<div class="lg-sep"></div>';
-        if (d.caem && i === n - d.caem) corpo += `<div class="lg-zona cai">▼ CAEM PRA ${LIGA_NIVEIS[d.nivel - 1].nome.toUpperCase()}</div>`;
-        corpo += linha(x, i);
-    });
-    const abertos = d.niveis_abertos || 4;
-    const t = x1Tela('ligaTela', `<div class="x1-topo"><button class="x1-ib" data-lg="fechar" aria-label="Voltar">${SVG_X(IC_X1.voltar)}</button><b>Ligas da semana</b><span style="width:40px"></span></div>
+    const zerada = !lista.some(x => Number(x.pts) > 0);
+    const z = ligaZonas(d);
+    const sit = ligaSituacao(d);
+    const linha = (x, i) => {
+        const zona = z.sobe.has(x.id) ? 'sobe' : z.cai.has(x.id) ? 'cai' : '';
+        return `<div class="lg-l${x.eu ? ' eu' : ''}${zona ? ' ' + zona : ''}" data-act="view-user" data-uid="${x.id}"><span class="lg-p">${zerada ? '–' : i + 1}</span>${avatarHTML({ id: x.id, display_name: x.nome, username: x.username, avatar_url: x.avatar }, 'sm')}<span class="lg-n">${x.eu ? 'Você' : escapeHTML(x.nome || '')}${zona === 'sobe' ? '<em class="lg-tag s">SOBE</em>' : zona === 'cai' ? '<em class="lg-tag c">CAI</em>' : ''}</span><b class="lg-pt">${x.pts}</b></div>`;
+    };
+    const t = x1Tela('ligaTela', `<div class="x1-topo"><button class="x1-ib" data-lg="fechar" aria-label="Voltar">${SVG_X(IC_X1.voltar)}</button><b>Liga da semana</b><span style="width:40px"></span></div>
         <div class="x1-corpo lg-corpo">
-            <div class="lg-hd" style="--c:${nv.c}"><span class="liga-med grande" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span><div><b>${ligaNome(d)}</b><small>${x1DM(ini)} a ${x1DM(ult)} · termina sábado às 23h59</small></div></div>
-            <div class="lg-trilha">${[1, 2, 3, 4].map(k => `<span class="${k === d.nivel ? 'on' : ''}${k > abertos ? ' fechada' : ''}" style="--a:${LIGA_NIVEIS[k].a};--b:${LIGA_NIVEIS[k].b}">${LIGA_NIVEIS[k].nome}</span>`).join('')}</div>
-            <div class="lg-sit">${escapeHTML(ligaSituacao(d).txt)}</div>
-            <div class="chart-card lg-lista">${corpo}</div>
-            <p class="faixa-nota">Contam os mesmos pontos de sempre (treino, água, refeições...), só os desta semana. Só quem está na sua liga vê esses pontos. Cada liga tem no máximo 10 pessoas.${abertos < 4 ? ' As outras ligas abrem quando tiver mais gente.' : ''}</p>
+            <div class="lg-hero" style="--c:${nv.c}"><span class="liga-med grande" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span><b>${ligaNome(d)}</b></div>
+            <div class="lg-st"><div class="lg-pos">${zerada ? '–' : sit.pos + 'º'}<small>DE ${n}</small></div>
+                <div class="lg-st-tx"><b>${escapeHTML(sit.titulo)}</b>${sit.sub ? `<p>${escapeHTML(sit.sub)}</p>` : ''}${sit.barra != null ? `<div class="lg-barra"><i style="width:${Math.max(3, Math.round(sit.barra * 100))}%"></i></div>` : ''}</div></div>
+            <div class="lg-lista">${lista.map(linha).join('')}</div>
+            ${z.sobe.size || z.cai.size ? `<div class="lg-leg">${z.sobe.size ? `<span class="a">sobe pra ${LIGA_NIVEIS[d.nivel + 1].nome}</span>` : ''}${z.cai.size ? `<span class="b">cai pra ${LIGA_NIVEIS[d.nivel - 1].nome}</span>` : ''}</div>` : ''}
         </div>`);
     t.addEventListener('click', e => { if (e.target.closest('[data-lg="fechar"]')) x1FecharTela('ligaTela'); });
     evento('liga_abriu', { nivel: d.nivel });
+}
+// quem está na zona de subir e de cair (com todo mundo em 0, ninguém; empatado com quem está fora da zona, também não cai)
+function ligaZonas(d) {
+    const lista = d.membros || [], n = lista.length, sobe = new Set(), cai = new Set();
+    if (!lista.some(x => Number(x.pts) > 0)) return { sobe, cai };
+    lista.slice(0, d.sobem || 0).forEach(x => { if (Number(x.pts) > 0) sobe.add(x.id); });
+    if (d.caem) {
+        const limite = lista[n - d.caem - 1];
+        lista.slice(n - d.caem).forEach(x => { if (!limite || Number(x.pts) < Number(limite.pts)) cai.add(x.id); });
+    }
+    return { sobe, cai };
 }
 // domingo: resultado da semana que fechou (aparece uma vez)
 async function talvezResultadoLiga() {
@@ -12752,7 +12765,7 @@ async function renderListaMeusDesafios(meus, x1s = null) {
     if (!document.getElementById('viewContainer')) return;
     const agora = Date.now();
     c.innerHTML = `<div class="view painel-desafio">
-        <h1 class="pd-nome pd-lista-titulo">${x1s ? 'Desafios' : 'Seus desafios'}</h1>
+        ${x1s ? '' : '<h1 class="pd-nome pd-lista-titulo">Seus desafios</h1>'}
         ${x1s ? '<div class="x1-sec x1-sec-cab pd-sec-grupo">ROLANDO AGORA</div><div id="x1Slot"></div>' : ''}
         ${extras.map(({ ch, pos, total, time, cfg, mudou, ontem }) => {
             const mov = pos && ontem && ontem !== pos ? (ontem > pos ? ` <span class="rk-seta up">▲${ontem - pos}</span>` : ` <span class="rk-seta dn">▼${pos - ontem}</span>`) : '';
@@ -12769,10 +12782,10 @@ async function renderListaMeusDesafios(meus, x1s = null) {
             </button>`;
         }).join('')}
         ${x1s ? '<div id="x1NovoSlot"></div>' : ''}
-        <button class="pd-descobrir" data-act="go-challenges-lista">Descobrir desafios <span>›</span></button>
-        ${x1s ? '<div id="x1FimSlot"></div>' : ''}
+        ${linksDesafiosHTML(!!x1s)}
     </div>`;
     if (x1s) hydrateX1Lista(x1s, true);
+    hydrateLinksDesafios();
 }
 
 // Quem criou ajusta os times antes de começar
@@ -22218,7 +22231,7 @@ async function abrirCriarX1(alvo, base = {}) {
 // ---------- Lista "Seus X1" (topo da aba Desafios) ----------
 async function hydrateX1Lista(pronta = null, hub = false) {
     const slot = document.getElementById('x1Slot'); if (!slot) return;
-    hub = hub || !!document.getElementById('x1FimSlot'); // recarregar no hub não pode duplicar os terminados
+    hub = hub || !!document.getElementById('x1NovoSlot'); // recarregar no hub não pode duplicar nada
     let lista = pronta;
     if (!lista) {
         const { data, error } = await sb.rpc('x1_lista');
@@ -22246,10 +22259,10 @@ async function hydrateX1Lista(pronta = null, hub = false) {
         </button>`;
     };
     const vazio = !ativos.length && !convites.length && !enviados.length && !fim.length;
-    const terminadosHTML = `${fim.length ? `<div class="x1-sec x1-sec-l">TERMINADOS</div>${fim.map(x => { const { ele, euPts, elePts } = x1Lados(x); const ganhei = x.vencedor === (x.sou_criador ? x.criador.id : x.rival.id); const emp = !x.vencedor; const espera = x1RevancheEm(x);
+    const terminadosAntigo = `${fim.length ? `<div class="x1-sec x1-sec-l">TERMINADOS</div>${fim.map(x => { const { ele, euPts, elePts } = x1Lados(x); const ganhei = x.vencedor === (x.sou_criador ? x.criador.id : x.rival.id); const emp = !x.vencedor; const espera = x1RevancheEm(x);
             return `<button class="x1-card x1-fim" data-x1l="abrir" data-id="${x.id}"><span class="x1-res ${ganhei ? 'v' : emp ? 'e' : 'd'}">${ganhei ? 'Venceu' : emp ? 'Empate' : 'Perdeu'}</span>
             <span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>${X1_TIPOS[x.tipo].nome} · ${x1Num(euPts)} x ${x1Num(elePts)}</small></span>${ganhei ? '' : espera ? `<span class="x1-pill cinza espera">Revanche a partir de ${x1RevancheData(x)}</span>` : `<span class="x1-pill cinza" data-x1l="revanche" data-id="${x.id}">Revanche</span>`}</button>`; }).join('')}` : ''}
-        ${!vazio ? '<button class="x1-hist-link" data-x1l="historico">Ver histórico de X1</button>' : ''}`;
+        `;
     const vivos = ativos.length + convites.length + enviados.length;
     // convite pra um X1 novo: sem X1 rolando, cartão "Você VS ?"; com X1, só uma linha
     const novoHTML = vivos ? `<button class="x1-novo-linha" data-act="x1-escolher"><span class="x1-vsq mini">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-vs-selo">VS</i><span class="x1-q">?</span></span><b>Desafiar mais alguém</b><span>›</span></button>`
@@ -22266,10 +22279,33 @@ async function hydrateX1Lista(pronta = null, hub = false) {
         ${enviados.map(x => { const { ele } = x1Lados(x); return `<button class="x1-card x1-enviado" data-x1l="abrir" data-id="${x.id}">
             ${x1Av(ele, 'm')}<span class="x1-card-txt"><b>vs ${escapeHTML(ele.nome)}</b><small>Esperando aceitar${x.agendado_inicio ? ' · começa ' + x1DM(x1DiaLocal(x.agendado_inicio)) : ''} · ${x1Expira(x.expira)}</small></span></button>`; }).join('')}
         ${hub && slotNovo ? '' : novoHTML}
-        ${hub && document.getElementById('x1FimSlot') ? '' : terminadosHTML}
+        ${hub || vazio ? '' : `<div class="dz-links">${linhaSeusX1()}</div>`}
     </div>`;
-    const slotFim = document.getElementById('x1FimSlot');
-    if (hub && slotFim) slotFim.innerHTML = terminadosHTML ? `<div class="x1-lista hub">${terminadosHTML}</div>` : '';
+    if (!hub && !vazio) hydrateLinksDesafios();
+}
+// atalhos da aba Desafios: linhas com ícone (Explorar desafios e Seus X1)
+const IC_BUSSOLA = '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>';
+const IC_HIST = '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>';
+function linhaSeusX1() {
+    return `<button type="button" class="dz-link" data-x1l="historico"><span class="dz-ic roxo">${SVG_X(IC_HIST)}</span><span class="dz-tx"><b>Seus X1</b><small data-dz="x1">Todos os seus X1 e o placar geral</small></span><i>›</i></button>`;
+}
+function linksDesafiosHTML(comX1 = true) {
+    return `<div class="dz-links" id="dzLinks">
+        <button type="button" class="dz-link" data-act="go-challenges-lista"><span class="dz-ic verde">${SVG_X(IC_BUSSOLA)}</span><span class="dz-tx"><b>Explorar desafios</b><small data-dz="exp">Desafios abertos pra você entrar</small></span><i>›</i></button>
+        ${comX1 ? linhaSeusX1() : ''}
+    </div>`;
+}
+async function hydrateLinksDesafios() {
+    const exp = document.querySelector('[data-dz="exp"]'), x1 = document.querySelector('[data-dz="x1"]');
+    if (exp) sb.rpc('list_challenges').then(({ data }) => {
+        const n = (data || []).filter(c => c.status !== 'encerrado' && !c.im_member).length;
+        const el = document.querySelector('[data-dz="exp"]'); if (el) el.textContent = n ? `${n} ${n === 1 ? 'aberto' : 'abertos'} pra entrar` : 'Nenhum aberto agora · crie o seu';
+    }, () => {});
+    if (x1) sb.rpc('x1_historico').then(({ data }) => {
+        if (!data) return;
+        const v = data.vitorias || 0, tot = v + (data.derrotas || 0) + (data.empates || 0);
+        document.querySelectorAll('[data-dz="x1"]').forEach(el => { el.textContent = tot ? `${tot} ${tot === 1 ? 'jogado' : 'jogados'} · ${v} ${v === 1 ? 'vitória' : 'vitórias'}` : 'Nenhum ainda · chame alguém'; });
+    }, () => {});
 }
 function pintarBolinhaX1(n) {
     const nav = document.querySelector('.bottomnav [data-view="desafio"], .nav-btn[data-view="desafio"]');

@@ -6432,3 +6432,33 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .lg-res b{ font:800 26px var(--ff-display); line-height:1.2; } .lg-res p{ color:var(--ink-dim); font-size:14px; line-height:1.5; margin:10px 0 24px; max-width:300px; }
 .lg-res-bt{ height:46px; padding:0 22px; font-size:14.5px; }
 .lg-res-x{ margin-top:14px; background:none; border:0; color:var(--ink-faint); font:600 13px var(--ff-body); padding:10px; }
+/* liga mais limpa */
+.lg-hero{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:10px 0 18px; background:radial-gradient(circle at 50% 30%, rgba(var(--c),.18), transparent 65%); }
+.lg-hero .liga-med.grande{ width:84px; height:84px; font-size:40px; border-radius:24px; box-shadow:0 0 50px rgba(var(--c),.28); }
+.lg-hero b{ font:800 24px var(--ff-display); margin-top:12px; }
+.lg-st{ display:flex; align-items:center; gap:14px; padding:14px; margin-bottom:12px; border-radius:16px; background:var(--bg-card); border:1px solid var(--line); }
+.lg-pos{ font:800 32px var(--ff-display); color:#34D399; min-width:56px; text-align:center; line-height:1; }
+.lg-pos small{ display:block; margin-top:6px; font:700 10.5px var(--ff-body); letter-spacing:.06em; color:var(--ink-faint); }
+.lg-st-tx{ flex:1; min-width:0; } .lg-st-tx b{ font-size:14.5px; } .lg-st-tx p{ margin:3px 0 0; color:var(--ink-dim); font-size:12.5px; line-height:1.4; }
+.lg-barra{ height:8px; border-radius:5px; background:rgba(255,255,255,.07); overflow:hidden; margin-top:10px; } .lg-barra i{ display:block; height:100%; border-radius:5px; background:#10B981; }
+.lg-lista{ padding:6px 8px; border-radius:16px; background:var(--bg-card); border:1px solid var(--line); }
+.lg-l{ position:relative; padding:9px 8px; }
+.lg-l.sobe{ background:linear-gradient(90deg, rgba(16,185,129,.14), transparent 70%); }
+.lg-l.cai{ background:linear-gradient(90deg, rgba(239,68,68,.12), transparent 70%); }
+.lg-l.sobe::before, .lg-l.cai::before{ content:''; position:absolute; left:0; top:8px; bottom:8px; width:3px; border-radius:3px; background:#10B981; }
+.lg-l.cai::before{ background:#EF4444; }
+.lg-l.eu{ background-color:transparent; outline:1px solid rgba(16,185,129,.4); }
+.lg-tag{ font-style:normal; font:700 9.5px var(--ff-body); letter-spacing:.06em; border-radius:6px; padding:3px 6px; margin-left:8px; vertical-align:2px; }
+.lg-tag.s{ color:#34D399; background:rgba(16,185,129,.12); } .lg-tag.c{ color:#F87171; background:rgba(239,68,68,.12); }
+.lg-leg{ display:flex; gap:16px; justify-content:center; margin-top:12px; font-size:12px; color:var(--ink-faint); }
+.lg-leg span::before{ content:''; display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; }
+.lg-leg .a::before{ background:#10B981; } .lg-leg .b::before{ background:#EF4444; }
+/* atalhos da aba Desafios */
+.dz-links{ display:flex; flex-direction:column; gap:10px; margin:14px 0 8px; }
+.dz-link{ display:flex; align-items:center; gap:12px; width:100%; padding:13px; border-radius:16px; background:var(--bg-card); border:1px solid var(--line); color:var(--ink); text-align:left; font:inherit; }
+.dz-link:active{ transform:scale(.99); }
+.dz-ic{ width:42px; height:42px; border-radius:12px; flex:none; display:grid; place-items:center; }
+.dz-ic svg{ width:22px; height:22px; }
+.dz-ic.verde{ background:rgba(16,185,129,.15); color:#34D399; } .dz-ic.roxo{ background:rgba(167,139,250,.15); color:#C4B5FD; }
+.dz-tx{ flex:1; min-width:0; } .dz-tx b{ display:block; font-size:14.5px; } .dz-tx small{ display:block; margin-top:2px; color:var(--ink-faint); font-size:12px; }
+.dz-link > i{ font-style:normal; color:var(--ink-faint); font-size:18px; }
