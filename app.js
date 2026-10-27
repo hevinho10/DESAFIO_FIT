@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261279';
+const APP_VERSAO = '20261280';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -3919,7 +3919,11 @@ function conqHex(a, quando = null) {
         let m;
         if ((m = codigo.match(/^streak_(\d+)/))) { num = m[1]; un = 'DIAS'; }
         else if ((m = codigo.match(/^treinos_(\d+)/))) { num = m[1]; un = 'TREINOS'; }
-        else if ((m = codigo.match(/^perda_(\d+)/))) { num = m[1]; un = 'KG'; }
+        else if ((m = codigo.match(/^perda_(\d+)/))) { num = m[1] + '%'; un = 'DO PESO'; }
+        else if ((m = codigo.match(/^semanas_(\d+)/))) { num = m[1]; un = 'SEMANAS'; }
+        else if ((m = codigo.match(/^(agua|sono|madrugador|coruja|explorador|pratos|prato_nota|dupla|fds_ativo)_?(\d+)?$/)) && a.meta) { num = String(a.meta); un = { agua: 'DIAS', sono: 'NOITES', madrugador: 'TREINOS', coruja: 'TREINOS', explorador: 'TIPOS', pratos: 'PRATOS', prato_nota: 'PRATOS', dupla: 'TREINOS', fds_ativo: 'FDS' }[m[1]] || ''; }
+        else if (codigo === 'maratona') { num = '42'; un = 'KM'; }
+        else if (codigo === 'pedal_longo') { num = '200'; un = 'KM'; }
         else if (/mes|rendendo/.test(t)) { const d = quando ? new Date(quando) : new Date(); num = MES_CURTO[d.getMonth()]; un = String(d.getFullYear()); }
         else if ((m = `${a.nome || ''} ${a.desc || ''}`.match(/(\d+[.,]?\d*)\s*(km|dias?|treinos?|kg|semanas?|min|litros?|l\b|vezes|x1)/i))) {
             num = m[1].replace('.', ','); const u = m[2].toLowerCase();
@@ -3961,7 +3965,7 @@ async function renderAchievements(uid) {
     const datas = ehMeu ? datasConquistas() : {};
     const todas = ganhas;
     state.album = { todas, ehMeu, datas, compartilhadas };
-    const chave = ehMeu ? linhaSwitch('toggle-badges-public', '', 'Mostrar no meu perfil', state.profile.show_badges ? 'Quem visita seu perfil vê suas medalhas' : 'Por enquanto só você vê suas medalhas', !!state.profile.show_badges, ' style="margin-top:14px"') : '';
+    const chave = ''; // o álbum agora aparece sempre no perfil
     if (!ganhas.length) {
         body.innerHTML = `<div class="album"><div class="al-topo"><div><b>${ehMeu ? 'Seu álbum' : 'Álbum'}</b><small>Nenhuma conquista ainda</small></div></div>
             <div class="al-vazio">${hexHTML({ cor: 'off', ic: 'estrela' }, ' grande')}
@@ -5126,47 +5130,14 @@ function renderRules() {
 
             <p class="screen-sub">Aqui tudo gira em torno de constância. Vale mais aparecer todo dia do que se matar uma vez por mês.</p>
 
-            <div class="rule-card">
-                <div class="rule-head"><span class="rule-emo">💪</span><div><h4>Treino</h4><span class="rule-pts">até 15 pontos</span></div></div>
-                <p class="rule-text">Quanto mais tempo de atividade, mais pontos. Musculação, corrida, natação, ciclismo e futebol rendem mais por minuto; caminhada, yoga, dança e alongamento rendem um pouco menos.</p>
-                <p class="rule-text">Anexar foto do treino dá <b>+3</b>.</p>
-                <p class="rule-note">Treinou mais de uma vez no mesmo dia? Vale o treino mais forte do dia.</p>
-            </div>
-
-            <div class="rule-card">
-                <div class="rule-head"><span class="rule-emo">🍽️</span><div><h4>Refeição</h4><span class="rule-pts">1 ponto</span></div></div>
-                <p class="rule-text">Fotografe o prato e a IA analisa: dá uma nota de 0 a 10, identifica os alimentos e sugere um ajuste pra próxima.</p>
-                <p class="rule-note">Café, almoço e jantar valem um registro por dia cada. Lanche é livre.</p>
-            </div>
-
-            <div class="rule-card">
-                <div class="rule-head"><span class="rule-emo">⚖️</span><div><h4>Pesagem</h4><span class="rule-pts">3 pontos por semana</span></div></div>
-                <p class="rule-text">Pode registrar o peso quando quiser, todo dia se preferir, pra acompanhar a curva. A pontuação entra uma vez por semana.</p>
-                <p class="rule-note">Seu peso é privado. Ninguém vê. Nos desafios, ele só entra na soma do grupo ("o grupo perdeu X kg"), e você pode tirar o seu dessa soma.</p>
-            </div>
+            ${rgTabela(rgBlocosPontos('geral'))}
+            <div style="height:14px"></div>
 
             <div class="rule-card destaque">
                 <div class="rule-head"><span class="rule-emo">📉</span><div><h4>Perda de peso</h4><span class="rule-pts">25 pontos por 1%</span></div></div>
                 <p class="rule-text">A conta é proporcional ao seu peso inicial, então é justa pra qualquer ponto de partida. Cada 1% perdido vale <b>25 pontos</b>, pagos uma única vez por marco.</p>
                 <p class="rule-text">Pra cuidar da sua saúde, a pontuação acompanha um ritmo seguro: no máximo <b>1% por semana</b>. Se você perder mais rápido, nada se perde: o restante é pago nas semanas seguintes, conforme você registra o peso.</p>
                 <p class="rule-note">Se o peso subir e descer de novo, você não perde o que já conquistou.</p>
-            </div>
-
-            <div class="rule-card">
-                <div class="rule-head"><span class="rule-emo">🔥</span><div><h4>Ofensiva</h4><span class="rule-pts">até 20 pontos</span></div></div>
-                <p class="rule-text">Qualquer registro do dia mantém a chama acesa: treino, refeição, pesagem ou story.</p>
-                <p class="rule-text">Bônus em <b>3 dias</b> (+2), <b>7 dias</b> (+5), <b>14 dias</b> (+10) e <b>30 dias</b> (+20).</p>
-                <p class="rule-note">Ficou um dia sem registrar nada? A ofensiva recomeça do zero.</p>
-            </div>
-
-            <div class="rule-card">
-                <div class="rule-head"><span class="rule-emo">🎯</span><div><h4>Meta da semana</h4><span class="rule-pts">10 pontos</span></div></div>
-                <p class="rule-text">Você escolhe quantos treinos quer fazer por semana em Editar perfil. Bateu a meta, ganha o bônus.</p>
-            </div>
-
-            <div class="rule-card">
-                <div class="rule-head"><span class="rule-emo">⚡</span><div><h4>Story</h4><span class="rule-pts">3 pontos por dia</span></div></div>
-                <p class="rule-text">Poste quantos quiser, eles somem em 24 horas. A pontuação conta uma vez por dia.</p>
             </div>
 
             <div class="rule-card alerta">
@@ -12816,23 +12787,52 @@ function atualizarTelaDesafio(cid) {
 }
 
 // O que vale ponto (mostrado no desafio)
-const TABELA_PONTOS = [
-    ['💪', 'Treino', 'até 15 pts · +3 com foto'],
-    ['🔥', 'Ofensiva', 'até 20 pts'],
-    ['🎯', 'Meta da semana batida', '10 pts'],
-    ['⚡', 'Story', '3 pts por dia'],
-    ['⚖️', 'Pesagem', '3 pts por semana'],
-    ['📉', 'Perda de peso', '25 pts por 1%'],
-    ['🍽️', 'Refeição com foto', '1 pt'],
-];
+// ---- Tabelas de regras: valor sempre numa coluna fixa à direita ----
+const rgNum = v => { const n = Math.round(v * 10) / 10; return String(n).replace('.', ','); };
+const rgLinha = (rot, val, sub = '') => `<div class="rg-l"><span>${rot}${sub ? `<small>${sub}</small>` : ''}</span><b>${val}</b></div>`;
+const rgBloco = (tit, corpo, nota = '') => `<div class="rg-b"><div class="rg-t">${tit}</div>${corpo}${nota ? `<p class="rg-n">${nota}</p>` : ''}</div>`;
+const rgTabela = blocos => `<div class="rg-tab">${blocos.filter(Boolean).join('')}</div>`;
+// mesma conta do banco: 1 ponto a cada 6 min × peso da modalidade, até 15
+const RG_MOD = [['Musculação, corrida, natação, bike, HIIT, futebol', 1], ['Outras modalidades', 0.8], ['Caminhada, yoga, dança, alongamento', 0.7]];
+const rgPtsTreino = (min, f) => Math.min(15, min / 6 * f);
+function rgGradeTreino() {
+    return `<div class="rg-grade"><span class="rg-gh">Treino de</span><span class="rg-gh">30 min</span><span class="rg-gh">1 hora</span><span class="rg-gh">1h30 ou +</span>
+        ${RG_MOD.map(([n, f]) => `<span class="rg-gm">${n}</span>${[30, 60, 90].map(m => `<b>${rgNum(rgPtsTreino(m, f))}</b>`).join('')}`).join('')}</div>
+        <p class="rg-n">No meio do caminho vale proporcional: 45 min de musculação = 7,5 pontos.</p>`;
+}
+function rgMetaAguaTxt() {
+    const m = Number(state.profile && state.profile.water_goal_ml);
+    return m >= 500 ? formatLitros(m) : 'calculada pelo seu peso';
+}
+// blocos de pontos do app. onde: 'geral' | 'grupo' | 'x1'
+function rgBlocosPontos(onde = 'geral') {
+    const metaSem = (state.profile && state.profile.weekly_goal) || 3;
+    const ofTit = onde === 'grupo' ? 'Ofensiva do desafio · começa do zero' : onde === 'x1' ? 'Ofensiva no X1 · começa do zero' : 'Ofensiva';
+    const ofensiva = onde === 'x1'
+        ? rgLinha('3 dias seguidos', '+2') + rgLinha('7 dias seguidos', '+5')
+        : [[3, 2], [7, 5], [14, 10], [30, 20]].map(([d, p]) => rgLinha(`${d} dias seguidos`, `+${p}`)).join('');
+    return [
+        rgBloco('Treino · até 18 por dia', rgGradeTreino() + rgLinha('Foto no treino', '+3') +
+            rgLinha('Máximo pelo tempo', '15', 'Treinou mais de uma vez no dia? Vale o treino que deu mais pontos.')),
+        rgBloco('Refeições · até 6 por dia', rgLinha('Café, almoço e jantar com foto', '+1', '1 de cada por dia') +
+            rgLinha('Lanche com foto', '+1', 'Até 3 por dia'), 'A foto precisa ser analisada pela IA.'),
+        rgBloco(`Água · sua meta: ${rgMetaAguaTxt()}`, rgLinha('Primeiro registro do dia', '+1') + rgLinha('Bateu a meta do dia', '+3')),
+        rgBloco('Story e pesagem', rgLinha('Postar story', '+3', '1 vez por dia') +
+            rgLinha('Registrar o peso', '+3', '1 vez por semana. Seu peso nunca aparece pros outros.')),
+        rgBloco('Metas', rgLinha('Treinar nos dias da sua meta da semana', '+10', `Sua meta: ${metaSem} ${metaSem === 1 ? 'dia' : 'dias'} por semana`) +
+            rgLinha('Cada 1% de peso perdido', '+25', 'No ritmo seguro: até 1% por semana')),
+        rgBloco(ofTit, ofensiva, onde === 'x1' ? 'A ofensiva normal do app não conta aqui.' : 'Escudo: se faltar 1 dia, uma vez por semana, a ofensiva não zera.'),
+    ];
+}
 function regrasDesafioHTML(ch) {
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     return `<div class="chart-card ch-regras">
         <div class="chart-head"><span class="chart-title">Regras e pontos</span></div>
-        <p class="ch-regra-base">Vale o que você fizer de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. Seus pontos normais do app continuam valendo, mas o ranking do desafio conta só esse período. A <b>ofensiva do desafio</b> começa do zero quando você entra nele.</p>
+        <p class="ch-regra-base">Vale o que você fizer de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. O ranking do desafio conta só esse período, e seus pontos normais do app continuam valendo.</p>
         ${ch.rules ? `<div class="ch-regras-dono"><span>Combinados de quem criou</span><p>${escapeHTML(ch.rules).replace(/\n/g, '<br>')}</p></div>` : ''}
-        <div class="ch-pontos">${TABELA_PONTOS.map(([e, n, v]) => `<div class="ch-ponto"><span>${e}</span><b>${n}</b><em>${v}</em></div>`).join('')}</div>
-        <button class="btn-mini" data-act="go-rules" style="margin-top:10px">Ver todas as regras de pontos</button>
+        ${rgTabela(rgBlocosPontos('grupo'))}
+        <p class="rg-ex"><b>Quem ganha:</b> quem somar mais pontos até o fim.${ch.team_mode ? ' Em times, vale a soma do time.' : ''}</p>
+        <p class="rg-ex">Exemplo de um dia: musculação de 50 min com foto (8,3 + 3) + 2 refeições + meta de água (1 + 3) + story (3) = <b>20,3 pontos</b>.</p>
     </div>`;
 }
 
@@ -22479,25 +22479,29 @@ function puxarPraFechar(veu, folha, fechar) {
 // ---------- Regras ----------
 function regrasX1HTML(tipo, duracao = null, datas = null, aceitar = false) {
     const durTxt = duracao === '3' ? 'os 3 dias' : duracao === '7' ? 'os 7 dias' : duracao === '21' ? 'os 21 dias' : duracao === 'domingo' ? 'o desafio, até domingo' : 'o desafio';
-    const linha = (a, b) => `<div class="x1-rg"><span>${a}</span><b>${b}</b></div>`;
     let tabela = '', exemplo = '';
     if (tipo === 'perfeito') {
-        tabela = linha('Treino de 30 min ou mais', '+3') + linha('Cada refeição com foto', '+1') +
-            linha('Água: metade da meta / meta completa', '+1 / +2') + linha('Sono: 6 h / 7 h ou mais', '+1 / +2') +
-            linha('<b>Bônus dia perfeito</b> (fez tudo)', '+3');
-        exemplo = 'Exemplo de um dia: treino + 2 refeições + meta de água = 3 + 2 + 2 = <b>7 pontos</b> no dia.';
+        tabela = rgTabela([
+            rgBloco('Treino', rgLinha('Treino de 30 min ou mais', '+3', 'Vale 1 vez por dia, mesmo treinando mais de uma vez')),
+            rgBloco('Refeições', rgLinha('Cada refeição com foto', '+1', 'Até 4 por dia: café, almoço, lanche e jantar')),
+            rgBloco(`Água · sua meta: ${rgMetaAguaTxt()}`, rgLinha('Metade da meta', '+1') + rgLinha('Meta completa', '+2'), 'Não soma: vale só a maior.'),
+            rgBloco('Sono', rgLinha('De 6 h a 6h59', '+1') + rgLinha('7 h ou mais', '+2'), 'Conta no dia em que você acorda. Pode registrar até o fim desse dia.'),
+            rgBloco('Bônus', rgLinha('Dia perfeito', '+3', 'Só quando faz tudo no máximo: treino, 4 refeições, meta de água completa e 7 h de sono')),
+            '<div class="rg-max"><span>Máximo por dia</span><b>14 pontos</b></div>',
+        ]);
+        exemplo = 'Dia bom: treino + 2 refeições + meta de água = 3 + 2 + 2 = <b>7 pontos</b>. Dia perfeito: 3 + 4 + 2 + 2 + 3 = <b>14 pontos</b>.';
     } else if (tipo === 'treinos') {
-        tabela = linha('Dia com treino de 30 min ou mais', '+1') + linha('Máximo por dia', '1');
-        exemplo = 'Exemplo de um dia: treinou 40 min = <b>1 ponto</b>. Treinou duas vezes no mesmo dia, continua 1.';
+        tabela = rgTabela([rgBloco('Treinos', rgLinha('Dia com treino de 30 min ou mais', '+1', 'Treinou duas vezes no mesmo dia? Continua 1') + rgLinha('Máximo por dia', '1'))]);
+        exemplo = 'Exemplo: treinou 40 min na segunda e 35 min na quarta = <b>2 pontos</b>.';
     } else if (tipo === 'minutos') {
-        tabela = linha('Cada minuto de treino', '+1') + linha('Máximo por dia', '240');
+        tabela = rgTabela([rgBloco('Minutos', rgLinha('Cada minuto de treino', '+1', 'Qualquer modalidade') + rgLinha('Máximo por dia', '240'))]);
         exemplo = 'Exemplo de um dia: musculação 50 min + corrida 30 min = <b>80</b>.';
     } else if (tipo === 'km') {
-        tabela = linha('Cada km de corrida, caminhada ou bike', '+1') + linha('Máximo por dia', '100 km');
+        tabela = rgTabela([rgBloco('Quilômetros', rgLinha('Cada km de corrida, caminhada ou bike', '+1') + rgLinha('Máximo por dia', '100 km'))]);
         exemplo = 'Exemplo de um dia: correu 5,2 km e pedalou 12 km = <b>17,2</b>.';
     } else {
-        tabela = linha('💪 Treino', 'até 15') + linha('🍽️ Refeição com foto', '1 cada') + linha('🔥 Ofensiva no X1: 3 dias seguidos / 7 dias', '+2 / +5') + linha('⚖️ Pesagem da semana', '3');
-        exemplo = 'Exemplo de um dia: treino de 50 min + 2 refeições com foto = <b>cerca de 10 pontos</b>.';
+        tabela = rgTabela(rgBlocosPontos('x1'));
+        exemplo = 'Exemplo de um dia: musculação de 50 min com foto (8,3 + 3) + 2 refeições com foto (2) = <b>13,3 pontos</b>.';
     }
     const t = X1_TIPOS[tipo] || X1_TIPOS.perfeito;
     const ganha = {
@@ -22514,7 +22518,7 @@ function regrasX1HTML(tipo, duracao = null, datas = null, aceitar = false) {
     return `<div class="x1-rg-topo"><span class="x1-tipo-ic" style="--c:${t.c}">${SVG_X(t.ic)}</span><div><h3>Regras do X1</h3><small>${t.nome}${duracao && X1_DUR[duracao] ? ' · ' + X1_DUR[duracao] : ''}</small></div></div>
         <div class="x1-passos">
             ${passo(1, 'Quando vale', `<p>${quando} Só conta o que for registrado nesse período.</p>`)}
-            ${passo(2, 'O que dá ponto', `<div class="x1-rg-tab">${tabela}</div>${tipo === 'perfeito' ? '<p class="x1-ps-nota">O sono vale no dia em que você acorda, se registrado até as 14 h.</p>' : ''}`)}
+            ${passo(2, 'O que dá ponto', tabela)}
             ${passo(3, 'Quem ganha', `<p>${ganha} Empate: vence quem chegou primeiro à pontuação final. Desistir dá a vitória pro outro.</p><p class="x1-rg-ex">${SVG_X(IC_X1.estrela)}<span>${exemplo}</span></p>`)}
         </div>
         ${aceitar ? '<div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Agora não</button><button class="btn x1-btn min" data-x1f="aceitar">Aceitar o desafio</button></div>'

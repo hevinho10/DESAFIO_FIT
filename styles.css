@@ -6576,3 +6576,25 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .al-vazio b{ font-size:17px; margin-top:6px; }
 .al-vazio small{ color:var(--text-dim); font-size:14px; margin-top:6px; line-height:1.45; max-width:280px; }
 .album .cfg-row{ width:100%; }
+
+/* ===== Tabelas de regras (valor numa coluna fixa) ===== */
+.rg-tab{ border:1px solid var(--line); border-radius:16px; overflow:hidden; margin-top:12px; text-align:left; }
+.rg-b{ padding:11px 14px; }
+.rg-b + .rg-b, .rg-tab .rg-max{ border-top:1px solid var(--line); }
+.rg-t{ font-size:11.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:4px; }
+.rg-l{ display:grid; grid-template-columns:1fr 64px; align-items:center; column-gap:10px; padding:5px 0; }
+.rg-l > span{ font-size:14px; line-height:1.35; color:var(--ink); }
+.rg-l small{ display:block; font-size:12px; color:var(--ink-faint); margin-top:1px; line-height:1.35; }
+.rg-l > b{ text-align:right; color:var(--vital, #10B981); font-weight:800; font-size:15px; white-space:nowrap; }
+.rg-n{ font-size:12px; color:var(--ink-faint); line-height:1.4; margin:4px 0 0; }
+.rg-max{ display:flex; justify-content:space-between; align-items:center; padding:11px 14px; background:rgba(16,185,129,.08); font-weight:700; font-size:14.5px; }
+.rg-max b{ color:var(--vital, #10B981); font-size:16px; }
+.rg-grade{ display:grid; grid-template-columns:1fr 52px 52px 64px; align-items:center; column-gap:4px; margin:2px 0 4px; }
+.rg-gh{ font-size:11.5px; font-weight:700; color:var(--ink-faint); text-align:center; padding:4px 0 6px; }
+.rg-gh:first-child{ text-align:left; }
+.rg-gm{ font-size:13.5px; line-height:1.3; padding:8px 0; border-top:1px solid var(--line); color:var(--ink); }
+.rg-grade > b{ text-align:center; color:var(--vital, #10B981); font-weight:800; font-size:15px; padding:8px 0; border-top:1px solid var(--line); align-self:stretch; display:grid; place-items:center; }
+.rg-grade > b:nth-child(4n){ text-align:right; justify-items:end; }
+.rg-ex{ font-size:13px; color:var(--ink-dim); line-height:1.45; margin-top:10px; padding:10px 12px; border:1px solid var(--line); border-radius:14px; }
+.rg-ex b{ color:var(--ink); }
+.x1-ps-c .rg-tab{ margin-top:8px; }
