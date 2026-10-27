@@ -6796,3 +6796,47 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .conv-grupo .conv-preview b{ color:var(--ink); font-weight:600; }
 .conv-mudo{ font-size:12px; opacity:.7; }
 .chat-header-user .cp-q.p{ margin-right:10px; }
+
+/* ===== Regras em tópicos que abrem e fecham ===== */
+.rg-passo{ border:1px solid #1E1F23; border-radius:18px; background:var(--bg-card, #0B0B0C); margin-top:10px; overflow:hidden; }
+.rg-passo > summary{ list-style:none; display:flex; align-items:center; gap:12px; padding:14px; cursor:pointer; }
+.rg-passo > summary::-webkit-details-marker, .rg-ac > summary::-webkit-details-marker{ display:none; }
+.rg-passo .x1-ps-n{ flex:none; }
+.rg-passo-t{ flex:1; min-width:0; }
+.rg-passo-t b{ display:block; font-size:15.5px; }
+.rg-passo-t small{ display:block; font-size:12.5px; color:var(--ink-dim); margin-top:2px; }
+.rg-seta{ font-style:normal; color:var(--ink-faint); font-size:18px; transition:transform .2s; flex:none; }
+details[open] > summary > .rg-seta{ transform:rotate(90deg); }
+.rg-passo-c{ border-top:1px solid #17171A; padding:10px 14px 14px; }
+.rg-passo-c > p{ font-size:13.5px; color:var(--ink-dim); line-height:1.5; }
+.rg-passo-c .rg-tab{ margin-top:0; border:0; border-radius:0; }
+.rg-ac{ padding:0 !important; }
+.rg-ac > summary{ list-style:none; display:flex; align-items:center; gap:10px; padding:11px 2px; cursor:pointer; }
+.rg-ac > summary b{ flex:1; font-size:14.5px; font-weight:600; }
+.rg-ac > summary em{ font-style:normal; color:var(--vital, #10B981); font-weight:800; font-size:13.5px; white-space:nowrap; }
+.rg-ic{ width:30px; height:30px; border-radius:9px; background:#141416; color:#34D399; display:grid; place-items:center; flex:none; }
+.rg-ac-c{ background:#0E0F11; border-radius:12px; padding:6px 12px 10px; margin:0 0 10px; }
+.rg-passo-c .rg-b + .rg-b{ border-top:1px solid #17171A; }
+.rg-passo-c .rg-max{ border-radius:12px; margin-top:8px; border-top:0 !important; }
+.ch-regras .rg-passo{ background:transparent; }
+/* caixinha de marcar no lugar da chave */
+.x1-chk{ background:transparent !important; border:0 !important; padding:8px 4px !important; flex-direction:row-reverse; justify-content:flex-end; gap:12px; }
+.x1-chk .x1-tg{ width:22px !important; height:22px !important; border-radius:7px !important; background:transparent !important; border:1.5px solid #3a3a3e; flex:none; position:relative; }
+.x1-chk .x1-tg::after{ display:none !important; }
+.x1-chk .x1-tg.on{ background:#10B981 !important; border-color:#10B981; }
+.x1-chk .x1-tg.on::before{ content:'✓'; position:absolute; inset:0; display:grid; place-items:center; color:#022C1E; font-weight:900; font-size:13px; font-style:normal; }
+.x1-chk b{ font-size:14px !important; font-weight:600 !important; }
+.x1-chk small{ font-size:12px !important; }
+/* X1: convites e duelos dentro do cartão, embaixo */
+.x1-nr-bt0{ width:100%; background:none; border:0; padding:0; color:inherit; font:inherit; text-align:left; }
+.x1-subs{ display:block; border-top:1px solid #17171A; margin-top:12px; }
+.x1-sub, .x1-subs .x1-card{ width:100%; display:flex; align-items:center; gap:12px; padding:10px 0 !important; background:none !important; border:0 !important; border-radius:0 !important; color:var(--ink); font:inherit; text-align:left; margin:0 !important; box-shadow:none !important; }
+.x1-subs > * + *{ border-top:1px solid #17171A !important; }
+.x1-sub .x1-av{ width:34px; height:34px; flex:none; }
+.x1-sub .x1-nr-tx b{ font-size:14px; }
+.x1-sub-ver{ flex:none; border:1px solid rgba(234,179,8,.6); color:#FCD34D; border-radius:10px; padding:6px 12px; font-weight:700; font-size:13px; }
+/* notificações */
+.nt-vezes{ color:var(--ink-dim); font-weight:500; }
+.nt-expirado{ display:inline-block; font-size:12.5px; color:var(--ink-faint); border:1px solid var(--line); border-radius:10px; padding:5px 10px; }
+.sug-nada b{ white-space:normal !important; text-align:center; line-height:1.3; }
+.sug-cv-ic.cinza{ color:var(--ink-dim); border-color:#3a3a3e; }

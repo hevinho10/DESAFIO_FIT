@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261284';
+const APP_VERSAO = '20261285';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1120,8 +1120,9 @@ async function abrirLiga() {
 function ligaZonas(d) {
     const lista = d.membros || [], n = lista.length, sobe = new Set(), cai = new Set();
     if (!lista.some(x => Number(x.pts) > 0)) return { sobe, cai };
-    lista.slice(0, d.sobem || 0).forEach(x => { if (Number(x.pts) > 0) sobe.add(x.id); });
-    if (d.caem) {
+    // só sobe se a liga de cima estiver aberta nessa semana; só cai se existir liga embaixo
+    if (d.nivel < Math.min(4, d.niveis_abertos || 4)) lista.slice(0, d.sobem || 0).forEach(x => { if (Number(x.pts) > 0) sobe.add(x.id); });
+    if (d.caem && d.nivel > 1) {
         const limite = lista[n - d.caem - 1];
         lista.slice(n - d.caem).forEach(x => { if (!limite || Number(x.pts) < Number(limite.pts)) cai.add(x.id); });
     }
@@ -4895,7 +4896,16 @@ async function renderNotifications() {
     const data = [];
     const grupos = {};
     const faixaNt = iso => { const d = new Date(iso), hoje = diaLocal(new Date()); return d >= hoje ? 'h' : d >= new Date(hoje.getTime() - 6 * 86400000) ? 's' : 'a'; };
+    // convite de X1 repetido da mesma pessoa vira um só: "(2 vezes)"
+    const x1Conv = {};
+    let x1Vivos = null;
+    try { const { data: xl } = await sb.rpc('x1_lista'); x1Vivos = {}; (xl || []).forEach(x => { x1Vivos[x.id] = x.status; }); } catch (_) {}
     tudo.forEach(n => {
+        if (n.kind === 'x1_convite' && n.actor_id) {
+            const k = 'x1c|' + n.actor_id;
+            if (x1Conv[k]) { x1Conv[k].vezes = (x1Conv[k].vezes || 1) + 1; if (!n.read_at) x1Conv[k].read_at = null; return; }
+            x1Conv[k] = n;
+        }
         const ehPost = (n.kind === 'reaction' || n.kind === 'comment') && n.post_id;
         const ehSeg = n.kind === 'follow' && n.actor_id;
         if (ehPost || ehSeg) {
@@ -5080,7 +5090,13 @@ async function renderNotifications() {
                 : m.empate ? `Seu X1 com <b>${quem}</b> acabou empatado${m.placar ? ': ' + escapeHTML(m.placar) : ''}`
                 : m.venceu ? `Você venceu o X1 contra <b>${quem}</b>${m.desistiu ? ' (desistiu)' : m.placar ? ': ' + escapeHTML(m.placar) : ''} 🏆`
                 : `<b>${quem}</b> venceu o X1${m.placar ? ': ' + escapeHTML(m.placar) : ''}. Revanche?`;
-            texto += `<span class="nt-acoes"><button class="btn-mini${n.kind === 'x1_convite' ? ' x1-nt-ver' : ''}" data-act="x1-abrir" data-id="${m.x1 || ''}">${n.kind === 'x1_convite' ? 'Ver convite' : 'Ver placar'}</button></span>`;
+            if (n.kind === 'x1_convite' && n.vezes > 1) texto += ` <span class="nt-vezes">(${n.vezes} vezes)</span>`;
+            const stX = x1Vivos && m.x1 ? x1Vivos[m.x1] : undefined;
+            const convVencido = n.kind === 'x1_convite' && x1Vivos && stX !== 'pendente';
+            if (convVencido && !stX) act = '';
+            texto += convVencido
+                ? (stX ? `<span class="nt-acoes"><button class="btn-mini" data-act="x1-abrir" data-id="${m.x1 || ''}">Ver X1</button></span>` : '<span class="nt-acoes"><span class="nt-expirado">Convite encerrado</span></span>')
+                : `<span class="nt-acoes"><button class="btn-mini${n.kind === 'x1_convite' ? ' x1-nt-ver' : ''}" data-act="x1-abrir" data-id="${m.x1 || ''}">${n.kind === 'x1_convite' ? 'Ver convite' : 'Ver placar'}</button></span>`;
         } else if (n.kind === 'desafio_convite') {
             emo = '🏆'; texto = `<b>${quem}</b> te convidou pro desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
@@ -6137,7 +6153,8 @@ async function pintarSugestoes(box, titulo = 'Pessoas que você talvez conheça'
     }
     if (!lista.length && !comConvite) { box.innerHTML = ''; return; }
     const cartaoConvite = comConvite ? `<div class="sug-card sug-convite"><span class="sug-cv-ic">${svgIc('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>', 26)}</span><b>Convidar amigos</b><small>+10 pts pra cada um</small><button type="button" class="bt-min" data-cvt="sugestoes">Convidar</button></div>` : '';
-    box.innerHTML = `<div class="sug-box"><div class="mus-sec"><span>${titulo}</span></div><div class="sug-trilho">${cartaoConvite}${lista.map(u => `<div class="sug-card" data-sug="${u.id}">
+    const nenhum = comConvite && !lista.length ? `<div class="sug-card sug-nada"><span class="sug-cv-ic cinza">${svgIc(IC_CONQ.estrela, 24)}</span><b>Você já segue todo mundo por aqui</b><small>Convide alguém pra treinar junto!</small></div>` : '';
+    box.innerHTML = `<div class="sug-box"><div class="mus-sec"><span>${titulo}</span></div><div class="sug-trilho">${cartaoConvite}${nenhum}${lista.map(u => `<div class="sug-card" data-sug="${u.id}">
         <button type="button" class="sgc-x" data-sug-x="${u.id}" aria-label="Dispensar">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
         <span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'md')}</span>
         <b data-act="view-user" data-uid="${u.id}">${escapeHTML(u.display_name || u.username || '')}</b><small>${escapeHTML(u.motivo || '')}</small>
@@ -12923,7 +12940,13 @@ function atualizarTelaDesafio(cid) {
 // ---- Tabelas de regras: valor sempre numa coluna fixa à direita ----
 const rgNum = v => { const n = Math.round(v * 10) / 10; return String(n).replace('.', ','); };
 const rgLinha = (rot, val, sub = '') => `<div class="rg-l"><span>${rot}${sub ? `<small>${sub}</small>` : ''}</span><b>${val}</b></div>`;
-const rgBloco = (tit, corpo, nota = '') => `<div class="rg-b"><div class="rg-t">${tit}</div>${corpo}${nota ? `<p class="rg-n">${nota}</p>` : ''}</div>`;
+// cada assunto vira um tópico que abre e fecha: ícone, nome e o máximo à direita
+const RG_ICS = { treino: 'halter', refei: 'prato', agua: 'gota', sono: 'lua', bonus: 'estrela', story: 'raio', meta: 'desce', ofensiva: 'fogo', convite: 'pessoas', minuto: 'halter', quil: 'corrida' };
+const rgBloco = (tit, corpo, nota = '', max = '') => {
+    if (!max) return `<div class="rg-b"><div class="rg-t">${tit}</div>${corpo}${nota ? `<p class="rg-n">${nota}</p>` : ''}</div>`;
+    const k = Object.keys(RG_ICS).find(x => semAcento(tit).startsWith(x)) || 'bonus';
+    return `<details class="rg-b rg-ac"><summary><span class="rg-ic">${svgIc(IC_CONQ[RG_ICS[k]], 18)}</span><b>${tit}</b><em>${max}</em><i class="rg-seta">›</i></summary><div class="rg-ac-c">${corpo}${nota ? `<p class="rg-n">${nota}</p>` : ''}</div></details>`;
+};
 const rgTabela = blocos => `<div class="rg-tab">${blocos.filter(Boolean).join('')}</div>`;
 // mesma conta do banco: 1 ponto a cada 6 min × peso da modalidade, até 15
 const RG_MOD = [['Musculação, corrida, natação, bike, HIIT, futebol', 1], ['Outras modalidades', 0.8], ['Caminhada, yoga, dança, alongamento', 0.7]];
@@ -12940,25 +12963,25 @@ function rgMetaAguaTxt() {
 // blocos de pontos do app. onde: 'geral' | 'grupo' | 'x1'
 function rgBlocosPontos(onde = 'geral') {
     const metaSem = (state.profile && state.profile.weekly_goal) || 3;
-    const ofTit = onde === 'grupo' ? 'Ofensiva do desafio · começa do zero' : onde === 'x1' ? 'Ofensiva no X1 · começa do zero' : 'Ofensiva';
+    const ofTit = onde === 'grupo' ? 'Ofensiva do desafio' : onde === 'x1' ? 'Ofensiva no X1' : 'Ofensiva';
     const ofensiva = onde === 'x1'
-        ? rgLinha('3 dias seguidos', '+2') + rgLinha('7 dias seguidos', '+5')
+        ? rgLinha('3 dias seguidos', '+2') + rgLinha('7 dias seguidos', '+5', 'Começa do zero pros dois')
         : [[3, 2], [7, 5], [14, 10], [30, 20]].map(([d, p]) => rgLinha(`${d} dias seguidos`, `+${p}`)).join('');
     return [
-        rgBloco('Treino · até 18 por dia', rgGradeTreino() + rgLinha('Foto no treino', '+3') +
-            rgLinha('Máximo pelo tempo', '15', 'Treinou mais de uma vez no dia? Vale o treino que deu mais pontos.')),
-        rgBloco('Refeições · até 6 por dia', rgLinha('Café, almoço e jantar com foto', '+1', '1 de cada por dia') +
-            rgLinha('Lanche com foto', '+1', 'Até 3 por dia'), 'A foto precisa ser analisada pela IA.'),
-        rgBloco(`Água · sua meta: ${rgMetaAguaTxt()}`, rgLinha('Primeiro registro do dia', '+1') + rgLinha('Bateu a meta do dia', '+3')),
+        rgBloco('Treino', rgGradeTreino() + rgLinha('Foto no treino', '+3') +
+            rgLinha('Máximo pelo tempo', '15', 'Treinou mais de uma vez no dia? Vale o treino que deu mais pontos.'), '', 'até 18'),
+        rgBloco('Refeições', rgLinha('Café, almoço e jantar com foto', '+1', '1 de cada por dia') +
+            rgLinha('Lanche com foto', '+1', 'Até 3 por dia'), 'A foto precisa ser analisada pela IA.', 'até 6'),
+        rgBloco('Água', rgLinha('Primeiro registro do dia', '+1') + rgLinha('Bateu a meta do dia', '+3', `Sua meta: ${rgMetaAguaTxt()}`), '', 'até 4'),
         rgBloco('Story e pesagem', rgLinha('Postar story', '+3', '1 vez por dia') +
-            rgLinha('Registrar o peso', '+3', '1 vez por semana. Seu peso nunca aparece pros outros.')),
+            rgLinha('Registrar o peso', '+3', '1 vez por semana. Seu peso nunca aparece pros outros.'), '', '+3 cada'),
         rgBloco('Metas', rgLinha('Treinar nos dias da sua meta da semana', '+10', `Sua meta: ${metaSem} ${metaSem === 1 ? 'dia' : 'dias'} por semana`) +
-            rgLinha('Cada 1% de peso perdido', '+25', 'No ritmo seguro: até 1% por semana')),
+            rgLinha('Cada 1% de peso perdido', '+25', 'No ritmo seguro: até 1% por semana'), '', '+10 e +25'),
         rgBloco(ofTit, ofensiva, onde === 'x1' ? 'A ofensiva normal do app não conta aqui.'
-            : onde === 'grupo' ? 'Sem escudo: faltou um dia, a sequência recomeça. E cada sequência nova vale os bônus de novo.'
-            : 'Escudo: se faltar 1 dia, uma vez por semana, a ofensiva não zera.'),
+            : onde === 'grupo' ? 'Começa do zero quando você entra. Sem escudo: faltou um dia, a sequência recomeça. E cada sequência nova vale os bônus de novo.'
+            : 'Escudo: se faltar 1 dia, uma vez por semana, a ofensiva não zera.', onde === 'x1' ? 'até +5' : 'até +20'),
         rgBloco('Convite', rgLinha('Amigo entra pelo seu convite e faz o 1º treino', '+10', 'Ele também ganha 10. No máximo 10 convites com pontos por mês.'),
-            onde === 'grupo' ? 'Conta no desafio se o 1º treino dele for dentro do período.' : onde === 'x1' ? 'Conta no X1 se o 1º treino dele for durante o X1.' : ''),
+            onde === 'grupo' ? 'Conta no desafio se o 1º treino dele for dentro do período.' : onde === 'x1' ? 'Conta no X1 se o 1º treino dele for durante o X1.' : '', '+10'),
     ];
 }
 // ---- Capa do desafio: símbolo + cor, ou foto no quadradinho ----
@@ -13138,13 +13161,14 @@ document.addEventListener('click', e => {
 
 function regrasDesafioHTML(ch) {
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const passo = (n, tit, resumo, corpo) => `<details class="rg-passo"><summary><span class="x1-ps-n">${n}</span><span class="rg-passo-t"><b>${tit}</b><small>${resumo}</small></span><i class="rg-seta">›</i></summary><div class="rg-passo-c">${corpo}</div></details>`;
     return `<div class="chart-card ch-regras">
         <div class="chart-head"><span class="chart-title">Regras e pontos</span></div>
-        <p class="ch-regra-base">Vale o que você fizer de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. O ranking do desafio conta só esse período, e seus pontos normais do app continuam valendo.</p>
-        ${ch.rules ? `<div class="ch-regras-dono"><span>Combinados de quem criou</span><p>${escapeHTML(ch.rules).replace(/\n/g, '<br>')}</p></div>` : ''}
-        ${rgTabela(rgBlocosPontos('grupo'))}
-        <p class="rg-ex"><b>Quem ganha:</b> quem somar mais pontos até o fim.${ch.team_mode ? ' Em times, vale a soma do time.' : ''}</p>
-        <p class="rg-ex">Exemplo de um dia: musculação de 50 min com foto (8,3 + 3) + 2 refeições + meta de água (1 + 3) + story (3) = <b>20,3 pontos</b>.</p>
+        ${passo(1, 'Quando vale', `${dataBR(ch.starts_at)} até ${dataBR(ch.ends_at)}`, `<p class="ch-regra-base">Vale o que você fizer de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. O ranking do desafio conta só esse período, e seus pontos normais do app continuam valendo.</p>
+            ${ch.rules ? `<div class="ch-regras-dono"><span>Combinados de quem criou</span><p>${escapeHTML(ch.rules).replace(/\n/g, '<br>')}</p></div>` : ''}`)}
+        ${passo(2, 'O que dá ponto', 'treino, refeições, água, metas e mais', rgTabela(rgBlocosPontos('grupo')))}
+        ${passo(3, 'Quem ganha', ch.team_mode ? 'o time que somar mais pontos' : 'quem somar mais pontos até o fim', `<p class="rg-ex"><b>Quem ganha:</b> quem somar mais pontos até o fim.${ch.team_mode ? ' Em times, vale a soma do time.' : ''}</p>
+            <p class="rg-ex">Exemplo de um dia: musculação de 50 min com foto (8,3 + 3) + 2 refeições + meta de água (1 + 3) + story (3) = <b>20,3 pontos</b>.</p>`)}
     </div>`;
 }
 
@@ -22849,11 +22873,11 @@ function regrasX1HTML(tipo, duracao = null, datas = null, aceitar = false) {
     let tabela = '', exemplo = '';
     if (tipo === 'perfeito') {
         tabela = rgTabela([
-            rgBloco('Treino', rgLinha('Treino de 30 min ou mais', '+3', 'Vale 1 vez por dia, mesmo treinando mais de uma vez')),
-            rgBloco('Refeições', rgLinha('Cada refeição com foto', '+1', 'Até 4 por dia: café, almoço, lanche e jantar')),
-            rgBloco(`Água · sua meta: ${rgMetaAguaTxt()}`, rgLinha('Metade da meta', '+1') + rgLinha('Meta completa', '+2'), 'Não soma: vale só a maior.'),
-            rgBloco('Sono', rgLinha('De 6 h a 6h59', '+1') + rgLinha('7 h ou mais', '+2'), 'Conta no dia em que você acorda. Pode registrar até o fim desse dia.'),
-            rgBloco('Bônus', rgLinha('Dia perfeito', '+3', 'Só quando faz tudo no máximo: treino, 4 refeições, meta de água completa e 7 h de sono')),
+            rgBloco('Treino', rgLinha('Treino de 30 min ou mais', '+3', 'Vale 1 vez por dia, mesmo treinando mais de uma vez'), '', '+3'),
+            rgBloco('Refeições', rgLinha('Cada refeição com foto', '+1', 'Até 4 por dia: café, almoço, lanche e jantar'), '', 'até +4'),
+            rgBloco('Água', rgLinha('Metade da meta', '+1') + rgLinha('Meta completa', '+2', `Sua meta: ${rgMetaAguaTxt()}`), 'Não soma: vale só a maior.', 'até +2'),
+            rgBloco('Sono', rgLinha('De 6 h a 6h59', '+1') + rgLinha('7 h ou mais', '+2'), 'Conta no dia em que você acorda. Pode registrar até o fim desse dia.', 'até +2'),
+            rgBloco('Bônus dia perfeito', rgLinha('Dia perfeito', '+3', 'Só quando faz tudo no máximo: treino, 4 refeições, meta de água completa e 7 h de sono'), '', '+3'),
             '<div class="rg-max"><span>Máximo por dia</span><b>14 pontos</b></div>',
         ]);
         exemplo = 'Dia bom: treino + 2 refeições + meta de água = 3 + 2 + 2 = <b>7 pontos</b>. Dia perfeito: 3 + 4 + 2 + 2 + 3 = <b>14 pontos</b>.';
@@ -22881,12 +22905,15 @@ function regrasX1HTML(tipo, duracao = null, datas = null, aceitar = false) {
     const quando = datas && datas.ini
         ? `Começa <b>${x1DiaTxt(datas.ini)} às ${datas.ini.getHours() || datas.ini.getMinutes() ? datas.ini.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h') : '00h'}</b> e termina <b>${x1DiaTxt(datas.ult)} às 23h59</b>.${datas.aceite ? ` Dá pra aceitar até <b>${x1DiaTxt(datas.aceite)} às ${String(datas.aceite.getHours()).padStart(2, '0')}h</b>.` : ''}`
         : `Dura ${duracao && X1_DUR[duracao] ? X1_DUR[duracao].toLowerCase() : 'o tempo combinado'}, sempre em dias inteiros, da 00h às 23h59.`;
-    const passo = (n, tit, corpo) => `<div class="x1-ps"><span class="x1-ps-n">${n}</span><div class="x1-ps-c"><b>${tit}</b>${corpo}</div></div>`;
+    const passo = (n, tit, corpo, resumo = '') => `<details class="rg-passo"><summary><span class="x1-ps-n">${n}</span><span class="rg-passo-t"><b>${tit}</b>${resumo ? `<small>${resumo}</small>` : ''}</span><i class="rg-seta">›</i></summary><div class="rg-passo-c">${corpo}</div></details>`;
+    const resumoQuando = datas && datas.ini ? `${x1DiaTxt(datas.ini)} até ${x1DiaTxt(datas.ult)}` : (duracao && X1_DUR[duracao] ? X1_DUR[duracao] : '');
+    const resumoPonto = { perfeito: 'até 14 pontos por dia', treinos: '1 por dia com treino de 30 min', minutos: '1 por minuto de treino', km: '1 por km', pontos: 'os pontos normais do app' }[tipo] || '';
+    const resumoGanha = { perfeito: 'quem somar mais pontos', treinos: 'quem treinar em mais dias', minutos: 'quem somar mais minutos', km: 'quem somar mais km', pontos: 'quem somar mais pontos' }[tipo] || '';
     return `<div class="x1-rg-topo"><span class="x1-tipo-ic" style="--c:${t.c}">${SVG_X(t.ic)}</span><div><h3>Regras do X1</h3><small>${t.nome}${duracao && X1_DUR[duracao] ? ' · ' + X1_DUR[duracao] : ''}</small></div></div>
         <div class="x1-passos">
-            ${passo(1, 'Quando vale', `<p>${quando} Só conta o que for registrado nesse período.</p>`)}
-            ${passo(2, 'O que dá ponto', tabela)}
-            ${passo(3, 'Quem ganha', `<p>${ganha} Empate: vence quem chegou primeiro à pontuação final. Desistir dá a vitória pro outro.</p><p class="x1-rg-ex">${SVG_X(IC_X1.estrela)}<span>${exemplo}</span></p>`)}
+            ${passo(1, 'Quando vale', `<p>${quando} Só conta o que for registrado nesse período.</p>`, resumoQuando)}
+            ${passo(2, 'O que dá ponto', tabela, resumoPonto)}
+            ${passo(3, 'Quem ganha', `<p>${ganha} Empate: vence quem chegou primeiro à pontuação final. Desistir dá a vitória pro outro.</p><p class="x1-rg-ex">${SVG_X(IC_X1.estrela)}<span>${exemplo}</span></p>`, resumoGanha)}
         </div>
         ${aceitar ? '<div class="x1-duas"><button class="btn x1-btn ghost" data-x1f="fechar">Agora não</button><button class="btn x1-btn min" data-x1f="aceitar">Aceitar o desafio</button></div>'
             : '<button class="btn x1-btn min" data-x1f="fechar">Entendi</button>'}`;
@@ -22943,7 +22970,7 @@ async function abrirCriarX1(alvo, base = {}) {
             <div id="x1Cal">${calHTML()}</div>
             <div class="x1-sec">VALENDO <span>(opcional)</span></div>
             <input class="x1-campo" id="x1Prenda" maxlength="60" placeholder="Ex: quem perder paga o açaí" value="${escapeHTML(base.prenda || '')}">
-            <button type="button" class="x1-sw" data-x1="mostrar"><span><b>Mostrar pros seguidores</b><small>Card no feed por 24 h quando acabar, se os dois deixarem</small></span><i class="x1-tg on" id="x1Tg"></i></button>
+            <button type="button" class="x1-sw x1-chk" data-x1="mostrar"><span><b>Mostrar pros seguidores</b><small>Card no feed por 24 h quando acabar, se os dois deixarem</small></span><i class="x1-tg on" id="x1Tg"></i></button>
         </div>
         <div class="x1-rodape"><button class="btn x1-btn min" data-x1="enviar" disabled>Desafiar ${escapeHTML(nome)}</button></div>`);
     const podeEnviar = () => { t.querySelector('[data-x1="enviar"]').disabled = !(dur && ini); };
@@ -23008,14 +23035,19 @@ async function hydrateX1Lista(pronta = null, hub = false) {
         `;
     const vivos = ativos.length + convites.length + enviados.length;
     // convite pra um X1 novo: sem X1 rolando, cartão "Você VS ?"; com X1, só uma linha
-    const novoHTML = hub ? `<button type="button" class="x1-novo-row wl" data-act="x1-escolher"><span class="wl-ban fina x1"></span><span class="wl-bod"><span class="wl-lin"><span class="x1-nr-duo">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-nr-vs">VS</i><span class="x1-q">?</span></span><span class="x1-nr-tx"><b>${vivos ? 'Chame mais alguém' : 'Chame alguém'}</b><small>Treino, km ou minutos</small></span><span class="wl-cta">Desafiar</span></span></span></button>`
+    const subX1 = () => [
+        ...convites.map(x => { const { ele } = x1Lados(x); const tp = X1_TIPOS[x.tipo]; return `<button class="x1-sub" data-x1l="abrir" data-id="${x.id}">${x1Av(ele, 'm')}<span class="x1-nr-tx"><b>${escapeHTML(x1PrimeiroNome(ele.nome))} te desafiou</b><small>${tp.nome} · ${X1_DUR[x.duracao]} · ${x1Expira(x.expira)}</small></span><span class="x1-sub-ver">Ver</span></button>`; }),
+        ...ativos.map(card),
+        ...enviados.map(x => { const { ele } = x1Lados(x); return `<button class="x1-sub" data-x1l="abrir" data-id="${x.id}">${x1Av(ele, 'm')}<span class="x1-nr-tx"><b>vs ${escapeHTML(x1PrimeiroNome(ele.nome))}</b><small>Esperando aceitar · ${x1Expira(x.expira)}</small></span><i class="wl-ch">›</i></button>`; }),
+    ].join('');
+    const novoHTML = hub ? `<div class="x1-novo-row wl"><span class="wl-ban fina x1"></span><span class="wl-bod"><button type="button" class="wl-lin x1-nr-bt0" data-act="x1-escolher"><span class="x1-nr-duo">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-nr-vs">VS</i><span class="x1-q">?</span></span><span class="x1-nr-tx"><b>${vivos ? 'Chame outro' : 'Chame alguém'}</b><small>Treino, km ou minutos</small></span><span class="wl-cta">Desafiar</span></button>${vivos ? `<span class="x1-subs">${subX1()}</span>` : ''}</span></div>`
         : vivos ? `<button class="x1-novo-linha" data-act="x1-escolher"><span class="x1-vsq mini">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-vs-selo">VS</i><span class="x1-q">?</span></span><b>Desafiar mais alguém</b><span>›</span></button>`
         : `<div class="x1-novo-card" id="x1NovoCard"><div class="x1-vsq">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url }, 'g')}<i class="x1-vs-selo">VS</i><button type="button" class="x1-q" data-act="x1-escolher" aria-label="Escolher adversário">?</button></div>
             <b>Chame alguém pro X1</b><p>Um contra um. Vale treino, km, minutos ou o dia perfeito.</p>
             <button class="btn x1-btn min" data-act="x1-escolher">Desafiar alguém</button></div>`;
     const vivoEl = document.getElementById('x1Vivo'); if (vivoEl) vivoEl.innerHTML = ativos.length ? `<i></i>${ativos.length} AO VIVO` : '';
     const slotNovo = document.getElementById('x1NovoSlot');
-    if (hub && slotNovo) slotNovo.innerHTML = `<div class="x1-lista hub">${novoHTML}</div>`;
+    if (hub && slotNovo) { slotNovo.innerHTML = `<div class="x1-lista hub">${novoHTML}</div>`; slot.innerHTML = ''; return; }
     slot.innerHTML = `<div class="x1-lista${hub ? ' hub' : ''}">
         ${hub ? (ativos.length >= 2 ? `<div class="x1-cab"><span class="x1-cont">${ativos.length} de 5 X1 ativos</span></div>` : '') : `<div class="x1-cab"><h2>Seus X1</h2>${ativos.length >= 2 ? `<span class="x1-cont">${ativos.length} de 5 ativos</span>` : ''}</div>`}
         ${convites.map(x => { const { ele } = x1Lados(x); const tp = X1_TIPOS[x.tipo]; return `<button class="x1-card x1-convite" data-x1l="abrir" data-id="${x.id}">
@@ -23134,7 +23166,7 @@ function abrirConviteX1(x) {
             ${dt.aceite ? `<div class="x1-rgl"><span>Aceite até</span><b>${x1DiaTxt(dt.aceite)} · ${hora(dt.aceite)}</b></div>` : ''}` : ''}
             ${x.prenda ? `<div class="x1-rgl"><span>Valendo</span><b>${escapeHTML(x.prenda)}</b></div>` : ''}
         </div>
-        <button type="button" class="x1-sw" data-x1c="mostrar"><span><b>Mostrar o resultado pros seguidores</b><small>Só aparece se os dois deixarem</small></span><i class="x1-tg on" id="x1CvTg"></i></button>
+        <button type="button" class="x1-sw x1-chk" data-x1c="mostrar"><span><b>Mostrar o resultado pros seguidores</b><small>Só aparece se os dois deixarem</small></span><i class="x1-tg on" id="x1CvTg"></i></button>
         <div class="x1-duas"><button class="btn x1-btn ghost" data-x1c="recusar">Recusar</button><button class="btn x1-btn min" data-x1c="aceitar">Aceitar o desafio</button></div>`, 'x1Convite');
     // antes de aceitar, mostra as regras com as datas reais
     const datasRegra = dt || (() => { const ini = x1SomaDias(new Date(), cedo ? 0 : 1); const n = Number(x.duracao) || 7; return { ini, ult: x1SomaDias(ini, n - 1) }; })();
