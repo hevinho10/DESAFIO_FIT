@@ -4,8 +4,8 @@
 // o "Instalar aplicativo" do Chrome no Android e no computador.
 // ============================================================
 
-const CACHE = 'pulso-v79';
-const V = '20261280'; // mesma versão do ?v= do index.html
+const CACHE = 'pulso-v80';
+const V = '20261281'; // mesma versão do ?v= do index.html
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
 const ESTATICOS = [
   './',

@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261280';
+const APP_VERSAO = '20261281';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1082,8 +1082,8 @@ async function hydrateLigaCard() {
     const nv = LIGA_NIVEIS[d.nivel] || LIGA_NIVEIS[1], sit = ligaSituacao(d);
     const zerada = !(d.membros || []).some(x => Number(x.pts) > 0);
     const dias = Math.max(1, Math.ceil((new Date(d.fim) - Date.now()) / 86400000));
-    slot.innerHTML = `<button type="button" class="liga-card" data-act="liga-abrir" style="--c:${nv.c}">
-        <span class="liga-med" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span>
+    slot.innerHTML = `<button type="button" class="liga-card org" data-act="liga-abrir" style="--c:${nv.c}">
+        ${hexHTML({ cor: ['', 'bronze', 'prata', 'ouro', 'diam'][d.nivel] || 'bronze', ic: 'trofeu', num: '', un: '' })}
         <div><b>${ligaNome(d)}</b><small>${zerada ? 'A semana começou · ' : `${sit.pos}º de ${sit.n} · `}${dias === 1 ? 'último dia' : `faltam ${dias} dias`}</small></div><i>›</i></button>`;
 }
 async function abrirLiga() {
@@ -1277,7 +1277,7 @@ async function renderAdmin() {
             </div>
 
             <div class="evo-abas adm-abas">
-                ${[['geral', 'Visão geral'], ['funil', 'Onde desistem'], ['cadastros', 'Cadastros'], ['usuarios', 'Usuários'], ['erros', 'Erros'], ['ferramentas', 'Ferramentas']].map(([k, n]) =>
+                ${[['geral', 'Visão geral'], ['funil', 'Onde desistem'], ['cadastros', 'Cadastros'], ['usuarios', 'Usuários'], ['erros', 'Erros'], ['convites', 'Convites'], ['ferramentas', 'Ferramentas']].map(([k, n]) =>
                     `<button class="evo-aba${(state.abaAdmin || 'geral') === k ? ' on' : ''}" data-act="adm-aba" data-aba="${k}">${n}</button>`).join('')}
             </div>
 
@@ -1325,6 +1325,10 @@ async function renderAdmin() {
             <div id="cadastrosBox"><div class="spinner"></div></div>
             </div>
 
+            <div class="adm-painel${state.abaAdmin === 'convites' ? '' : ' hidden'}" data-painel="convites">
+            <div id="admConvites"><div class="spinner"></div></div>
+            </div>
+
             <div class="adm-painel${state.abaAdmin === 'ferramentas' ? '' : ' hidden'}" data-painel="ferramentas">
             <h3 class="edit-section-title">Capacidade</h3>
             <div class="chart-card" id="admCapacidade"><div class="spinner"></div></div>
@@ -1366,6 +1370,7 @@ async function renderAdmin() {
     hydrateAdminErros();
     hydrateAdminCapacidade();
     hydrateAdminFunil();
+    if (state.abaAdmin === 'convites') hydrateAdminConvites();
     hydrateSaudeDesafios();
     hydrateNovosCadastros().then(() => {
         const n = document.querySelectorAll('#cadastrosBox [data-status="aprovado"]').length - document.querySelectorAll('#cadastrosBox details [data-status="aprovado"]').length;
@@ -3411,7 +3416,7 @@ async function checarConvite() {
     if (!quem) return;
     if (quem.toLowerCase() === (state.profile.username || '').toLowerCase()) return;
     // Conta nova que chegou por link: registra quem convidou (vale ponto no 1º treino)
-    sb.rpc('registrar_convite', { convidante: quem }).then(() => {});
+    try { await sb.rpc('registrar_convite', { convidante: quem }); } catch (_) {}
     if (tipo === 'perfil') {
         const { data: alvo } = await sb.from('profiles').select('id').ilike('username', quem).maybeSingle();
         if (alvo) switchView('user-profile', { uid: alvo.id });
@@ -4984,6 +4989,9 @@ async function renderNotifications() {
         } else if (n.kind === 'follow_aceito') {
             emo = '✅'; texto = `<b>${quem}</b> aceitou seu pedido pra seguir`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
+        } else if (n.kind === 'convite_bonus') {
+            emo = '🎁'; texto = `Você ganhou <b>10 pontos</b> por entrar pelo convite de <b>${quem}</b>`;
+            act = ` data-act="view-user" data-uid="${n.actor_id}"`;
         } else if (n.kind === 'convite_premiado') {
             emo = '🎁'; texto = `<b>${quem}</b> registrou o primeiro treino. Você ganhou 10 pontos pelo convite`;
             act = ` data-act="view-user" data-uid="${n.actor_id}"`;
@@ -6104,14 +6112,15 @@ async function responderTodosPedidos(ids, aceitar) {
 }
 // "Pessoas que você talvez conheça" (amigos dos seus amigos e quem está nos mesmos desafios)
 const sugDispensadas = () => { try { return new Set(JSON.parse(lsGet('pulso-sug-fora') || '[]')); } catch (_) { return new Set(); } };
-async function pintarSugestoes(box, titulo = 'Pessoas que você talvez conheça') {
+async function pintarSugestoes(box, titulo = 'Pessoas que você talvez conheça', comConvite = false) {
     if (!box) return;
     const { data, error } = await sb.rpc('sugestoes_seguir');
-    if (error || !box.isConnected) return;
+    if ((error && !comConvite) || !box.isConnected) return;
     const fora = sugDispensadas();
     const lista = (data || []).filter(u => !fora.has(u.id)).slice(0, 10);
-    if (!lista.length) { box.innerHTML = ''; return; }
-    box.innerHTML = `<div class="sug-box"><div class="mus-sec"><span>${titulo}</span></div><div class="sug-trilho">${lista.map(u => `<div class="sug-card" data-sug="${u.id}">
+    if (!lista.length && !comConvite) { box.innerHTML = ''; return; }
+    const cartaoConvite = comConvite ? `<div class="sug-card sug-convite"><span class="sug-cv-ic">${svgIc('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>', 26)}</span><b>Convidar amigos</b><small>+10 pts pra cada um</small><button type="button" class="bt-min" data-cvt="sugestoes">Convidar</button></div>` : '';
+    box.innerHTML = `<div class="sug-box"><div class="mus-sec"><span>${titulo}</span></div><div class="sug-trilho">${cartaoConvite}${lista.map(u => `<div class="sug-card" data-sug="${u.id}">
         <button type="button" class="sgc-x" data-sug-x="${u.id}" aria-label="Dispensar">${SVG_C('<path d="M6 6l12 12M18 6 6 18"/>')}</button>
         <span data-act="view-user" data-uid="${u.id}">${avatarHTML(u, 'md')}</span>
         <b data-act="view-user" data-uid="${u.id}">${escapeHTML(u.display_name || u.username || '')}</b><small>${escapeHTML(u.motivo || '')}</small>
@@ -7456,7 +7465,8 @@ async function renderFeed() {
     setTimeout(hydrateAoVivo, 500);
     setTimeout(hydrateSemanaFeed, 700);
     setTimeout(hydrateProntidaoFeed, 400);
-    html += `<div id="resumoSlot"></div>`;
+    html += `<div id="conviteSlot"></div><div id="resumoSlot"></div>`;
+    setTimeout(hydrateConviteFeed, 1500);
     html += `<div id="desafioSlot"></div>`;
 
     // Sugestões de seguir: enquanto a pessoa segue menos de 10, a faixa fica sempre no topo.
@@ -10671,7 +10681,7 @@ async function renderChallengeDetail(cid) {
                 <div class="ch-topo">
                     <span class="ch-status ${ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim'}">${ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado'}</span>
                     <div class="ch-ics">
-                        <button class="ch-ic" data-act="ver-regras-desafio" aria-label="Regras"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg></button>
+                        <button class="x1-regras-bt" data-act="ver-regras-desafio">Regras</button>
                         ${ch.im_member ? `<button class="ch-ic" data-act="leave-challenge" data-id="${cid}" aria-label="Sair do desafio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 8l-4 4 4 4M6 12h9"/></svg></button>` : ''}
                     </div>
                 </div>
@@ -10928,6 +10938,7 @@ async function renderMenu() {
 
             <div class="cfg-grupo">
                 <div class="cfg-titulo">Sua atividade</div>
+                <button class="cfg-row" data-cvt="menu">${icon('perfil')}<span class="cfg-txt">Convidar amigos</span><span class="cfg-val cv-val">+10 pts</span></button>
                 ${linhaMenu('m-go', 'historico', 'Histórico', '', ' data-view="activity-log"')}
                 ${linhaMenu('m-go', 'salvo', 'Salvos', state.salvos.size ? String(state.salvos.size) : '', ' data-view="saved"')}
                 ${linhaMenu('m-go', 'salvo', 'Arquivados', '', ' data-view="arquivados"')}
@@ -12822,8 +12833,185 @@ function rgBlocosPontos(onde = 'geral') {
         rgBloco('Metas', rgLinha('Treinar nos dias da sua meta da semana', '+10', `Sua meta: ${metaSem} ${metaSem === 1 ? 'dia' : 'dias'} por semana`) +
             rgLinha('Cada 1% de peso perdido', '+25', 'No ritmo seguro: até 1% por semana')),
         rgBloco(ofTit, ofensiva, onde === 'x1' ? 'A ofensiva normal do app não conta aqui.' : 'Escudo: se faltar 1 dia, uma vez por semana, a ofensiva não zera.'),
+        rgBloco('Convite', rgLinha('Amigo entra pelo seu convite e faz o 1º treino', '+10', 'Ele também ganha 10. No máximo 10 convites com pontos por mês.'),
+            onde === 'grupo' ? 'Conta no desafio se o 1º treino dele for dentro do período.' : onde === 'x1' ? 'Conta no X1 se o 1º treino dele for durante o X1.' : ''),
     ];
 }
+// ---- Capa do desafio: símbolo + cor, ou foto no quadradinho ----
+const DES_ICS = {
+    pessoas: IC_CONQ.pessoas, halter: IC_CONQ.halter, corrida: IC_CONQ.corrida, fogo: IC_CONQ.fogo,
+    coracao: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>', trofeu: IC_CONQ.trofeu,
+    raio: IC_CONQ.raio, montanha: '<path d="M3 20l6-10 4 6 3-4 5 8z"/>', bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8l3 8"/>',
+    gota: IC_CONQ.gota, estrela: IC_CONQ.estrela, maca: '<path d="M12 7c-2-2-7-1.5-7 4 0 4 3 9 5 9 1 0 1.5-.5 2-.5s1 .5 2 .5c2 0 5-5 5-9 0-5.5-5-6-7-4zM12 7c0-2 1-3.5 3-4"/>',
+};
+const DES_CORES = ['#F97316', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EAB308'];
+const capaCor = ch => (ch && ch.capa_cor && DES_CORES.includes(ch.capa_cor)) ? ch.capa_cor : DES_CORES[Math.abs([...String((ch && ch.id) || 'x')].reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7)) % DES_CORES.length];
+const svgIc = (d, w = 24) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+function capaQuadroHTML(ch, cls = '') {
+    const cor = capaCor(ch);
+    if (ch && ch.capa_url) return `<span class="cp-q foto ${cls}" style="--cc:${cor}"><img src="${escapeHTML(ch.capa_url)}" alt="" onerror="this.remove()"></span>`;
+    if (ch && ch.capa_ic && DES_ICS[ch.capa_ic]) return `<span class="cp-q ${cls}" style="--cc:${cor}">${svgIc(DES_ICS[ch.capa_ic])}</span>`;
+    const sig = String((ch && ch.name) || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+    return `<span class="cp-q sigla ${cls}" style="--cc:${cor}">${escapeHTML(sig)}</span>`;
+}
+// escolhedor (usado ao criar e ao editar). est = { ic, cor, url, arquivo }
+function capaPickerHTML(est, nome = '') {
+    return `<div class="cp-pick">
+        <div class="cp-prev">${capaQuadroHTML({ name: nome || 'Desafio', capa_ic: est.ic, capa_cor: est.cor, capa_url: est.prev || est.url }, 'g')}<small>${est.prev || est.url ? 'Foto escolhida' : est.ic ? 'Símbolo escolhido' : 'Sem capa: fica a sigla do nome'}</small></div>
+        <div class="cp-seg"><button type="button" data-cp-aba="sim" class="${est.aba !== 'foto' ? 'on' : ''}">Símbolo</button><button type="button" data-cp-aba="foto" class="${est.aba === 'foto' ? 'on' : ''}">Foto</button></div>
+        ${est.aba === 'foto' ? `<label class="cp-foto"><input type="file" accept="image/*" data-cp-arq hidden>${svgIc('<rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="12" cy="12" r="3.5"/>', 20)}<span>${est.prev || est.url ? 'Trocar foto' : 'Escolher da galeria'}</span></label>
+            ${est.prev || est.url ? '<button type="button" class="link-btn cp-tirar" data-cp-tirar>Tirar a foto</button>' : ''}`
+        : `<div class="cp-ics">${Object.entries(DES_ICS).map(([k, d]) => `<button type="button" class="${est.ic === k ? 'on' : ''}" data-cp-ic="${k}" aria-label="${k}">${svgIc(d, 22)}</button>`).join('')}</div>`}
+        <div class="cp-cores">${DES_CORES.map(c => `<button type="button" class="${(est.cor || '') === c ? 'on' : ''}" data-cp-cor="${c}" style="background:${c}" aria-label="cor"></button>`).join('')}</div>
+    </div>`;
+}
+function ligarCapaPicker(box, est, nomeFn = () => '') {
+    const pintar = () => { box.innerHTML = capaPickerHTML(est, nomeFn()); };
+    pintar();
+    box.addEventListener('click', e => {
+        const a = e.target.closest('[data-cp-aba]'); if (a) { est.aba = a.dataset.cpAba; pintar(); return; }
+        const i = e.target.closest('[data-cp-ic]'); if (i) { est.ic = est.ic === i.dataset.cpIc ? null : i.dataset.cpIc; est.prev = null; est.url = null; est.arquivo = null; pintar(); vibrar(5); return; }
+        const c = e.target.closest('[data-cp-cor]'); if (c) { est.cor = c.dataset.cpCor; pintar(); vibrar(5); return; }
+        if (e.target.closest('[data-cp-tirar]')) { est.prev = null; est.url = null; est.arquivo = null; pintar(); }
+    });
+    box.addEventListener('change', e => {
+        const f = e.target.closest('[data-cp-arq]'); if (!f || !f.files[0]) return;
+        est.arquivo = f.files[0]; est.ic = null;
+        try { est.prev = URL.createObjectURL(est.arquivo); } catch (_) {}
+        pintar();
+    });
+    return pintar;
+}
+// grava a capa (sobe a foto se tiver)
+async function salvarCapa(cid, est) {
+    let url = est.url || null;
+    if (est.arquivo) url = await uploadImage('post-images', est.arquivo, { maxSide: 600, quality: 0.82 });
+    const { error } = await sb.rpc('desafio_capa', { cid, p_ic: url ? null : (est.ic || null), p_cor: est.cor || null, p_url: url });
+    if (error) throw error;
+    return url;
+}
+async function abrirEditarCapa(ch) {
+    const est = { ic: ch.capa_ic || null, cor: ch.capa_cor || null, url: ch.capa_url || null, aba: ch.capa_url ? 'foto' : 'sim' };
+    const { f, fechar } = x1Folha(`<b class="cp-tit">Capa do desafio</b><p class="cp-sub">É assim que ele aparece pra todo mundo.</p><div id="cpBox"></div>
+        <button class="btn x1-btn min" id="cpSalvar" style="margin-top:16px">Salvar capa</button>`, 'capaFolha');
+    ligarCapaPicker(f.querySelector('#cpBox'), est, () => ch.name);
+    f.querySelector('#cpSalvar').onclick = async ev => {
+        const b = ev.currentTarget; b.disabled = true; b.textContent = 'Salvando...';
+        try { await salvarCapa(ch.id, est); toast('Capa atualizada', 'ok'); fechar(); renderGerenciarDesafio(ch.id); }
+        catch (err) { toast(msgErro(err), 'err'); b.disabled = false; b.textContent = 'Salvar capa'; }
+    };
+}
+
+// ---- Convite: amigo entra pelo seu link e, no 1º treino dele, os dois ganham 10 pontos ----
+const codigoConvite = () => String((state.profile && state.profile.username) || '').toUpperCase();
+const linkConvite = () => `${location.origin}${location.pathname}?seguir=${encodeURIComponent((state.profile && state.profile.username) || '')}`;
+const textoConvite = () => `Bora treinar comigo no Pulso? 💪 Entra pelo meu convite (${codigoConvite()}) e a gente ganha pontos juntos:\n${linkConvite()}`;
+async function imagemConvite(p) {
+    const W = 1080, H = 1920, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d');
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    g.fillStyle = 'rgba(255,255,255,.07)'; for (let y = 10; y < H; y += 26) for (let x = 10; x < W; x += 26) { g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fill(); }
+    const rg = g.createRadialGradient(W / 2, 640, 0, W / 2, 640, 760); rg.addColorStop(0, 'rgba(16,185,129,.34)'); rg.addColorStop(1, 'rgba(16,185,129,0)'); g.fillStyle = rg; g.fillRect(0, 0, W, H);
+    g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.fillStyle = '#10B981'; g.font = '700 40px "Plus Jakarta Sans", sans-serif'; g.fillText('C O N V I T E', W / 2, 400);
+    const ax = W / 2, ay = 620, ar = 170;
+    g.strokeStyle = '#10B981'; g.lineWidth = 12; g.beginPath(); g.arc(ax, ay, ar + 8, 0, Math.PI * 2); g.stroke();
+    let foto = null;
+    if (p.avatar_url) foto = await new Promise(ok => { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => ok(im); im.onerror = () => ok(null); im.src = p.avatar_url; });
+    g.save(); g.beginPath(); g.arc(ax, ay, ar, 0, Math.PI * 2); g.clip();
+    if (foto) { const s = Math.max((ar * 2) / foto.width, (ar * 2) / foto.height); g.drawImage(foto, ax - foto.width * s / 2, ay - foto.height * s / 2, foto.width * s, foto.height * s); }
+    else { g.fillStyle = colorFor(String(p.id || p.username || 'x')); g.fillRect(ax - ar, ay - ar, ar * 2, ar * 2); g.fillStyle = '#fff'; g.font = '800 110px "Plus Jakarta Sans", sans-serif'; g.textBaseline = 'middle'; g.fillText(initials(p.display_name || p.username || '?'), ax, ay + 4); g.textBaseline = 'alphabetic'; }
+    g.restore();
+    g.fillStyle = '#fff'; g.font = '800 118px "Plus Jakarta Sans", sans-serif'; g.fillText('Bora treinar', W / 2, 1000);
+    const gr = g.createLinearGradient(W / 2 - 280, 0, W / 2 + 280, 0); gr.addColorStop(0, '#A8FF78'); gr.addColorStop(.5, '#10B981'); gr.addColorStop(1, '#38BDF8');
+    g.fillStyle = gr; g.fillText('comigo?', W / 2, 1130);
+    g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '500 44px "Plus Jakarta Sans", sans-serif';
+    g.fillText('Tô no Pulso. Entra pelo meu convite', W / 2, 1250); g.fillText('e a gente ganha pontos juntos 💪', W / 2, 1312);
+    const cod = codigoConvite(), bw = Math.max(420, cod.length * 52 + 140), bx = (W - bw) / 2, by = 1400;
+    g.setLineDash([14, 12]); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 3; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, 170, 36) : g.rect(bx, by, bw, 170); g.stroke(); g.setLineDash([]);
+    g.fillStyle = 'rgba(255,255,255,.55)'; g.font = '600 30px "Plus Jakarta Sans", sans-serif'; g.fillText('C Ó D I G O', W / 2, by + 58);
+    g.fillStyle = '#fff'; g.font = '800 64px "Plus Jakarta Sans", sans-serif'; g.fillText(cod.split('').join(' '), W / 2, by + 135);
+    g.font = '800 46px "Plus Jakarta Sans", sans-serif'; g.fillStyle = '#fff';
+    const mw = g.measureText('Pulso').width; g.fillText('Pulso', W / 2 - 8, 1800); g.fillStyle = '#10B981'; g.fillText('.', W / 2 + mw / 2 - 2, 1800);
+    return new Promise(ok => cv.toBlob(ok, 'image/png'));
+}
+async function hydrateAdminConvites() {
+    const box = document.getElementById('admConvites'); if (!box) return;
+    const { data: d, error } = await sb.rpc('admin_convites');
+    if (!document.getElementById('admConvites')) return;
+    if (error || !d) { box.innerHTML = '<p class="faixa-nota">Rode o secao38 no Supabase pra ver os convites.</p>'; return; }
+    const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '-';
+    box.innerHTML = `<div class="chart-card"><div class="adm-cv-num"><div><b>${d.convidados}</b><small>entraram por convite</small></div><div><b>${d.treinaram}</b><small>fizeram o 1º treino (${pct(d.treinaram, d.convidados)})</small></div><div><b>${d.ativos7}</b><small>ainda ativos depois de 7 dias</small></div></div></div>
+        <h3 class="edit-section-title" style="margin-top:22px">Quem mais trouxe gente</h3>
+        <div class="chart-card">${(d.top || []).length ? d.top.map((u, i) => `<div class="adm-cv-l"><span class="adm-cv-p">${i + 1}º</span>${avatarHTML({ id: u.id, display_name: u.nome, avatar_url: u.avatar }, 'sm')}<span class="adm-cv-n">${escapeHTML(u.nome || '')}</span><span class="adm-cv-v"><b>${u.treinaram}</b> de ${u.convidados}</span></div>`).join('') : '<p class="faixa-nota">Ninguém entrou por convite ainda.</p>'}</div>`;
+}
+async function abrirConvite(origem = 'perfil') {
+    evento('convite_abriu', { origem });
+    const { f, fechar } = x1Folha(`<div class="cv-folha">
+        <b class="cv-tit">Convide amigos</b>
+        <p class="cv-sub">Quando seu amigo entrar e fizer o primeiro treino, <b>vocês dois ganham 10 pontos</b>.</p>
+        <div class="cv-cod"><small>SEU CONVITE</small><b>${escapeHTML(codigoConvite())}</b></div>
+        <button type="button" class="cv-op" data-cv="zap"><span class="pz-ic">${svgIc('<path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/>', 20)}</span><span><b>Mandar no WhatsApp</b><small>Mensagem pronta com seu link</small></span></button>
+        <button type="button" class="cv-op" data-cv="story"><span class="pz-ic">${svgIc('<rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.6"/>', 20)}</span><span><b>Postar no story</b><small>Instagram ou WhatsApp, pra quem quiser</small></span></button>
+        <button type="button" class="cv-op" data-cv="copiar"><span class="pz-ic">${svgIc('<rect x="8" y="8" width="12" height="12" rx="3"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>', 20)}</span><span><b>Copiar link</b><small>Pra mandar onde quiser</small></span></button>
+        <div class="cv-res" id="cvRes"></div>
+    </div>`, 'conviteFolha');
+    sb.rpc('convite_resumo').then(({ data }) => {
+        const el = f.querySelector('#cvRes'); if (!el || !data) return;
+        const n = Number(data.premiados || 0);
+        el.innerHTML = n ? `<span><i></i>${n} ${n === 1 ? 'amigo treinou' : 'amigos treinaram'}</span><b>+${n * 10} pts</b>` : (Number(data.convidados || 0) ? `<span><i></i>${data.convidados} ${data.convidados === 1 ? 'amigo entrou' : 'amigos entraram'}, falta o 1º treino</span>` : '');
+    }, () => {});
+    const copiar = async () => { try { await navigator.clipboard.writeText(linkConvite()); return true; } catch (_) { return false; } };
+    f.addEventListener('click', async e => {
+        const b = e.target.closest('[data-cv]'); if (!b) return;
+        evento('convite_' + b.dataset.cv, {});
+        if (b.dataset.cv === 'zap') { window.open('https://wa.me/?text=' + encodeURIComponent(textoConvite()), '_blank'); return; }
+        if (b.dataset.cv === 'copiar') { toast(await copiar() ? 'Link copiado' : linkConvite(), 'ok'); return; }
+        if (b.dataset.cv === 'story') {
+            b.disabled = true;
+            const ok = await copiar();
+            const file = new File([await imagemConvite(state.profile || {})], `convite-${(state.profile || {}).username || 'pulso'}.png`, { type: 'image/png' });
+            b.disabled = false;
+            if (ok) toast('Link copiado: no Instagram, cole na figurinha de link', 'ok');
+            compartilharImagem(file);
+        }
+    });
+}
+// aviso discreto no feed: só num momento bom, no máximo a cada 15 dias, e some pra sempre depois de 2 "agora não"
+async function hydrateConviteFeed() {
+    const slot = document.getElementById('conviteSlot'); if (!slot || !state.session) return;
+    const uid = state.session.user.id, agora = Date.now();
+    const naos = Number(lsGet('pulso-cv-naos-' + uid) || 0);
+    if (naos >= 2) return;
+    if (agora - Number(lsGet('pulso-cv-visto-' + uid) || 0) < 15 * 86400000) return;
+    if (agora - Number(lsGet('pulso-cv-nao-em-' + uid) || 0) < 30 * 86400000) return;
+    let momento = lsGet('pulso-cv-momento-' + uid) === hojeISO();
+    if (!momento) { try { const { data: st } = await sb.from('daily_streaks').select('current_streak').eq('user_id', uid).maybeSingle(); momento = [7, 14, 30].includes(Number((st && st.current_streak) || 0)); } catch (_) {} }
+    if (!momento) return;
+    try { const { data } = await sb.rpc('convite_resumo'); if (data && data.ultimo && agora - new Date(data.ultimo).getTime() < 30 * 86400000) return; } catch (_) { return; }
+    if (!document.getElementById('conviteSlot')) return;
+    lsSet('pulso-cv-visto-' + uid, String(agora));
+    slot.innerHTML = `<div class="cv-aviso"><div class="cv-av-l"><span class="pz-ic">${svgIc('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>', 20)}</span>
+        <span><b>Treinar com amigo rende mais</b><small>Convide alguém: quando ele fizer o 1º treino, vocês dois ganham 10 pts.</small></span></div>
+        <div class="cv-av-bts"><button type="button" class="bt-min" data-cvf="sim">Convidar</button><button type="button" class="link-btn" data-cvf="nao">Agora não</button></div></div>`;
+    slot.onclick = e => {
+        const b = e.target.closest('[data-cvf]'); if (!b) return;
+        if (b.dataset.cvf === 'nao') { lsSet('pulso-cv-naos-' + uid, String(naos + 1)); lsSet('pulso-cv-nao-em-' + uid, String(Date.now())); slot.innerHTML = ''; evento('convite_aviso_nao', {}); return; }
+        slot.innerHTML = ''; abrirConvite('feed');
+    };
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-cvt]')) { e.preventDefault(); abrirConvite(e.target.closest('[data-cvt]').dataset.cvt || 'perfil'); } });
+
+// botão pessoa+ do perfil: abre e fecha as sugestões (com o convite na frente)
+document.addEventListener('click', e => {
+    const b = e.target.closest('#pfSugBt'); if (!b) return;
+    const box = document.getElementById('pfSug'); if (!box) return;
+    const abrir = box.classList.contains('hidden');
+    box.classList.toggle('hidden', !abrir); b.classList.toggle('on', abrir);
+    if (abrir && !box.innerHTML.trim()) pintarSugestoes(box, 'Sugestões pra você', true);
+    vibrar(5);
+});
+
 function regrasDesafioHTML(ch) {
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
     return `<div class="chart-card ch-regras">
@@ -13090,7 +13278,7 @@ async function renderListaMeusDesafios(meus, x1s = null) {
     const extras = await Promise.all(meus.map(async ch => {
         const [{ data: r }, { data: cfg }] = await Promise.all([
             sb.rpc('challenge_ranking', { cid: ch.id }),
-            sb.from('challenges').select('team_mode, team_names').eq('id', ch.id).maybeSingle(),
+            sb.from('challenges').select('*').eq('id', ch.id).maybeSingle(),
         ]);
         let time = null;
         if (cfg && cfg.team_mode) {
@@ -13102,29 +13290,40 @@ async function renderListaMeusDesafios(meus, x1s = null) {
         const visto = Number(lsGet('pulso-pos-visto-' + ch.id) || 0);
         let ontem = 0;
         try { const { data: po } = await sb.rpc('challenge_posicoes_ontem', { cid: ch.id }); const m = (po || []).find(x => x.user_id === uid); ontem = m ? Number(m.pos_ontem) : 0; } catch (_) {}
-        return { ch, pos, total: (r || []).length, time, cfg: cfg || {}, mudou: pos && visto && pos !== visto, ontem };
+        return { ch, pos, total: (r || []).length, time, cfg: cfg || {}, mudou: pos && visto && pos !== visto, ontem, top: (r || []).slice(0, 3) };
     }));
     if (!document.getElementById('viewContainer')) return;
     const agora = Date.now();
-    c.innerHTML = `<div class="view painel-desafio">
-        ${x1s ? '' : '<h1 class="pd-nome pd-lista-titulo">Seus desafios</h1>'}
-        ${x1s ? '<div class="x1-sec x1-sec-cab pd-sec-grupo">ROLANDO AGORA</div><div id="x1Slot"></div>' : ''}
-        ${extras.map(({ ch, pos, total, time, cfg, mudou, ontem }) => {
-            const mov = pos && ontem && ontem !== pos ? (ontem > pos ? ` <span class="rk-seta up">▲${ontem - pos}</span>` : ` <span class="rk-seta dn">▼${pos - ontem}</span>`) : '';
-            const ini = new Date(ch.starts_at), fim = new Date(ch.ends_at);
-            const futuro = ch.status === 'futuro';
-            const dias = Math.max(0, Math.ceil(((futuro ? ini : fim) - agora) / 86400000));
-            const pct = futuro ? 0 : Math.max(0, Math.min(100, (agora - ini) / (fim - ini) * 100));
-            const quando = futuro ? (dias <= 1 ? 'começa amanhã' : `começa em ${dias} d`) : dias <= 0 ? 'último dia' : dias <= 3 ? `🏁 ${dias} ${dias === 1 ? 'dia' : 'dias'}` : `faltam ${dias} d`;
-            const linhaTime = time ? ` · <span class="pd-card-time"><i style="background:${corTime(time)}"></i>Time ${escapeHTML(nomeTime(cfg, time))}</span>` : (cfg.team_mode ? '' : ' · individual');
-            return `<button class="pd-card" data-act="pd-abrir" data-id="${ch.id}">
-                <div class="pd-card-topo"><b>${x1s ? '<span class="pd-tag">EM GRUPO</span>' : ''}${escapeHTML(ch.name)}</b><span class="${!futuro && dias <= 3 ? 'reta' : ''}">${quando}</span>${mudou ? '<i class="pd-card-dot"></i>' : ''}</div>
-                <div class="pd-card-sub">${futuro ? `${total} ${total === 1 ? 'participante' : 'participantes'}` : pos ? `Você em <b>${pos}º</b> de ${total}${mov}` : `${total} participantes`}${linhaTime}</div>
-                <div class="pd-tempo"><i style="width:${pct}%"></i></div>
-            </button>`;
-        }).join('')}
-        ${x1s ? '<div id="x1NovoSlot"></div>' : ''}
-        ${linksDesafiosHTML(!!x1s)}
+    const cartao = ({ ch, pos, total, time, cfg, mudou, ontem, top }) => {
+        const mov = pos && ontem && ontem !== pos ? (ontem > pos ? ` <span class="rk-seta up">▲${ontem - pos}</span>` : ` <span class="rk-seta dn">▼${pos - ontem}</span>`) : '';
+        const ini = new Date(ch.starts_at), fim = new Date(ch.ends_at);
+        const futuro = ch.status === 'futuro';
+        const dias = Math.max(0, Math.ceil(((futuro ? ini : fim) - agora) / 86400000));
+        const pct = futuro ? 0 : Math.max(0, Math.min(100, (agora - ini) / (fim - ini) * 100));
+        const quando = futuro ? (dias <= 1 ? 'começa amanhã' : `começa em ${dias} d`) : dias <= 0 ? 'último dia' : `${dias} ${dias === 1 ? 'dia' : 'dias'}`;
+        const linhaTime = time ? ` · <span class="pd-card-time"><i style="background:${corTime(time)}"></i>Time ${escapeHTML(nomeTime(cfg, time))}</span>` : (cfg.team_mode ? '' : ' · individual');
+        const capa = { ...cfg, id: ch.id, name: ch.name };
+        const avs = top.map((u, i) => `<span class="cp-av" style="z-index:${5 - i}">${avatarHTML({ id: u.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}</span>`).join('') + (total > top.length ? `<span class="cp-av mais">+${total - top.length}</span>` : '');
+        return `<button class="pd-card cp-card" data-act="pd-abrir" data-id="${ch.id}" style="--cc:${capaCor(capa)}">
+            <span class="cp-faixa"><span class="cp-dias${!futuro && dias <= 3 ? ' reta' : ''}">${quando}</span>${mudou ? '<i class="pd-card-dot"></i>' : ''}</span>
+            <span class="cp-corpo">
+                <span class="cp-lin">${capaQuadroHTML(capa)}<span class="cp-avs">${avs}</span></span>
+                <b class="cp-nome">${escapeHTML(ch.name)}</b>
+                <span class="pd-card-sub">${futuro ? `${total} ${total === 1 ? 'participante' : 'participantes'}` : pos ? `Você em <b>${pos}º de ${total}</b>${mov}` : `${total} participantes`}${linhaTime}</span>
+                <span class="pd-tempo"><i style="width:${pct}%"></i></span>
+            </span>
+        </button>`;
+    };
+    c.innerHTML = x1s ? `<div class="view painel-desafio hub-org">
+        ${extras.length ? `<div class="x1-sec x1-sec-cab pd-sec-grupo">DESAFIOS EM GRUPO</div>${extras.map(cartao).join('')}` : ''}
+        <div class="x1-sec x1-sec-cab">X1</div>
+        <div id="x1Slot"></div><div id="x1NovoSlot"></div>
+        <div class="x1-sec x1-sec-cab">MAIS</div>
+        ${linksDesafiosHTML(true)}
+    </div>` : `<div class="view painel-desafio">
+        <h1 class="pd-nome pd-lista-titulo">Seus desafios</h1>
+        ${extras.map(cartao).join('')}
+        ${linksDesafiosHTML(false)}
     </div>`;
     if (x1s) hydrateX1Lista(x1s, true);
     hydrateLinksDesafios();
@@ -13168,7 +13367,7 @@ async function renderGerenciarDesafio(cid) {
     const c = $('#viewContainer');
     c.innerHTML = '<div class="view"><div class="spinner"></div></div>';
     const [{ data: ch }, { data: r }, { data: tm }] = await Promise.all([
-        sb.from('challenges').select('id, name, description, rules, starts_at, ends_at, created_by, team_mode, team_count, team_names, group_goal_type, group_goal_value').eq('id', cid).maybeSingle(),
+        sb.from('challenges').select('*').eq('id', cid).maybeSingle(),
         sb.rpc('challenge_ranking', { cid }),
         sb.rpc('challenge_teams', { cid }),
     ]);
@@ -13191,6 +13390,8 @@ async function renderGerenciarDesafio(cid) {
             <div class="cfg-titulo">Desafio</div>
             ${terminou ? '' : linhaConfig('ger-editar', 'editar', 'Editar desafio')}
             ${!terminou && !ch.team_mode ? linhaConfig('ger-montar-times', 'times', 'Montar times') : ''}
+            <button class="cfg-row" data-gx="capa">${capaQuadroHTML(ch, 'p')}<span class="cfg-txt">Capa do desafio<small class="cfg-sub-linha">Símbolo, cor ou foto</small></span><svg class="cfg-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+            ${terminou ? '' : `<button class="cfg-row" data-gx="aberto" role="switch" aria-checked="${ch.is_open !== false}"><span class="cfg-txt">Aberto pra qualquer pessoa<small class="cfg-sub-linha">${ch.is_open !== false ? 'Qualquer pessoa entra na hora' : 'Fechado: só entra com a sua aprovação'}</small></span><span class="cfg-switch${ch.is_open !== false ? ' on' : ''}"><i></i></span></button>`}
             ${linhaConfig('ger-passar', 'perfil', 'Passar a organização')}
             ${terminou ? '' : linhaConfig('ger-encerrar', 'relogio', 'Encerrar agora')}
         </div>
@@ -13210,6 +13411,20 @@ async function renderGerenciarDesafio(cid) {
     </div>`;
 }
 
+document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-gx]'); if (!b || !state.gerDesafio) return;
+    const ch = state.gerDesafio;
+    if (b.dataset.gx === 'capa') { abrirEditarCapa(ch); return; }
+    if (b.dataset.gx === 'aberto') {
+        const novo = ch.is_open === false;
+        b.disabled = true;
+        const { error } = await sb.rpc('desafio_aberto', { cid: ch.id, aberto: novo });
+        b.disabled = false;
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast(novo ? 'Agora qualquer pessoa pode entrar' : 'Agora só entra com a sua aprovação', 'ok');
+        renderGerenciarDesafio(ch.id);
+    }
+});
 function menuGerParticipante(btn) {
     hidePostMenu();
     const ch = state.gerDesafio, alvo = btn.dataset.uid;
@@ -13924,6 +14139,9 @@ function openNewChallengeSheet() {
             <input type="text" id="ncName" class="nd-nome" maxlength="60" placeholder="Nome do desafio">
             <textarea id="ncDesc" class="nd-desc" maxlength="200" rows="1" placeholder="Descrição (opcional)"></textarea>
 
+            <div class="nd-rot">Capa</div>
+            <div id="ncCapa"></div>
+
             <div class="nd-rot">Formato</div>
             <div class="nd-cartoes">
                 <button type="button" class="on" data-formato="individual" style="--c:53,225,155"><span class="atv-ic">${ic('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>')}</span><b>Individual</b><small>Cada um por si</small></button>
@@ -13945,8 +14163,8 @@ function openNewChallengeSheet() {
 
             <div class="nd-rot">Quem pode entrar</div>
             <div class="nd-cartoes">
-                <button type="button" class="on" data-aberto="1" style="--c:53,225,155"><span class="atv-ic">${ic('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>')}</span><b>Público</b><small>Entra na hora</small></button>
-                <button type="button" data-aberto="0" style="--c:241,244,241"><span class="atv-ic">${ic('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>')}</span><b>Privado</b><small>Convite ou aprovação</small></button>
+                <button type="button" class="on" data-aberto="1" style="--c:53,225,155"><span class="atv-ic">${ic('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>')}</span><b>Aberto</b><small>Qualquer pessoa entra</small></button>
+                <button type="button" data-aberto="0" style="--c:241,244,241"><span class="atv-ic">${ic('<rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/>')}</span><b>Fechado</b><small>Só com a sua aprovação</small></button>
             </div>
 
             <div class="nd-rot">Extras</div>
@@ -13997,6 +14215,8 @@ function openNewChallengeSheet() {
         const box = sheet.querySelector(b.dataset.extra === 'meta' ? '#ncMetaBox' : '#ncRegrasBox');
         box.classList.toggle('hidden'); b.classList.toggle('aberto', !box.classList.contains('hidden'));
     }));
+    const capaEst = { aba: 'sim', ic: null, cor: null, url: null };
+    ligarCapaPicker(sheet.querySelector('#ncCapa'), capaEst, () => (document.getElementById('ncName') || {}).value || '');
     const desc = $('#ncDesc');
     desc.addEventListener('input', () => { desc.style.height = 'auto'; desc.style.height = Math.min(120, desc.scrollHeight) + 'px'; });
 
@@ -14026,6 +14246,7 @@ function openNewChallengeSheet() {
         btn.disabled = false; btn.textContent = 'Criar desafio';
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
         await sb.from('challenge_members').insert({ challenge_id: data.id, user_id: state.session.user.id });
+        if (capaEst.ic || capaEst.cor || capaEst.arquivo) { try { await salvarCapa(data.id, capaEst); } catch (_) { toast('O desafio foi criado, mas a capa não salvou. Dá pra trocar em Gerenciar.', 'err'); } }
         close();
         vibrar([10, 40, 14]);
         toast('Desafio criado!', 'ok');
@@ -14203,7 +14424,7 @@ async function renderProfile() {
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
             <div class="ig-profile-actions">
-                <button class="btn-secondary flex-1" data-act="go-edit-profile">Editar perfil</button>
+                <button class="btn-secondary pf-editar" data-act="go-edit-profile">Editar</button>
                 <div class="prof-pill">
                     <div class="weekly-pill">
                         <button class="wp-anel" data-l="semana" data-act="go-progress" aria-label="Sua semana"><svg class="wp-ring" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" class="wp-track"/><circle cx="12" cy="12" r="9" class="wp-fill${diasSemana >= metaSemana ? ' done' : ''}" id="wpFill" stroke-dasharray="${(Math.min(1, diasSemana / metaSemana) * 56.55).toFixed(2)} 56.55"/></svg>
@@ -14216,7 +14437,9 @@ async function renderProfile() {
                         <span id="topRank" class="top-rank${rankTxt === '-' ? ' hidden' : ''}">🏆<b id="topRankN">${rankTxt}</b></span>
                     </button>
                 </div>
+                <button type="button" class="pf-sug-bt" id="pfSugBt" aria-label="Sugestões e convite">${svgIc('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>', 20)}</button>
             </div>
+            <div id="pfSug" class="pf-sug hidden"></div>
             ${destaquesHTML(meusDestaques, state.session.user.id, { temArquivo: (totalStoriesArq || 0) > 0 })}
             ${metasHTML}
             <div class="ig-tabs">
@@ -16036,9 +16259,9 @@ document.addEventListener('click', async e => {
         toast(aceitar ? 'Você entrou no desafio!' : 'Convite recusado', 'ok');
         if (aceitar) renderChallengeDetail(btn.dataset.id); else switchView('challenges');
     } else if (act === 'ver-regras-desafio') {
+        // as regras completas abrem numa folha, igual às do X1
         const el = document.getElementById('chRegrasMembro');
-        if (el) el.classList.toggle('hidden');
-        if (btn.classList.contains('ch-ic')) btn.classList.toggle('on', !!el && !el.classList.contains('hidden'));
+        if (el) x1Folha(`<div class="rg-folha">${el.innerHTML}</div><button class="btn x1-btn min" data-x1f="fechar" style="margin-top:14px">Entendi</button>`, 'chRegrasFolha');
     } else if (act === 'ia-treino-fiz') {
         const t = state.iaTreino;
         if (!t) return;
@@ -16073,6 +16296,7 @@ document.addEventListener('click', async e => {
         $$('.adm-abas .evo-aba').forEach(b => b.classList.toggle('on', b === btn));
         try { btn.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch (_) {}
         $$('.adm-painel').forEach(p => p.classList.toggle('hidden', p.dataset.painel !== state.abaAdmin));
+        if (state.abaAdmin === 'convites') hydrateAdminConvites();
     } else if (act === 'adm-u-menu') {
         e.stopPropagation();
         menuAdminUsuario(btn);
@@ -20925,7 +21149,7 @@ el$('composerSheet').addEventListener('click', e => { if (e.target.id === 'compo
 function closeComposer() {
     if (state.composerAberto) {
         const seg = Math.round((Date.now() - state.composerAberto.t) / 1000);
-        if (state.publishing) pausaLimpar();
+        if (state.publishing) { pausaLimpar(); if (state.composerKind === 'workout') lsSet('pulso-cv-momento-' + state.session.user.id, hojeISO()); }
         evento(state.publishing ? 'registrar_salvou' : 'registrar_desistiu', { kind: state.composerKind || null, seg, foto: !!state.composerPhoto });
         state.composerAberto = null;
     }
@@ -22124,6 +22348,21 @@ el$('composerSubmit').addEventListener('click', async () => {
 // ============================================================
 // INIT
 // ============================================================
+// quem chegou pelo link de convite e ainda não tem conta: mostra quem chamou e abre direto o cadastro
+async function mostrarEntradaConvite() {
+    try {
+        const quem = localStorage.getItem('pulso-link-user'), tipo = localStorage.getItem('pulso-link-tipo');
+        if (!quem || tipo !== 'convite' || document.getElementById('cvEntrada')) return;
+        const { data } = await sb.rpc('convite_perfil', { u: quem });
+        const p = data && (Array.isArray(data) ? data[0] : data);
+        if (!p) return;
+        const nome = String(p.display_name || p.username || '').split(' ')[0];
+        const tabs = document.getElementById('authTabs'); if (!tabs) return;
+        tabs.insertAdjacentHTML('beforebegin', `<div class="cv-entrada" id="cvEntrada">${p.avatar_url ? `<img src="${escapeHTML(p.avatar_url)}" alt="">` : avatarHTML({ id: p.username, display_name: p.display_name }, 'md')}
+            <span><b>${escapeHTML(nome)} te chamou pra treinar junto</b><small>Fazendo o 1º treino, você e ${escapeHTML(nome)} ganham 10 pontos 🎁</small></span></div>`);
+        showAuthScreen('signup');
+    } catch (_) {}
+}
 async function boot() {
     if (boot.rodando) return;
     boot.rodando = true;
@@ -22159,6 +22398,7 @@ async function bootInterno() {
     if (!session) {
         $('#authScreen').style.display = 'flex';
         $('#app').classList.remove('on');
+        mostrarEntradaConvite();
         return;
     }
     state.session = session;
@@ -22641,7 +22881,8 @@ async function hydrateX1Lista(pronta = null, hub = false) {
         `;
     const vivos = ativos.length + convites.length + enviados.length;
     // convite pra um X1 novo: sem X1 rolando, cartão "Você VS ?"; com X1, só uma linha
-    const novoHTML = vivos ? `<button class="x1-novo-linha" data-act="x1-escolher"><span class="x1-vsq mini">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-vs-selo">VS</i><span class="x1-q">?</span></span><b>Desafiar mais alguém</b><span>›</span></button>`
+    const novoHTML = hub ? `<button type="button" class="x1-novo-row" data-act="x1-escolher"><span class="x1-nr-duo">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<span class="x1-q">?</span></span><span class="x1-nr-tx"><b>${vivos ? 'Desafiar mais alguém' : 'Chame alguém pro X1'}</b><small>Treino, km ou minutos</small></span><span class="x1-nr-bt">Desafiar</span></button>`
+        : vivos ? `<button class="x1-novo-linha" data-act="x1-escolher"><span class="x1-vsq mini">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-vs-selo">VS</i><span class="x1-q">?</span></span><b>Desafiar mais alguém</b><span>›</span></button>`
         : `<div class="x1-novo-card" id="x1NovoCard"><div class="x1-vsq">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url }, 'g')}<i class="x1-vs-selo">VS</i><button type="button" class="x1-q" data-act="x1-escolher" aria-label="Escolher adversário">?</button></div>
             <b>Chame alguém pro X1</b><p>Um contra um. Vale treino, km, minutos ou o dia perfeito.</p>
             <button class="btn x1-btn min" data-act="x1-escolher">Desafiar alguém</button></div>`;
@@ -22758,7 +22999,7 @@ function abrirConviteX1(x) {
         <h2 class="x1-cv-h">${escapeHTML(x1PrimeiroNome(ele.nome))} te desafiou pro X1!</h2>
         <p class="x1-cv-s">${dt ? `Começa ${x1DiaTxt(dt.ini)} às 00h` : cedo ? 'Começa assim que você aceitar' : 'Se aceitar agora, começa amanhã às 00h'}</p>
         <div class="x1-regras">
-            <div class="x1-rgl"><span>Vale</span><b><span class="x1-mini-ic" style="--c:${tp.c}">${SVG_X(tp.ic)}</span>${tp.nome}</b><button class="x1-info" data-x1c="regras" aria-label="Regras">${SVG_X(IC_X1.info)}</button></div>
+            <div class="x1-rgl"><span>Vale</span><b><span class="x1-mini-ic" style="--c:${tp.c}">${SVG_X(tp.ic)}</span>${tp.nome}</b><button class="x1-regras-bt" data-x1c="regras">Regras</button></div>
             <div class="x1-rgl"><span>Duração</span><b>${X1_DUR[x.duracao]}</b></div>
             ${dt ? `<div class="x1-rgl"><span>Começa</span><b>${x1DiaTxt(dt.ini)} · 00h</b></div>
             <div class="x1-rgl"><span>Termina</span><b>${x1DiaTxt(dt.ult)} · 23h59</b></div>
