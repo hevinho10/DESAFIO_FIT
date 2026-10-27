@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261281';
+const APP_VERSAO = '20261282';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1082,9 +1082,17 @@ async function hydrateLigaCard() {
     const nv = LIGA_NIVEIS[d.nivel] || LIGA_NIVEIS[1], sit = ligaSituacao(d);
     const zerada = !(d.membros || []).some(x => Number(x.pts) > 0);
     const dias = Math.max(1, Math.ceil((new Date(d.fim) - Date.now()) / 86400000));
-    slot.innerHTML = `<button type="button" class="liga-card org" data-act="liga-abrir" style="--c:${nv.c}">
-        ${hexHTML({ cor: ['', 'bronze', 'prata', 'ouro', 'diam'][d.nivel] || 'bronze', ic: 'trofeu', num: '', un: '' })}
-        <div><b>${ligaNome(d)}</b><small>${zerada ? 'A semana começou · ' : `${sit.pos}º de ${sit.n} · `}${dias === 1 ? 'último dia' : `faltam ${dias} dias`}</small></div><i>›</i></button>`;
+    const zl = ligaZonas(d), euL = (d.membros || []).find(x => x.eu) || {};
+    const tagL = zl.sobe.has(euL.id) ? '<span class="wl-tag sobe">▲ SUBINDO</span>' : zl.cai.has(euL.id) ? '<span class="wl-tag cai">▼ CAINDO</span>' : '';
+    const iniL = d.semana ? new Date(d.semana + 'T00:00:00') : new Date(new Date(d.fim).getTime() - 7 * 86400000);
+    const pctL = Math.max(3, Math.min(100, (Date.now() - iniL) / (new Date(d.fim) - iniL) * 100));
+    slot.innerHTML = `<button type="button" class="liga-card wl" data-act="liga-abrir" style="--lc:${nv.c}">
+        <span class="wl-ban fina liga"><span class="wl-dd">${dias === 1 ? 'último dia' : `restam ${dias} dias`}</span></span>
+        <span class="wl-bod">
+            <span class="wl-lin">${hexHTML({ cor: ['', 'bronze', 'prata', 'ouro', 'diam'][d.nivel] || 'bronze', ic: 'trofeu', num: '', un: '' })}
+                <span class="wl-tx"><b>${ligaNome(d)}${tagL}</b><small>${zerada ? 'A semana começou · todo mundo em 0' : `${sit.pos}º de ${sit.n} participantes`}</small></span><i class="wl-ch">›</i></span>
+            <span class="wl-bar liga"><i style="width:${pctL}%"></i></span>
+        </span></button>`;
 }
 async function abrirLiga() {
     const d = await carregarLiga(true);
@@ -6117,7 +6125,16 @@ async function pintarSugestoes(box, titulo = 'Pessoas que você talvez conheça'
     const { data, error } = await sb.rpc('sugestoes_seguir');
     if ((error && !comConvite) || !box.isConnected) return;
     const fora = sugDispensadas();
-    const lista = (data || []).filter(u => !fora.has(u.id)).slice(0, 10);
+    let lista = (data || []).filter(u => !fora.has(u.id)).slice(0, 10);
+    // pouca gente nos amigos de amigos: completa com quem te segue, mesmas modalidades e os mais ativos
+    if (lista.length < 6) {
+        try {
+            const extra = await carregarSugestoesComeco(18);
+            const ja = new Set(lista.map(u => u.id));
+            extra.filter(u => !ja.has(u.id) && !fora.has(u.id) && u.id !== state.session.user.id).forEach(u => { if (lista.length < 10) { ja.add(u.id); lista.push({ ...u, motivo: u.grupo === 'segue' ? 'Segue você' : (u.motivo || u.rotulo || '') }); } });
+        } catch (_) {}
+        if (!box.isConnected) return;
+    }
     if (!lista.length && !comConvite) { box.innerHTML = ''; return; }
     const cartaoConvite = comConvite ? `<div class="sug-card sug-convite"><span class="sug-cv-ic">${svgIc('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>', 26)}</span><b>Convidar amigos</b><small>+10 pts pra cada um</small><button type="button" class="bt-min" data-cvt="sugestoes">Convidar</button></div>` : '';
     box.innerHTML = `<div class="sug-box"><div class="mus-sec"><span>${titulo}</span></div><div class="sug-trilho">${cartaoConvite}${lista.map(u => `<div class="sug-card" data-sug="${u.id}">
@@ -7189,7 +7206,10 @@ async function loadActiveInsight() {
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(5);
-    return (data || []).find(ins => { const ate = insightValidoAte(ins.kind, ins.created_at); return !ate || ate > new Date(); }) || null;
+    const ruins = (data || []).filter(ins => String(ins.body || '').trim().length < 25);
+    // recado quebrado (a IA devolveu só um pedaço): some e não aparece mais
+    ruins.forEach(ins => { sb.from('ai_insights').update({ dismissed: true }).eq('id', ins.id).then(() => {}, () => {}); });
+    return (data || []).find(ins => { if (String(ins.body || '').trim().length < 25) return false; const ate = insightValidoAte(ins.kind, ins.created_at); return !ate || ate > new Date(); }) || null;
 }
 // bolinha na aba Evolução quando tem recado novo do coach
 function marcarBolinhaCoach(ligar) {
@@ -7253,6 +7273,7 @@ Escreva apenas o texto da mensagem, sem título e sem saudação formal. No máx
 ${kind === 'plateau' ? '' : 'Não cite meta de peso, quilos nem ritmo de perda de peso: fale de treino, constância e descanso.'}`;
 
     const body = await callAI(prompt);
+    if (String(body || '').trim().length < 25) throw new Error('recado curto demais');
 
     const { data } = await sb.from('ai_insights').insert({
         user_id: state.session.user.id,
@@ -13304,19 +13325,20 @@ async function renderListaMeusDesafios(meus, x1s = null) {
         const linhaTime = time ? ` · <span class="pd-card-time"><i style="background:${corTime(time)}"></i>Time ${escapeHTML(nomeTime(cfg, time))}</span>` : (cfg.team_mode ? '' : ' · individual');
         const capa = { ...cfg, id: ch.id, name: ch.name };
         const avs = top.map((u, i) => `<span class="cp-av" style="z-index:${5 - i}">${avatarHTML({ id: u.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}</span>`).join('') + (total > top.length ? `<span class="cp-av mais">+${total - top.length}</span>` : '');
-        return `<button class="pd-card cp-card" data-act="pd-abrir" data-id="${ch.id}" style="--cc:${capaCor(capa)}">
+        return `<button class="pd-card cp-card wl brilho" data-act="pd-abrir" data-id="${ch.id}" style="--cc:${capaCor(capa)}">
             <span class="cp-faixa"><span class="cp-dias${!futuro && dias <= 3 ? ' reta' : ''}">${quando}</span>${mudou ? '<i class="pd-card-dot"></i>' : ''}</span>
             <span class="cp-corpo">
                 <span class="cp-lin">${capaQuadroHTML(capa)}<span class="cp-avs">${avs}</span></span>
-                <b class="cp-nome">${escapeHTML(ch.name)}</b>
-                <span class="pd-card-sub">${futuro ? `${total} ${total === 1 ? 'participante' : 'participantes'}` : pos ? `Você em <b>${pos}º de ${total}</b>${mov}` : `${total} participantes`}${linhaTime}</span>
-                <span class="pd-tempo"><i style="width:${pct}%"></i></span>
+                <span class="cp-lin2"><span class="cp-txs"><b class="cp-nome">${escapeHTML(ch.name)}</b>
+                <span class="pd-card-sub">${futuro ? `${total} ${total === 1 ? 'participante' : 'participantes'}` : pos ? `Você em <b>${pos}º de ${total}</b>${mov}` : `${total} participantes`}${linhaTime}</span></span>
+                <span class="cp-rank">Ver ranking ›</span></span>
+                <span class="pd-tempo cp-bar"><i style="width:${pct}%"></i></span>
             </span>
         </button>`;
     };
     c.innerHTML = x1s ? `<div class="view painel-desafio hub-org">
-        ${extras.length ? `<div class="x1-sec x1-sec-cab pd-sec-grupo">DESAFIOS EM GRUPO</div>${extras.map(cartao).join('')}` : ''}
-        <div class="x1-sec x1-sec-cab">X1</div>
+        ${extras.length ? `<div class="x1-sec x1-sec-cab pd-sec-grupo wl-sec">DESAFIOS EM GRUPO<span>${extras.length} ${extras.length === 1 ? 'ativo' : 'ativos'}</span></div>${extras.map(cartao).join('')}` : ''}
+        <div class="x1-sec x1-sec-cab wl-sec">DUELOS X1<span class="wl-vivo" id="x1Vivo"></span></div>
         <div id="x1Slot"></div><div id="x1NovoSlot"></div>
         <div class="x1-sec x1-sec-cab">MAIS</div>
         ${linksDesafiosHTML(true)}
@@ -22881,11 +22903,12 @@ async function hydrateX1Lista(pronta = null, hub = false) {
         `;
     const vivos = ativos.length + convites.length + enviados.length;
     // convite pra um X1 novo: sem X1 rolando, cartão "Você VS ?"; com X1, só uma linha
-    const novoHTML = hub ? `<button type="button" class="x1-novo-row" data-act="x1-escolher"><span class="x1-nr-duo">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<span class="x1-q">?</span></span><span class="x1-nr-tx"><b>${vivos ? 'Desafiar mais alguém' : 'Chame alguém pro X1'}</b><small>Treino, km ou minutos</small></span><span class="x1-nr-bt">Desafiar</span></button>`
+    const novoHTML = hub ? `<button type="button" class="x1-novo-row wl" data-act="x1-escolher"><span class="wl-ban fina x1"></span><span class="wl-bod"><span class="wl-lin"><span class="x1-nr-duo">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-nr-vs">VS</i><span class="x1-q">?</span></span><span class="x1-nr-tx"><b>${vivos ? 'Chame mais alguém' : 'Chame alguém'}</b><small>Treino, km ou minutos</small></span><span class="wl-cta">Desafiar</span></span></span></button>`
         : vivos ? `<button class="x1-novo-linha" data-act="x1-escolher"><span class="x1-vsq mini">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url })}<i class="x1-vs-selo">VS</i><span class="x1-q">?</span></span><b>Desafiar mais alguém</b><span>›</span></button>`
         : `<div class="x1-novo-card" id="x1NovoCard"><div class="x1-vsq">${x1Av({ id: state.session.user.id, nome: state.profile.display_name, avatar: state.profile.avatar_url }, 'g')}<i class="x1-vs-selo">VS</i><button type="button" class="x1-q" data-act="x1-escolher" aria-label="Escolher adversário">?</button></div>
             <b>Chame alguém pro X1</b><p>Um contra um. Vale treino, km, minutos ou o dia perfeito.</p>
             <button class="btn x1-btn min" data-act="x1-escolher">Desafiar alguém</button></div>`;
+    const vivoEl = document.getElementById('x1Vivo'); if (vivoEl) vivoEl.innerHTML = ativos.length ? `<i></i>${ativos.length} AO VIVO` : '';
     const slotNovo = document.getElementById('x1NovoSlot');
     if (hub && slotNovo) slotNovo.innerHTML = `<div class="x1-lista hub">${novoHTML}</div>`;
     slot.innerHTML = `<div class="x1-lista${hub ? ' hub' : ''}">
@@ -22921,7 +22944,7 @@ async function hydrateLinksDesafios() {
     if (x1) sb.rpc('x1_historico').then(({ data }) => {
         if (!data) return;
         const v = data.vitorias || 0, tot = v + (data.derrotas || 0) + (data.empates || 0);
-        document.querySelectorAll('[data-dz="x1"]').forEach(el => { el.textContent = tot ? `${tot} ${tot === 1 ? 'jogado' : 'jogados'} · ${v} ${v === 1 ? 'vitória' : 'vitórias'}` : 'Nenhum ainda · chame alguém'; });
+        document.querySelectorAll('[data-dz="x1"]').forEach(el => { el.innerHTML = tot ? `${tot} ${tot === 1 ? 'jogado' : 'jogados'} · <b class="dz-v">${v} ${v === 1 ? 'vitória' : 'vitórias'}</b>` : 'Nenhum ainda · chame alguém'; });
     }, () => {});
 }
 function pintarBolinhaX1(n) {

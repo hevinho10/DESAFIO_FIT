@@ -6707,3 +6707,73 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .x1-nr-tx b{ font-size:14.5px; white-space:normal; line-height:1.25; }
 .x1-nr-bt{ padding:7px 11px; }
 .dz-ic.verde, .dz-ic.roxo{ background:transparent; border:1px solid rgba(16,185,129,.35); color:var(--vital, #10B981); }
+
+/* ===== Desafios "carteira": cartões com faixa colorida em cima ===== */
+.hub-org .wl, .liga-card.wl{ position:relative; display:block; width:100%; padding:0 !important; overflow:hidden; text-align:left; border-radius:22px !important; background:linear-gradient(180deg, #0E0F11, #0A0A0B) !important; border:1px solid #1E1F23 !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.04) !important; color:var(--ink); font:inherit; margin:0; transition:transform .12s, border-color .2s; }
+.hub-org .wl:active, .liga-card.wl:active{ transform:scale(.985); }
+.wl-ban{ display:block; position:relative; height:58px; background:linear-gradient(120deg, var(--b1, rgba(59,130,246,.42)), var(--b2, rgba(16,185,129,.12))), radial-gradient(rgba(255,255,255,.13) 1px, transparent 0); background-size:auto, 8px 8px; }
+.wl-ban.fina{ height:34px; }
+.wl-ban.liga{ --b1:rgba(var(--lc), .34); --b2:rgba(var(--lc), .06); }
+.wl-ban.x1{ height:26px; --b1:rgba(16,185,129,.32); --b2:rgba(59,130,246,.2); }
+.wl-dd{ position:absolute; right:12px; top:6px; font-size:12px; font-weight:700; color:#fff; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.12); padding:2px 9px; border-radius:9px; white-space:nowrap; }
+.wl-bod{ display:block; position:relative; padding:0 14px 14px; margin-top:-18px; }
+.x1-novo-row.wl .wl-bod{ margin-top:-12px; }
+.wl-lin{ display:flex; align-items:flex-end; gap:12px; }
+.wl-tx{ flex:1; min-width:0; padding-bottom:2px; }
+.wl-tx b{ display:flex; align-items:center; gap:8px; font-size:16px; white-space:nowrap; }
+.wl-tx small{ display:block; font-size:13px; color:var(--ink-dim); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wl-ch{ font-style:normal; color:var(--ink-faint); font-size:20px; padding-bottom:6px; }
+.wl-tag{ font-size:10.5px; font-weight:800; letter-spacing:.06em; border-radius:7px; padding:2px 6px; white-space:nowrap; }
+.wl-tag.sobe{ color:#10B981; border:1px solid rgba(16,185,129,.45); background:rgba(16,185,129,.08); }
+.wl-tag.cai{ color:#F87171; border:1px solid rgba(248,113,113,.45); background:rgba(248,113,113,.08); }
+.wl-bar{ display:block; height:5px; border-radius:5px; background:#1A1A1D; overflow:hidden; margin-top:12px; }
+.wl-bar i{ display:block; height:100%; border-radius:5px; }
+.wl-bar.liga i{ background:linear-gradient(90deg, rgba(var(--lc), .55), rgb(var(--lc))); box-shadow:0 0 10px rgba(var(--lc), .5); }
+.liga-card.wl .hx{ --hx-w:52px; filter:drop-shadow(0 0 10px rgba(var(--lc), .35)); }
+.liga-card.wl{ margin:4px 0 6px; }
+/* desafio em grupo: borda e brilho na cor dele */
+.hub-org .cp-card.wl.brilho{ border-color:color-mix(in srgb, var(--cc) 40%, transparent) !important; box-shadow:0 10px 30px -14px color-mix(in srgb, var(--cc) 70%, transparent), inset 0 1px 0 rgba(255,255,255,.05) !important; }
+.hub-org .cp-card .cp-faixa{ border-radius:0; }
+.cp-lin2{ display:flex; align-items:flex-end; gap:10px; margin-top:8px; }
+.cp-txs{ flex:1; min-width:0; }
+.cp-txs .cp-nome{ margin-top:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cp-txs .pd-card-sub{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cp-rank{ flex:none; font-size:13px; font-weight:700; color:var(--vital, #10B981); white-space:nowrap; padding-bottom:1px; }
+.cp-bar{ height:5px !important; border-radius:5px; background:#1A1A1D !important; overflow:hidden; margin-top:12px !important; }
+.cp-bar i{ background:linear-gradient(90deg, var(--cc), #10B981) !important; box-shadow:0 0 10px color-mix(in srgb, var(--cc) 60%, transparent); }
+/* títulos das seções com o número à direita */
+.wl-sec{ display:flex !important; justify-content:space-between; align-items:center; }
+.wl-sec > span{ font-size:11.5px; letter-spacing:.04em; color:var(--ink-faint); font-weight:600; }
+.wl-vivo{ color:var(--vital, #10B981) !important; display:flex; align-items:center; gap:6px; letter-spacing:.06em !important; }
+.wl-vivo i{ width:7px; height:7px; border-radius:50%; background:#10B981; box-shadow:0 0 8px #10B981; }
+/* X1: VS e o botão que "acende" */
+.x1-novo-row.wl{ margin-top:8px; }
+.x1-novo-row.wl .wl-lin{ gap:10px; align-items:center; }
+.x1-novo-row.wl .x1-nr-duo{ display:flex; align-items:center; }
+.x1-novo-row.wl .x1-nr-duo .x1-av{ width:36px; height:36px; box-shadow:0 0 0 2px #10B981; }
+.x1-nr-vs{ font-style:normal; width:20px; height:20px; border-radius:50%; background:#0B0B0C; border:1.5px solid #EAB308; color:#EAB308; font-size:8.5px; font-weight:800; display:grid; place-items:center; margin:0 -5px; position:relative; z-index:2; }
+.x1-novo-row.wl .x1-q{ width:36px; height:36px; margin-left:0; }
+.x1-novo-row.wl .x1-nr-tx b{ font-size:15px; white-space:nowrap; }
+.x1-novo-row.wl .x1-nr-tx small{ white-space:nowrap; }
+.wl-cta{ flex:none; border:1px solid rgba(110,231,183,.55); background:linear-gradient(180deg, rgba(52,211,153,.22), rgba(16,185,129,.08)); color:#A7F3D0; border-radius:12px; padding:9px 14px; font-weight:700; font-size:13.5px; white-space:nowrap; box-shadow:0 0 14px -3px rgba(52,211,153,.45), inset 0 1px 0 rgba(255,255,255,.12); animation:wlAcende 2.8s ease-in-out infinite; }
+@keyframes wlAcende{ 50%{ box-shadow:0 0 22px 0 rgba(52,211,153,.55), inset 0 1px 0 rgba(255,255,255,.18); border-color:rgba(167,243,208,.75); } }
+@media (prefers-reduced-motion: reduce){ .wl-cta{ animation:none; } }
+/* X1 rolando e convites também como cartões */
+.hub-org .x1-lista.hub .x1-card{ border-radius:22px; background:linear-gradient(180deg, #0E0F11, #0A0A0B); border:1px solid #1E1F23; }
+/* Mais: um cartão pra cada, ícone de vidro */
+.hub-org .dz-links{ display:flex; flex-direction:column; gap:10px; background:none !important; border:0 !important; }
+.hub-org .dz-link{ border-radius:22px !important; background:linear-gradient(180deg, #0E0F11, #0A0A0B) !important; border:1px solid #1E1F23 !important; padding:12px 14px !important; transition:transform .12s; }
+.hub-org .dz-link:active{ transform:scale(.985); }
+.hub-org .dz-ic{ width:44px; height:44px; border-radius:14px; background:linear-gradient(145deg, rgba(255,255,255,.08), rgba(255,255,255,.02)) !important; border:1px solid rgba(255,255,255,.08) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 0 14px -6px rgba(16,185,129,.6); color:#34D399 !important; }
+.dz-v{ color:var(--vital, #10B981); font-weight:700; }
+/* ===== Perfil linha A: Editar | 3 colunas iguais | pessoa+, tudo com 44 px ===== */
+.ig-profile-actions{ gap:8px; }
+.ig-profile-actions .pf-editar{ height:44px; border-radius:14px; }
+.ig-profile-actions .prof-pill{ display:grid !important; grid-template-columns:repeat(3, 1fr); height:44px; border-radius:14px; background:var(--bg-card, #0B0B0C); }
+.ig-profile-actions .prof-pill .weekly-pill{ display:contents !important; }
+.ig-profile-actions .prof-pill .wp-anel, .ig-profile-actions .prof-pill .wp-flame, .ig-profile-actions .prof-pill .topbar-score{ height:100%; min-width:0; justify-content:center; border-left:1px solid var(--line) !important; border-radius:0 !important; padding:0 4px !important; }
+.ig-profile-actions .prof-pill .wp-anel{ border-left:0 !important; }
+.ig-profile-actions .prof-pill .top-rank{ display:none !important; }
+.ig-profile-actions .pf-sug-bt{ width:44px; height:44px; border-radius:14px; background:var(--bg-card, #0B0B0C); }
+.dz-tx small .dz-v{ display:inline !important; font-size:inherit !important; margin:0 !important; }
+.hub-org .cp-card.wl{ margin-bottom:6px; }
