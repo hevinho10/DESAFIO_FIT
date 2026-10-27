@@ -6840,3 +6840,12 @@ details[open] > summary > .rg-seta{ transform:rotate(90deg); }
 .nt-expirado{ display:inline-block; font-size:12.5px; color:var(--ink-faint); border:1px solid var(--line); border-radius:10px; padding:5px 10px; }
 .sug-nada b{ white-space:normal !important; text-align:center; line-height:1.3; }
 .sug-cv-ic.cinza{ color:var(--ink-dim); border-color:#3a3a3e; }
+/* seguidores/seguindo: topo e abas num bloco só, fundo sólido, sem vão e sem mexer ao puxar */
+.tc-tela{ overscroll-behavior-y:none; }
+.tc-cabeca{ position:sticky; top:0; z-index:3; background:var(--bg, #000); }
+.tc-cabeca .pv-topo{ position:relative; top:auto; background:var(--bg, #000) !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+.tc-cabeca .tc-abas{ position:relative; top:auto; }
+.ra-cs-lista{ width:100%; margin-top:14px; text-align:left; }
+.ra-cs-l{ display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid rgba(255,255,255,.08); font-size:14px; }
+.ra-cs-l span{ color:rgba(255,255,255,.6); }
+.ra-cs-l b{ text-align:right; }

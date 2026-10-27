@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261285';
+const APP_VERSAO = '20261286';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1345,7 +1345,7 @@ async function renderAdmin() {
             <div class="chart-card" id="admLog"><div class="spinner"></div></div>
             <h3 class="edit-section-title" style="margin-top:22px">Retrospectiva do ano</h3>
             <div class="chart-card">
-                <p class="faixa-txt" style="margin-top:0">Aparece pra todo mundo de 1 a 31 de dezembro. Aqui você vê a sua antes, e pode ligar o cartão no seu feed pra conferir como fica.</p>
+                <p class="faixa-txt" style="margin-top:0">Aparece pra todo mundo de 20 a 31 de dezembro. Aqui você vê a sua antes, e pode ligar o cartão no seu feed pra conferir como fica.</p>
                 <button class="btn-mini" data-ra="previa" style="margin-top:12px">${lsGet('pulso-retroano-previa') === '1' ? 'Desligar prévia no meu feed' : 'Ver prévia agora'}</button>
             </div>
             <h3 class="edit-section-title" style="margin-top:22px">Backup</h3>
@@ -2994,7 +2994,8 @@ async function talvezPerguntarPausa() {
 // ---- Retrospectiva do ano: dezembro inteiro, no topo do feed e em Evolução ----
 const retroAnoAtual = () => new Date().getFullYear();
 function retroAnoLiberada() {
-    if (new Date().getMonth() === 11) return true;
+    const h = new Date();
+    if (h.getMonth() === 11 && h.getDate() >= 20) return true;   // aparece pra todo mundo de 20 a 31/12
     return !!(state.profile && state.profile.is_admin && lsGet('pulso-retroano-previa') === '1');
 }
 function retroAnoAvisoHTML(onde) {
@@ -3005,7 +3006,9 @@ function retroAnoAvisoHTML(onde) {
         <span class="ra-seta">›</span></button>`;
 }
 function hydrateRetroAno() {
-    if (!retroAnoLiberada() || !state.session) return;
+    const limpar = () => ['retroAnoSlot', 'retroAnoEvo'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; });
+    // fora do período (ou prévia desligada): apaga, mesmo se veio na cópia salva do feed
+    if (!retroAnoLiberada() || !state.session) { limpar(); return; }
     if (lsGet(`pulso-retroano-x-${state.session.user.id}-${retroAnoAtual()}`) === hojeISO()) return;
     const sl = document.getElementById('retroAnoSlot'); if (sl) sl.innerHTML = retroAnoAvisoHTML('feed');
     const ev = document.getElementById('retroAnoEvo'); if (ev) ev.innerHTML = retroAnoAvisoHTML('evo');
@@ -3063,7 +3066,8 @@ async function abrirRetroAno() {
         if (e.target.closest('.rt-fechar')) return;
         if (e.target.closest('[data-ra="story"]')) {
             fecharTela();
-            abrirEditorComCard({ card: { tipo: 'retroano', ano: r.ano, treinos: r.treinos, minutos: r.minutos, dias: r.dias, ofensiva: r.ofensiva, modalidade: r.modalidade, percentil: r.percentil } });
+            abrirEditorComCard({ card: { tipo: 'retroano', ano: r.ano, treinos: r.treinos, minutos: r.minutos, dias: r.dias, km: r.km, ofensiva: r.ofensiva, modalidade: r.modalidade,
+                melhor_mes: r.melhor_mes, recorde: r.recorde, forca: r.forca ? String(r.forca.nome || '').split(' ')[0] : null, percentil: r.percentil } });
             return;
         }
         ir(e.clientX < window.innerWidth / 3 ? i - 1 : i + 1);
@@ -3075,7 +3079,8 @@ document.addEventListener('click', e => {
     if (b.dataset.ra === 'previa') {
         const on = lsGet('pulso-retroano-previa') === '1';
         lsSet('pulso-retroano-previa', on ? '0' : '1');
-        b.textContent = on ? 'Ligar prévia no meu feed' : 'Desligar prévia no meu feed';
+        b.textContent = on ? 'Ver prévia agora' : 'Desligar prévia no meu feed';
+        if (on) { ['retroAnoSlot', 'retroAnoEvo'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; }); toast('Prévia desligada', 'ok'); }
         if (!on) abrirRetroAno();
         return;
     }
@@ -5923,8 +5928,8 @@ async function abrirTelaConexoes(uid, aba = 'seguidores') {
     const ant = document.getElementById('telaConexoes'); if (ant) ant.remove();
     const v = document.createElement('div'); v.id = 'telaConexoes'; v.className = 'posts-viewer tc-tela';
     const seta = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
-    v.innerHTML = `<div class="pv-topo tc-topo"><button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button><div class="topbar-title" id="tcTitulo"></div><div style="width:40px"></div></div>
-        <div class="tc-abas" id="tcAbas"><button type="button" data-tc="seguidores"><b id="tcNSeg">·</b> seguidores</button><button type="button" data-tc="seguindo"><b id="tcNSgn">·</b> seguindo</button></div>
+    v.innerHTML = `<div class="tc-cabeca"><div class="pv-topo tc-topo"><button class="topbar-back pv-voltar" aria-label="Voltar">${seta}</button><div class="topbar-title" id="tcTitulo"></div><div style="width:40px"></div></div>
+        <div class="tc-abas" id="tcAbas"><button type="button" data-tc="seguidores"><b id="tcNSeg">·</b> seguidores</button><button type="button" data-tc="seguindo"><b id="tcNSgn">·</b> seguindo</button></div></div>
         <label class="pd-busca tc-busca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4-4"/></svg><input id="tcBusca" type="search" placeholder="Buscar" autocomplete="off" autocapitalize="off"></label>
         <div class="tc-corpo" id="tcCorpo">${esqueletoAba('depoimentos')}</div>`;
     document.body.appendChild(v); document.body.style.overflow = 'hidden';
@@ -17999,11 +18004,20 @@ function htmlCardStory(st, comFoto) {
         </div>`;
     }
     if (c.tipo === 'retroano') {
+        // um card só com o ano inteiro
+        const MESN = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const lin = (r, v) => v ? `<div class="ra-cs-l"><span>${r}</span><b>${v}</b></div>` : '';
         return `<div class="card-story retroano${comFoto ? ' sobre-foto' : ''}">
             <small class="cs-rot">Meu ${c.ano} no Pulso</small>
             <h2 class="ra-cs-big">${c.treinos || 0}<small>treinos</small></h2>
-            <div class="cs-stats"><div><b>${fmtHoras(c.minutos || 0)}</b><small>ativo</small></div><div><b>${c.dias || 0}</b><small>dias</small></div><div><b>${c.ofensiva || 0}</b><small>seguidos</small></div></div>
-            ${c.modalidade ? `<p>Minha modalidade: <b>${escapeHTML(c.modalidade)}</b></p>` : ''}
+            <div class="cs-stats"><div><b>${fmtHoras(c.minutos || 0)}</b><small>ativo</small></div><div><b>${c.dias || 0}</b><small>dias</small></div><div><b>${Number(c.km) > 0 ? br(c.km, Number.isInteger(Number(c.km)) ? 0 : 1) : (c.ofensiva || 0)}</b><small>${Number(c.km) > 0 ? 'km' : 'seguidos'}</small></div></div>
+            <div class="ra-cs-lista">
+                ${lin('Modalidade', c.modalidade ? escapeHTML(c.modalidade) : '')}
+                ${lin('Melhor mês', c.melhor_mes ? MESN[c.melhor_mes - 1] : '')}
+                ${lin('Maior ofensiva', c.ofensiva ? `${c.ofensiva} dias` : '')}
+                ${lin('Recorde', c.recorde && c.recorde.kg ? `${br(c.recorde.kg, Number.isInteger(Number(c.recorde.kg)) ? 0 : 1)} kg no ${escapeHTML(c.recorde.ex || '')}` : '')}
+                ${lin('Mais me deu força', c.forca ? escapeHTML(c.forca) + ' 💚' : '')}
+            </div>
             ${c.percentil >= 50 ? `<span class="ra-cs-top">Top ${Math.max(1, 100 - c.percentil)}% do Pulso</span>` : ''}
             <b class="cs-marca">Pulso.</b>
         </div>`;
