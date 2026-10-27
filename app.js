@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261282';
+const APP_VERSAO = '20261283';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -8115,6 +8115,12 @@ const PS_MODELOS = {
         psFundo(g, []);
         const img = d.fotoImg;
         if (img) psCover(g, img, 0, 0, 1080, 1290, .3);
+        else {
+            const bg = g.createLinearGradient(0, 0, 1080, 1290); bg.addColorStop(0, '#0E3B2C'); bg.addColorStop(1, '#05140E');
+            g.fillStyle = bg; g.fillRect(0, 0, 1080, 1290);
+            g.fillStyle = 'rgba(255,255,255,.9)'; g.font = psF(800, 320); g.textAlign = 'center';
+            g.fillText(initials((state.profile && (state.profile.display_name || state.profile.username)) || '?'), 540, 760); g.textAlign = 'left';
+        }
         const gr = g.createLinearGradient(0, 0, 0, 1300);
         gr.addColorStop(0, 'rgba(0,0,0,.45)'); gr.addColorStop(.25, 'rgba(0,0,0,0)'); gr.addColorStop(.62, 'rgba(0,0,0,0)'); gr.addColorStop(1, '#000');
         g.fillStyle = gr; g.fillRect(0, 0, 1080, 1300);
@@ -8142,6 +8148,7 @@ const PS_MODELOS = {
         const itens = [...d.treinos].sort((a, b) => (!!b.image_url - !!a.image_url) || ((b.reactions || []).length - (a.reactions || []).length)).slice(0, 4)
             .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
         const POS = { 1: [[290, 470, -4]], 2: [[90, 470, -7], [570, 560, 6]], 3: [[80, 440, -8], [580, 500, 6], [330, 1000, 3]], 4: [[76, 420, -8], [570, 470, 6], [130, 975, 4], [575, 1020, -5]] };
+        if (!itens.length) ((state.profile && state.profile.train_likes) || ['Caminhada']).slice(0, 2).forEach((a, k) => itens.push({ activity_type: a, created_at: new Date(d.ini.getTime() + k * 86400000).toISOString(), _vazio: true }));
         const pos = POS[itens.length] || [];
         const DIA3 = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
         for (let i = 0; i < itens.length; i++) {
@@ -8156,7 +8163,7 @@ const PS_MODELOS = {
                 const ic = await psIcone(p.activity_type, `rgb(${c})`); if (ic) g.drawImage(ic, 135, 135, 140, 140);
             }
             const dt = new Date(p.created_at);
-            const leg = `${d.tipo === 'mes' ? x1DM(dt) : DIA3[dt.getDay()]} · ${Number(p.distance_km) > 0 ? psNum(p.distance_km) + ' km' : String(p.activity_type || 'treino').toLowerCase()}`;
+            const leg = p._vazio ? `bora: ${String(p.activity_type || 'treino').toLowerCase()}` : `${d.tipo === 'mes' ? x1DM(dt) : DIA3[dt.getDay()]} · ${Number(p.distance_km) > 0 ? psNum(p.distance_km) + ' km' : String(p.activity_type || 'treino').toLowerCase()}`;
             g.fillStyle = '#222'; g.font = psMao(40); g.textAlign = 'center'; g.fillText(leg, 205, 455); g.textAlign = 'left';
             g.restore();
         }
@@ -8193,7 +8200,7 @@ const PS_MODELOS = {
         g.textAlign = 'center';
         g.font = '380px "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Emoji", sans-serif'; g.fillText('🔥', 540, 830);
         g.fillStyle = '#F7F7F7'; g.font = psF(800, 280); g.fillText(String(d.ofensiva), 540, 1110);
-        g.fillStyle = '#FDBA74'; g.font = psF(700, 48); g.fillText(d.ofensiva === 1 ? 'dia de ofensiva' : 'dias seguidos sem parar', 540, 1195);
+        g.fillStyle = '#FDBA74'; g.font = psF(700, 48); g.fillText(d.ofensiva === 1 ? 'dia de ofensiva' : d.ofensiva === 0 ? 'dias de ofensiva: bora acender' : 'dias seguidos sem parar', 540, 1195);
         g.textAlign = 'left';
         const R = 56, gap = (928 - 7 * R * 2) / 6;
         for (let k = 0; k < 7; k++) {
@@ -8227,12 +8234,23 @@ async function abrirModelosSemana(ini, fim = null, tipo = 'semana', pronto = nul
     if (!lista) {
         d = await dadosPostSemana(ini, fim, tipo);
         if (!document.getElementById('psSheet')) return;
+        // semana sem nenhum treino: pergunta antes de montar
+        if (!d.treinos.length && !pronto) {
+            const g = sheet.querySelector('#psGrade');
+            if (g) g.innerHTML = `<div class="ps-vazio"><b>Sua ${tipo === 'mes' ? 'mês' : 'semana'} ainda não tem treinos</b><small>Quer postar mesmo assim?</small>
+                <div class="ps-vazio-bts"><button type="button" class="link-btn" data-psv="nao">Agora não</button><button type="button" class="bt-min" data-psv="sim">Postar mesmo assim</button></div></div>`;
+            const r = await new Promise(ok => sheet.addEventListener('click', e => { const b = e.target.closest('[data-psv]'); if (b) ok(b.dataset.psv); }));
+            if (r !== 'sim') { sheet.remove(); return; }
+            if (g) g.innerHTML = '<div class="spinner"></div>';
+        }
         const comFoto = d.treinos.filter(p => p.image_url);
         await Promise.all([
-            d.fotos[0] ? psFoto(d.fotos[0].image_url).then(i => { d.fotoImg = i; }) : null,
+            // sem foto de treino na semana: usa a foto de perfil grande no mesmo layout
+            (d.fotos[0] ? psFoto(d.fotos[0].image_url) : state.profile && state.profile.avatar_url ? psFoto(state.profile.avatar_url) : Promise.resolve(null)).then(i => { d.fotoImg = i; }),
             ...comFoto.slice(0, 8).map(p => psFoto(p.thumb_url || p.image_url).then(i => { p._img = i; })),
         ]);
-        const modelos = ['blocos', 'anel', ...(d.fotoImg ? ['foto'] : []), 'polaroids', 'faixas', ...(d.ofensiva >= 2 ? ['chama'] : [])];
+        // sempre os 6 modelos
+        const modelos = ['blocos', 'anel', 'foto', 'polaroids', 'faixas', 'chama'];
         lista = [];
         for (const m of modelos) { try { const b = await desenharPostSemana(m, d); if (b) lista.push({ m, nome: PS_NOMES[m], blob: b, url: URL.createObjectURL(b) }); } catch (e) { console.warn('modelo', m, e); } }
     }
@@ -12853,7 +12871,9 @@ function rgBlocosPontos(onde = 'geral') {
             rgLinha('Registrar o peso', '+3', '1 vez por semana. Seu peso nunca aparece pros outros.')),
         rgBloco('Metas', rgLinha('Treinar nos dias da sua meta da semana', '+10', `Sua meta: ${metaSem} ${metaSem === 1 ? 'dia' : 'dias'} por semana`) +
             rgLinha('Cada 1% de peso perdido', '+25', 'No ritmo seguro: até 1% por semana')),
-        rgBloco(ofTit, ofensiva, onde === 'x1' ? 'A ofensiva normal do app não conta aqui.' : 'Escudo: se faltar 1 dia, uma vez por semana, a ofensiva não zera.'),
+        rgBloco(ofTit, ofensiva, onde === 'x1' ? 'A ofensiva normal do app não conta aqui.'
+            : onde === 'grupo' ? 'Sem escudo: faltou um dia, a sequência recomeça. E cada sequência nova vale os bônus de novo.'
+            : 'Escudo: se faltar 1 dia, uma vez por semana, a ofensiva não zera.'),
         rgBloco('Convite', rgLinha('Amigo entra pelo seu convite e faz o 1º treino', '+10', 'Ele também ganha 10. No máximo 10 convites com pontos por mês.'),
             onde === 'grupo' ? 'Conta no desafio se o 1º treino dele for dentro do período.' : onde === 'x1' ? 'Conta no X1 se o 1º treino dele for durante o X1.' : ''),
     ];

@@ -6777,3 +6777,7 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .ig-profile-actions .pf-sug-bt{ width:44px; height:44px; border-radius:14px; background:var(--bg-card, #0B0B0C); }
 .dz-tx small .dz-v{ display:inline !important; font-size:inherit !important; margin:0 !important; }
 .hub-org .cp-card.wl{ margin-bottom:6px; }
+.ps-vazio{ grid-column:1 / -1; text-align:center; padding:26px 10px; }
+.ps-vazio b{ display:block; font-size:16px; }
+.ps-vazio small{ display:block; color:var(--ink-dim); font-size:14px; margin-top:4px; }
+.ps-vazio-bts{ display:flex; gap:10px; justify-content:center; margin-top:16px; }
