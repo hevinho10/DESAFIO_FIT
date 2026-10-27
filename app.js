@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261283';
+const APP_VERSAO = '20261284';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -6217,7 +6217,9 @@ function showChatMenu(anchor) {
     menu.className = 'post-menu';
     menu.innerHTML = `
         <button class="post-menu-item" data-act="chat-tema" data-id="${anchor.dataset.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18c1.7 0 2-1.2 1.2-2.2-.9-1.1-.3-2.8 1.3-2.8H17a4 4 0 0 0 4-4c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>Tema da conversa</button>
-        <button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">${icon('lixo')}Apagar conversa</button>
+        ${anchor.dataset.grupo ? `<button class="post-menu-item" data-grupo-mudo="${anchor.dataset.id}">${state.chatGrupo && state.chatGrupo.silenciado ? '🔔 Ativar avisos do grupo' : '🔕 Silenciar o grupo'}</button>
+        <button class="post-menu-item" data-grupo-limpar="${anchor.dataset.id}">${icon('lixo')}Limpar conversa (só pra você)</button>`
+        : `<button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">${icon('lixo')}Apagar conversa</button>`}
     `;
     mostrarMenuFolha(menu);
     setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
@@ -6291,7 +6293,25 @@ async function renderMessages() {
         html += `<div class="conv-section-label">Pessoas</div>
             ${vazioAcao('mensagem', 'Nenhuma conversa ainda', 'Abra o perfil de alguém e toque em Mensagem.', 'Encontrar pessoas', 'data-act="m-go" data-view="search"')}`;
     } else {
-        html += `<div class="conv-section-label">Pessoas</div>`;
+        const grupos = convs.filter(cv => cv.eh_grupo);
+        convs = convs.filter(cv => !cv.eh_grupo);
+        if (grupos.length) {
+            html += `<div class="conv-section-label">Grupos dos desafios</div>` + grupos.map(cv => {
+                const capa = { id: cv.desafio_id, name: cv.other_name, capa_ic: cv.capa_ic, capa_cor: cv.capa_cor, capa_url: cv.capa_url };
+                const ult = cv.last_message ? previaMensagem(cv.last_message) : 'Diga oi pro grupo 👋';
+                const autor = cv.last_message && !String(cv.last_message).startsWith('⟦sis⟧') && cv.ultimo_autor ? `<b>${escapeHTML(cv.ultimo_autor)}:</b> ` : '';
+                return `<div class="conv-item conv-grupo${cv.unread_count > 0 ? ' nao-lida' : ''}" data-grupo-conv="${cv.conversation_id}" data-cid="${cv.desafio_id || ''}">
+                    ${capaQuadroHTML(capa, 'conv')}
+                    <div class="conv-info">
+                        <div class="conv-name">${escapeHTML(cv.other_name || 'Grupo')}${cv.silenciado ? ' <span class="conv-mudo" aria-label="Silenciado">🔕</span>' : ''}${cv.unread_count > 0 ? ` <span class="conv-unread">${cv.unread_count}</span>` : ''}</div>
+                        <div class="conv-preview">${autor}${escapeHTML(ult.slice(0, 50))}</div>
+                    </div>
+                    <div class="conv-time">${cv.last_message_at ? timeAgo(cv.last_message_at) : ''}</div>
+                </div>`;
+            }).join('');
+            state.gruposChat = Object.fromEntries(grupos.map(g => [g.conversation_id, g]));
+        }
+        if (convs.length) html += `<div class="conv-section-label">Pessoas</div>`;
         const fixadas = convsFixadas();
         convs = [...convs].sort((a, b) => {
             const fa = fixadas.indexOf(a.conversation_id), fb = fixadas.indexOf(b.conversation_id);
@@ -6343,17 +6363,29 @@ async function renderChat(conversationId, otherUser) {
     stopChatSync();
     state.chatConversationId = conversationId;
     state.chatOutroId = otherUser && otherUser.id;
+    const grp = otherUser && otherUser.grupo;
+    state.chatGrupo = grp || null;
+    state.chatMembros = {};
+    if (grp) sb.rpc('grupo_membros', { conv: conversationId }).then(({ data }) => {
+        if (state.chatConversationId !== conversationId) return;
+        state.chatMembros = Object.fromEntries((data || []).map(m => [m.user_id, m]));
+        const sub = document.getElementById('chatGrupoSub'); if (sub) sub.textContent = grupoSubTxt(grp, (data || []).length);
+        paintChatMessages({ manterScroll: (() => { const b = document.getElementById('chatMessages'); return b ? b.scrollHeight - b.scrollTop : null; })() });
+    }, () => {});
 
     const c = $('#viewContainer');
     c.innerHTML = `
         <div class="view coach-view">
             <div class="user-topbar">
                 <button class="topbar-back" data-act="back-messages">←</button>
-                <div class="chat-header-user" data-act="view-user" data-uid="${otherUser.id}">
+                ${grp ? `<div class="chat-header-user" data-grupo-abrir-desafio="${grp.desafio_id || ''}">
+                    ${capaQuadroHTML({ id: grp.desafio_id, name: otherUser.display_name, capa_ic: grp.capa_ic, capa_cor: grp.capa_cor, capa_url: grp.capa_url }, 'p')}
+                    <span class="chat-header-txt"><span class="chat-header-name">${escapeHTML(otherUser.display_name)}</span><small class="chat-grupo-sub" id="chatGrupoSub">${grupoSubTxt(grp, grp.membros)}</small><small class="chat-digitando" id="chatDigitando">alguém está digitando…</small></span>
+                </div>` : `<div class="chat-header-user" data-act="view-user" data-uid="${otherUser.id}">
                     ${avatarHTML(otherUser, 'sm')}
                     <span class="chat-header-txt"><span class="chat-header-name">${escapeHTML(otherUser.display_name)}</span><small class="chat-digitando" id="chatDigitando">digitando…</small></span>
-                </div>
-                <button class="chat-menu-btn" data-act="chat-menu" data-id="${conversationId}" data-uid="${otherUser.id}" aria-label="Opções">
+                </div>`}
+                <button class="chat-menu-btn" data-act="chat-menu" data-id="${conversationId}" data-uid="${otherUser.id || ''}"${grp ? ' data-grupo="1"' : ''} aria-label="Opções">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
                 </button>
             </div>
@@ -6513,7 +6545,13 @@ function paintChatMessages(opts = {}) {
         const juntos = (a, b) => a && b && a.sender_id === b.sender_id && a.created_at && b.created_at
             && Math.abs(new Date(b.created_at) - new Date(a.created_at)) < 3 * 60000 && isoDe(new Date(a.created_at)) === isoDe(new Date(b.created_at));
         const itens = ini > 0 ? [['__mais', `<button type="button" class="chat-mais" data-chat-mais>Ver mensagens anteriores</button>`]] : [];
+        const ehGrupo = !!state.chatGrupo, membros = state.chatMembros || {};
         lista.forEach((m, idx) => { if (idx < ini) return; itens.push([m.id, (() => {
+            if (String(m.body || '').startsWith('⟦sis⟧')) {
+                let sepS = '';
+                if (m.created_at) { const d = new Date(m.created_at), dia = isoDe(d); if (dia !== diaAnterior) { diaAnterior = dia; sepS = `<div class="chat-dia"><span>${dia === hojeISO() ? 'Hoje' : dia === isoDe(new Date(Date.now() - 86400000)) ? 'Ontem' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span></div>`; } }
+                return `${sepS}<div class="chat-sis" data-mid="${m.id}"><span>${escapeHTML(String(m.body).slice(5))}</span></div>`;
+            }
             const mine = m.sender_id === eu;
             const comAnt = juntos(lista[idx - 1], m), comProx = juntos(m, lista[idx + 1]);
             const grupo = comAnt && comProx ? ' g-meio' : comAnt ? ' g-fim' : comProx ? ' g-ini' : '';
@@ -6554,7 +6592,11 @@ function paintChatMessages(opts = {}) {
             }
             const r = reac[m.id] || [];
             const reacHTML = r.length ? `<span class="cmsg-reac">${[...new Set(r.map(x => x.emoji))].join('')}${r.length > 1 ? `<small>${r.length}</small>` : ''}</span>` : '';
-            return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${grupo}${r.length ? ' com-reac' : ''}${m.pendente ? ' pendente' : ''}" data-mid="${m.id}">
+            const quem = ehGrupo && !mine ? (membros[m.sender_id] || {}) : null;
+            const nomeG = quem && !comAnt ? `<span class="cmsg-autor" style="color:${corAutor(m.sender_id)}">${escapeHTML(String(quem.nome || '').split(' ')[0] || 'Alguém')}</span>` : '';
+            const avG = quem ? (!comProx ? `<span class="cmsg-av">${avatarHTML({ id: m.sender_id, display_name: quem.nome, avatar_url: quem.avatar }, 'sm')}</span>` : '<span class="cmsg-av vazio"></span>') : '';
+            return `${sep}<div class="cmsg ${mine ? 'user' : 'coach'}${grupo}${r.length ? ' com-reac' : ''}${m.pendente ? ' pendente' : ''}${quem ? ' no-grupo' : ''}" data-mid="${m.id}">
+                ${avG}${nomeG}
                 ${topo}
                 ${au ? `<div class="cmsg-bubble cmsg-audio${!mine && !audiosOuvidos.has(m.id) ? ' nao-ouvido' : ''}" data-msg="${m.id}">${htmlAudioChat(au, m.id)}${reacHTML}</div>` : corpo || (!ft && !pp) ? `<div class="cmsg-bubble" data-msg="${m.id}">${escapeHTML(corpo).replace(/\n/g, '<br>')}${reacHTML}</div>` : (reacHTML ? `<div class="cmsg-reac-solo">${reacHTML}</div>` : '')}
                 ${hora}
@@ -6570,6 +6612,46 @@ function paintChatMessages(opts = {}) {
     else box.scrollTop = box.scrollHeight - opts.manterScroll;
 }
 const CHAT_JANELA = 60;
+const CORES_AUTOR = ['#C084FC', '#F472B6', '#60A5FA', '#FBBF24', '#34D399', '#FB923C', '#22D3EE', '#A3E635'];
+const corAutor = id => CORES_AUTOR[Math.abs([...String(id || '')].reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7)) % CORES_AUTOR.length];
+function grupoSubTxt(g, n) {
+    const fim = g && g.desafio_fim ? Math.ceil((new Date(g.desafio_fim) - Date.now()) / 86400000) : null;
+    return `${n || 0} ${n === 1 ? 'participante' : 'participantes'}${fim != null ? (fim > 0 ? ` · faltam ${fim} ${fim === 1 ? 'dia' : 'dias'}` : ' · desafio encerrado') : ''}`;
+}
+async function abrirGrupoChat(convId, dados) {
+    const g = dados || (state.gruposChat || {})[convId];
+    if (!g) return;
+    await switchView('chat', { conversationId: convId, otherUser: { id: null, display_name: g.other_name || g.nome || 'Grupo',
+        grupo: { desafio_id: g.desafio_id, capa_ic: g.capa_ic, capa_cor: g.capa_cor, capa_url: g.capa_url, desafio_fim: g.desafio_fim, membros: g.membros, silenciado: !!g.silenciado } } });
+}
+document.addEventListener('click', async e => {
+    const it = e.target.closest('[data-grupo-conv]');
+    if (it) { abrirGrupoChat(it.dataset.grupoConv); return; }
+    const bt = e.target.closest('[data-grupo-cid]');
+    if (bt) {
+        const { data, error } = await sb.rpc('grupo_do_desafio', { cid: bt.dataset.grupoCid });
+        if (error || !data) { toast('O grupo desse desafio ainda não está pronto', 'err'); return; }
+        abrirGrupoChat(data.conversation_id, data); return;
+    }
+    const hd = e.target.closest('[data-grupo-abrir-desafio]');
+    if (hd && hd.dataset.grupoAbrirDesafio) { switchView('challenge', { id: hd.dataset.grupoAbrirDesafio }); return; }
+    const mu = e.target.closest('[data-grupo-mudo]');
+    if (mu) {
+        hidePostMenu();
+        const novo = !(state.chatGrupo && state.chatGrupo.silenciado);
+        const { error } = await sb.rpc('grupo_silenciar', { conv: mu.dataset.grupoMudo, sim: novo });
+        if (error) { toast('Não deu agora', 'err'); return; }
+        if (state.chatGrupo) state.chatGrupo.silenciado = novo;
+        toast(novo ? 'Grupo silenciado: sem avisos no celular' : 'Avisos do grupo ligados', 'ok'); return;
+    }
+    const lp = e.target.closest('[data-grupo-limpar]');
+    if (lp) {
+        hidePostMenu();
+        if (!(await confirmar('Limpar as mensagens só pra você? O grupo continua pros outros.'))) return;
+        await sb.rpc('clear_conversation', { conv_id: lp.dataset.grupoLimpar });
+        state.chatMessages = []; paintChatMessages();
+    }
+});
 // Troca só o que mudou: mensagem nova entra no fim, o resto fica parado (sem piscar foto nem recarregar áudio)
 function reconciliarChat(box, itens) {
     const velhos = new Map();
@@ -10721,6 +10803,7 @@ async function renderChallengeDetail(cid) {
                     <span class="ch-status ${ch.status === 'ativo' ? 'ativo' : ch.status === 'futuro' ? 'futuro' : 'fim'}">${ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado'}</span>
                     <div class="ch-ics">
                         <button class="x1-regras-bt" data-act="ver-regras-desafio">Regras</button>
+                        ${ch.im_member ? `<button class="ch-ic" data-grupo-cid="${cid}" aria-label="Grupo do desafio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg></button>` : ''}
                         ${ch.im_member ? `<button class="ch-ic" data-act="leave-challenge" data-id="${cid}" aria-label="Sair do desafio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 8l-4 4 4 4M6 12h9"/></svg></button>` : ''}
                     </div>
                 </div>
@@ -13229,6 +13312,7 @@ async function renderPainelDesafio(cidEscolhido) {
 
         <div class="pd-acoes">
             <button class="btn-secondary" data-act="ver-regras-desafio">Regras</button>
+            <button class="btn-secondary" data-grupo-cid="${ch.id}">Grupo</button>
             ${(ch.created_by === uid || state.profile.is_admin) ? `<button class="btn-secondary" data-act="invite-challenge" data-id="${ch.id}">Convidar</button>
             <button class="btn-secondary" data-act="go-gerenciar" data-id="${ch.id}">Gerenciar</button>` : ''}
             <button class="btn-secondary" data-act="go-challenges-lista">Outros desafios</button>
@@ -20564,6 +20648,7 @@ function lerStoryDaMensagem(body) {
     try { return { ref: JSON.parse(b.slice(MARCA_STORY.length, fim)), texto: b.slice(fim + 1) }; } catch (_) { return null; }
 }
 const previaMensagem = body => {
+    if (String(body || '').startsWith('⟦sis⟧')) return String(body).slice(5);
     if (lerAudioDaMensagem(body)) return '🎤 Áudio';
     if (lerFotoDaMensagem(body)) return '📷 Foto';
     if (lerPostDaMensagem(body)) return '📎 Enviou um post';

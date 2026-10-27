@@ -6781,3 +6781,18 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .ps-vazio b{ display:block; font-size:16px; }
 .ps-vazio small{ display:block; color:var(--ink-dim); font-size:14px; margin-top:4px; }
 .ps-vazio-bts{ display:flex; gap:10px; justify-content:center; margin-top:16px; }
+
+/* ===== Grupo de chat do desafio ===== */
+.chat-sis{ display:flex; justify-content:center; margin:10px 0; }
+.chat-sis span{ font-size:12.5px; color:var(--ink-dim); background:var(--bg-card, #0B0B0C); border:1px solid var(--line); border-radius:12px; padding:6px 12px; max-width:86%; text-align:center; line-height:1.4; }
+.cmsg.no-grupo{ position:relative; padding-left:38px; }
+.cmsg-av{ position:absolute; left:0; bottom:18px; }
+.cmsg-av .avatar, .cmsg-av .avatar-sm{ width:28px !important; height:28px !important; font-size:11px !important; }
+.cmsg-av.vazio{ display:none; }
+.cmsg-autor{ display:block; font-size:12px; font-weight:700; margin:0 0 3px 4px; }
+.chat-grupo-sub{ display:block; font-size:12px; color:var(--ink-dim); }
+.chat-header-txt:has(.chat-digitando.on) .chat-grupo-sub{ display:none; }
+.cp-q.conv{ width:52px; height:52px; border-radius:16px; }
+.conv-grupo .conv-preview b{ color:var(--ink); font-weight:600; }
+.conv-mudo{ font-size:12px; opacity:.7; }
+.chat-header-user .cp-q.p{ margin-right:10px; }
