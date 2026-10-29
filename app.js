@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261286';
+const APP_VERSAO = '20261289';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -2410,7 +2410,7 @@ document.addEventListener('input', e => {
 async function checarNovosPosts() {
     if (!state.session || state.view !== 'feed' || document.visibilityState !== 'visible' || !state.feedMaisNovo) return;
     if (window.scrollY < 300 || document.getElementById('novosPosts')) return;
-    const { data } = await sb.from('posts').select('user_id, created_at').eq('in_feed', true).eq('archived', false)
+    const { data } = await sb.from('posts').select('user_id, created_at').eq('in_feed', true).eq('archived', false).neq('kind', 'meal')
         .neq('user_id', state.session.user.id).neq('kind', 'weight').gt('created_at', state.feedMaisNovo)
         .order('created_at', { ascending: false }).limit(10);
     if (!data || !data.length || state.view !== 'feed') return;
@@ -4231,7 +4231,7 @@ async function loadMoreFeed() {
             reactions (id, user_id),
             comments (id)
         `)
-        .neq('kind', 'story').neq('kind', 'weight').eq('in_feed', true)
+        .neq('kind', 'story').neq('kind', 'weight').neq('kind', 'meal').eq('in_feed', true)
         .order('created_at', { ascending: false })
         .range(de, de + FEED_PAGE - 1);
 
@@ -5569,55 +5569,42 @@ async function renderPaginaConfig(page) {
 // Suas: todas (inclusive as só registradas). De outra pessoa: só as que ela publicou.
 const MEAL_SLOT_NAME = { cafe:'Café da manhã', almoco:'Almoço', jantar:'Jantar', lanche:'Lanche' };
 
-async function renderMealHistory(uid) {
+async function renderMealHistory(uid, filtro = 'todas') {
     const body = $('#profileTabBody');
     if (!body) return;
     body.innerHTML = esqueletoAba('meals');
     const isMe = uid === state.session.user.id;
-
+    // suas: todas. De outra pessoa: as com foto que ela deixou ver (a privacidade de cada uma decide)
     let qRef = sb.from('posts')
-        .select('id, meal_slot, meal_score, meal_analysis, image_url, created_at, in_feed, meta')
+        .select('id, meal_slot, meal_score, meal_analysis, image_url, thumb_url, created_at, in_feed, meta')
         .eq('user_id', uid).eq('kind', 'meal');
-    if (!isMe) qRef = qRef.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
-    const { data, error } = await qRef.order('created_at', { ascending: false }).limit(60);
+    if (!isMe) qRef = qRef.not('image_url', 'is', null);
+    const { data, error } = await qRef.order('created_at', { ascending: false }).limit(90);
 
     if (!$('#profileTabBody')) return;
     if (error) { body.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`; return; }
     if (!data || data.length === 0) {
         body.innerHTML = isMe ? vazioAcao('alvo', 'Nenhuma refeição ainda', 'Com foto, a IA dá nota pro prato e vale ponto.', 'Registrar refeição', 'data-act="quick-kind" data-kind="meal"')
-            : '<div class="grid-empty">Nenhuma refeição compartilhada.</div>';
+            : '<div class="grid-empty">Nenhuma refeição pra mostrar.</div>';
         return;
     }
-
     const notas = data.filter(m => m.meal_score != null).map(m => Number(m.meal_score));
-    const media = notas.length ? (notas.reduce((a, b) => a + b, 0) / notas.length).toFixed(1) : null;
-
-    const rows = data.map(m => {
-        const dia = new Date(m.created_at).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+    const media = notas.length ? (notas.reduce((a, b) => a + b, 0) / notas.length) : null;
+    const lista = filtro === 'todas' ? data : data.filter(m => (m.meal_slot || 'lanche') === filtro);
+    const corNota = sc => sc >= 8 ? '#34D399' : sc >= 5 ? '#FBBF24' : '#FB923C';
+    if (isMe) { state.wkDados = state.wkDados || {}; data.forEach(m => { state.wkDados[m.id] = { ...m, kind: 'meal' }; }); }
+    const quad = m => {
         const sc = m.meal_score != null ? Number(m.meal_score) : null;
-        const cor = sc == null ? 'var(--ink-faint)' : sc >= 8 ? 'var(--vital)' : sc >= 5 ? 'var(--gold)' : 'var(--effort)';
-        const thumb = m.image_url
-            ? `<img class="ml-thumb" src="${m.image_url}" loading="lazy">`
-            : `<span class="ml-thumb ml-thumb-empty">🍽️</span>`;
-        const act = m.image_url ? ` data-act="view-post" data-id="${m.id}"` : '';
-        if (isMe) { state.wkDados = state.wkDados || {}; state.wkDados[m.id] = { ...m, kind: 'meal' }; }
-        return `<div class="wk-row${m.image_url ? ' tappable' : ''}"${act}>
-            ${thumb}
-            <div class="wk-body">
-                <div class="wk-title">${MEAL_SLOT_NAME[m.meal_slot] || 'Refeição'}${isMe && m.in_feed ? ' <svg class="wk-feed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-label="Publicado no feed"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M3.5 9h17"/></svg>' : ''}</div>
-                ${m.meal_analysis ? `<div class="wk-sub">${escapeHTML(textoIA(m.meal_analysis, m.meal_score).slice(0, 80))}</div>` : ''}
-            </div>
-            <div class="ml-side">
-                ${sc != null ? `<span class="ml-score" style="color:${cor}">${br(sc)}</span>` : ''}
-                ${sc == null && isMe && m.image_url && m.meta && m.meta.analise_pendente && Date.now() - new Date(m.created_at) < 7 * 86400000 ? `<button class="btn-mini ml-analisar" data-act="analisar-prato" data-id="${m.id}">Analisar agora</button>` : ''}
-                <span class="wk-date">${dia}</span>
-            </div>
-            ${isMe ? `<button class="wk-mais" data-act="wk-menu" data-id="${m.id}" data-tipo="refeicao" aria-label="Opções"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg></button>` : ''}
-        </div>`;
-    }).join('');
-
-    body.innerHTML = `<div class="wk-summary"><b>${data.length}</b> refeições${media ? ` · nota média <b>${media}</b>` : ''}</div>
-        <div class="wk-list">${rows}</div>`;
+        const nome = (MEAL_SLOT_NAME[m.meal_slot] || 'Refeição').replace(' da manhã', '').toLowerCase();
+        const foto = m.thumb_url || m.image_url;
+        if (!foto) return `<div class="ml-q sem"${isMe ? ` data-act="wk-menu" data-id="${m.id}" data-tipo="refeicao"` : ''}>${svgIc(IC_CONQ.prato, 26)}<small>${nome}</small></div>`;
+        return `<div class="ml-q" data-act="view-post" data-id="${m.id}"><img src="${escapeHTML(foto)}" alt="" loading="lazy">${sc != null ? `<i style="color:${corNota(sc)}">${br(sc)}</i>` : ''}<small>${nome}</small></div>`;
+    };
+    const FILTROS = [['todas', 'Todas'], ['cafe', 'Café'], ['almoco', 'Almoço'], ['jantar', 'Jantar'], ['lanche', 'Lanche']];
+    body.innerHTML = `${media != null ? `<div class="wk-summary">Nota média <b>${br(media)}</b></div>` : ''}
+        <div class="ml-filtros">${FILTROS.map(([k, n]) => `<button type="button" class="${k === filtro ? 'on' : ''}" data-ml-f="${k}">${n}</button>`).join('')}</div>
+        ${lista.length ? `<div class="ml-grade">${lista.map(quad).join('')}</div>` : '<div class="grid-empty">Nenhuma refeição desse tipo ainda.</div>'}`;
+    body.querySelector('.ml-filtros').addEventListener('click', e => { const b = e.target.closest('[data-ml-f]'); if (b) renderMealHistory(uid, b.dataset.mlF); });
 }
 
 // ---- Seus treinos e refeições no perfil: detalhes, editar (só hoje) e apagar ----
@@ -7490,6 +7477,7 @@ async function renderFeed() {
         `)
         .neq('kind', 'story')  // stories vão pra barra separada
         .neq('kind', 'weight')  // peso é sempre privado, nunca aparece em feed nem mural
+        .neq('kind', 'meal')    // refeição fica só na aba de comida do perfil
         .eq('in_feed', true)    // só o que a pessoa escolheu publicar
         .eq('archived', false)  // arquivados somem do feed
         .order('created_at', { ascending: false })
@@ -14499,13 +14487,13 @@ async function renderProfile() {
     const pegar = x => Promise.resolve(x).then(r => r, () => ({ data: null }));
     const [{ count: postCount }, { data: streak }, { data: followersCount }, { data: followingCount }, { data: myPosts }, { data: goalData },
            { data: diasSem }, { data: rkProf }, meusDestaques, { data: meusStoriesAtivos }, { count: totalStoriesArq }] = await Promise.all([
-        pegar(sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uidP).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true)),
+        pegar(sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uidP).neq('kind', 'weight').neq('kind', 'meal').not('image_url', 'is', null).eq('in_feed', true)),
         pegar(sb.from('daily_streaks').select('*').eq('user_id', uidP).maybeSingle()),
         pegar(sb.rpc('my_followers_count')),
         pegar(sb.rpc('my_following_count')),
         pegar(sb.from('posts')
             .select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot, pinned_at')
-            .eq('user_id', uidP).neq('kind', 'weight')
+            .eq('user_id', uidP).neq('kind', 'weight').neq('kind', 'meal')
             .not('image_url', 'is', null).eq('in_feed', true).eq('archived', false)
             .order('pinned_at', { ascending: false, nullsFirst: false })
             .order('created_at', { ascending: false })
@@ -15637,13 +15625,13 @@ async function renderUserProfile(uid) {
     if (isMe) { switchView('profile'); return; }
 
     const [{ count: postCount }, followersRes, followingRes, iFollowRes, streakRes, postsRes] = await Promise.all([
-        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uid).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true),
+        sb.from('posts').select('*', {count:'exact', head:true}).eq('user_id', uid).neq('kind', 'weight').neq('kind', 'meal').not('image_url', 'is', null).eq('in_feed', true),
         sb.from('follows').select('*', {count:'exact', head:true}).eq('following_id', uid),
         sb.from('follows').select('*', {count:'exact', head:true}).eq('follower_id', uid),
         sb.rpc('am_i_following', { target_id: uid }),
         sb.from('daily_streaks').select('*').eq('user_id', uid).maybeSingle(),
         sb.from('posts').select('id, image_url, thumb_url, kind, caption, created_at, activity_type, duration_min, meal_slot, pinned_at')
-            .eq('user_id', uid).neq('kind', 'weight').not('image_url', 'is', null).eq('in_feed', true).eq('archived', false)
+            .eq('user_id', uid).neq('kind', 'weight').neq('kind', 'meal').not('image_url', 'is', null).eq('in_feed', true).eq('archived', false)
             .order('pinned_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(30),
     ]);
     const iFollow = !!iFollowRes.data;
@@ -21412,8 +21400,8 @@ function setComposerKind(kind) {
     if (kind === 'meal') refreshMealSlots();
     if (kind === 'workout') atualizarCamposTreino();
 
-    // Refeição é dado pessoal: por padrão só a própria pessoa vê.
-    state.composerPrivacy = kind === 'meal' ? 'private' : (state.defaultPrivacy || 'public');
+    // refeição não vai pro feed: fica na aba de refeições do perfil, com a privacidade padrão da pessoa (dá pra trocar pra "Só eu")
+    state.composerPrivacy = state.defaultPrivacy || 'public';
     updatePrivacyChip();
 
     const hint = $('#photoHint');
@@ -21833,11 +21821,12 @@ function updateDestUI() {
     const isPost = kind === 'post';
     if (!state.composerDest) state.composerDest = 'log';
     if (isPost) state.composerDest = 'feed';
+    if (kind === 'meal') state.composerDest = 'log';   // refeição nunca vai pro feed
     else if (!hasPhoto && state.composerDest === 'feed') state.composerDest = 'log';
 
     const isWater = kind === 'water';
     const isSleep = kind === 'sleep';
-    sec.classList.toggle('hidden', isStory || isWater || isSleep || isPost);
+    sec.classList.toggle('hidden', isStory || isWater || isSleep || isPost || kind === 'meal');
     $('#destHint').classList.toggle('hidden', isStory || isWater || isSleep || isPost);
     const fotoBloco = document.querySelector('#composerSheet .file-drop');
     if (fotoBloco) fotoBloco.classList.toggle('hidden', isWater || isSleep);
@@ -21850,13 +21839,13 @@ function updateDestUI() {
     let hint = '';
     if (!isStory && !isPost) {
         if (state.composerDest === 'feed') hint = 'Vai aparecer no feed e nas fotos do seu perfil.';
-        else if (kind === 'meal') hint = 'Fica só pra você no histórico. A IA analisa a foto do mesmo jeito.';
+        else if (kind === 'meal') hint = 'Fica na sua aba de refeições do perfil (não vai pro feed). Escolha abaixo quem pode ver.';
         else hint = 'Fica no seu histórico de treinos, que aparece no seu perfil.';
-        if (!hasPhoto) hint += ' Pra publicar no feed, adicione uma foto.';
+        if (!hasPhoto && kind !== 'meal') hint += ' Pra publicar no feed, adicione uma foto.';
     }
     $('#destHint').textContent = hint;
 
-    $('#privacySection').classList.toggle('hidden', isStory || isWater || isSleep || state.composerDest !== 'feed');
+    $('#privacySection').classList.toggle('hidden', isStory || isWater || isSleep || (state.composerDest !== 'feed' && kind !== 'meal'));
 
     // modo treino: chave do feed no lugar dos dois botões
     const sw = $('#feedSwitch');
@@ -22298,9 +22287,9 @@ el$('composerSubmit').addEventListener('click', async () => {
 
         // ============ POST (tabela posts, permanente) ============
         const toFeed = state.composerDest === 'feed' && !!(imageUrl || fotoOffline);
-        const postVisibility = toFeed
+        const postVisibility = toFeed || state.composerKind === 'meal'
             ? state.composerPrivacy
-            : (state.composerKind === 'meal' ? 'private' : 'public');
+            : 'public';
         const post = {
             user_id: state.session.user.id,
             kind: state.composerKind,
@@ -23893,6 +23882,85 @@ function manterLugar(tela, fn) {
         }
     }
 }
+// ---------- Modalidades: últimas da pessoa + todas por categoria (ordem do mais feito por todo mundo) ----------
+const MOD_CAT = { 'Academia': ['Força', '16,185,129'], 'Cardio': ['Cardio', '95,176,255'], 'Esportes': ['Esportes', '255,194,75'], 'Lutas': ['Lutas', '255,122,77'], 'Corpo e mente': ['Corpo e mente', '192,132,252'], 'Ao ar livre': ['Ao ar livre', '45,212,191'] };
+// ordem de reserva (antes do servidor responder ou se a função não existir)
+const MOD_ORDEM_PADRAO = ['Musculação', 'Caminhada', 'Corrida', 'Funcional', 'Ciclismo', 'Futebol', 'Pilates', 'Beach tennis', 'Crossfit', 'HIIT', 'Spinning', 'Natação', 'Yoga', 'Jiu-jitsu', 'Vôlei', 'Muay thai', 'Alongamento', 'Calistenia', 'Trilha', 'Dança', 'Tênis', 'Boxe', 'Basquete', 'Remo', 'Surf', 'Skate'];
+const IC_MOD = {
+    'Musculação': '<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>',
+    'Funcional': '<path d="M9 7a3 3 0 1 1 6 0"/><path d="M7 9h10l-1.5 11h-7z"/>',
+    'Crossfit': '<path d="M5 20l3-9h8l3 9M9 11V7h6v4M12 4v3"/>',
+    'Calistenia': '<path d="M4 4h16"/><circle cx="12" cy="9" r="2"/><path d="M8 4l2 7v4l-2 5M16 4l-2 7v4l2 5"/>',
+    'HIIT': '<path d="M13 2L5 14h6l-1 8 8-12h-6z"/>',
+    'Corrida': '<circle cx="14" cy="4.5" r="2"/><path d="M8 21l3-6 3 2v4M7 12l3-4 4 1 2 3h3M11 15l1-5"/>',
+    'Caminhada': '<circle cx="12" cy="4.5" r="2"/><path d="M10 21l2-7 2 3v4M8 12l3-4h2l2 4"/>',
+    'Ciclismo': '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l3 7"/>',
+    'Spinning': '<path d="M6 20h12M9 20l2-8M8 6h6l-2 6h5"/><circle cx="15" cy="15" r="3"/>',
+    'Natação': '<path d="M2 17c2 0 2-1.5 4-1.5S8 17 10 17s2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5"/><circle cx="16" cy="7" r="2"/><path d="M5 13l5-4 3 3"/>',
+    'Remo': '<path d="M3 17h18M6 17l10-10M16 7l3-1-1 3"/>',
+    'Futebol': '<circle cx="12" cy="12" r="8.5"/><path d="M12 8l3 2-1 4h-4l-1-4zM12 3.5V8M20 10h-5M4 10h5"/>',
+    'Vôlei': '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5c-2 4-2 8 0 8.5s6 3 8 1M4 9c4 0 7 1 8 3M7 19c1-3 3-6 5-7"/>',
+    'Basquete': '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5v17M6 6c3 2 3 10 0 12M18 6c-3 2-3 10 0 12"/>',
+    'Beach tennis': '<ellipse cx="9" cy="9" rx="5" ry="6" transform="rotate(-35 9 9)"/><path d="M12 13l6 7"/><circle cx="19" cy="5" r="1.6"/>',
+    'Tênis': '<circle cx="12" cy="12" r="8.5"/><path d="M5 6c3 3 3 9 0 12M19 6c-3 3-3 9 0 12"/>',
+    'Jiu-jitsu': '<path d="M8 4l4 4 4-4M12 8v12M7 13h10"/>',
+    'Muay thai': '<circle cx="12" cy="4.5" r="2"/><path d="M12 7v6l-4 7M12 13l6-3M8 9l4 1"/>',
+    'Boxe': '<path d="M7 11V8a3 3 0 0 1 6 0v1h2a3 3 0 0 1 3 3v3a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5z"/>',
+    'Pilates': '<circle cx="12" cy="12" r="5"/><path d="M4 20h16"/>',
+    'Yoga': '<circle cx="12" cy="5" r="2"/><path d="M12 8v6M5 12l7 2 7-2M8 20l4-6 4 6"/>',
+    'Alongamento': '<circle cx="6" cy="6" r="2"/><path d="M7 8l3 5h9M10 13l-4 7"/>',
+    'Dança': '<circle cx="13" cy="4.5" r="2"/><path d="M13 7l-1 6 3 3-1 5M12 13l-4 3M9 8l4 1 4-3"/>',
+    'Trilha': '<path d="M3 20l6-11 4 6 3-4 5 9z"/>',
+    'Skate': '<path d="M3 13h18M5 13c0 1.5 1 2 2 2M19 13c0 1.5-1 2-2 2"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>',
+    'Surf': '<path d="M5 20C5 11 11 4 19 4c0 8-7 14-14 16zM9 15l6-6"/>',
+};
+const icMod = a => SVG_X(IC_MOD[a] || IC_MOD['Funcional']);
+// ordem do mais feito por todo mundo (90 dias); fica guardada 1 dia
+async function modalidadesPopulares() {
+    try {
+        const c = JSON.parse(lsGet('pulso-mod-pop') || 'null');
+        if (c && Date.now() - c.em < 86400000 && Array.isArray(c.l)) return c.l;
+    } catch (_) {}
+    try {
+        const { data, error } = await sb.rpc('modalidades_populares');
+        if (error || !Array.isArray(data) || !data.length) return null;
+        const l = data.map(x => x.activity_type).filter(a => MODALIDADES.includes(a));
+        const ordem = [...l, ...MOD_ORDEM_PADRAO.filter(a => !l.includes(a))];
+        try { lsSet('pulso-mod-pop', JSON.stringify({ em: Date.now(), l: ordem })); } catch (_) {}
+        return ordem;
+    } catch (_) { return null; }
+}
+const haDiasCurto = d => {
+    const dt = new Date(d); const n = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
+    return n <= 0 ? 'hoje' : n === 1 ? 'ontem' : n < 7 ? NOME_DIA[dt.getDay()] : `há ${n} dias`;
+};
+function htmlModalidades(sel, recentes, ordem, abertas) {
+    const pos = a => { const i = ordem.indexOf(a); return i < 0 ? 999 : i; };
+    const tile = (a, cor, extra = '') => `<button class="mod-t${a === sel ? ' on' : ''}" style="--c:${cor}" data-tr="ativ" data-a="${escapeHTML(a)}">${icMod(a)}<b>${escapeHTML(a)}</b>${extra}</button>`;
+    const corDe = a => { const g = MODALIDADES_GRUPOS.find(([, l]) => l.includes(a)); return g && MOD_CAT[g[0]] ? MOD_CAT[g[0]][1] : '16,185,129'; };
+    const cats = MODALIDADES_GRUPOS.map(([g, l]) => ({ g, l: l.slice().sort((x, y) => pos(x) - pos(y)) })).sort((x, y) => pos(x.l[0]) - pos(y.l[0]));
+    const rec = recentes.length ? `<div class="x1-sec">ÚLTIMAS QUE VOCÊ FEZ</div><div class="mod-g3 mod-rec">${recentes.slice(0, 3).map(r => tile(r.a, corDe(r.a), `<small>${r.quando ? haDiasCurto(r.quando) : 'sugestão'}</small>`)).join('')}</div>` : '';
+    return `${rec}<div class="x1-sec">TODAS</div>${cats.map(({ g, l }) => {
+        const [nome, cor] = MOD_CAT[g] || [g, '16,185,129'];
+        // fechada: os 2 mais feitos por todo mundo + "mais". Abre sozinha se a escolhida estiver escondida
+        const aberta = l.length <= 3 || abertas.has(g) || (sel && l.indexOf(sel) >= 2);
+        let tiles = (aberta ? l : l.slice(0, 2)).map(a => tile(a, cor)).join('');
+        if (!aberta) tiles += `<button class="mod-t mod-mais" style="--c:${cor}" data-tr="cat" data-c="${g}">${SVG_X('<path d="M12 5v14M5 12h14"/>')}<b>mais</b></button>`;
+        else if (l.length > 3) { const sobra = (3 - l.length % 3) % 3; tiles += Array.from({ length: sobra }, () => `<button class="mod-t mod-mais" style="--c:${cor}" data-tr="cat" data-c="${g}">${SVG_X('<path d="M5 12h14"/>')}<b>menos</b></button>`).join(''); }
+        return `<div class="mod-cat" style="--c:${cor}"><div class="mod-cat-t"><i></i>${escapeHTML(nome)}</div><div class="mod-g3">${tiles}</div></div>`;
+    }).join('')}`;
+}
+// "+ Novo": todas as formas de criar um treino num lugar só
+function novoTreinoFolha(op, escolher) {
+    const linha = (k, d, t, s) => `<button class="nt-op" data-nt="${k}"><span class="nt-ic">${SVG_X(d)}</span><span class="nt-t"><b>${t}</b><small>${s}</small></span><span class="nt-seta">${SVG_X('<path d="M9 6l6 6-6 6"/>')}</span></button>`;
+    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t" style="margin-bottom:2px">Novo treino</h3><p class="nt-sub">Escolha como quer criar</p>
+        ${linha('ficha', '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>', 'Foto da ficha', 'A IA lê a ficha da academia')}
+        ${linha('escrever', '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>', 'Descrever pra IA', '"peito e tríceps, 45 min"')}
+        ${linha('zero', '<path d="M12 5v14M5 12h14"/>', 'Montar do zero', 'Você escolhe os exercícios')}
+        ${op.ultimo ? linha('ultimo', '<path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/>', 'Repetir último', escapeHTML(op.ultimo)) : ''}
+        ${op.coach ? linha('coach', '<path d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.6 6.7 19.5l1.1-6L3.4 9.3l6-.8z"/>', 'Treino do coach', 'O que o coach montou pra hoje') : ''}`, 'trNovo');
+    f.addEventListener('click', e => { const b = e.target.closest('[data-nt]'); if (!b) return; fechar(); setTimeout(() => escolher(b.dataset.nt), 120); });
+}
 async function abrirModoTreino(preset = null, editar = false) {
     const salvo = trGet();
     if (salvo && (salvo.inicio || salvo.pronto) && !editar) return abrirTreinoVivo();
@@ -23905,22 +23973,29 @@ async function abrirModoTreino(preset = null, editar = false) {
         exercicios: [], doCoach: null,
     };
     const doCoach = !editar && t && t.status !== 'feito' && t.tipo === 'Musculação' && (t.blocos || []).length;
-    const gostos = [...new Set([...(state.profile.train_likes || []), ...MODALIDADES])];
     const sugerirDosGrupos = () => {
         m.grupos.forEach((g, i) => (BIBLIO_EX[g] || []).slice(0, i === 0 ? 3 : 2).forEach(n => { if (!m.exercicios.some(e => e.nome === n)) m.exercicios.push(novoExercicio(n, 3, null, g)); }));
     };
     if (!editar && m.ativ === 'Musculação' && !m.exercicios.length) sugerirDosGrupos();
     // atalhos: modelos salvos e o último treino ao vivo
-    let modelos = [], ultimo = null, ultimaOutra = null;
+    let modelos = [], ultimo = null, ultimaOutra = null, recentes = [], ordemPopular = MOD_ORDEM_PADRAO.slice();
+    const catAbertas = new Set();
     if (!editar) {
-        const [r1, r2, r3] = await Promise.all([
+        const [r1, r2, r3, pop] = await Promise.all([
             sb.from('treino_modelos').select('id, nome, grupos, exercicios, usado_em').eq('user_id', state.session.user.id).order('usado_em', { ascending: false, nullsFirst: false }).order('criado_em', { ascending: false }).limit(20).then(r => r, () => ({ data: [] })),
             sb.from('posts').select('id, muscle_groups, created_at, meta').eq('user_id', state.session.user.id).eq('kind', 'workout').eq('activity_type', 'Musculação')
                 .not('meta->exercicios', 'is', null).order('created_at', { ascending: false }).limit(1).then(r => r, () => ({ data: [] })),
-            sb.from('posts').select('activity_type, duration_min, created_at').eq('user_id', state.session.user.id).eq('kind', 'workout').neq('activity_type', 'Musculação')
-                .order('created_at', { ascending: false }).limit(1).then(r => r, () => ({ data: [] })),
+            sb.from('posts').select('activity_type, duration_min, created_at').eq('user_id', state.session.user.id).eq('kind', 'workout')
+                .order('created_at', { ascending: false }).limit(40).then(r => r, () => ({ data: [] })),
+            modalidadesPopulares(),
         ]);
-        modelos = r1.data || []; ultimo = (r2.data || [])[0] || null; ultimaOutra = (r3.data || [])[0] || null;
+        modelos = r1.data || []; ultimo = (r2.data || [])[0] || null;
+        if (pop && pop.length) ordemPopular = pop;
+        const feitos = (r3.data || []).filter(x => MODALIDADES.includes(x.activity_type));
+        ultimaOutra = feitos.find(x => x.activity_type !== 'Musculação') || null;
+        feitos.forEach(x => { if (recentes.length < 3 && !recentes.some(y => y.a === x.activity_type)) recentes.push({ a: x.activity_type, quando: x.created_at }); });
+        // completa até 3: primeiro o que a pessoa disse que gosta, depois o mais feito por todo mundo
+        [...(state.profile.train_likes || []), ...ordemPopular].forEach(a => { if (recentes.length < 3 && MODALIDADES.includes(a) && !recentes.some(y => y.a === a)) recentes.push({ a, quando: null }); });
     }
     const tela = x1Tela('treinoInicio', '');
     tela.classList.add('tr-tela');
@@ -23935,25 +24010,20 @@ async function abrirModoTreino(preset = null, editar = false) {
     const pintarTudo = () => {
         const n = m.exercicios.length;
         const haDias = d => { if (!d) return 'ainda não feito'; const n = Math.floor((Date.now() - new Date(d)) / 86400000); return n <= 0 ? 'feito hoje' : n === 1 ? 'feito ontem' : `feito há ${n} dias`; };
-        const meus = !editar ? `<div class="x1-sec">MEUS TREINOS</div>
+        const meus = !editar ? `<div class="x1-sec trm-sec">MEUS TREINOS${modelos.length ? `<button class="trm-novo" data-tr="novo">${SVG_X('<path d="M12 5v14M5 12h14"/>')}Novo</button>` : ''}</div>
             ${modelos.length ? `<div class="trm-meus">${modelos.map(md => `<div class="trm-meu${m.modeloId === md.id ? ' on' : ''}" data-tr="modelo" data-id="${md.id}">
                 <span class="x1-tipo-ic" style="--c:255,194,75">${SVG_X('<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>')}</span>
                 <span class="trm-meu-t"><b>${escapeHTML(md.nome)}</b><small>${(md.exercicios || []).length} ${(md.exercicios || []).length === 1 ? 'exercício' : 'exercícios'} · ${haDias(md.usado_em)}</small></span>
                 <button class="x1-ib mini" data-tr="modelo-menu" data-id="${md.id}" aria-label="Opções">${SVG_X(IC_X1.mais)}</button>
-            </div>`).join('')}</div>` : '<p class="trm-vazio">Monte um treino e salve com um nome. Na próxima vez, é um toque.</p>'}
-            ${!editar ? '<button class="trm-escrever" data-tr="escrever">✦ Descreva o treino e a IA monta<small>ex: peito e tríceps, 45 min, só halter</small></button>' : ''}
-            ${doCoach || ultimo || ultimaOutra ? `<div class="trm-mini">
-                ${doCoach ? '<button data-tr="coach">✦ Treino do coach</button>' : ''}
-                ${ultimo ? '<button data-tr="ultimo">↻ Repetir último</button>' : ''}
-                ${ultimaOutra ? `<button data-tr="outra">↻ Repetir ${escapeHTML(String(ultimaOutra.activity_type || '').toLowerCase())}</button>` : ''}
-            </div>` : ''}` : '';
+            </div>`).join('')}</div>` : `<div class="trm-vazio2"><b>Você ainda não tem treinos salvos</b><small>Crie seu A, B, C uma vez. Depois é um toque.</small>
+                <button class="trm-criar" data-tr="novo">${SVG_X('<path d="M12 5v14M5 12h14"/>')}Criar treino</button></div>`}` : '';
+        const modalidades = !editar ? htmlModalidades(m.ativ, recentes, ordemPopular, catAbertas) : '';
         tela.innerHTML = `
         <div class="x1-topo"><button class="x1-ib" data-tr="fechar" aria-label="Fechar">${SVG_X(editar ? IC_X1.voltar : IC_X1.fechar)}</button><h1>${editar ? 'Editar exercícios' : 'Montar treino'}</h1><span class="x1-ib"></span></div>
         <div class="x1-corpo">
             ${meus}
-            ${!editar ? `<div class="x1-sec">O QUE VAI FAZER</div>
-            <div class="trv-chips">${gostos.map(a => `<button class="x1-chip${a === m.ativ ? ' on' : ''}" data-tr="ativ" data-a="${a}">${a}</button>`).join('')}</div>` : ''}
-            ${!m.ativ ? '' : musc() ? `${!editar ? `<div class="x1-sec">GRUPOS</div>
+            ${modalidades}
+            ${!m.ativ ? '' : musc() ? `${!editar ? `<div class="x1-sec" id="trmGrupos">GRUPOS</div>
             <div class="trv-chips">${GRUPOS_TREINO.map(g => `<button class="x1-chip${m.grupos.includes(g) ? ' on' : ''}" data-tr="grupo" data-g="${g}">${g}</button>`).join('')}</div>` : ''}
             ${!editar ? avisoProntidaoTreino(m) : ''}
             ${n || editar ? `<div class="x1-sec">EXERCÍCIOS · ${n}</div>
@@ -23972,7 +24042,7 @@ async function abrirModoTreino(preset = null, editar = false) {
             ${!editar && n ? `<button class="trm-salvar" data-tr="salvar-meu">${rotuloSalvar()}</button>` : ''}` : `<p class="tr-dica">Escolha os grupos pra montar a lista de exercícios.</p>`}`
             : `<p class="tr-dica">O cronômetro começa quando você tocar em começar. No fim, você confere o tempo${['Corrida', 'Caminhada', 'Ciclismo', 'Natação'].includes(m.ativ) ? ' e coloca a distância' : ''}.</p>`}
         </div>
-        <div class="x1-rodape"><button class="btn x1-btn" data-tr="comecar"${!m.ativ || (musc() && !n) ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `Continuar${musc() && n ? ` · ${n} ${n === 1 ? 'exercício' : 'exercícios'}` : ''}${SVG_X('<path d="M9 6l6 6-6 6"/>')}`}</button></div>`;
+        <div class="x1-rodape"><button class="btn x1-btn trm-ir" data-tr="comecar"${!m.ativ || (musc() && !n) ? ' disabled' : ''}>${editar ? 'Voltar ao treino' : `Continuar${m.ativ ? ` · ${musc() && n ? `${n} ${n === 1 ? 'exercício' : 'exercícios'}` : escapeHTML(m.ativ)}` : ''}${SVG_X('<path d="M9 6l6 6-6 6"/>')}`}</button></div>`;
     };
     const pintar = () => manterLugar(tela, pintarTudo);
     // tocar num botão com o teclado aberto não tira o foco do campo
@@ -24051,6 +24121,22 @@ async function abrirModoTreino(preset = null, editar = false) {
         else if (a === 'menos') { const ex = m.exercicios[i]; if (ex.series.length > 1) { ex.series.pop(); vibrar(5); pintarSeries(i); } }
         else if (a === 'mais') { const ex = m.exercicios[i]; if (ex.series.length < 10) { const u = ex.series[ex.series.length - 1]; ex.series.push({ kg: u ? u.kg : '', reps: u ? u.reps : '10', ok: false }); vibrar(5); pintarSeries(i); } }
         else if (a === 'tirar') { m.exercicios.splice(i, 1); vibrar(6); pintar(); }
+        else if (a === 'cat') { const c = b.dataset.c; catAbertas.has(c) ? catAbertas.delete(c) : catAbertas.add(c); vibrar(4); pintar(); }
+        else if (a === 'novo') novoTreinoFolha({ coach: !!doCoach, ultimo: ultimo ? `${(ultimo.muscle_groups || []).slice(0, 2).join(' e ') || 'Musculação'} · ${haDiasCurto(ultimo.created_at)}` : null }, op => {
+            if (op === 'zero') {
+                m.ativ = 'Musculação'; m.grupos = []; m.exercicios = []; m.doCoach = null; m.modeloId = null; vibrar(6); pintar();
+                const g = tela.querySelector('#trmGrupos'); if (g) setTimeout(() => g.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+                return;
+            }
+            const fake = document.createElement('button'); fake.hidden = true; fake.dataset.tr = op; tela.appendChild(fake); fake.click(); fake.remove();
+        });
+        else if (a === 'ficha') importarFicha(novos => {
+            if (!novos.length) return;
+            novos.slice().reverse().forEach(md => { if (!modelos.some(x => x.id === md.id)) modelos.unshift(md); });
+            pintar();
+            const c = tela.querySelector('.x1-corpo'); if (c) c.scrollTo({ top: 0, behavior: 'smooth' });
+            novos.forEach(md => { const el = tela.querySelector(`.trm-meu[data-id="${md.id}"]`); if (el) el.classList.add('novo'); });
+        });
         else if (a === 'escrever') montarTreinoEscrevendo(r => {
             m.ativ = 'Musculação'; m.grupos = r.grupos; m.exercicios = r.exercicios; m.doCoach = null; m.modeloId = null; vibrar([10, 30, 10]); pintar();
             const c = tela.querySelector('#trmLista'); if (c) setTimeout(() => c.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
@@ -24461,6 +24547,236 @@ async function escolherExercicio(aoEscolher) {
     lista.addEventListener('click', e => { const b = e.target.closest('[data-n]'); if (!b) return; fechar(); aoEscolher(b.dataset.n); });
 }
 
+// ================= IMPORTAR FICHA POR FOTO =================
+// A pessoa fotografa a ficha da academia (até 4 páginas), a IA separa os treinos e ela confere antes de salvar.
+const FICHA_MAX_FOTOS = 4;
+const FICHA_ERRO_LER = 'Não consegui ler bem essa foto. Tenta com mais luz e a ficha inteira na tela.';
+const normEx = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+// nomes comuns nas fichas que são o mesmo exercício da biblioteca
+const FICHA_APELIDOS = {
+    'supino plano': 'Supino reto', 'supino reto com barra': 'Supino reto', 'supino reto barra': 'Supino reto', 'supino inclinado com barra': 'Supino inclinado',
+    'puxada alta': 'Puxada frontal', 'puxada pela frente': 'Puxada frontal', 'puxada aberta': 'Puxada frontal', 'pulldown': 'Puxada frontal', 'pulley frente': 'Puxada frontal',
+    'remada sentada': 'Remada baixa', 'remada baixa triangulo': 'Remada baixa', 'remada curvada com barra': 'Remada curvada', 'barra': 'Barra fixa',
+    'leg 45': 'Leg press', 'leg press 45': 'Leg press', 'leg': 'Leg press', 'extensora': 'Cadeira extensora', 'cadeira extensora': 'Cadeira extensora',
+    'flexora': 'Mesa flexora', 'flexora deitada': 'Mesa flexora', 'mesa flexora': 'Mesa flexora', 'flexora sentada': 'Cadeira flexora',
+    'agachamento livre': 'Agachamento', 'agachamento com barra': 'Agachamento', 'afundo com halteres': 'Afundo', 'passada': 'Afundo', 'bulgaro': 'Agachamento búlgaro',
+    'elevacao lateral com halteres': 'Elevação lateral', 'elevacao frontal com halteres': 'Elevação frontal', 'desenvolvimento com halteres': 'Desenvolvimento', 'desenvolvimento militar': 'Desenvolvimento',
+    'crucifixo invertido': 'Crucifixo inverso', 'voador inverso': 'Crucifixo inverso', 'peck deck': 'Crucifixo', 'voador': 'Crucifixo', 'crucifixo com halteres': 'Crucifixo',
+    'rosca direta com barra': 'Rosca direta', 'rosca biceps': 'Rosca direta', 'rosca alternada com halteres': 'Rosca alternada', 'rosca concentrada': 'Rosca alternada',
+    'triceps na corda': 'Tríceps corda', 'triceps pulley corda': 'Tríceps corda', 'triceps testa com barra': 'Tríceps testa', 'triceps frances com halter': 'Tríceps francês', 'paralelas': 'Mergulho',
+    'abdominal supra': 'Abdominal', 'abdominal reto': 'Abdominal', 'prancha isometrica': 'Prancha', 'elevacao de pernas na barra': 'Elevação de pernas',
+    'hiperextensao lombar': 'Hiperextensão', 'terra': 'Levantamento terra', 'stiff com barra': 'Stiff', 'stiff com halteres': 'Stiff',
+    'elevacao pelvica com barra': 'Elevação pélvica', 'hip thrust': 'Elevação pélvica', 'abdutora': 'Abdução', 'cadeira abdutora': 'Abdução',
+    'panturrilha em pe no aparelho': 'Panturrilha em pé', 'gemeos em pe': 'Panturrilha em pé', 'panturrilha sentada': 'Panturrilha sentado', 'gemeos sentado': 'Panturrilha sentado',
+};
+const BIBLIO_NORM = (() => { const m = {}; Object.values(BIBLIO_EX).flat().forEach(n => { m[normEx(n)] = n; }); return m; })();
+// nome escrito pela IA (ou pela pessoa) → nome da biblioteca, quando é o mesmo exercício
+function exDaBiblioteca(nome) {
+    const k = normEx(nome);
+    return BIBLIO_NORM[k] || FICHA_APELIDOS[k] || null;
+}
+const grupoDoEx = n => (Object.entries(BIBLIO_EX).find(([g, l]) => g !== 'Corpo todo' && l.includes(n)) || [])[0] || null;
+// "10-12" → 10 · "15/12/10" → 15 · "30s" → 30 · "até a falha" → null
+const repsNum = r => { const x = String(r == null ? '' : r).match(/\d+/); return x ? Math.max(1, Math.min(60, parseInt(x[0]))) : null; };
+// arruma o que a IA devolveu: nomes da biblioteca, grupos válidos, limites
+function limparFicha(r) {
+    const treinos = (Array.isArray(r && r.treinos) ? r.treinos : []).slice(0, 7).map((t, k) => {
+        const exercicios = (Array.isArray(t && t.exercicios) ? t.exercicios : []).filter(x => x && String(x.nome || '').trim()).slice(0, 15).map(x => {
+            const bruto = String(x.nome).replace(/\s+/g, ' ').trim();
+            const nome = (exDaBiblioteca(bruto) || bruto.charAt(0).toUpperCase() + bruto.slice(1)).slice(0, 40);
+            const reps = String(x.reps == null ? '' : x.reps).replace(/\s+/g, ' ').trim().slice(0, 14);
+            return { nome, series: Math.max(1, Math.min(8, parseInt(x.series) || 3)), reps: reps || '10', duvida: x.duvida ? String(x.duvida).replace(/\s*[—–]\s*/g, ', ').slice(0, 90) : null };
+        });
+        let grupos = (Array.isArray(t && t.grupos) ? t.grupos : []).filter(g => GRUPOS_TREINO.includes(g));
+        if (!grupos.length) grupos = [...new Set(exercicios.map(x => grupoDoEx(x.nome)).filter(Boolean))];
+        const letra = 'ABCDEFG'[k];
+        const nome = String((t && t.nome) || '').replace(/\s*[—–]\s*/g, ' · ').replace(/\s+/g, ' ').trim().slice(0, 30) || `Treino ${letra}`;
+        return { nome, grupos: grupos.slice(0, 4), exercicios };
+    }).filter(t => t.exercicios.length);
+    return treinos;
+}
+function importarFicha(aoSalvar) {
+    const fotos = []; // { file, url }
+    const { f, fechar } = x1Folha(`<div id="fiCorpo"></div>
+        <input type="file" accept="image/*" capture="environment" id="fiCam" hidden>
+        <input type="file" accept="image/*" multiple id="fiGal" hidden>`, 'trFicha');
+    const corpo = f.querySelector('#fiCorpo'), cam = f.querySelector('#fiCam'), gal = f.querySelector('#fiGal');
+    const soltarFotos = () => fotos.forEach(x => { try { URL.revokeObjectURL(x.url); } catch (_) {} });
+    const fecharTudo = () => { soltarFotos(); fechar(); };
+    const icCam = '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>';
+    const icGal = '<rect x="4" y="4" width="16" height="16" rx="3"/><circle cx="9" cy="9.5" r="1.6"/><path d="M20 15l-4.5-4.5L6 20"/>';
+    let erro = '';
+    const pintar = () => {
+        const n = fotos.length;
+        corpo.innerHTML = `<h3 class="x1-folha-t">Importar ficha da academia</h3>
+            <p class="tr-dica fi-intro">Tire foto da ficha. A IA separa os treinos (A, B, C), lê séries e repetições, e você confere antes de salvar.</p>
+            ${n ? `<div class="fi-fotos">${fotos.map((x, i) => `<div class="fi-foto"><img src="${x.url}" alt=""><span>${i + 1}</span><button data-fi="tirar" data-i="${i}" aria-label="Tirar foto">${SVG_X(IC_X1.fechar)}</button></div>`).join('')}
+                ${n < FICHA_MAX_FOTOS ? `<button class="fi-mais" data-fi="mais">${SVG_X('<path d="M12 5v14M5 12h14"/>')}<small>Página</small></button>` : ''}</div>
+                <p class="fi-nota">${n === 1 ? 'Ficha com frente e verso? Adicione a outra página.' : `${n} páginas da mesma ficha.`}</p>`
+            : `<div class="fi-ops">
+                <button class="fi-op" data-fi="cam">${SVG_X(icCam)}<b>Tirar foto agora</b><small>Câmera</small></button>
+                <button class="fi-op" data-fi="gal">${SVG_X(icGal)}<b>Escolher da galeria</b><small>Até ${FICHA_MAX_FOTOS} fotos</small></button>
+            </div>
+            <ul class="fi-dicas"><li>A ficha inteira aparecendo</li><li>Boa luz, sem reflexo</li><li>Foto reta, de cima</li></ul>`}
+            ${erro ? `<p class="tr-erro">${escapeHTML(erro)}</p>` : ''}
+            <div class="x1-duas"><button class="btn x1-btn ghost" data-fi="cancelar">Cancelar</button><button class="btn x1-btn" data-fi="ler"${n ? '' : ' disabled'}>✦ Ler ficha</button></div>`;
+    };
+    const carregando = () => {
+        corpo.innerHTML = `<h3 class="x1-folha-t">Lendo a ficha</h3>
+            <div class="fi-lendo">${fotos.slice(0, 4).map(x => `<div class="fi-lendo-f"><img src="${x.url}" alt=""><i></i></div>`).join('')}</div>
+            <p class="fi-lendo-t"><span class="spinner-mini"></span><span id="fiPasso">Lendo os exercícios…</span></p>`;
+        const passos = ['Lendo os exercícios…', 'Separando os treinos…', 'Conferindo séries e repetições…', 'Quase lá…'];
+        let k = 0; const tm = setInterval(() => { const el = f.querySelector('#fiPasso'); if (!el) return clearInterval(tm); k = Math.min(passos.length - 1, k + 1); el.textContent = passos[k]; }, 2600);
+        return () => clearInterval(tm);
+    };
+    const adicionar = async lista => {
+        erro = '';
+        for (const file of Array.from(lista || []).slice(0, FICHA_MAX_FOTOS - fotos.length)) {
+            const ok = await fotoLegivel(file); if (!ok) continue;
+            fotos.push({ file: ok, url: URL.createObjectURL(ok) });
+        }
+        if ((lista || []).length > FICHA_MAX_FOTOS) toast(`Até ${FICHA_MAX_FOTOS} fotos por ficha`, 'info');
+        vibrar(6); pintar();
+    };
+    cam.onchange = () => { adicionar(cam.files); cam.value = ''; };
+    gal.onchange = () => { adicionar(gal.files); gal.value = ''; };
+    const ler = async () => {
+        if (!fotos.length) return;
+        const parar = carregando();
+        const t0 = Date.now();
+        try {
+            const imagens = [];
+            for (const x of fotos) imagens.push({ b64: await imagemJpegParaIA(x.file, 1600, 0.85), mime: 'image/jpeg' });
+            let meus = [];
+            try { const { data } = await sb.rpc('treino_meus_exercicios'); meus = (data || []).slice(0, 40); } catch (_) {}
+            const biblio = Object.entries(BIBLIO_EX).filter(([g]) => g !== 'Corpo todo').map(([g, l]) => `${g}: ${l.join(', ')}`).join('\n') + (meus.length ? `\nJá usados pela pessoa: ${meus.join(', ')}` : '');
+            const { data, error } = await sb.functions.invoke('vision-tools', { body: { task: 'ficha', imagens, contexto: biblio, pergunta: imagens.length > 1 ? `${imagens.length} fotos` : '' } });
+            parar();
+            if (!document.body.contains(f)) return;
+            if (error || !data || data.error) throw (error || new Error(data && data.error || 'sem resposta'));
+            const treinos = data.legivel === false ? [] : limparFicha(data);
+            evento('ficha_lida', { fotos: fotos.length, treinos: treinos.length, exs: treinos.reduce((s, t) => s + t.exercicios.length, 0), ms: Date.now() - t0 });
+            if (!treinos.length) { erro = FICHA_ERRO_LER; vibrar([20, 40, 20]); pintar(); return; }
+            fecharTudo(); vibrar([10, 30, 10]);
+            setTimeout(() => revisarFicha(treinos, aoSalvar), 120);
+        } catch (e) {
+            parar(); console.warn('ficha', e);
+            if (!document.body.contains(f)) return;
+            erro = /ilegível/.test(String(e && e.message)) ? FICHA_ERRO_LER : 'A IA de fotos está indisponível agora. Tenta de novo daqui a pouco.';
+            pintar();
+        }
+    };
+    corpo.addEventListener('click', e => {
+        const b = e.target.closest('[data-fi]'); if (!b || b.disabled) return;
+        const a = b.dataset.fi;
+        if (a === 'cam') cam.click();
+        else if (a === 'gal' || a === 'mais') (a === 'mais' && !fotos.length ? cam : gal).click();
+        else if (a === 'tirar') { const [x] = fotos.splice(+b.dataset.i, 1); if (x) URL.revokeObjectURL(x.url); erro = ''; pintar(); }
+        else if (a === 'cancelar') fecharTudo();
+        else if (a === 'ler') ler();
+    });
+    pintar();
+}
+// Tela de conferir: uma aba por treino, com nome, grupos e exercícios editáveis
+function revisarFicha(treinos, aoSalvar) {
+    let at = 0;
+    const tela = x1Tela('trFichaRev', '');
+    tela.classList.add('tr-tela', 'fi-tela');
+    const totEx = () => treinos.reduce((s, t) => s + t.exercicios.length, 0);
+    const duvidas = t => t.exercicios.filter(x => x.duvida).length;
+    const problema = t => !t.nome.trim() ? 'Falta o nome' : !t.exercicios.length ? 'Sem exercícios' : '';
+    // a aba mostra só o começo ("Treino A"), o nome inteiro fica no campo
+    const rotuloAba = t => { const n = (t.nome || '').trim(); if (!n) return 'Sem nome'; const c = n.split(/\s*[·|:\-]\s*/)[0]; return (c.length >= 3 ? c : n).slice(0, 14); };
+    const pintarTudo = () => {
+        if (at >= treinos.length) at = Math.max(0, treinos.length - 1);
+        const t = treinos[at];
+        const nDuv = treinos.reduce((s, x) => s + duvidas(x), 0);
+        const nOk = treinos.filter(x => !problema(x)).length;
+        tela.innerHTML = `
+        <div class="x1-topo"><button class="x1-ib" data-fr="fechar" aria-label="Fechar">${SVG_X(IC_X1.fechar)}</button><h1>Conferir ficha</h1><span class="x1-ib"></span></div>
+        <div class="x1-corpo">
+            <div class="fi-resumo"><b>${treinos.length} ${treinos.length === 1 ? 'treino' : 'treinos'} · ${totEx()} exercícios</b>
+                <span>${nDuv ? `<i class="fi-amarelo">${nDuv} ${nDuv === 1 ? 'ponto' : 'pontos'} pra conferir</i> em amarelo` : 'Tudo lido com clareza. Confira e salve.'}</span></div>
+            ${treinos.length > 1 ? `<div class="fi-abas${treinos.length <= 4 ? ' cheia' : ''}" style="--n:${treinos.length}">${treinos.map((x, i) => `<button class="fi-aba${i === at ? ' on' : ''}${problema(x) ? ' ruim' : ''}" data-fr="aba" data-i="${i}"><span>${escapeHTML(rotuloAba(x))}</span>${duvidas(x) ? '<i class="fi-pt"></i>' : ''}</button>`).join('')}</div>` : ''}
+            <div class="x1-sec fi-sec">NOME DO TREINO<span class="fi-cont${t.nome.length >= 30 ? ' cheio' : ''}" id="fiCont">${t.nome.length}/30</span></div>
+            <input class="x1-campo" data-fn="nome" maxlength="30" value="${escapeHTML(t.nome)}" placeholder="Ex: Treino A · Peito e Tríceps">
+            <div class="x1-sec">GRUPOS <small class="fi-sub">aparecem no mapa do corpo</small></div>
+            <div class="trv-chips">${GRUPOS_TREINO.map(g => `<button class="x1-chip${t.grupos.includes(g) ? ' on' : ''}" data-fr="grupo" data-g="${g}">${g}</button>`).join('')}</div>
+            <div class="x1-sec">EXERCÍCIOS · ${t.exercicios.length}</div>
+            <div class="trm-lista fi-lista">${t.exercicios.map((ex, i) => {
+                const g = grupoDoEx(ex.nome);
+                return `<div class="trm-ex fi-ex${ex.duvida ? ' duv' : ''}" data-i="${i}">
+                <div class="trm-l1"><span class="fi-n">${i + 1}</span>
+                    <span class="trm-nome fi-nome-w"><input class="fi-nome" data-fn="ex" data-i="${i}" maxlength="40" value="${escapeHTML(ex.nome)}"><small>${g ? escapeHTML(g) : 'Fora da biblioteca, fica salvo assim'}</small></span>
+                    <button class="trm-x" data-fr="tirar" data-i="${i}" aria-label="Tirar">${SVG_X(IC_X1.fechar)}</button></div>
+                <div class="trm-l2 fi-l2">
+                    <span class="trm-step"><button data-fr="menos" data-i="${i}" aria-label="Menos séries">−</button><b>${ex.series}<i>séries</i></b><button data-fr="mais" data-i="${i}" aria-label="Mais séries">+</button></span>
+                    <label class="trm-campo"><input class="tr-in" data-fn="reps" data-i="${i}" maxlength="14" value="${escapeHTML(ex.reps)}" placeholder="10"><i>${tipoEx(ex.nome) === 'tempo' ? 'seg' : 'reps'}</i></label>
+                </div>
+                ${ex.duvida ? `<div class="fi-duvida"><span>${escapeHTML(ex.duvida)}</span><button data-fr="conferi" data-i="${i}">Conferi</button></div>` : ''}
+            </div>`; }).join('')}</div>
+            <button class="tr-add" data-fr="add">+ Adicionar exercício</button>
+            ${treinos.length > 1 ? `<button class="fi-tirar-tr" data-fr="tirar-treino">Não importar este treino</button>` : ''}
+        </div>
+        <div class="x1-rodape"><button class="btn x1-btn" data-fr="salvar"${nOk ? '' : ' disabled'}>Salvar ${nOk === treinos.length ? '' : `${nOk} de `}${treinos.length} ${treinos.length === 1 ? 'treino' : 'treinos'}</button></div>`;
+    };
+    const pintar = () => manterLugar(tela, pintarTudo);
+    const rodape = () => { const nOk = treinos.filter(x => !problema(x)).length; const b = tela.querySelector('[data-fr="salvar"]'); if (b) { b.disabled = !nOk; b.textContent = `Salvar ${nOk === treinos.length ? '' : `${nOk} de `}${treinos.length} ${treinos.length === 1 ? 'treino' : 'treinos'}`; } };
+    tela.addEventListener('mousedown', e => { const a = document.activeElement; if (a && a.tagName === 'INPUT' && tela.contains(a) && e.target.closest('button')) e.preventDefault(); });
+    tela.addEventListener('input', e => {
+        const el = e.target.closest('[data-fn]'); if (!el) return;
+        const t = treinos[at];
+        if (el.dataset.fn === 'nome') {
+            t.nome = el.value.slice(0, 30);
+            const c = tela.querySelector('#fiCont'); if (c) { c.textContent = `${t.nome.length}/30`; c.classList.toggle('cheio', t.nome.length >= 30); }
+            const ab = tela.querySelector(`.fi-aba[data-i="${at}"]`); if (ab) { ab.querySelector('span').textContent = rotuloAba(t); ab.classList.toggle('ruim', !!problema(t)); }
+            rodape();
+        } else if (el.dataset.fn === 'reps') t.exercicios[+el.dataset.i].reps = el.value;
+        else if (el.dataset.fn === 'ex') t.exercicios[+el.dataset.i].nome = el.value;
+    });
+    // ao sair do nome do exercício: se for um da biblioteca, usa o nome certinho
+    tela.addEventListener('change', e => {
+        const el = e.target.closest('[data-fn="ex"]'); if (!el) return;
+        const ex = treinos[at].exercicios[+el.dataset.i]; if (!ex) return;
+        const v = el.value.replace(/\s+/g, ' ').trim();
+        if (!v) { el.value = ex.nome = ex.nome || 'Exercício'; return; }
+        ex.nome = exDaBiblioteca(v) || v; ex.duvida = null; pintar();
+    });
+    tela.addEventListener('click', async e => {
+        const b = e.target.closest('[data-fr]'); if (!b || b.disabled) return;
+        const a = b.dataset.fr, t = treinos[at], i = +b.dataset.i;
+        if (a === 'fechar') {
+            const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Sair sem salvar?</h3><p class="tr-dica" style="margin-top:0;text-align:center">A leitura da ficha vai ser descartada.</p>
+                <button class="x1-op perigo" data-sx="sair">Sair sem salvar</button><button class="x1-op" data-x1f="fechar">Continuar conferindo</button>`, 'fiSair');
+            f.querySelector('[data-sx]').onclick = () => { fechar(); x1FecharTela('trFichaRev'); };
+        }
+        else if (a === 'aba') { at = i; vibrar(4); pintarTudo(); const c = tela.querySelector('.x1-corpo'); if (c) c.scrollTop = 0; }
+        else if (a === 'grupo') { const g = b.dataset.g; t.grupos = t.grupos.includes(g) ? t.grupos.filter(x => x !== g) : [...t.grupos, g].slice(-4); vibrar(4); pintar(); }
+        else if (a === 'menos' || a === 'mais') { const ex = t.exercicios[i]; ex.series = Math.max(1, Math.min(8, ex.series + (a === 'mais' ? 1 : -1))); vibrar(4); pintar(); }
+        else if (a === 'conferi') { t.exercicios[i].duvida = null; vibrar(6); pintar(); }
+        else if (a === 'tirar') { t.exercicios.splice(i, 1); vibrar(6); pintar(); }
+        else if (a === 'add') escolherExercicio(nome => { t.exercicios.push({ nome, series: 3, reps: tipoEx(nome) === 'tempo' ? '30' : '10', duvida: null }); if (!t.grupos.length && grupoDoEx(nome)) t.grupos.push(grupoDoEx(nome)); pintar(); const c = tela.querySelector('.x1-corpo'); if (c) c.scrollTop = c.scrollHeight; });
+        else if (a === 'tirar-treino') { treinos.splice(at, 1); at = Math.max(0, at - 1); vibrar(8); pintarTudo(); }
+        else if (a === 'salvar') {
+            const prontos = treinos.filter(x => !problema(x));
+            if (!prontos.length) return;
+            b.disabled = true; b.textContent = 'Salvando…';
+            const linhas = prontos.map(x => ({
+                nome: x.nome.trim().slice(0, 30),
+                grupos: x.grupos.length ? x.grupos : [...new Set(x.exercicios.map(ex => grupoDoEx(ex.nome)).filter(Boolean))].slice(0, 4),
+                exercicios: x.exercicios.map(ex => { const r = String(ex.reps || '').trim(), n = repsNum(r); return { nome: ex.nome.trim().slice(0, 40), series: ex.series, reps: n, ...(r && r !== String(n) ? { reps_txt: r } : {}) }; }),
+            }));
+            const { data, error } = await sb.from('treino_modelos').insert(linhas).select('id, nome, grupos, exercicios, usado_em');
+            if (error) { b.disabled = false; rodape(); toast(msgErro(error), 'err'); return; }
+            evento('ficha_salva', { treinos: linhas.length, exs: linhas.reduce((s, x) => s + x.exercicios.length, 0) });
+            vibrar([10, 40, 14]);
+            toast(linhas.length === 1 ? `"${linhas[0].nome}" salvo em Meus treinos` : `${linhas.length} treinos salvos`, 'ok');
+            x1FecharTela('trFichaRev');
+            aoSalvar(data || []);
+        }
+    });
+    pintarTudo();
+}
 // Pede o nome do treino (salvar ou renomear)
 function nomearTreino(sugestao, aoSalvar, titulo = 'Salvar como meu treino') {
     const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${escapeHTML(titulo)}</h3>
