@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261292';
+const APP_VERSAO = '20261293';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1137,7 +1137,7 @@ async function talvezResultadoLiga() {
     const novo = a.resultado === 'subiu' ? a.nivel + 1 : a.resultado === 'caiu' ? a.nivel - 1 : a.nivel;
     const nv = LIGA_NIVEIS[novo] || LIGA_NIVEIS[1], antes = LIGA_NIVEIS[a.nivel] || LIGA_NIVEIS[1];
     const titulo = a.resultado === 'subiu' ? `Você subiu pra Liga ${nv.nome}!` : a.resultado === 'caiu' ? `Semana nova na Liga ${nv.nome}` : `Você continua na Liga ${nv.nome}`;
-    const sub = a.resultado === 'subiu' ? `Terminou em ${a.pos}º na Liga ${antes.nome} com ${a.pts} pts. Agora é com gente do seu novo nível.`
+    const sub = a.resultado === 'subiu' ? `Terminou em ${a.pos}º na Liga ${antes.nome} com ${a.pts} pts. Liga nova, rivais novos: mostra o que trouxe da ${antes.nome}! 💪`
         : a.resultado === 'caiu' ? `Semana passada foi mais puxada (${a.pts} pts). Semana nova, bora voltar pra ${antes.nome}!`
         : `Terminou em ${a.pos}º com ${a.pts} pts. Essa semana é a vez de subir!`;
     const t = x1Tela('ligaRes', `<div class="lg-res" style="--c:${nv.c}"><span class="liga-med enorme" style="--a:${nv.a};--b:${nv.b}">${nv.emo}</span>
@@ -6632,9 +6632,64 @@ function paintChatMessages(opts = {}) {
 const CHAT_JANELA = 60;
 const CORES_AUTOR = ['#C084FC', '#F472B6', '#60A5FA', '#FBBF24', '#34D399', '#FB923C', '#22D3EE', '#A3E635'];
 const corAutor = id => CORES_AUTOR[Math.abs([...String(id || '')].reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7)) % CORES_AUTOR.length];
+// ---- Quanto falta pro desafio acabar (pelo dia do calendário; no último dia vira relógio até 23:59) ----
+function tempoDesafio(ch) {
+    const fim = new Date(ch.ends_at), agora = new Date();
+    if (agora >= fim) return { fim: true, txt: `Encerrado em ${fim.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${fim.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` };
+    const d0 = x => { const y = new Date(x); y.setHours(0, 0, 0, 0); return y; };
+    const dias = Math.round((d0(fim) - d0(agora)) / 86400000);
+    if (dias <= 0) return { ultimo: true, reta: true, txt: '🏁 Último dia', ate: fim.toISOString() };
+    if (dias <= 3) return { reta: true, txt: `🏁 Reta final: ${dias === 1 ? 'falta 1 dia' : `faltam ${dias} dias`}` };
+    return { txt: `Faltam ${dias} dias` };
+}
+const relogioDesafioHTML = ate => `<span class="dsf-relogio" data-ate="${ate}"><b data-r="h">--</b><i>h</i><b data-r="m">--</b><i>min</i><b data-r="s">--</b><i>seg</i></span>`;
+// relógio do último dia: atualiza sozinho enquanto estiver na tela
+setInterval(() => {
+    document.querySelectorAll('.dsf-relogio[data-ate]').forEach(el => {
+        const ms = Math.max(0, new Date(el.dataset.ate) - Date.now());
+        const h = Math.floor(ms / 3600000), m = Math.floor(ms % 3600000 / 60000), sg = Math.floor(ms % 60000 / 1000);
+        const put = (k, v) => { const b = el.querySelector(`[data-r="${k}"]`); if (b) b.textContent = String(v).padStart(2, '0'); };
+        put('h', h); put('m', m); put('s', sg);
+    });
+}, 1000);
+// ---- Saúde do grupo no desafio: números reais do grupo + o que os estudos dizem (só o que for verdade pra esse grupo) ----
+function htmlSaudeGrupo(sg) {
+    if (!sg) return '';
+    const n = x => x != null && !isNaN(Number(x)) ? Number(x) : null;
+    const kg = n(sg.kg_perdidos), i0 = n(sg.imc_ini), i1 = n(sg.imc_fim), p5 = n(sg.perderam_5pct), cp = n(sg.com_peso), min = n(sg.min_semana);
+    const faixa = (n(sg.obes_para_sobre) || 0) + (n(sg.sobre_para_normal) || 0) + (n(sg.obes_para_normal) || 0);
+    const quad = [];
+    if (kg != null && kg > 0) quad.push(`<div><b class="bom">−${br(kg)} kg</b><small>perdidos juntos</small></div>`);
+    if (i0 != null && i1 != null && i1 < i0) quad.push(`<div><b>${br(i0)} → ${br(i1)}</b><small>IMC médio do grupo</small></div>`);
+    if (faixa > 0) quad.push(`<div><b class="bom">${faixa} ${faixa === 1 ? 'pessoa' : 'pessoas'}</b><small>saíram de uma faixa de peso de risco</small></div>`);
+    if (p5 != null && p5 > 0 && cp) quad.push(`<div><b class="bom">${p5} de ${cp}</b><small>perderam 5% do peso ou mais</small></div>`);
+    const frases = [];
+    if (faixa > 0) {
+        const partes = [];
+        if (sg.obes_para_sobre) partes.push(`${sg.obes_para_sobre} ${sg.obes_para_sobre === 1 ? 'saiu' : 'saíram'} da obesidade pro sobrepeso`);
+        if (sg.obes_para_normal) partes.push(`${sg.obes_para_normal} ${sg.obes_para_normal === 1 ? 'saiu' : 'saíram'} da obesidade pro peso saudável`);
+        if (sg.sobre_para_normal) partes.push(`${sg.sobre_para_normal} ${sg.sobre_para_normal === 1 ? 'saiu' : 'saíram'} do sobrepeso pro peso saudável`);
+        frases.push(`<b>${faixa} ${faixa === 1 ? 'pessoa mudou' : 'pessoas mudaram'}</b> de faixa de peso: ${partes.join(', ')}.`);
+    }
+    if (p5 != null && p5 > 0) frases.push('Quem perde 5 a 10% do peso melhora pressão, glicose e colesterol, que são os fatores ligados a infarto e AVC.');
+    const barra = min != null && min > 0 ? `<p class="sg-rot">Treino por semana (média do grupo)</p>
+        <div class="sg-barra"><i style="width:${Math.min(100, min / 240 * 100)}%"></i><u style="left:${150 / 240 * 100}%"></u></div>
+        <p class="sg-leg"><b class="${min >= 150 ? 'bom' : ''}">${min} min</b> · a OMS recomenda 150 (linha amarela)</p>` : '';
+    if (min != null && min >= 150) frases.push('Treinar 150 min por semana ou mais está ligado, em média, a <b class="bom">20 a 30% menos risco</b> de infarto e AVC.');
+    else if (min != null && min >= 75) frases.push(`Faltam uns ${150 - min} min por semana pro grupo chegar nos 150 da OMS, o ritmo que mais protege o coração.`);
+    if (!quad.length && !frases.length) return '';
+    return `<div class="chart-card sg-card">
+        <div class="chart-head"><span class="chart-title sg-tit">✦ Saúde do grupo</span></div>
+        ${quad.length ? `<div class="sg-grade${quad.length % 2 ? ' impar' : ''}">${quad.join('')}</div>` : ''}
+        ${barra}
+        ${frases.map(f => `<p class="sg-txt">${f}</p>`).join('')}
+        <p class="chart-foot" style="text-align:left">Baseado nos registros do app (peso, altura e treinos). Médias de estudos (OMS), não é diagnóstico. Ninguém é identificado.</p>
+    </div>`;
+}
 function grupoSubTxt(g, n) {
     const fim = g && g.desafio_fim ? Math.ceil((new Date(g.desafio_fim) - Date.now()) / 86400000) : null;
-    return `${n || 0} ${n === 1 ? 'participante' : 'participantes'}${fim != null ? (fim > 0 ? ` · faltam ${fim} ${fim === 1 ? 'dia' : 'dias'}` : ' · desafio encerrado') : ''}`;
+    const t = g && g.desafio_fim ? tempoDesafio({ ends_at: g.desafio_fim }) : null;
+    return `${n || 0} ${n === 1 ? 'participante' : 'participantes'}${fim != null && t ? (t.fim ? ' · desafio encerrado' : t.ultimo ? ' · último dia' : ` · ${t.txt.replace('🏁 Reta final: ', '').replace(/^F/, 'f')}`) : ''}`;
 }
 async function abrirGrupoChat(convId, dados) {
     const g = dados || (state.gruposChat || {})[convId];
@@ -8405,6 +8460,68 @@ function abrirPreviaModelos(lista, idx, nomeArquivo, semanaResumo, voltar) {
 }
 
 // Passo 2: prévia com Postar no Pulso, Compartilhar e Salvar
+// ---- Pôster do resultado do desafio (feed): pódio com fotos, coroa no campeão e os números do grupo ----
+async function imagemPodioDesafio({ nome, r, totais = null, ini = null, fim = null, timeVenc = null }) {
+    try { await document.fonts.load('800 80px "Plus Jakarta Sans"'); } catch (_) {}
+    const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d');
+    g.fillStyle = '#07080C'; g.fillRect(0, 0, W, H);
+    const rg = g.createRadialGradient(W / 2, 330, 40, W / 2, 330, 760);
+    rg.addColorStop(0, 'rgba(253,224,71,.20)'); rg.addColorStop(1, 'rgba(253,224,71,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, W, H);
+    g.textAlign = 'center'; g.fillStyle = '#FBBF24'; g.font = psF(800, 30);
+    g.fillText('RESULTADO FINAL', W / 2, 120);
+    g.fillStyle = '#F4F4F5'; const tt = psAjusta(g, nome || 'Desafio', W - 140, 800, 64, 40); g.font = psF(800, tt);
+    g.fillText(nome || 'Desafio', W / 2, 200);
+    if (timeVenc) { g.fillStyle = '#34D399'; g.font = psF(700, 34); g.fillText(`🏆 Time ${timeVenc} campeão`, W / 2, 256); }
+    const top = r.slice(0, 3);
+    const fotos = await Promise.all(top.map(u => u.avatar_url ? psFoto(u.avatar_url) : Promise.resolve(null)));
+    // ordem do pódio: 2º, 1º, 3º
+    const lugares = [{ i: 1, x: W / 2 - 300, av: 150, alt: 230 }, { i: 0, x: W / 2, av: 200, alt: 330 }, { i: 2, x: W / 2 + 300, av: 130, alt: 170 }];
+    const chao = 1010;
+    lugares.forEach(L => {
+        const u = top[L.i]; if (!u) return;
+        const bx = L.x - 120, by = chao - L.alt;
+        // degrau
+        const bgDeg = L.i === 0 ? 'rgba(253,224,71,.22)' : L.i === 1 ? '#1F1F22' : '#18181B';
+        g.fillStyle = bgDeg; g.beginPath(); g.roundRect(bx, by, 240, L.alt, [22, 22, 0, 0]); g.fill();
+        g.fillStyle = L.i === 0 ? '#FBBF24' : '#A1A1AA'; g.font = psF(800, 80); g.fillText(String(L.i + 1), L.x, by + 110);
+        g.fillStyle = L.i === 0 ? '#FDE68A' : '#71717A'; g.font = psF(700, 30); g.fillText(`${Math.round(u.points)} pts`, L.x, by + 160);
+        // foto
+        const cy = by - 70 - L.av / 2, rr = L.av / 2;
+        g.save(); g.beginPath(); g.arc(L.x, cy, rr, 0, Math.PI * 2); g.closePath(); g.clip();
+        if (fotos[L.i]) psCover(g, fotos[L.i], L.x - rr, cy - rr, L.av, L.av, .4);
+        else { g.fillStyle = '#10B981'; g.fillRect(L.x - rr, cy - rr, L.av, L.av); g.fillStyle = '#04120B'; g.font = psF(800, L.av * .42); g.fillText(String(u.display_name || '?').trim().charAt(0).toUpperCase(), L.x, cy + L.av * .15); }
+        g.restore();
+        g.lineWidth = L.i === 0 ? 8 : 4; g.strokeStyle = L.i === 0 ? '#FBBF24' : 'rgba(255,255,255,.18)';
+        g.beginPath(); g.arc(L.x, cy, rr, 0, Math.PI * 2); g.stroke();
+        if (L.i === 0) { g.font = psF(400, 70); g.fillText('👑', L.x, cy - rr - 14); }
+        g.fillStyle = '#F4F4F5'; g.font = psF(700, L.i === 0 ? 38 : 32);
+        let nm = String(u.display_name || '').split(' ')[0]; while (g.measureText(nm).width > 230 && nm.length > 3) nm = nm.slice(0, -1);
+        g.fillText(nm, L.x, by - 26);
+    });
+    // números do grupo em selos
+    const selos = [];
+    if (totais) {
+        if (Number(totais.treinos)) selos.push(`💪 ${numBR(totais.treinos)} treinos`);
+        if (Number(totais.km) > 0) selos.push(`🏃 ${numBR(totais.km, 1)} km`);
+        if (totais.kg_perdidos != null && Number(totais.kg_perdidos) > 0) selos.push(`−${numBR(totais.kg_perdidos, 1)} kg`);
+    }
+    g.font = psF(700, 30);
+    const ws = selos.map(s => g.measureText(s).width + 56), tot = ws.reduce((a, b) => a + b, 0) + (selos.length - 1) * 16;
+    let x = W / 2 - tot / 2;
+    selos.forEach((s, k) => {
+        g.strokeStyle = s.startsWith('−') ? 'rgba(52,211,153,.55)' : 'rgba(255,255,255,.16)'; g.lineWidth = 2;
+        g.beginPath(); g.roundRect(x, 1070, ws[k], 66, 33); g.stroke();
+        g.fillStyle = s.startsWith('−') ? '#34D399' : '#E4E4E7'; g.textAlign = 'left'; g.fillText(s, x + 28, 1114);
+        x += ws[k] + 16;
+    });
+    g.textAlign = 'center'; g.fillStyle = '#A1A1AA'; g.font = psF(500, 30);
+    const per = ini && fim ? ` · ${new Date(ini).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '')} a ${new Date(fim).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '')}` : '';
+    g.fillText(`${r.length} ${r.length === 1 ? 'pessoa' : 'pessoas'}${per}`, W / 2, 1196);
+    psMarca(g, W / 2, 1290, 44, true);
+    return await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.92));
+}
 function abrirPreviaImagem(blob, nomeArquivo, semanaResumo = null) {
     const old = document.getElementById('previaSheet');
     if (old) old.remove();
@@ -10683,13 +10800,15 @@ async function renderChallengeDetail(cid) {
     }
 
     // Destaques, médias e resumo só fazem sentido pra quem está dentro
-    let destaquesHTML = '', grupoHTML = '', semanaHTML = '', relatorioHTML = '', semanaRank = [];
+    let destaquesHTML = '', grupoHTML = '', semanaHTML = '', relatorioHTML = '', semanaRank = [], saudeGrupo = null, saudeGrupoHTML = '';
     if (ch.im_member) {
-        const [{ data: destaques }, { data: grupo }, { data: semana }] = await Promise.all([
+        const [{ data: destaques }, { data: grupo }, { data: semana }, { data: sg }] = await Promise.all([
             sb.rpc('challenge_highlights', { cid }),
             sb.rpc('challenge_group_stats', { cid }),
             sb.rpc('challenge_week_summary', { cid }),
+            sb.rpc('challenge_saude_grupo', { cid }).then(r => r, () => ({ data: null })),
         ]);
+        saudeGrupo = sg || null;
 
         const rotulos = {
             treinos: 'Quem mais treinou',
@@ -10723,14 +10842,17 @@ async function renderChallengeDetail(cid) {
                     <div class="grupo-item"><b>${g.treinos_total}</b><span>treinos somados</span></div>
                     <div class="grupo-item"><b>${String(g.agua_media_l).replace('.', ',')} L</b><span>água por dia</span></div>
                     <div class="grupo-item"><b>${String(g.sono_medio).replace('.', ',')}h</b><span>sono médio</span></div>
-                    <div class="grupo-item"><b>${String(g.pct_medio).replace('.', ',')}%</b><span>evolução média</span></div>
+                    ${saudeGrupo && saudeGrupo.kg_perdidos != null && Number(saudeGrupo.kg_perdidos) > 0
+                        ? `<div class="grupo-item"><b class="bom">−${br(Number(saudeGrupo.kg_perdidos))} kg</b><span>perdidos juntos</span></div>`
+                        : saudeGrupo && saudeGrupo.min_semana != null ? `<div class="grupo-item"><b>${saudeGrupo.min_semana} min</b><span>treino por semana</span></div>` : ''}
                 </div>
                 ${melhorSem ? `<div class="grupo-eu grupo-sem" data-act="view-user" data-uid="${melhorSem.user_id}"><span>⚡ Destaque da semana</span><span class="gs-quem">${avatarHTML({ id: melhorSem.user_id, display_name: melhorSem.display_name, avatar_url: melhorSem.avatar_url }, 'sm')}<b>${melhorSem.user_id === state.session.user.id ? 'Você' : escapeHTML(String(melhorSem.display_name || '').split(' ')[0])}</b> · ${Math.round(melhorSem.pontos_semana)} pts</span></div>` : ''}
-                ${(() => { const eu = (saude || []).find(m => m.user_id === state.session.user.id); const pc = eu && eu.pct != null ? Number(eu.pct) : null;
-                    return pc != null ? `<div class="grupo-eu"><span>Sua evolução no desafio</span><b class="${pc > 0 ? 'bom' : pc < 0 ? 'ruim' : ''}">${pc > 0 ? '−' : pc < 0 ? '+' : ''}${br(Math.abs(pc))}%</b></div>` : ''; })()}
+                ${(() => { const k = saudeGrupo && saudeGrupo.meu_kg != null ? Number(saudeGrupo.meu_kg) : null;
+                    return k != null ? `<div class="grupo-eu"><span>Seu peso no desafio</span><b class="${k < 0 ? 'bom' : k > 0 ? 'ruim' : ''}">${k < 0 ? '−' : k > 0 ? '+' : ''}${br(Math.abs(k))} kg</b></div>` : ''; })()}
                 <p class="chart-foot" style="text-align:left">Médias do grupo inteiro, sem identificar ninguém. Cada um vê só a própria evolução.</p>
             </div>`;
         }
+        saudeGrupoHTML = htmlSaudeGrupo(saudeGrupo);
 
         const semanaLista = (semana || []).filter(s => Number(s.pontos_semana) > 0 || s.dias_semana > 0);
         semanaRank = semanaLista.map(s => ({ user_id: s.user_id, display_name: s.display_name, avatar_url: s.avatar_url, points: s.pontos_semana, sub: plural(s.dias_semana, 'treino', 'treinos') + ' na semana' }));
@@ -10833,7 +10955,7 @@ async function renderChallengeDetail(cid) {
                 <div class="ch-prog">
                     <div class="ch-prog-lin">
                         <span>${ch.status === 'ativo' ? `Dia ${diaAtual} de ${totalDias}` : ch.status === 'futuro' ? `${totalDias} dias de desafio` : 'Desafio encerrado'}</span>
-                        ${ch.status === 'ativo' ? `<span class="ch-prog-rest"><b>${diasRest}</b> ${diasRest === 1 ? 'dia restante' : 'dias restantes'}</span>` : ch.status === 'futuro' ? `<span class="ch-prog-rest">começa ${dataBR(ch.starts_at)}</span>` : ''}
+                        ${ch.status === 'ativo' ? (() => { const tq = tempoDesafio(ch); return tq.ultimo ? `<span class="ch-prog-rest dsf-ultimo">Último dia ${relogioDesafioHTML(tq.ate)}</span>` : `<span class="ch-prog-rest"><b>${diasRest}</b> ${diasRest === 1 ? 'dia restante' : 'dias restantes'}</span>`; })() : ch.status === 'futuro' ? `<span class="ch-prog-rest">começa ${dataBR(ch.starts_at)}</span>` : ''}
                     </div>
                     <div class="ch-prog-bar"><i style="width:${pctDia}%"></i></div>
                 </div>
@@ -10867,6 +10989,7 @@ async function renderChallengeDetail(cid) {
 
             ${destaquesHTML}
             ${grupoHTML}
+            ${saudeGrupoHTML}
             ${semanaHTML}
             ${relatorioHTML}
 
@@ -10989,7 +11112,8 @@ async function abrirEncerramentoDesafio(cid) {
     ].filter(Boolean);
     const telas = [
         `<div class="fd-t"><small class="fd-k">${escapeHTML(String(e.nome || '').toUpperCase())} · ENCERRADO</small><h2>${camp.id === eu ? 'Você é o campeão!' : 'Temos um campeão!'}</h2>
-            <div class="fd-camp"><i class="rk-coroa">👑</i>${avG(camp)}</div><b class="fd-nome">${camp.id === eu ? 'Você' : escapeHTML(camp.nome)}</b><div class="fd-big">${camp.pts} pts</div>${podioHTML()}${minha}</div>`,
+            <div class="fd-camp"><i class="rk-coroa">👑</i>${avG(camp)}</div><b class="fd-nome">${camp.id === eu ? 'Você' : escapeHTML(camp.nome)}</b><div class="fd-big">${camp.pts} pts</div>${podioHTML()}${minha}
+            <button class="fd-bt-story" data-fd="story">Postar o pódio no story</button></div>`,
         `<div class="fd-t"><small class="fd-k">OS NÚMEROS DA DISPUTA</small><h2>Que desafio!</h2><div class="fd-stats">
             <div><b>${e.treinos || 0}</b><span>treinos no desafio</span></div><div><b>${br(Number(e.km || 0))} km</b><span>somados</span></div>
             <div><b>${e.dia_forte != null ? DIAS_SEMANA_NOME[e.dia_forte] : '–'}</b><span>dia mais forte</span></div><div><b>${e.total}</b><span>${e.total === 1 ? 'pessoa' : 'pessoas'} na disputa</span></div></div></div>`,
@@ -11006,10 +11130,10 @@ async function abrirEncerramentoDesafio(cid) {
     tr.addEventListener('scroll', () => { const i = Math.round(tr.scrollLeft / tr.clientWidth); t.querySelectorAll('.fd-barras i').forEach((b, k) => b.classList.toggle('on', k <= i)); }, { passive: true });
     const fechar = () => { t.classList.remove('on'); setTimeout(() => { t.remove(); document.body.style.overflow = ''; }, 220); };
     t.querySelector('.fd-x').onclick = fechar;
-    t.querySelector('[data-fd="story"]').onclick = () => {
+    t.querySelectorAll('[data-fd="story"]').forEach(bt => bt.onclick = () => {
         fechar();
         abrirEditorComCard({ card: { tipo: 'podio', nome: e.nome, podio: pod.map(p => ({ id: p.id, nome: String(p.nome || '').split(' ')[0], avatar: p.avatar || '', pts: p.pts, pos: p.pos })) }, bg: 'radial-gradient(70% 45% at 50% 35%, rgba(253,224,71,.25), transparent 70%), #07080C' });
-    };
+    });
 }
 
 // ============================================================
@@ -12901,7 +13025,7 @@ async function hydrateDesafiosFeed() {
         if (!r.length) continue;
         const minhaPos = r.findIndex(u => u.user_id === state.session.user.id) + 1;
         state.podios = state.podios || {};
-        state.podios[ch.id] = { nome: ch.name, r, minhaPos };
+        state.podios[ch.id] = { nome: ch.name, r, minhaPos, ini: ch.starts_at, fim: ch.ends_at };
         const medalhas = ['🥇', '🥈', '🥉'];
         html += `<div class="dc-card dc-podio" data-act="open-challenge" data-id="${ch.id}">
             <button class="dc-x" data-act="dispensar-card" data-chave="pulso-podio-${ch.id}" aria-label="Fechar">×</button>
@@ -12911,7 +13035,7 @@ async function hydrateDesafiosFeed() {
                 <span class="dc-podio-nome">${u.user_id === state.session.user.id ? 'Você' : escapeHTML(String(u.display_name || '').split(' ')[0])}</span>
                 <span class="dc-podio-pts">${Math.round(u.points)}</span>
             </div>`).join('')}</div>
-            <button class="btn-secondary resumo-story" data-act="podio-compartilhar" data-id="${ch.id}">Compartilhar resultado</button>
+            <div class="dc-podio-bts"><button class="bt-min" data-act="podio-compartilhar" data-id="${ch.id}">Postar no feed</button><button class="bt-min" data-act="podio-story" data-id="${ch.id}">Postar no story</button></div>
         </div>`;
     }
 
@@ -13302,7 +13426,9 @@ async function renderPainelDesafio(cidEscolhido) {
         <div class="pd-head">
             ${meus.length >= 1 ? `<button class="pd-voltar" data-act="pd-lista" aria-label="Desafios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>` : ''}
             <div class="pd-head-txt"><h1 class="pd-nome">${escapeHTML(ch.name)}</h1>
-            <span class="pd-quando${!futuro && diasFaltam <= 3 ? ' reta' : ''}">${futuro ? (diasFaltam <= 1 ? 'Começa amanhã' : `Começa em ${diasFaltam} dias`) : diasFaltam <= 0 ? 'Último dia!' : diasFaltam <= 3 ? `🏁 Reta final: faltam ${diasFaltam} dias` : `Faltam ${diasFaltam} dias`}</span></div>
+            ${(() => { if (futuro) return `<span class="pd-quando">${diasFaltam <= 1 ? 'Começa amanhã' : `Começa em ${diasFaltam} dias`}</span>`;
+                const tq = tempoDesafio(ch);
+                return `<span class="pd-quando${tq.reta ? ' reta' : ''}">${tq.txt}${tq.ultimo ? ` · termina às 23:59` : ''}</span>${tq.ultimo ? relogioDesafioHTML(tq.ate) : ''}`; })()}</div>
             <button class="ia-link" data-act="open-challenge" data-id="${ch.id}">Tudo do desafio ›</button>
         </div>
         <div class="pd-tempo"><i style="width:${pctTempo}%"></i></div>
@@ -16751,30 +16877,25 @@ document.addEventListener('click', async e => {
         const pd = state.podios && state.podios[btn.dataset.id];
         if (!pd) return;
         btn.disabled = true;
-        const medalhas = ['🥇', '🥈', '🥉'];
-        const itens = pd.r.slice(0, 3).map((u, i) => [`${medalhas[i]} ${u.user_id === state.session.user.id ? 'Eu' : String(u.display_name || '').split(' ')[0]}`, `${Math.round(u.points)} pontos no desafio`, u.user_id === state.session.user.id]);
-        if (pd.minhaPos > 3) itens.push([`${pd.minhaPos}º lugar`, `minha posição, entre ${pd.r.length}`, true]);
-        try {
-            const { data: t } = await sb.rpc('challenge_group_totals', { cid: btn.dataset.id });
-            if (t && itens.length < 5) {
-                const partes = [`${numBR(t.treinos || 0)} treinos`];
-                if (Number(t.km) > 0) partes.push(`${numBR(t.km, 1)} km`);
-                if (t.kg_perdidos != null && Number(t.kg_perdidos) > 0) partes.push(`${numBR(t.kg_perdidos, 1)} kg a menos`);
-                itens.push(['Juntos', partes.join(' · ')]);
-            }
-        } catch (_) {}
+        let totais = null, timeVenc = null;
+        try { const { data: t } = await sb.rpc('challenge_group_totals', { cid: btn.dataset.id }); totais = t || null; } catch (_) {}
         try {
             const { data: cfgT } = await sb.from('challenges').select('team_mode, team_names').eq('id', btn.dataset.id).maybeSingle();
             if (cfgT && cfgT.team_mode) {
                 const { data: tr } = await sb.rpc('challenge_team_ranking', { cid: btn.dataset.id });
                 const venc = [...(tr || [])].sort((a, b) => Number(b.points) - Number(a.points))[0];
-                if (venc) itens.unshift([`Time ${nomeTime(cfgT, venc.team)}`, `campeão · ${ptsBR(venc.points)} pts`, true]);
-                if (itens.length > 5) itens.length = 5;
+                if (venc) timeVenc = nomeTime(cfgT, venc.team);
             }
         } catch (_) {}
-        const blob = await imagemResumo({ titulo: pd.nome, subtitulo: 'Resultado final do desafio', itens });
+        const blob = await imagemPodioDesafio({ nome: pd.nome, r: pd.r, totais, ini: pd.ini, fim: pd.fim, timeVenc });
         btn.disabled = false;
         if (blob) abrirPreviaImagem(blob, 'pulso-desafio.jpg');
+    } else if (act === 'podio-story') {
+        e.stopPropagation();
+        const pd = state.podios && state.podios[btn.dataset.id];
+        if (!pd) return;
+        abrirEditorComCard({ card: { tipo: 'podio', nome: pd.nome, podio: pd.r.slice(0, 3).map((u, i) => ({ id: u.user_id, nome: String(u.display_name || '').split(' ')[0], avatar: u.avatar_url || '', pts: Math.round(u.points), pos: i + 1 })) },
+            bg: 'radial-gradient(70% 45% at 50% 35%, rgba(253,224,71,.25), transparent 70%), #07080C' });
     } else if (act === 'fechar-resumo') {
         e.stopPropagation();
         let fech = {};
@@ -18219,7 +18340,7 @@ function mostrarVerPost(card) {
     const ant = content.querySelector('.sv-verpost'); if (ant) ant.remove();
     pausarStoryNoPonto();
     const b = document.createElement('button'); b.type = 'button'; b.className = 'sv-verpost';
-    b.innerHTML = 'Ver post <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+    b.innerHTML = 'Ver publicação <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
     content.appendChild(b);
     const cr = content.getBoundingClientRect(), r = card.getBoundingClientRect();
     const acima = r.top - cr.top > 70;
@@ -18257,21 +18378,11 @@ async function conferirCardPost(cd) {
     acessoPostCache.set(pid, { ok, em: Date.now() });
     if (cd.isConnected) aplicar(ok);
 }
+// tocar no post dentro do story: fecha o story e abre o post em tela cheia (curtir, comentar, voltar)
 async function abrirPostDoStory(pid) {
-    await openPostSheet(pid);
-    const sh = document.getElementById('postViewSheet'); if (!sh) { retomarStoryDoPonto(); return; }
-    sh.classList.add('sobre-story');
     tocadorMusica.parar('viewer');
-    new MutationObserver((_, ob) => {
-        if (document.body.contains(sh)) return;
-        ob.disconnect();
-        musicaFeed.parar();
-        document.body.style.overflow = 'hidden';
-        if (!$('#storyViewer').classList.contains('on')) return;
-        retomarStoryDoPonto();
-        const g = (state.storiesData || [])[state.storyIdx], it = g && g.items[state.storyItemIdx];
-        if (it && it.style && it.style.musica) musicaDoStory(it);
-    }).observe(document.body, { childList: true });
+    closeStoryViewer();
+    setTimeout(() => abrirListaDePosts([pid], pid), 160);
 }
 // tocar fora do balão "Ver post" fecha e o story continua
 (function fecharVerPostFora() {
@@ -22286,7 +22397,8 @@ el$('composerSubmit').addEventListener('click', async () => {
         // treino e refeição com foto, sem internet: a foto fica no aparelho e sobe depois
         let fotoOffline = false;
         const fotoGuardavel = ['workout', 'meal'].includes(state.composerKind);
-        const soEu = state.composerDest !== 'feed' && state.composerKind === 'meal';
+        // refeição "Só eu": a foto vai pra pasta privada. Pública ou seguidores: pasta normal, pra quem pode ver conseguir abrir
+        const soEu = state.composerKind === 'meal' && (state.composerPrivacy || state.defaultPrivacy || 'public') === 'private';
         if (state.composerPhoto) {
             btn.textContent = 'Enviando foto...';
             dimsFoto = await medirFoto(state.composerPhoto);
