@@ -6971,3 +6971,63 @@ details[open] > summary > .rg-seta{ transform:rotate(90deg); }
 .nt-t small{ display:block; font-size:12px; color:var(--ink-faint); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .nt-seta{ color:var(--ink-faint); display:grid; }
 .nt-seta svg{ width:16px; height:16px; }
+
+/* ===== Conta oficial do Pulso e novidades ===== */
+.selo-oficial{ display:inline-grid; place-items:center; width:15px; height:15px; margin-left:4px; border-radius:50%; background:#10B981; color:#04120B; vertical-align:-2px; flex:none; }
+.selo-oficial svg{ width:9px; height:9px; }
+.story-name .selo-oficial{ width:12px; height:12px; margin-left:3px; vertical-align:-1px; }
+.story-name .selo-oficial svg{ width:7px; height:7px; }
+.nov-tag{ margin-left:auto; margin-right:2px; align-self:center; font-size:10px; font-weight:800; letter-spacing:.08em; color:#34D399; border:1px solid rgba(16,185,129,.4); padding:4px 8px; border-radius:99px; white-space:nowrap; }
+.ig-oficial{ font-size:12.5px; color:var(--ink-faint); margin-top:2px; }
+.pa-resto{ display:contents; }
+.pa-sugestao{ flex:1; border:1px solid rgba(16,185,129,.45) !important; color:#34D399 !important; background:none !important; }
+.ig-tabs.tabs-off{ display:none !important; }
+.pa-admin-nov{ display:block; width:calc(100% - 32px); margin:10px 16px 0; height:40px; border-radius:12px; border:1px dashed rgba(16,185,129,.45); background:none; color:#34D399; font-family:inherit; font-size:13.5px; font-weight:700; }
+/* uma tela da novidade */
+.nov-c, .card-story.nov-cs{ display:flex; flex-direction:column; align-items:flex-start; text-align:left; gap:0; color:#F4F4F5; }
+.card-story.nov-cs{ left:0; top:0; right:0; bottom:0; transform:none; width:auto; border-radius:0; border:0; box-shadow:none; justify-content:center; padding:90px 28px 110px;
+    background:radial-gradient(120% 70% at 100% 0%, rgba(var(--c),.30), transparent 60%), linear-gradient(170deg, rgba(var(--c),.16), #000 72%); -webkit-backdrop-filter:none; backdrop-filter:none; }
+.nov-k{ font-size:11.5px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:rgb(var(--c)); }
+.nov-e{ font-size:46px; line-height:1; margin-top:16px; }
+.nov-t{ font-family:var(--ff-display); font-size:30px; line-height:1.12; letter-spacing:-.02em; margin:12px 0 0; font-weight:800; }
+.nov-p{ font-size:15px; line-height:1.5; color:rgba(244,244,245,.72); margin:12px 0 0; }
+.nov-mock{ align-self:stretch; margin-top:22px; padding:12px; border-radius:20px; background:rgba(11,11,12,.85); border:1px solid rgba(255,255,255,.08); }
+.nov-l{ display:flex; align-items:center; gap:8px; padding:11px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.07); font-size:13.5px; margin-top:7px; }
+.nov-l:first-child{ margin-top:0; }
+.nov-l span{ flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.nov-l b{ color:rgb(var(--c)); font-weight:700; white-space:nowrap; }
+.nov-l.on{ border-color:rgb(var(--c)); box-shadow:0 0 0 3px rgba(var(--c),.18); }
+.nov-abrir{ position:relative; z-index:3; display:flex; align-items:center; justify-content:center; gap:6px; align-self:stretch; margin-top:24px; height:46px; border-radius:15px; border:1px solid rgba(var(--c),.6); background:rgba(0,0,0,.45); color:rgb(var(--c)); font-family:inherit; font-size:14.5px; font-weight:700; }
+.nov-abrir svg{ width:16px; height:16px; }
+.nov-marca{ position:absolute; left:28px; bottom:34px; font-family:var(--ff-display); font-size:15px; font-weight:800; color:rgba(255,255,255,.4); }
+/* no feed */
+.nov-feed{ position:relative; flex:0 0 100%; scroll-snap-align:center; aspect-ratio:4/5; padding:30px 24px 54px; justify-content:center; overflow:hidden;
+    background:radial-gradient(120% 70% at 100% 0%, rgba(var(--c),.28), transparent 60%), linear-gradient(170deg, rgba(var(--c),.14), #050506 72%); }
+.nov-feed .nov-t{ font-size:25px; }
+.nov-feed .nov-p{ font-size:14px; }
+.nov-feed .nov-mock{ margin-top:16px; padding:10px; }
+.nov-feed .nov-l{ padding:9px 11px; font-size:13px; }
+.nov-feed .nov-marca{ left:24px; bottom:22px; }
+.nov-feed .nov-abrir{ margin-top:18px; height:42px; }
+.nov-unico{ margin:4px -20px 0; }
+.nov-carrossel .pc-trilho{ align-items:stretch; }
+.gt-nov{ position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; gap:4px; padding:10px; background:linear-gradient(160deg, rgba(var(--c),.32), #0B0B0C 75%); }
+.gt-nov small{ font-size:9.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:rgb(var(--c)); }
+.gt-nov b{ font-size:12.5px; line-height:1.25; color:#F4F4F5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+/* publicar como Pulso */
+.np-txt{ font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; line-height:1.4; }
+.np-acoes{ display:flex; gap:8px; margin-top:8px; }
+.np-b{ padding:8px 14px; border-radius:11px; border:1px solid var(--line); background:none; color:var(--ink-dim); font-family:inherit; font-size:13px; font-weight:600; }
+.np-previa{ display:flex; gap:10px; overflow-x:auto; margin:0 -16px; padding:2px 16px 6px; scroll-snap-type:x mandatory; scrollbar-width:none; }
+.np-previa::-webkit-scrollbar{ display:none; }
+.np-quadro{ flex:none; width:200px; height:356px; border-radius:18px; overflow:hidden; border:1px solid var(--line); scroll-snap-align:start; background:#04120B; }
+.np-story{ position:relative; width:360px; height:640px; transform:scale(.5556); transform-origin:0 0; }
+.np-leg{ font-size:13.5px; line-height:1.45; color:var(--ink-dim); white-space:pre-wrap; margin:0 2px; }
+.np-op{ display:flex; align-items:center; gap:12px; width:100%; padding:13px; margin-bottom:8px; border-radius:16px; border:1px solid var(--line); background:var(--bg-card); color:var(--ink); font-family:inherit; text-align:left; }
+.np-op b{ display:block; font-size:14.5px; }
+.np-op small{ display:block; font-size:12px; color:var(--ink-faint); }
+.np-chk{ width:22px; height:22px; flex:none; border-radius:7px; border:1.5px solid var(--line); }
+.np-chk.on{ background:#10B981; border-color:#10B981; box-shadow:inset 0 0 0 4px var(--bg-card); }
+.np-dest{ flex-direction:column; align-items:stretch; gap:8px; }
+.np-dl{ font-size:14.5px; font-weight:700; }
+.nov-pub .x1-corpo{ padding-bottom:110px; }

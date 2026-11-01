@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261289';
+const APP_VERSAO = '20261290';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -1343,6 +1343,11 @@ async function renderAdmin() {
             <div class="chart-card" id="admCapacidade"><div class="spinner"></div></div>
             <h3 class="edit-section-title" style="margin-top:22px">Alterações feitas por você</h3>
             <div class="chart-card" id="admLog"><div class="spinner"></div></div>
+            <h3 class="edit-section-title" style="margin-top:22px">Novidades do Pulso</h3>
+            <div class="chart-card">
+                <p class="faixa-txt" style="margin-top:0">Cole o pacote que o Claude manda a cada entrega e publique como a conta oficial: story, post no feed e destaque.</p>
+                <button class="btn-mini" data-act="publicar-novidade" style="margin-top:12px">Publicar novidade como Pulso</button>
+            </div>
             <h3 class="edit-section-title" style="margin-top:22px">Retrospectiva do ano</h3>
             <div class="chart-card">
                 <p class="faixa-txt" style="margin-top:0">Aparece pra todo mundo de 20 a 31 de dezembro. Aqui você vê a sua antes, e pode ligar o cartão no seu feed pra conferir como fica.</p>
@@ -5888,6 +5893,10 @@ function gridThumb(p) {
         return `<div class="grid-item${p.pinned_at ? ' fixado' : ''}" data-act="view-post" data-id="${p.id}"><img src="${p.thumb_url || p.image_url}" loading="lazy" decoding="async"></div>`;
     }
     const fix = p.pinned_at ? ' fixado' : '';
+    if (p.meta && p.meta.novidade && (p.meta.novidade.slides || []).length) {
+        const s0 = p.meta.novidade.slides[0];
+        return `<div class="grid-item${fix}" data-act="view-post" data-id="${p.id}"><div class="gt-nov" style="--c:${NOV_COR[s0.cor] || NOV_COR.verde}"><small>${escapeHTML(s0.k || 'Novidade')}</small><b>${escapeHTML(s0.t || '')}</b></div></div>`;
+    }
     if (p.kind === 'workout') {
         const km = Number(p.distance_km || 0);
         return `<div class="grid-item${fix}" data-act="view-post" data-id="${p.id}"><div class="gt-atv" style="--c:${corAtividade(p.activity_type)}">${svgAtividade(p.activity_type)}<div><b>${km ? br(km) : (p.duration_min || 0)}<small>${km ? 'km' : 'min'}</small></b><em>${escapeHTML(p.activity_type || 'Treino')}</em></div></div></div>`;
@@ -7524,7 +7533,7 @@ async function renderFeed() {
     const others = Object.entries(storiesByUser)
         .filter(([uid]) => uid !== state.session.user.id && !estaSilenciado(uid))
         .map(([, v]) => v)
-        .sort((a, b) => (grupoVisto(a) - grupoVisto(b)) || (recente(b) - recente(a)));
+        .sort((a, b) => ((ehOficial(b.user.id) && !grupoVisto(b)) - (ehOficial(a.user.id) && !grupoVisto(a))) || (grupoVisto(a) - grupoVisto(b)) || (recente(b) - recente(a)));
     const storiesOrdered = mine ? [mine, ...others] : others;
     state.storiesData = storiesOrdered;
     setTimeout(preCarregarBarraStories, 800);
@@ -7559,7 +7568,7 @@ async function renderFeed() {
             <div class="story-avatar${grupoVisto(group) ? ' seen' : ''}${ehDourado(group.user) ? ' dourado' : ''}${anivIds.has(group.user.id) ? ' aniv' : ''}">
                 <div class="story-avatar-in">${avatarHTML(group.user, 'md').replace('avatar-md','avatar')}</div>${anivIds.has(group.user.id) ? '<span class="story-bolo">🎂</span>' : ''}
             </div>
-            <span class="story-name">${escapeHTML(group.user.display_name || group.user.username)}</span>
+            <span class="story-name">${escapeHTML(group.user.display_name || group.user.username)}${seloOficial(group.user.id)}</span>
         </div>`;
     });
     // Se eu tenho meus stories, adiciona também um item pra ver (além do botão +)
@@ -7708,6 +7717,8 @@ function renderPost(p) {
             state.x1NoFeed.add(m.id);
         }
         badge = x1FeedHTML(m);
+    } else if (p.kind === 'text' && p.meta && p.meta.novidade) {
+        badge = htmlNovidadeFeed(p.meta);
     } else if (p.kind === 'text' && p.meta && p.meta.depoimento) {
         const dep = p.meta.depoimento;
         badge = `<div class="dep-vidro dep-feed-card" style="${estiloCorDep(dep.cor)}"><span class="dep-brilho"></span>
@@ -7764,11 +7775,11 @@ function renderPost(p) {
             <div class="post-head">
                 <span data-act="view-user" data-uid="${p.user_id}" class="post-head-link">${avatarHTML(user, 'sm')}</span>
                 <div class="post-meta" data-act="view-user" data-uid="${p.user_id}">
-                    <div class="post-name">${escapeHTML(user.display_name)}</div>
-                    <div class="post-time">@${escapeHTML(user.username)} · ${timeAgo(p.created_at)} <span class="post-privacy-badge" data-privacy-badge>${privacyIcon} ${privacyLabel}</span></div>
+                    <div class="post-name">${escapeHTML(user.display_name)}${seloOficial(p.user_id)}</div>
+                    <div class="post-time">${ehOficial(p.user_id) ? `Novidade · ${timeAgo(p.created_at)}` : `@${escapeHTML(user.username)} · ${timeAgo(p.created_at)} <span class="post-privacy-badge" data-privacy-badge>${privacyIcon} ${privacyLabel}</span>`}</div>
                     ${musPost ? `<button type="button" class="post-musica" data-act="usar-musica" data-mus='${escapeHTML(JSON.stringify({ id: musPost.id, titulo: musPost.titulo, artista: musPost.artista, capa: musPost.capa || '', ini: musPost.ini, dur: musPost.dur }))}'><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg><span>${escapeHTML(musPost.titulo || '')} · ${escapeHTML(musPost.artista || '')}</span></button>` : ''}
                 </div>
-                ${menuBtn}
+                ${ehOficial(p.user_id) && p.meta && p.meta.novidade ? '<span class="nov-tag">NOVIDADE</span>' : ''}${menuBtn}
             </div>
             ${badge}
             ${body}
@@ -15636,7 +15647,20 @@ async function renderUserProfile(uid) {
     ]);
     const iFollow = !!iFollowRes.data;
     const streak = streakRes.data;
-    const posts = postsRes.data || [];
+    let posts = postsRes.data || [];
+    // conta oficial do Pulso: perfil só de novidades, e "Mandar sugestão" fala direto com o admin
+    const oficial = p.tipo_conta === 'oficial';
+    let admP = null;
+    if (oficial) {
+        if (state.oficialId !== uid) { state.oficialId = uid; try { lsSet('pulso-oficial', uid); } catch (_) {} }
+        const [{ data: nov }, admId] = await Promise.all([
+            sb.from('posts').select('id, kind, caption, meta, created_at, pinned_at, image_url, thumb_url').eq('user_id', uid).eq('archived', false)
+                .order('pinned_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(30).then(r => r, () => ({ data: [] })),
+            sb.rpc('conta_admin').then(r => r.data, () => null),
+        ]);
+        posts = nov || [];
+        if (admId && admId !== state.session.user.id) { const { data } = await sb.from('profiles').select('id, username, display_name, avatar_url').eq('id', admId).maybeSingle(); admP = data; }
+    }
     let pedi = false;
     if (!iFollow && p.is_private) {
         const { data: st } = await sb.rpc('follow_request_status', { target_id: uid });
@@ -15646,7 +15670,7 @@ async function renderUserProfile(uid) {
     const destaquesDele = trancado ? [] : await carregarDestaques(uid);
     let txtSeguir = iFollow ? 'Seguindo' : pedi ? 'Solicitado' : 'Seguir';
 
-    const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || '<div class="grid-empty">Nenhuma foto por aqui ainda.</div>';
+    const gridHTML = state.profileGridHTML = posts.map(pp => gridThumb(pp)).join('') || `<div class="grid-empty">${oficial ? 'As novidades do app aparecem aqui.' : 'Nenhuma foto por aqui ainda.'}</div>`;
 
     const { data: mostraBadges } = await sb.rpc('profile_shows_badges', { alvo: uid });
     // "Seguida por": quem você segue e também segue essa pessoa
@@ -15693,8 +15717,9 @@ async function renderUserProfile(uid) {
                 </div>
             </div>
             <div class="ig-profile-info">
-                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}</div>
-                ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
+                <div class="ig-name">${escapeHTML(p.display_name)}${oficial ? seloOficial(uid) : seloHTML(p)}</div>
+                ${oficial ? '<div class="ig-oficial">Conta oficial · novidades e dicas</div>' : ''}
+                ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : oficial ? '<div class="ig-bio">Aqui você aprende a usar o app: novidades, dicas e passo a passo.</div>' : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
             
@@ -15707,10 +15732,12 @@ async function renderUserProfile(uid) {
             <div class="ig-profile-actions perfil-acoes">
                 ${iFollow ? `<button class="pa-btn pa-seguindo" data-act="perfil-seguindo-menu" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-private="${p.is_private ? '1' : '0'}">Seguindo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>`
                     : `<button class="pa-btn ${pedi ? '' : 'pa-seguir'}" data-act="profile-follow-toggle" data-uid="${uid}" data-following="${pedi ? '1' : '0'}" data-requested="${pedi ? '1' : '0'}" data-private="${p.is_private ? '1' : '0'}">${!pedi && segueVoce ? 'Seguir de volta' : txtSeguir}</button>`}
-                ${podeMsg ? `<button class="pa-btn" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url || ''}">Mensagem</button>` : ''}
+${oficial ? `${admP ? `<button class="pa-btn pa-sugestao" data-act="start-chat" data-uid="${admP.id}" data-name="${escapeHTML(admP.display_name || '')}" data-username="${escapeHTML(admP.username || '')}" data-avatar="${admP.avatar_url || ''}">Mandar sugestão</button>` : ''}` : ''}
+                ${oficial ? '' : `<span class="pa-resto">                ${podeMsg ? `<button class="pa-btn" data-act="start-chat" data-uid="${uid}" data-name="${escapeHTML(p.display_name)}" data-username="${escapeHTML(p.username)}" data-avatar="${p.avatar_url || ''}">Mensagem</button>` : ''}
                 ${iFollow || segueVoce ? `<button class="pa-btn pa-quad pa-x1" data-act="x1-novo" data-uid="${uid}" aria-label="Desafio X1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4.5 13.5H11L10 22l8.5-11.5H12z"/></svg></button>` : ''}
-                <button class="pa-btn pa-quad" data-act="perfil-sugestoes" data-uid="${uid}" aria-label="Pessoas parecidas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></svg></button>
+                <button class="pa-btn pa-quad" data-act="perfil-sugestoes" data-uid="${uid}" aria-label="Pessoas parecidas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="8" r="3.5"/><path d="M3.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/></svg></button></span>`}
             </div>
+            ${oficial && state.profile.is_admin ? '<button class="pa-admin-nov" data-act="publicar-novidade">✦ Publicar novidade como Pulso</button>' : ''}
             <div class="perfil-sug hidden" id="perfilSug"></div>
             ${destaquesHTML(destaquesDele, uid)}
 
@@ -15718,7 +15745,7 @@ async function renderUserProfile(uid) {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
                 <b>Esta conta é privada</b>
                 <span>${pedi ? 'Seu pedido está aguardando aprovação.' : 'Siga pra ver os posts e treinos.'}</span>
-            </div>` : `<div class="ig-tabs">
+            </div>` : `<div class="ig-tabs${oficial ? ' tabs-off' : ''}">
                 <button class="ig-tab on" data-act="profile-tab" data-tab="posts" aria-label="Posts" title="Posts">${ICO_ABA_PERFIL['Posts']}</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="workouts" data-uid="${uid}" aria-label="Treinos" title="Treinos">${ICO_ABA_PERFIL['Treinos']}</button>
                 <button class="ig-tab" data-act="profile-tab" data-tab="meals" data-uid="${uid}" aria-label="Refeições" title="Refeições">${ICO_ABA_PERFIL['Refeições']}</button>
@@ -17914,8 +17941,144 @@ function estiloTextoStory(st, len, emFoto) {
 // STORIES ESPECIAIS: conquista, treino, repostar, arquivo, lembranças e menções
 // ============================================================
 const CARD_STORY_BG = 'linear-gradient(165deg, #0F4A35 0%, #0A0C0B 55%, #1C1446 100%)';
+// ================= CONTA OFICIAL DO PULSO + NOVIDADES =================
+// A conta oficial só posta novidades (story, feed e destaque). Não tem pontos, liga, X1 nem desafio.
+const ehOficial = uid => { if (!uid) return false; const o = state.oficialId || lsGet('pulso-oficial'); return !!o && uid === o; };
+async function carregarOficial() {
+    try {
+        const { data, error } = await sb.rpc('conta_oficial');
+        if (error) return;
+        state.oficialId = data || null;
+        try { if (data) lsSet('pulso-oficial', data); else localStorage.removeItem('pulso-oficial'); } catch (_) {}
+    } catch (_) {}
+}
+const seloOficial = uid => ehOficial(uid) ? '<span class="selo-oficial" title="Conta oficial do Pulso" aria-label="Conta oficial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5l4 4 8-9"/></svg></span>' : '';
+const NOV_COR = { verde: '16,185,129', azul: '95,176,255', amarelo: '255,194,75', roxo: '192,132,252', laranja: '255,122,77', rosa: '244,114,182' };
+// "Abrir no app": pra onde cada tela da novidade leva
+const NOV_ABRIR = {
+    'montar-treino': () => abrirModoTreino(),
+    'registrar': () => { limparComposer(); abrirComposer(); },
+    'agua': () => { limparComposer(); setComposerKind('water'); abrirComposer(); },
+    'desafios': () => switchView('desafio'),
+    'progresso': () => switchView('progress'),
+    'coach': () => switchView('coach'),
+    'perfil': () => switchView('profile'),
+    'mensagens': () => switchView('messages'),
+    'feed': () => switchView('feed'),
+};
+function abrirDestinoNovidade(k) {
+    const f = NOV_ABRIR[k]; if (!f) return;
+    evento('novidade_abrir', { destino: k });
+    try { f(); } catch (_) {}
+}
+// Uma tela da novidade. c = { k (rótulo), e (emoji), t (título), p (texto), linhas ["Esquerda|Direita", "*Linha em destaque"], cor, abrir, botao, i, n }
+function htmlNovidade(c, modo = 'story') {
+    const cor = NOV_COR[c.cor] || NOV_COR.verde;
+    const k = c.k || (Number(c.n) > 1 ? `Passo ${c.i} de ${c.n}` : 'Novidade');
+    const linhas = (Array.isArray(c.linhas) ? c.linhas : []).slice(0, 5).map(l => {
+        let s = String(l || ''); const on = s.startsWith('*'); if (on) s = s.slice(1);
+        const [a, b] = s.split('|');
+        return `<div class="nov-l${on ? ' on' : ''}"><span>${escapeHTML(a || '')}</span>${b ? `<b>${escapeHTML(b)}</b>` : ''}</div>`;
+    }).join('');
+    const botao = c.abrir && NOV_ABRIR[c.abrir] ? `<button type="button" class="nov-abrir" data-nov-abrir="${escapeHTML(c.abrir)}">${escapeHTML(c.botao || 'Abrir no app')}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>` : '';
+    const dentro = `<span class="nov-k">${escapeHTML(k)}</span>
+        ${c.e ? `<span class="nov-e">${escapeHTML(String(c.e).slice(0, 4))}</span>` : ''}
+        <h3 class="nov-t">${escapeHTML(c.t || '')}</h3>
+        ${c.p ? `<p class="nov-p">${escapeHTML(c.p)}</p>` : ''}
+        ${linhas ? `<div class="nov-mock">${linhas}</div>` : ''}
+        ${botao}
+        <b class="nov-marca">Pulso.</b>`;
+    if (modo === 'story') return `<div class="card-story nov-cs" style="--c:${cor}">${dentro}</div>`;
+    return `<div class="nov-c nov-${modo}" style="--c:${cor}">${dentro}</div>`;
+}
+// Post da novidade no feed: as telas viram carrossel
+function htmlNovidadeFeed(meta) {
+    const sl = ((meta && meta.novidade && meta.novidade.slides) || []).slice(0, 10);
+    if (!sl.length) return '';
+    const n = sl.length;
+    const itens = sl.map((s, i) => htmlNovidade({ ...s, i: i + 1, n }, 'feed')).join('');
+    return n > 1
+        ? `<div class="post-carrossel nov-carrossel" data-n="${n}"><div class="pc-trilho">${itens}</div><span class="pc-cont">1/${n}</span><div class="pc-pontos">${sl.map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div></div>`
+        : `<div class="nov-unico">${itens}</div>`;
+}
+document.addEventListener('click', e => {
+    const b = e.target.closest('.post [data-nov-abrir]'); if (!b) return;
+    e.stopPropagation(); abrirDestinoNovidade(b.dataset.novAbrir);
+});
+// ---- Publicar novidade como Pulso (só o admin) ----
+// O pacote vem pronto (JSON): { "legenda": "...", "destaque": "Novidades", "slides": [ { "k", "e", "t", "p", "linhas", "cor", "abrir", "botao" } ] }
+function lerPacoteNovidade(txt) {
+    let s = String(txt || '').trim();
+    const m = s.match(/\{[\s\S]*\}/); if (m) s = m[0];
+    const j = JSON.parse(s);
+    const slides = (Array.isArray(j.slides) ? j.slides : []).filter(x => x && (x.t || x.p)).slice(0, 10).map(x => ({
+        ...(x.k ? { k: String(x.k).slice(0, 30) } : {}), ...(x.e ? { e: String(x.e).slice(0, 4) } : {}),
+        t: String(x.t || '').slice(0, 80), ...(x.p ? { p: String(x.p).slice(0, 260) } : {}),
+        ...(Array.isArray(x.linhas) && x.linhas.length ? { linhas: x.linhas.slice(0, 5).map(l => String(l).slice(0, 40)) } : {}),
+        ...(NOV_COR[x.cor] ? { cor: x.cor } : {}), ...(x.abrir && NOV_ABRIR[x.abrir] ? { abrir: x.abrir } : {}),
+        ...(x.botao ? { botao: String(x.botao).slice(0, 24) } : {}),
+    }));
+    if (!slides.length) throw new Error('O pacote não tem nenhuma tela (slides).');
+    return { slides, legenda: String(j.legenda || '').slice(0, 2000), destaque: String(j.destaque || '').trim().slice(0, 20) };
+}
+function abrirPublicarNovidade() {
+    if (!state.profile || !state.profile.is_admin) return;
+    const tela = x1Tela('novPub', '');
+    tela.classList.add('nov-pub');
+    let pac = null, story = true, feed = true, erro = '';
+    const pintar = () => {
+        const n = pac ? pac.slides.length : 0;
+        tela.innerHTML = `<div class="x1-topo"><button class="x1-ib" data-np="fechar" aria-label="Fechar">${SVG_X(IC_X1.fechar)}</button><h1>Publicar como Pulso</h1><span class="x1-ib"></span></div>
+        <div class="x1-corpo">
+            ${!state.oficialId ? '<p class="tr-erro">A conta oficial ainda não foi marcada no banco (seção 43). Publicar vai falhar.</p>' : ''}
+            <div class="x1-sec">PACOTE DA NOVIDADE</div>
+            <textarea class="obj-input np-txt" id="npTxt" rows="${pac ? 3 : 7}" spellcheck="false" placeholder='Cole aqui o pacote que o Claude mandou ({ "slides": [...] })'>${escapeHTML(state.npTxt || '')}</textarea>
+            <div class="np-acoes"><button class="np-b" data-np="colar">Colar</button>${state.npTxt ? '<button class="np-b" data-np="limpar">Limpar</button>' : ''}</div>
+            ${erro ? `<p class="tr-erro">${escapeHTML(erro)}</p>` : ''}
+            ${pac ? `<div class="x1-sec">PRÉVIA · ${n} ${n === 1 ? 'TELA' : 'TELAS'}</div>
+            <div class="np-previa">${pac.slides.map((s, i) => `<div class="np-quadro"><div class="np-story">${htmlNovidade({ ...s, i: i + 1, n }, 'story')}</div></div>`).join('')}</div>
+            ${pac.legenda ? `<div class="x1-sec">LEGENDA DO POST</div><p class="np-leg">${escapeHTML(pac.legenda)}</p>` : ''}
+            <div class="x1-sec">ONDE PUBLICAR</div>
+            <button class="np-op" data-np="story"><span class="np-chk${story ? ' on' : ''}"></span><span><b>Story</b><small>Fica 24h no topo de todo mundo</small></span></button>
+            <button class="np-op" data-np="feed"><span class="np-chk${feed ? ' on' : ''}"></span><span><b>Feed</b><small>Post com as telas em carrossel</small></span></button>
+            <label class="np-op np-dest"><span class="np-dl">Destaque</span><input class="x1-campo" id="npDest" maxlength="20" placeholder="Ex: Novidades (vazio = sem destaque)" value="${escapeHTML(pac.destaque)}"></label>` : ''}
+        </div>
+        <div class="x1-rodape"><button class="btn x1-btn trm-ir" data-np="publicar"${pac && (story || feed || pac.destaque) ? '' : ' disabled'}>Publicar como Pulso${SVG_X('<path d="M9 6l6 6-6 6"/>')}</button></div>`;
+    };
+    const ler = () => {
+        const v = state.npTxt || ''; erro = ''; pac = null;
+        if (v.trim()) { try { pac = lerPacoteNovidade(v); } catch (e) { erro = 'Pacote inválido: ' + (e.message || 'confira se colou tudo'); } }
+        pintar();
+    };
+    tela.addEventListener('input', e => {
+        if (e.target.id === 'npTxt') { state.npTxt = e.target.value; clearTimeout(tela._t); tela._t = setTimeout(ler, 450); }
+        else if (e.target.id === 'npDest' && pac) pac.destaque = e.target.value.trim().slice(0, 20);
+    });
+    tela.addEventListener('click', async e => {
+        const b = e.target.closest('[data-np]'); if (!b || b.disabled) return;
+        const a = b.dataset.np;
+        if (a === 'fechar') x1FecharTela('novPub');
+        else if (a === 'colar') { try { state.npTxt = await navigator.clipboard.readText(); ler(); } catch (_) { toast('Não deu pra colar. Segure no campo e cole.', 'info'); } }
+        else if (a === 'limpar') { state.npTxt = ''; ler(); }
+        else if (a === 'story') { story = !story; vibrar(4); pintar(); }
+        else if (a === 'feed') { feed = !feed; vibrar(4); pintar(); }
+        else if (a === 'publicar' && pac) {
+            b.disabled = true; b.textContent = 'Publicando…';
+            const { data, error } = await sb.rpc('publicar_novidade', { p: { slides: pac.slides, legenda: pac.legenda, story, feed, destaque: pac.destaque || null } });
+            if (error) { toast(msgErro(error), 'err'); pintar(); return; }
+            evento('novidade_publicada', { telas: pac.slides.length, story, feed, destaque: !!pac.destaque });
+            const partes = [data && data.stories ? `${data.stories} ${data.stories === 1 ? 'story' : 'stories'}` : '', data && data.post ? 'post no feed' : '', data && data.destaque ? `destaque "${pac.destaque}"` : ''].filter(Boolean);
+            toast(`Publicado como Pulso: ${partes.join(', ')}`, 'ok'); vibrar([10, 40, 14]);
+            state.npTxt = ''; x1FecharTela('novPub');
+            if (state.view === 'feed') renderFeed();
+        }
+    });
+    ler();
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-act="publicar-novidade"]')) { e.stopPropagation(); abrirPublicarNovidade(); } });
 function htmlCardStory(st, comFoto) {
     const c = st.card || {};
+    if (c.tipo === 'novidade') return htmlNovidade(c, 'story');
     if (c.tipo === 'podio') {
         const pod = c.podio || [], o = pod.length >= 2 ? [pod[1], pod[0], pod[2]].filter(Boolean) : pod;
         return `<div class="card-story podio-cs${comFoto ? ' sobre-foto' : ''}"><small class="cs-rot">${escapeHTML(c.nome || 'Desafio')} · pódio</small>
@@ -19988,7 +20151,7 @@ function showCurrentStory() {
         closeStoryViewer();
         switchView(ehMeu ? 'profile' : 'user-profile', { uid: group.user.id });
     };
-    $('#svName').textContent = group.user.display_name || group.user.username;
+    $('#svName').innerHTML = escapeHTML(group.user.display_name || group.user.username || '') + seloOficial(group.user.id);
     $('#svTime').textContent = timeAgo(item.created_at);
 
     // Quem viu (só no seu story): barra embaixo, toque ou arraste pra cima
@@ -20001,7 +20164,7 @@ function showCurrentStory() {
     state.storyAtual = souDonoDoStory ? item.id : null;   // story ou destaque seu: mostra quem viu
     // story de outra pessoa: curtir e responder (vai pro chat)
     const resp = document.getElementById('svResp');
-    const podeResponder = !souDonoDoStory && !ehDestaque;
+    const podeResponder = !souDonoDoStory && !ehDestaque && !ehOficial(group.user.id);
     resp.classList.toggle('hidden', !podeResponder);
 
     if (podeResponder) {
@@ -20130,6 +20293,9 @@ function showCurrentStory() {
         // post de outra pessoa: só mostra se quem assiste ainda pode ver o post (privacidade mudou ou foi apagado)
         if (cd.dataset.autor && cd.dataset.autor !== group.user.id && cd.dataset.autor !== state.session.user.id) conferirCardPost(cd);
     });
+    content.querySelectorAll('[data-nov-abrir]').forEach(b => b.addEventListener('click', ev => {
+        ev.stopPropagation(); const k = b.dataset.novAbrir; closeStoryViewer(); setTimeout(() => abrirDestinoNovidade(k), 200);
+    }));
     content.querySelectorAll('[data-sv-uid]').forEach(b => b.addEventListener('click', ev => {
         ev.stopPropagation();
         const uid = b.dataset.svUid;
@@ -22613,6 +22779,7 @@ async function bootInterno() {
     }
 
     loadScore();
+    carregarOficial();
     // Veio de uma notificação? Vai direto pro lugar. Senão, abre na aba mais usada.
     const ap = state.abrirPush; state.abrirPush = null;
     if (ap && ap.tela === 'desafio' && ap.x1) { await switchView('desafio'); abrirX1(ap.x1); }
@@ -23105,7 +23272,7 @@ async function escolherRivalX1() {
         sb.from('follows').select('following_id').eq('follower_id', uid).limit(1000),
         sb.from('follows').select('follower_id').eq('following_id', uid).limit(1000),
     ]);
-    const ids = [...new Set([...(sigo || []).map(x => x.following_id), ...(meSeguem || []).map(x => x.follower_id)])].filter(x => x !== uid).slice(0, 900);
+    const ids = [...new Set([...(sigo || []).map(x => x.following_id), ...(meSeguem || []).map(x => x.follower_id)])].filter(x => x !== uid && !ehOficial(x)).slice(0, 900);
     let pessoas = [];
     if (ids.length) { const { data } = await sb.from('profiles').select('id, username, display_name, avatar_url').in('id', ids); pessoas = data || []; }
     const emX1 = new Set((state.x1Lista || []).filter(x => ['ativo', 'pendente'].includes(x.status)).map(x => (x.sou_criador ? x.rival : x.criador).id));
