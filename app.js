@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261297';
+const APP_VERSAO = '20261298';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -5613,7 +5613,12 @@ async function renderMealHistory(uid, filtro = 'todas') {
     let qRef = sb.from('posts')
         .select('id, meal_slot, meal_score, meal_analysis, image_url, thumb_url, created_at, in_feed, meta')
         .eq('user_id', uid).eq('kind', 'meal');
-    if (!isMe) qRef = qRef.not('image_url', 'is', null);
+    // de outra pessoa: nunca as "Só eu" (nem foto da pasta privada); "Seguidores" só se eu sigo
+    if (!isMe) {
+        let segue = false;
+        try { const { data: f } = await sb.rpc('am_i_following', { target_id: uid }); segue = !!f; } catch (_) {}
+        qRef = qRef.not('image_url', 'is', null).not('image_url', 'like', 'privado:%').in('visibility', segue ? ['public', 'followers'] : ['public']);
+    }
     const { data, error } = await qRef.order('created_at', { ascending: false }).limit(90);
 
     if (!$('#profileTabBody')) return;
