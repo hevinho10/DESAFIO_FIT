@@ -7068,3 +7068,13 @@ details[open] > summary > .rg-seta{ transform:rotate(90deg); }
 img.foto-falhou{ opacity:0; }
 .ml-q:has(img.foto-falhou)::after{ content:'📷'; position:absolute; inset:0; display:grid; place-items:center; font-size:26px; opacity:.4; }
 .cfg-versao{ text-align:center; font-size:12px; color:var(--ink-faint); margin:14px 0 4px; }
+/* gerenciar o que o Pulso publicou */
+.np-ger-t{ margin-top:26px; }
+.np-gsub{ font-size:12px; font-weight:700; color:var(--ink-faint); margin:12px 2px 6px; }
+.np-gl{ display:flex; align-items:center; gap:10px; padding:10px 12px; margin-bottom:6px; border-radius:13px; background:var(--bg-card); border:1px solid var(--line); }
+.np-gl span{ flex:1; min-width:0; }
+.np-gl b{ display:block; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.np-gl small{ display:block; font-size:11.5px; color:var(--ink-faint); }
+.np-ap{ width:34px; height:34px; flex:none; border-radius:10px; border:1px solid rgba(255,90,90,.35); background:none; color:var(--danger); display:grid; place-items:center; }
+.np-ap svg{ width:16px; height:16px; }
+.np-tudo{ display:block; width:100%; margin-top:12px; height:42px; border-radius:13px; border:1px dashed rgba(255,90,90,.45); background:none; color:var(--danger); font-family:inherit; font-size:13.5px; font-weight:700; }

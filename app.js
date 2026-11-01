@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261301';
+const APP_VERSAO = '20261302';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -7652,7 +7652,8 @@ async function renderFeed() {
         storiesByUser[uid].items.push(s);
     });
     // Dentro de cada pessoa: do mais antigo pro mais novo (igual ao Instagram)
-    Object.values(storiesByUser).forEach(g => g.items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)));
+    const passoCard = it => Number((it.style && it.style.card && it.style.card.i) || 0);
+    Object.values(storiesByUser).forEach(g => g.items.sort((a, b) => (new Date(a.created_at) - new Date(b.created_at)) || (passoCard(a) - passoCard(b))));
     await carregarVistosStory((stories || []).map(s => s.id));
     // Ordena: meus primeiro, depois quem tem story não visto (mais recente antes), e os já vistos no fim
     const mine = storiesByUser[state.session.user.id];
@@ -7890,7 +7891,7 @@ function renderPost(p) {
     const isMine = p.user_id === state.session.user.id;
     const autorDoDepoimento = p.meta && p.meta.depoimento && p.meta.depoimento.autor_id === state.session.user.id;
     const menuBtn = !isMine
-        ? `<button class="post-menu-btn" data-act="${autorDoDepoimento ? 'post-menu-dep' : 'report-post'}" data-id="${p.id}" data-uid="${p.user_id}" data-name="${escapeHTML(user.display_name)}" data-dep="${autorDoDepoimento ? p.meta.depoimento.id : ''}" aria-label="Opções">
+        ? `<button class="post-menu-btn" data-act="${autorDoDepoimento ? 'post-menu-dep' : state.profile && state.profile.is_admin && ehOficial(p.user_id) ? 'pulso-post-menu' : 'report-post'}" data-id="${p.id}" data-uid="${p.user_id}" data-name="${escapeHTML(user.display_name)}" data-dep="${autorDoDepoimento ? p.meta.depoimento.id : ''}" aria-label="Opções">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
            </button>`
         : `<button class="post-menu-btn" data-act="post-menu" data-id="${p.id}" aria-label="Opções">
@@ -16433,6 +16434,23 @@ document.addEventListener('click', async e => {
         else switchView('user-profile', { uid });
     } else if (act === 'post-menu') {
         showPostMenu(id, btn);
+    } else if (act === 'pulso-post-menu') {
+        e.stopPropagation();
+        hidePostMenu();
+        const menu = document.createElement('div');
+        menu.id = 'floatingPostMenu';
+        menu.className = 'post-menu';
+        menu.innerHTML = `<button class="post-menu-item danger" data-act="pulso-apagar-post" data-id="${id}">${icon('lixo')}Apagar post do Pulso</button>
+            <button class="post-menu-item" data-act="publicar-novidade">${icon('mais')}Gerenciar o Pulso</button>`;
+        mostrarMenuFolha(menu);
+        setTimeout(() => document.addEventListener('click', hidePostMenuOnce, { once: true }), 10);
+    } else if (act === 'pulso-apagar-post') {
+        hidePostMenu();
+        if (!(await confirmar('Apagar esse post do Pulso? Ele sai do feed de todo mundo.'))) return;
+        const { error } = await sb.rpc('admin_apagar_pulso', { p_tipo: 'post', p_id: id });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast('Post do Pulso apagado', 'ok');
+        document.querySelectorAll(`.post[data-post-id="${id}"]`).forEach(x => x.remove());
     } else if (act === 'post-menu-dep') {
         e.stopPropagation();
         hidePostMenu();
@@ -18277,14 +18295,44 @@ function abrirPublicarNovidade() {
             <button class="np-op" data-np="story"><span class="np-chk${story ? ' on' : ''}"></span><span><b>Story</b><small>Fica 24h no topo de todo mundo</small></span></button>
             <button class="np-op" data-np="feed"><span class="np-chk${feed ? ' on' : ''}"></span><span><b>Feed</b><small>Post com as telas em carrossel</small></span></button>
             <label class="np-op np-dest"><span class="np-dl">Destaque</span><input class="x1-campo" id="npDest" maxlength="20" placeholder="Ex: Novidades (vazio = sem destaque)" value="${escapeHTML(pac.destaque)}"></label>` : ''}
+            <div class="x1-sec np-ger-t">PUBLICADO PELO PULSO</div>
+            <div id="npGer"><div class="spinner"></div></div>
         </div>
         <div class="x1-rodape"><button class="btn x1-btn trm-ir" data-np="publicar"${pac && (story || feed || pac.destaque) ? '' : ' disabled'}>Publicar como Pulso${SVG_X('<path d="M9 6l6 6-6 6"/>')}</button></div>`;
+        const gb = tela.querySelector('#npGer'); if (gb && tela._ger) gb.innerHTML = tela._ger;
     };
     const ler = () => {
         const v = state.npTxt || ''; erro = ''; pac = null;
         if (v.trim()) { try { pac = lerPacoteNovidade(v); } catch (e) { erro = 'Pacote inválido: ' + (e.message || 'confira se colou tudo'); } }
         pintar();
     };
+    // o que já está no ar: dá pra apagar um por um ou tudo
+    const carregarGer = async () => {
+        const box = tela.querySelector('#npGer'); if (!box) return;
+        const { data, error } = await sb.rpc('admin_conteudo_pulso');
+        if (!box.isConnected) return;
+        if (error) { box.innerHTML = `<p class="tr-erro">${escapeHTML(msgErro(error))}</p>`; return; }
+        const st = data.stories || [], ps = data.posts || [], ds = data.destaques || [];
+        const linha = (tipo, id, titulo, sub) => `<div class="np-gl"><span><b>${escapeHTML(titulo || 'Sem título')}</b><small>${escapeHTML(sub)}</small></span><button class="np-ap" data-np-ap="${tipo}" data-id="${id}" aria-label="Apagar">${SVG_X('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>')}</button></div>`;
+        box.innerHTML = !st.length && !ps.length && !ds.length ? '<p class="tr-dica" style="margin-top:0">O Pulso ainda não publicou nada.</p>' : `
+            ${st.length ? `<p class="np-gsub">Stories no ar (${st.length})</p>${st.map(x => linha('story', x.id, x.t, `${x.n > 1 ? `Passo ${x.i} de ${x.n} · ` : ''}${timeAgo(x.em)}`)).join('')}` : ''}
+            ${ps.length ? `<p class="np-gsub">Posts no feed (${ps.length})</p>${ps.map(x => linha('post', x.id, x.t || x.legenda, `${x.n || 0} ${x.n === 1 ? 'tela' : 'telas'} · ${timeAgo(x.em)}`)).join('')}` : ''}
+            ${ds.length ? `<p class="np-gsub">Destaques (${ds.length})</p>${ds.map(x => linha('destaque', x.id, x.titulo, `${x.itens} ${x.itens === 1 ? 'tela' : 'telas'}`)).join('')}` : ''}
+            <button class="np-tudo" data-np-ap="tudo">Apagar tudo que o Pulso publicou</button>`;
+        tela._ger = box.innerHTML;
+    };
+    tela.addEventListener('click', async e => {
+        const b = e.target.closest('[data-np-ap]'); if (!b) return;
+        const tipo = b.dataset.npAp;
+        const pergunta = tipo === 'tudo' ? 'Apagar TODOS os stories, posts e destaques do Pulso? Não dá pra desfazer.'
+            : tipo === 'destaque' ? 'Apagar esse destaque do perfil do Pulso (com todas as telas dele)?' : `Apagar esse ${tipo === 'story' ? 'story' : 'post'} do Pulso?`;
+        if (!(await confirmar(pergunta))) return;
+        b.disabled = true;
+        const { data: n, error } = await sb.rpc('admin_apagar_pulso', { p_tipo: tipo, p_id: tipo === 'tudo' ? null : b.dataset.id });
+        if (error) { b.disabled = false; toast(msgErro(error), 'err'); return; }
+        toast(tipo === 'tudo' ? `Pronto: ${n} ${n === 1 ? 'item apagado' : 'itens apagados'}` : 'Apagado', 'ok');
+        carregarGer();
+    });
     tela.addEventListener('input', e => {
         if (e.target.id === 'npTxt') { state.npTxt = e.target.value; clearTimeout(tela._t); tela._t = setTimeout(ler, 450); }
         else if (e.target.id === 'npDest' && pac) pac.destaque = e.target.value.trim().slice(0, 20);
@@ -18304,11 +18352,11 @@ function abrirPublicarNovidade() {
             evento('novidade_publicada', { telas: pac.slides.length, story, feed, destaque: !!pac.destaque });
             const partes = [data && data.stories ? `${data.stories} ${data.stories === 1 ? 'story' : 'stories'}` : '', data && data.post ? 'post no feed' : '', data && data.destaque ? `destaque "${pac.destaque}"` : ''].filter(Boolean);
             toast(`Publicado como Pulso: ${partes.join(', ')}`, 'ok'); vibrar([10, 40, 14]);
-            state.npTxt = ''; x1FecharTela('novPub');
+            state.npTxt = ''; ler(); carregarGer();
             if (state.view === 'feed') renderFeed();
         }
     });
-    ler();
+    ler(); setTimeout(carregarGer, 50);
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-act="publicar-novidade"]')) { e.stopPropagation(); abrirPublicarNovidade(); } });
 function htmlCardStory(st, comFoto) {
