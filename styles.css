@@ -7031,3 +7031,6 @@ details[open] > summary > .rg-seta{ transform:rotate(90deg); }
 .np-dest{ flex-direction:column; align-items:stretch; gap:8px; }
 .np-dl{ font-size:14.5px; font-weight:700; }
 .nov-pub .x1-corpo{ padding-bottom:110px; }
+/* a tela da novidade ocupa o story inteiro: deixa o toque passar pra avançar/voltar (só o botão é tocável) */
+.card-story.nov-cs{ pointer-events:none; }
+.card-story.nov-cs .nov-abrir{ pointer-events:auto; }
