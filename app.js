@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261296';
+const APP_VERSAO = '20261297';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -12565,18 +12565,55 @@ document.addEventListener('error', e => {
 }, true);
 
 // ---- Refeições com análise pendente (a IA falhou na hora): tenta de novo ----
+// ---- Nota do prato + macros numa chamada só (metade do gasto com a IA) ----
+// Manda a própria foto (não depende de link). Se a função nova não estiver no ar, cai no caminho antigo.
+const ehErroCotaIA = e => /429|quota|cota|exceeded|Nenhum modelo/i.test(String((e && (e.message || e.error || e.context && e.context.status)) || e || ''));
+async function blobParaBase64(blob) {
+    return await new Promise((ok, erro) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = erro; fr.readAsDataURL(blob); });
+}
+async function analisarPratoIA({ file = null, imageUrl = null }) {
+    let b64 = null;
+    try {
+        if (file) b64 = await imagemJpegParaIA(file, 1024, 0.85);
+        else if (imageUrl && ehPrivada(imageUrl)) {
+            const { data: blob } = await sb.storage.from(BUCKET_PRIVADO).download(imageUrl.slice('privado:'.length));
+            if (blob && blob.size) b64 = await imagemJpegParaIA(blob, 1024, 0.85);
+        }
+    } catch (_) { b64 = null; }
+    let erroCota = false;
+    try {
+        const body = b64 ? { task: 'refeicao', imageBase64: b64, mimeType: 'image/jpeg' } : { task: 'refeicao', imageUrl };
+        const { data: r, error } = await sb.functions.invoke('vision-tools', { body });
+        if (!error && r && !r.error) {
+            if (r.eh_comida === false || r.score == null) return { score: null, naoComida: true };
+            const sc = Math.max(0, Math.min(10, Math.round(Number(r.score) * 10) / 10));
+            const m = { p: Math.round(Number(r.proteina_g) || 0), c: Math.round(Number(r.carbo_g) || 0), g: Math.round(Number(r.gordura_g) || 0), kcal: Math.round(Number(r.kcal) || 0), conf: r.confianca || 'media' };
+            const macros = m.kcal > 0 && m.p <= 250 && m.kcal <= 4000 ? m : null;
+            return { score: sc, analysis: String(r.analysis || ''), items: Array.isArray(r.items) ? r.items.slice(0, 6).map(String) : [], macros };
+        }
+        let corpo = '';
+        try { if (error && error.context && typeof error.context.clone === 'function') corpo = await error.context.clone().text(); } catch (_) {}
+        erroCota = ehErroCotaIA(error) || ehErroCotaIA(r && r.error) || ehErroCotaIA(corpo) || !!(error && error.context && error.context.status === 429);
+        if (erroCota) { const x = new Error('cota'); x.cota = true; throw x; }
+    } catch (e) { if (e && e.cota) throw e; }
+    // caminho antigo (função de nota separada)
+    const url = imageUrl && ehPrivada(imageUrl) ? await linkPrivado(imageUrl, 600) : imageUrl;
+    if (!url) throw new Error('sem foto');
+    const { data: an, error: anErr } = await sb.functions.invoke('analyze-meal', { body: { imageUrl: url } });
+    if (anErr || !an || typeof an.score !== 'number') { const x = new Error('analise'); x.cota = ehErroCotaIA(anErr) || ehErroCotaIA(an && an.error); throw x; }
+    return { score: an.score, analysis: an.analysis, items: an.items || [], macros: null };
+}
 async function analisarRefeicao(id) {
     const { data: p } = await sb.from('posts').select('id, image_url, meta, meal_score').eq('id', id).eq('user_id', state.session.user.id).maybeSingle();
     if (!p || p.meal_score != null || !p.image_url) return { ok: false };
-    const urlIA = ehPrivada(p.image_url) ? await linkPrivado(p.image_url, 600) : p.image_url;
-    if (!urlIA) return { ok: false };
-    const { data: an, error } = await sb.functions.invoke('analyze-meal', { body: { imageUrl: urlIA } });
-    if (error && ehPrivada(p.image_url)) avisarFotoPrivada('analisar', error, p.image_url.slice(8));
-    if (error || !an || typeof an.score !== 'number') return { ok: false };
+    let an = null;
+    try { an = await analisarPratoIA({ imageUrl: p.image_url }); } catch (_) { return { ok: false }; }
+    if (!an || an.score == null) return { ok: false };
     const meta = { ...(p.meta || {}) }; delete meta.analise_pendente;
+    if (an.macros) meta.macros = an.macros;
     await sb.from('posts').update({ meal_score: an.score, meal_analysis: textoIA(an.analysis, an.score) || null, meta }).eq('id', id).eq('user_id', state.session.user.id);
     const { data: pts } = await sb.rpc('creditar_refeicao_analisada', { pid: id });
-    estimarMacros(id, p.image_url);
+    if (!an.macros) estimarMacros(id, p.image_url);
     return { ok: true, nota: an.score, pts: Number(pts || 0) };
 }
 async function tentarAnalisesPendentes() {
@@ -15657,7 +15694,8 @@ function showMealResult(an, pts, limitReached, postId = null, imageUrl = null) {
     const close = () => { overlay.remove(); document.body.style.overflow = ''; };
     overlay.onclick = e => { if (e.target === overlay) close(); };
     document.getElementById('mealResultClose').onclick = close;
-    if (postId && imageUrl) estimarMacros(postId, imageUrl).then(m => {
+    if (postId && imageUrl && an.macros) { const box = document.getElementById('mrMacros'); if (box) box.innerHTML = macrosHTML(an.macros); }
+    else if (postId && imageUrl) estimarMacros(postId, imageUrl).then(m => {
         const box = document.getElementById('mrMacros'); if (!box) return;
         if (m) { box.innerHTML = macrosHTML(m); state.metaProt = state.metaProt; if (state.view === 'progress') hydrateProteina(); }
         else box.remove();
@@ -22642,19 +22680,17 @@ el$('composerSubmit').addEventListener('click', async () => {
             if (imageUrl) {
                 btn.textContent = 'Analisando o prato...';
                 try {
-                    const urlIA = ehPrivada(imageUrl) ? await linkPrivado(imageUrl, 600) : imageUrl;
-                    const { data: an, error: anErr } = await sb.functions.invoke('analyze-meal', {
-                        body: { imageUrl: urlIA }
-                    });
-                    if (anErr || !an || typeof an.score !== 'number') throw (anErr || new Error('sem nota'));
+                    const an = await analisarPratoIA({ file: state.composerPhoto, imageUrl });
+                    if (!an || an.score == null) throw new Error(an && an.naoComida ? 'nao-comida' : 'sem nota');
                     post.meal_score = an.score;
                     an.analysis = textoIA(an.analysis, an.score);
                     post.meal_analysis = an.analysis || null;
+                    if (an.macros) post.meta = { ...(post.meta || {}), macros: an.macros };
                     mealFeedback = an;
                 } catch (e) {
-                    console.warn('analyze-meal indisponível', e);
-                    mealAnalysisFailed = true;
-                    post.meta = { ...(post.meta || {}), analise_pendente: true };
+                    console.warn('análise do prato indisponível', e);
+                    mealAnalysisFailed = e && e.cota ? 'cota' : e && e.message === 'nao-comida' ? 'nao-comida' : true;
+                    if (mealAnalysisFailed !== 'nao-comida') post.meta = { ...(post.meta || {}), analise_pendente: true };
                 }
             }
         }
@@ -22784,7 +22820,9 @@ el$('composerSubmit').addEventListener('click', async () => {
         if (mealFeedback) {
             showMealResult(mealFeedback, ptsToCredit, ptsToCredit === 0, created && created.id, imageUrl);
         } else if (mealAnalysisFailed) {
-            toast('A análise do prato ficou pendente. Vou tentar de novo sozinho, e os pontos entram quando sair a nota.', 'ok');
+            toast(mealAnalysisFailed === 'cota' ? 'A IA está ocupada agora. Sua refeição foi salva e a nota sai sozinha mais tarde, com os pontos.'
+                : mealAnalysisFailed === 'nao-comida' ? 'Refeição salva. A IA não reconheceu comida na foto, então essa não teve nota.'
+                : 'A análise do prato ficou pendente. Vou tentar de novo sozinho, e os pontos entram quando sair a nota.', 'ok');
         } else if (ptsToCredit === 0) {
             const semFoto = state.composerKind === 'meal'
                 ? 'Refeição registrada. Só as com foto analisada pela IA valem ponto.'
