@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261290';
+const APP_VERSAO = '20261291';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -12158,7 +12158,8 @@ function esqueleto(tipo) {
 
 // Selo de Fundador (primeiras 100 contas aprovadas): só no perfil, ao lado do nome
 const SELO_FUNDADOR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.2l1.45 2.95 3.25.47-2.35 2.3.55 3.23L12 14.62l-2.9 1.53.55-3.23-2.35-2.3 3.25-.47z"/></svg>';
-const seloHTML = p => p && p.fundador ? `<button class="selo-fundador" data-act="ver-selo" data-desde="${p.created_at || ''}" aria-label="Membro fundador">${SELO_FUNDADOR}</button>` : '';
+const contaOficial = () => !!(state.profile && state.profile.tipo_conta === 'oficial');
+const seloHTML = p => p && p.fundador && p.tipo_conta !== 'oficial' ? `<button class="selo-fundador" data-act="ver-selo" data-desde="${p.created_at || ''}" aria-label="Membro fundador">${SELO_FUNDADOR}</button>` : '';
 
 // ---- Segurar o + : atalhos rápidos em arco (fica aberto; toca no item; toca fora fecha) ----
 (function atalhosDoMais() {
@@ -14573,7 +14574,7 @@ async function renderProfile() {
                 </div>
             </div>
             <div class="ig-profile-info">
-                <div class="ig-name">${escapeHTML(p.display_name)}${seloHTML(p)}</div>
+                <div class="ig-name">${escapeHTML(p.display_name)}${p.tipo_conta === 'oficial' ? seloOficial(p.id) : seloHTML(p)}</div>
                 ${p.bio ? `<div class="ig-bio">${escapeHTML(p.bio)}</div>` : ''}
                 ${p.city ? `<div class="ig-loc">📍 ${escapeHTML(p.city)}</div>` : ''}
             </div>
@@ -22814,7 +22815,7 @@ async function bootInterno() {
     evento('app_abriu', { instalado: !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches), offline: !navigator.onLine });
     updateUnreadBadge();
     updateNotifBadge();
-    checarConquistas(true);
+    if (!contaOficial()) checarConquistas(true);
     checarConvite();
     enviarFilaOffline(); setTimeout(() => enviarFilaChat(), 3000);
     setTimeout(enviarRascunhos, 2500);
@@ -22823,17 +22824,15 @@ async function bootInterno() {
     carregarSalvos();
     setTimeout(enviarFilaOffline, 3000);
     setTimeout(atualizarBadgeDesafio, 2500);
-    setTimeout(checarConvitesX1, 3000);
-    setTimeout(pintarPilulaTreino, 1500);
-    setTimeout(() => { const vai = () => prepararInsight(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 12000);
-    setTimeout(() => { const vai = () => talvezPerguntarPausa(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 4500);
-    setTimeout(() => { const vai = () => talvezResultadoLiga(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 7000);
+    if (!contaOficial()) { setTimeout(checarConvitesX1, 3000); setTimeout(pintarPilulaTreino, 1500); }
+    if (!contaOficial()) setTimeout(() => { const vai = () => prepararInsight(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 12000);
+    if (!contaOficial()) setTimeout(() => { const vai = () => talvezPerguntarPausa(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 4500);
+    if (!contaOficial()) setTimeout(() => { const vai = () => talvezResultadoLiga(); if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 5000 }); else vai(); }, 7000);
     // o coach já começa a montar o dia por trás (quando a pessoa chegar na Evolução, está pronto)
-    setTimeout(() => { const vai = () => { try { prepararCoach(); } catch (_) {} }; if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 4000 }); else vai(); }, 9000);
+    if (!contaOficial()) setTimeout(() => { const vai = () => { try { prepararCoach(); } catch (_) {} }; if (window.requestIdleCallback) requestIdleCallback(vai, { timeout: 4000 }); else vai(); }, 9000);
     setTimeout(registrarAcesso, 2000);
-    setTimeout(checarConquistasNovas, 6000);
-    setTimeout(checarQuedaCoach, 8000);
-    setTimeout(carregarCopoAgua, 5000);
+    if (!contaOficial()) setTimeout(checarConquistasNovas, 6000);
+    if (!contaOficial()) { setTimeout(checarQuedaCoach, 8000); setTimeout(carregarCopoAgua, 5000); }
     setTimeout(converterFotosHeic, 20000);
     setTimeout(converterMeuAvatarHeic, 8000);
     setTimeout(tentarAnalisesPendentes, 12000);
@@ -22841,12 +22840,12 @@ async function bootInterno() {
     setTimeout(limparStoriesAntigos, 15000);
     // anuncia desafios que acabaram (uma vez só, pra todos os participantes)
     setTimeout(() => sb.rpc('anunciar_fim_desafios').then(() => updateNotifBadge && updateNotifBadge()), 3500);
-    if (state.profile && state.profile.onboarding_done === false) setTimeout(() => abrirPrimeirosPassos(0), 900);
+    if (contaOficial()) {}  // conta oficial do Pulso: sem primeiros passos, metas e lembretes
+    else if (state.profile && state.profile.onboarding_done === false) setTimeout(() => abrirPrimeirosPassos(0), 900);
     else {
         setTimeout(() => convidarParaInstalar(false), 9000);
     }
-    checkDailyReminder();
-    setTimeout(checarRevisaoObjetivo, 2500);
+    if (!contaOficial()) { checkDailyReminder(); setTimeout(checarRevisaoObjetivo, 2500); }
 
     // Aceite dos termos (uma vez por pessoa)
     if (!state.profile.terms_accepted_at || state.profile.terms_version !== TERMOS_VERSAO) {
@@ -22854,12 +22853,12 @@ async function bootInterno() {
     }
 
     // Primeiro acesso: pede os dados que alimentam evolução e coach
-    if (!state.profile.altura && !state.profile.peso_inicial) {
+    if (!contaOficial() && !state.profile.altura && !state.profile.peso_inicial) {
         setTimeout(openOnboarding, 600);
     }
 
     // Credita perda de peso que ainda não virou ponto (ex.: pesagens antigas)
-    sb.rpc('credit_weight_loss').then(({ data }) => {
+    if (!contaOficial()) sb.rpc('credit_weight_loss').then(({ data }) => {
         const p = Number((data && data[0] && data[0].pts) || 0);
         if (p > 0) { toast(`+${p} pontos pela sua perda de peso até aqui 🎉`, 'ok'); loadScore(); }
     });
