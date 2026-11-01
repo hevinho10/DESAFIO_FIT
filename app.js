@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261295';
+const APP_VERSAO = '20261296';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -5503,6 +5503,7 @@ function renderSettings() {
                 <button class="cfg-row cfg-perigo" data-act="do-logout"><span class="cfg-txt">Sair</span></button>
                 <button class="cfg-row cfg-perigo" data-act="delete-account"><span class="cfg-txt">Excluir conta</span></button>
             </div>
+            <p class="cfg-versao">Pulso · versão ${APP_VERSAO}</p>
         </div>
     `;
     // Números à direita chegam depois, sem travar a tela
@@ -11261,6 +11262,7 @@ async function renderMenu() {
             <div class="cfg-grupo cfg-sair">
                 <button class="cfg-row cfg-perigo" data-act="do-logout"><span class="cfg-txt">Sair</span></button>
             </div>
+            <p class="cfg-versao">Pulso · versão ${APP_VERSAO}</p>
         </div>`;
     };
     pintar();
@@ -21692,7 +21694,8 @@ function setComposerKind(kind) {
     $('#composerSheet').classList.toggle('modo-novo', ['workout', 'meal', 'water', 'sleep'].includes(kind));
     if (kind === 'workout') montarFormTreino();
     if (kind === 'water') { $('#wMl').value = 250; sincronizarContadores(); carregarAguaHoje(); }
-    if (kind === 'meal') { marcarSlotRefeicao(); atualizarFotoRefeicao(); }
+    // refeição começa "Só eu"; a pessoa muda pra seguidores ou público se quiser
+    if (kind === 'meal') { state.composerPrivacy = 'private'; updatePrivacyChip(); marcarSlotRefeicao(); atualizarFotoRefeicao(); }
     setTimeout(sincronizarContadores, 0);
     $('#composerPick').classList.add('hidden');
     $('#composerForm').classList.remove('hidden');

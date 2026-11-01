@@ -7067,3 +7067,4 @@ details[open] > summary > .rg-seta{ transform:rotate(90deg); }
 /* foto privada que não abriu: mostra o ícone em vez do quadrado escuro vazio */
 img.foto-falhou{ opacity:0; }
 .ml-q:has(img.foto-falhou)::after{ content:'📷'; position:absolute; inset:0; display:grid; place-items:center; font-size:26px; opacity:.4; }
+.cfg-versao{ text-align:center; font-size:12px; color:var(--ink-faint); margin:14px 0 4px; }
