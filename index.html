@@ -27,7 +27,7 @@ setTimeout(function(){clearInterval(_t);_f();},12000);}}catch(e){}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261302">
+<link rel="stylesheet" href="styles.css?v=20261303">
 </head>
 <body>
 
@@ -545,6 +545,18 @@ setTimeout(function(){clearInterval(_t);_f();},12000);}}catch(e){}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg>
                 <span>Postar de novo</span>
             </button>
+            <button class="sv-menu-item hidden sv-pulso" id="svPulsoGer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+                <span>Gerenciar o Pulso</span>
+            </button>
+            <button class="sv-menu-item sv-menu-perigo hidden sv-pulso" id="svPulsoUm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+                <span>Apagar este story</span>
+            </button>
+            <button class="sv-menu-item sv-menu-perigo hidden sv-pulso" id="svPulsoTudo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
+                <span>Apagar a novidade inteira</span>
+            </button>
             <button class="sv-menu-item sv-menu-perigo hidden" id="svDelete">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg>
                 <span id="svDeleteLbl">Apagar story</span>
@@ -576,6 +588,6 @@ setTimeout(function(){clearInterval(_t);_f();},12000);}}catch(e){}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
-<script src="app.min.js?v=20261302"></script>
+<script src="app.min.js?v=20261303"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261302';
+const APP_VERSAO = '20261303';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -18241,8 +18241,34 @@ function htmlNovidade(c, modo = 'story') {
         ${linhas ? `<div class="nov-mock">${linhas}</div>` : ''}
         ${botao}
         <b class="nov-marca">Pulso.</b>`;
+    if (c.v === 2 || c.img) return htmlNovidadeV2(c, modo, cor, k, linhas, botao);
     if (modo === 'story') return `<div class="card-story nov-cs" style="--c:${cor}">${dentro}</div>`;
     return `<div class="nov-c nov-${modo}" style="--c:${cor}">${dentro}</div>`;
+}
+// Visual novo: texto centralizado e a tela real do app num cartão flutuante, com o contorno e o ponto de toque
+const numPct = (v, max = 100) => { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(max, n)) : null; };
+function htmlNovidadeV2(c, modo, cor, k, linhas, botao) {
+    const a = Array.isArray(c.anel) && c.anel.length === 4 ? c.anel.map(x => numPct(x)) : null;
+    const t = Array.isArray(c.toque) && c.toque.length === 2 ? c.toque.map(x => numPct(x)) : null;
+    const corAnel = NOV_COR[c.anelCor] || cor;
+    const tela = c.imgFalta ? `<div class="nv2-tela nv2-falta"><span>Falta a imagem<br><b>${escapeHTML(c.imgFalta)}</b></span></div>` : c.img ? `<div class="nv2-tela"><img src="${escapeHTML(c.img)}" alt="" loading="eager">
+            ${a ? `<span class="nv2-anel" style="--a:${corAnel};left:${a[0]}%;top:${a[1]}%;width:${a[2]}%;height:${a[3]}%"></span>` : ''}
+            ${t ? `<span class="nv2-toque" style="left:${t[0]}%;top:${t[1]}%"></span>` : ''}</div>` : linhas ? `<div class="nov-mock">${linhas}</div>` : '';
+    const u = c.user && c.user.u ? `<div class="nv2-user">${c.user.av ? `<img src="${escapeHTML(c.user.av)}" alt="">` : `<i>${escapeHTML(String(c.user.u).replace('@', '').charAt(0).toUpperCase())}</i>`}<span><b>${escapeHTML(c.user.u)}</b><small>${escapeHTML(c.user.txt || '')}</small></span></div>` : '';
+    const n = Number(c.n) || 0, i = Number(c.i) || 0;
+    const pontos = n > 1 ? `<div class="nv2-pontos">${Array.from({ length: n }, (_, j) => `<i${j + 1 === i ? ' class="on"' : ''}></i>`).join('')}</div>` : '';
+    const dentro = `<b class="nv2-marca">Pulso.</b>
+        ${c.e && !c.img && !c.imgFalta ? `<span class="nv2-e">${escapeHTML(String(c.e).slice(0, 4))}</span>` : ''}
+        <span class="nov-k">${escapeHTML(k)}</span>
+        <h3 class="nv2-t">${escapeHTML(c.t || '')}</h3>
+        ${c.p ? `<p class="nv2-p">${escapeHTML(c.p)}</p>` : ''}
+        ${u}
+        ${tela ? `<div class="nv2-palco">${tela}</div>` : ''}
+        ${botao}
+        ${pontos}`;
+    const cls = `nv2${c.img || c.imgFalta ? ' com-tela' : ' capa'}`;
+    if (modo === 'story') return `<div class="card-story nov-cs ${cls}" style="--c:${cor}">${dentro}</div>`;
+    return `<div class="nov-c nov-${modo} ${cls}" style="--c:${cor}">${dentro}</div>`;
 }
 // Post da novidade no feed: as telas viram carrossel
 function htmlNovidadeFeed(meta) {
@@ -18270,6 +18296,14 @@ function lerPacoteNovidade(txt) {
         ...(Array.isArray(x.linhas) && x.linhas.length ? { linhas: x.linhas.slice(0, 5).map(l => String(l).slice(0, 40)) } : {}),
         ...(NOV_COR[x.cor] ? { cor: x.cor } : {}), ...(x.abrir && NOV_ABRIR[x.abrir] ? { abrir: x.abrir } : {}),
         ...(x.botao ? { botao: String(x.botao).slice(0, 24) } : {}),
+        ...(Number(j.v) === 2 ? { v: 2 } : {}),
+        ...(x.img ? { img: String(x.img).slice(0, 600) } : {}),
+        ...(Array.isArray(x.anel) && x.anel.length === 4 ? { anel: x.anel.map(Number) } : {}),
+        ...(Array.isArray(x.toque) && x.toque.length === 2 ? { toque: x.toque.map(Number) } : {}),
+        ...(NOV_COR[x.anelCor] ? { anelCor: x.anelCor } : {}),
+        ...(x.user ? { user: x.user === 'eu' || x.user.u === 'eu'
+            ? { u: '@' + ((state.profile && state.profile.username) || 'voce'), txt: String((x.user && x.user.txt) || x.userTxt || '').slice(0, 60), av: (state.profile && state.profile.avatar_url) || '' }
+            : { u: String(x.user.u || '').slice(0, 30), txt: String(x.user.txt || '').slice(0, 60), av: String(x.user.av || '').slice(0, 400) } } : {}),
     }));
     if (!slides.length) throw new Error('O pacote não tem nenhuma tela (slides).');
     return { slides, legenda: String(j.legenda || '').slice(0, 2000), destaque: String(j.destaque || '').trim().slice(0, 20) };
@@ -18279,8 +18313,15 @@ function abrirPublicarNovidade() {
     const tela = x1Tela('novPub', '');
     tela.classList.add('nov-pub');
     let pac = null, story = true, feed = true, erro = '';
+    // imagens das telas: o pacote diz o nome do arquivo ("ficha_2.png") e o admin escolhe as fotos aqui
+    const imgs = {}, imgUrl = {};
+    const nomeImg = v => String(v || '').split('/').pop().toLowerCase().replace(/\.(png|jpe?g|webp|heic)$/, '');
+    const imgLocal = v => !!v && !/^https?:\/\//i.test(v);
+    const faltando = () => pac ? pac.slides.filter(x => imgLocal(x.img) && !imgs[nomeImg(x.img)]).map(x => x.img) : [];
+    const comImagem = x => imgLocal(x.img) ? (imgUrl[nomeImg(x.img)] ? { ...x, img: imgUrl[nomeImg(x.img)] } : { ...x, img: '', imgFalta: x.img }) : x;
     const pintar = () => {
         const n = pac ? pac.slides.length : 0;
+        const precisa = pac ? pac.slides.filter(x => imgLocal(x.img)).length : 0, falta = faltando();
         tela.innerHTML = `<div class="x1-topo"><button class="x1-ib" data-np="fechar" aria-label="Fechar">${SVG_X(IC_X1.fechar)}</button><h1>Publicar como Pulso</h1><span class="x1-ib"></span></div>
         <div class="x1-corpo">
             ${!state.oficialId ? '<p class="tr-erro">A conta oficial ainda não foi marcada no banco (seção 43). Publicar vai falhar.</p>' : ''}
@@ -18289,7 +18330,8 @@ function abrirPublicarNovidade() {
             <div class="np-acoes"><button class="np-b" data-np="colar">Colar</button>${state.npTxt ? '<button class="np-b" data-np="limpar">Limpar</button>' : ''}</div>
             ${erro ? `<p class="tr-erro">${escapeHTML(erro)}</p>` : ''}
             ${pac ? `<div class="x1-sec">PRÉVIA · ${n} ${n === 1 ? 'TELA' : 'TELAS'}</div>
-            <div class="np-previa">${pac.slides.map((s, i) => `<div class="np-quadro"><div class="np-story">${htmlNovidade({ ...s, i: i + 1, n }, 'story')}</div></div>`).join('')}</div>
+            ${precisa ? `<div class="np-imgs"><span><b>${precisa - falta.length} de ${precisa} imagens</b><small>${falta.length ? `Falta: ${escapeHTML(falta.slice(0, 3).join(', '))}${falta.length > 3 ? '…' : ''}` : 'Todas as telas com imagem'}</small></span><label class="np-b np-b-img">Adicionar imagens<input type="file" id="npImgs" accept="image/*" multiple hidden></label></div>` : ''}
+            <div class="np-previa">${pac.slides.map((s, i) => `<div class="np-quadro"><div class="np-story">${htmlNovidade(comImagem({ ...s, i: i + 1, n }), 'story')}</div></div>`).join('')}</div>
             ${pac.legenda ? `<div class="x1-sec">LEGENDA DO POST</div><p class="np-leg">${escapeHTML(pac.legenda)}</p>` : ''}
             <div class="x1-sec">ONDE PUBLICAR</div>
             <button class="np-op" data-np="story"><span class="np-chk${story ? ' on' : ''}"></span><span><b>Story</b><small>Fica 24h no topo de todo mundo</small></span></button>
@@ -18298,7 +18340,7 @@ function abrirPublicarNovidade() {
             <div class="x1-sec np-ger-t">PUBLICADO PELO PULSO</div>
             <div id="npGer"><div class="spinner"></div></div>
         </div>
-        <div class="x1-rodape"><button class="btn x1-btn trm-ir" data-np="publicar"${pac && (story || feed || pac.destaque) ? '' : ' disabled'}>Publicar como Pulso${SVG_X('<path d="M9 6l6 6-6 6"/>')}</button></div>`;
+        <div class="x1-rodape"><button class="btn x1-btn trm-ir" data-np="publicar"${pac && !faltando().length && (story || feed || pac.destaque) ? '' : ' disabled'}>Publicar como Pulso${SVG_X('<path d="M9 6l6 6-6 6"/>')}</button></div>`;
         const gb = tela.querySelector('#npGer'); if (gb && tela._ger) gb.innerHTML = tela._ger;
     };
     const ler = () => {
@@ -18333,6 +18375,21 @@ function abrirPublicarNovidade() {
         toast(tipo === 'tudo' ? `Pronto: ${n} ${n === 1 ? 'item apagado' : 'itens apagados'}` : 'Apagado', 'ok');
         carregarGer();
     });
+    tela.addEventListener('change', e => {
+        if (e.target.id !== 'npImgs' || !pac) return;
+        const files = [...(e.target.files || [])]; if (!files.length) return;
+        const nomes = pac.slides.filter(x => imgLocal(x.img)).map(x => nomeImg(x.img));
+        let sem = 0;
+        files.forEach((f, j) => {
+            let k = nomeImg(f.name);
+            // nome diferente do pacote: vai preenchendo as telas que faltam, na ordem
+            if (!nomes.includes(k)) { k = nomes.find(x => !imgs[x]); if (!k) { sem++; return; } }
+            if (imgUrl[k]) URL.revokeObjectURL(imgUrl[k]);
+            imgs[k] = f; imgUrl[k] = URL.createObjectURL(f);
+        });
+        if (sem) toast(`${sem} ${sem === 1 ? 'imagem sobrou' : 'imagens sobraram'} (o pacote não tem tela pra elas)`, 'info');
+        pintar();
+    });
     tela.addEventListener('input', e => {
         if (e.target.id === 'npTxt') { state.npTxt = e.target.value; clearTimeout(tela._t); tela._t = setTimeout(ler, 450); }
         else if (e.target.id === 'npDest' && pac) pac.destaque = e.target.value.trim().slice(0, 20);
@@ -18347,11 +18404,23 @@ function abrirPublicarNovidade() {
         else if (a === 'feed') { feed = !feed; vibrar(4); pintar(); }
         else if (a === 'publicar' && pac) {
             b.disabled = true; b.textContent = 'Publicando…';
-            const { data, error } = await sb.rpc('publicar_novidade', { p: { slides: pac.slides, legenda: pac.legenda, story, feed, destaque: pac.destaque || null } });
+            // sobe as imagens das telas (nome sorteado) e troca pelo endereço público
+            let slides = pac.slides;
+            try {
+                const subidas = {};
+                for (const k of Object.keys(imgs)) {
+                    b.textContent = `Subindo imagens… ${Object.keys(subidas).length + 1}/${Object.keys(imgs).length}`;
+                    subidas[k] = await uploadImage('post-images', imgs[k], { secreto: true, maxSide: 1400, quality: 0.9 });
+                }
+                slides = pac.slides.map(x => imgLocal(x.img) ? { ...x, img: subidas[nomeImg(x.img)] } : x);
+            } catch (er) { toast('Não subiu as imagens: ' + (er.message || er), 'err'); pintar(); return; }
+            b.textContent = 'Publicando…';
+            const { data, error } = await sb.rpc('publicar_novidade', { p: { slides, legenda: pac.legenda, story, feed, destaque: pac.destaque || null } });
             if (error) { toast(msgErro(error), 'err'); pintar(); return; }
             evento('novidade_publicada', { telas: pac.slides.length, story, feed, destaque: !!pac.destaque });
             const partes = [data && data.stories ? `${data.stories} ${data.stories === 1 ? 'story' : 'stories'}` : '', data && data.post ? 'post no feed' : '', data && data.destaque ? `destaque "${pac.destaque}"` : ''].filter(Boolean);
             toast(`Publicado como Pulso: ${partes.join(', ')}`, 'ok'); vibrar([10, 40, 14]);
+            Object.keys(imgs).forEach(k => { URL.revokeObjectURL(imgUrl[k]); delete imgs[k]; delete imgUrl[k]; });
             state.npTxt = ''; ler(); carregarGer();
             if (state.view === 'feed') renderFeed();
         }
@@ -20575,6 +20644,38 @@ function showCurrentStory() {
         closeStoryViewer();
         switchView(uid === state.session.user.id ? 'profile' : 'user-profile', { uid });
     }));
+    // Admin no story do Pulso: apagar esta tela, a novidade inteira ou abrir o gerenciador
+    const admPulso = !!(state.profile && state.profile.is_admin) && ehOficial(group.user.id) && !souDonoDoStory;
+    ['svPulsoGer', 'svPulsoUm', 'svPulsoTudo'].forEach(id => document.getElementById(id).classList.toggle('hidden', !admPulso));
+    if (admPulso) {
+        document.getElementById('svMais').classList.remove('hidden');
+        const ehNov = !!(item.style && item.style.card && item.style.card.tipo === 'novidade');
+        document.getElementById('svPulsoTudo').classList.toggle('hidden', !ehNov);
+        const apagarPulso = async (tipo, msg) => {
+            clearTimeout(state.storyTimer);
+            if (!(await confirmar(msg))) { retomarStory(); return; }
+            const { data, error } = await sb.rpc('admin_apagar_pulso', { p_tipo: tipo, p_id: item.id });
+            if (error) { toast(msgErro(error), 'err'); retomarStory(); return; }
+            toast(tipo === 'novidade' ? `Novidade apagada (${data || 0} ${data === 1 ? 'item' : 'itens'})` : 'Story do Pulso apagado', 'ok');
+            vibrar([10, 30, 10]);
+            if (tipo === 'novidade') {
+                const pac = ehNov && item.style.card.pac, n = ehNov && item.style.card.n;
+                group.items = group.items.filter(x => { const c = x.style && x.style.card; return !(c && c.tipo === 'novidade' && (pac ? c.pac === pac : String(c.n) === String(n) && Math.abs(new Date(x.created_at) - new Date(item.created_at)) < 20000)); });
+            } else group.items.splice(state.storyItemIdx, 1);
+            if (!group.items.length) {
+                state.storiesData.splice(state.storyIdx, 1);
+                closeStoryViewer();
+                if (state.view === 'feed') renderFeed();
+                return;
+            }
+            if (state.storyItemIdx >= group.items.length) state.storyItemIdx = group.items.length - 1;
+            showCurrentStory();
+        };
+        document.getElementById('svPulsoUm').onclick = ev => { ev.stopPropagation(); apagarPulso(ehDestaque ? 'item' : 'story', ehDestaque ? 'Tirar esta tela do destaque do Pulso?' : 'Apagar este story do Pulso?'); };
+        document.getElementById('svPulsoTudo').onclick = ev => { ev.stopPropagation(); apagarPulso('novidade', 'Apagar a novidade inteira? Some de todas as telas do story, do post no feed e do destaque.'); };
+        document.getElementById('svPulsoGer').onclick = ev => { ev.stopPropagation(); closeStoryViewer(); abrirPublicarNovidade(); };
+    }
+
     // Postar de novo (só no arquivo)
     const repBtn = document.getElementById('svRepost');
     repBtn.classList.toggle('hidden', !(group.arquivo && souDonoDoStory));
