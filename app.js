@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261298';
+const APP_VERSAO = '20261299';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -414,8 +414,26 @@ async function uploadImage(bucket, file, opts = {}) {
 // No banco a foto aparece como "privado:<caminho>". O app troca por um link temporário na hora de mostrar.
 const BUCKET_PRIVADO = 'private-images';
 const ehPrivada = url => typeof url === 'string' && url.startsWith('privado:');
+// foto "Só eu": vira JPG de verdade (fundo branco, igual à foto que vai pra IA) antes de subir pra pasta privada
+function jpegSeguro(file, maxSide = 1200, quality = 0.82) {
+    return new Promise((ok, erro) => {
+        const img = new Image(), url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+            if (!w || !h) return erro(new Error('foto sem tamanho'));
+            const k = Math.min(1, maxSide / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
+            const c = document.createElement('canvas'); c.width = w; c.height = h;
+            const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+            c.toBlob(b => b && b.size > 2000 ? ok(b) : erro(new Error('foto vazia')), 'image/jpeg', quality);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); erro(new Error('não abriu a foto')); };
+        img.src = url;
+    });
+}
 async function uploadImagemPrivada(file) {
-    const blob = await compressImage(file, 1200, 0.8);
+    let blob;
+    try { blob = await jpegSeguro(file, 1200, 0.82); } catch (_) { blob = await compressImage(file, 1200, 0.8); }
     const path = `${state.session.user.id}/${Date.now()}.jpg`;
     const { error } = await sb.storage.from(BUCKET_PRIVADO).upload(path, blob, { contentType: 'image/jpeg' });
     if (error) throw error;
@@ -448,7 +466,11 @@ async function fotoPrivadaNaTela(ref) {
     if (cacheBlobsPrivados[path]) return cacheBlobsPrivados[path];
     try {
         const { data: blob, error } = await sb.storage.from(BUCKET_PRIVADO).download(path);
-        if (blob && blob.size) { const u = URL.createObjectURL(blob); cacheBlobsPrivados[path] = u; return u; }
+        if (blob && blob.size) {
+            // garante que o iPhone trate como imagem (o arquivo baixado pode vir sem o tipo certo)
+            const img = blob.type && blob.type.startsWith('image/') ? blob : new Blob([blob], { type: 'image/jpeg' });
+            const u = URL.createObjectURL(img); cacheBlobsPrivados[path] = u; return u;
+        }
         avisarFotoPrivada('baixar', error, path);
     } catch (e) { avisarFotoPrivada('baixar', e, path); }
     return linkPrivado(ref);
@@ -470,6 +492,15 @@ async function fotoPrivadaNaTela(ref) {
                 pendentes.delete(img);
                 if (!u) { img.classList.add('foto-falhou'); return; }
                 img.onerror = () => { img.classList.add('foto-falhou'); avisarFotoPrivada('carregar', 'a imagem não abriu', ref.slice(8)); };
+                img.onload = () => {
+                    if (!img.naturalWidth) { img.classList.add('foto-falhou'); avisarFotoPrivada('carregar', 'imagem vazia', ref.slice(8)); return; }
+                    // foto salva toda preta (arquivo estragado no envio): mostra o ícone e avisa
+                    try {
+                        const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d'); g.drawImage(img, 0, 0, 8, 8);
+                        const d = g.getImageData(0, 0, 8, 8).data; let soma = 0; for (let k = 0; k < d.length; k += 4) soma += d[k] + d[k + 1] + d[k + 2];
+                        if (soma / (d.length / 4) / 3 < 6) { img.classList.add('foto-falhou'); avisarFotoPrivada('arquivo', 'a foto salva está toda preta', ref.slice(8)); }
+                    } catch (_) {}
+                };
                 img.src = u;
             });
         });
