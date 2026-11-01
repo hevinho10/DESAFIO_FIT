@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261293';
+const APP_VERSAO = '20261294';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -426,8 +426,9 @@ async function linkPrivado(ref, validadeSeg = 3600) {
     const path = ref.slice('privado:'.length);
     const c = cacheLinksPrivados[path];
     if (c && c.ate > Date.now() + 60000) return c.url;
-    const { data } = await sb.storage.from(BUCKET_PRIVADO).createSignedUrl(path, validadeSeg);
+    const { data, error } = await sb.storage.from(BUCKET_PRIVADO).createSignedUrl(path, validadeSeg);
     if (data && data.signedUrl) cacheLinksPrivados[path] = { url: data.signedUrl, ate: Date.now() + validadeSeg * 1000 };
+    else if (!linkPrivado.avisou) { linkPrivado.avisou = true; try { evento('foto_privada_falhou', { erro: String((error && (error.message || error.error)) || 'sem link').slice(0, 120), path: path.slice(0, 60) }); } catch (_) {} }
     return data ? data.signedUrl : '';
 }
 // Qualquer <img src="privado:..."> que aparecer na tela é resolvida sozinha
