@@ -7064,3 +7064,6 @@ details[open] > summary > .rg-seta{ transform:rotate(90deg); }
 .sg-txt{ font-size:13.5px; line-height:1.5; color:var(--ink-dim); margin:12px 2px 0; }
 /* refeição nunca vai pro feed: sem a chave "Publicar no feed" */
 #composerSheet.modo-meal .feed-switch-row{ display:none !important; }
+/* foto privada que não abriu: mostra o ícone em vez do quadrado escuro vazio */
+img.foto-falhou{ opacity:0; }
+.ml-q:has(img.foto-falhou)::after{ content:'📷'; position:absolute; inset:0; display:grid; place-items:center; font-size:26px; opacity:.4; }

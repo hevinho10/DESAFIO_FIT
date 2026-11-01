@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261294';
+const APP_VERSAO = '20261295';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -422,14 +422,36 @@ async function uploadImagemPrivada(file) {
     return 'privado:' + path;
 }
 const cacheLinksPrivados = {};
+// erro de foto privada: grava na hora (e mostra pro admin), pra dar pra saber o motivo
+function avisarFotoPrivada(etapa, erro, path) {
+    const msg = String((erro && (erro.message || erro.error || erro.statusCode)) || erro || 'sem detalhe').slice(0, 140);
+    if (avisarFotoPrivada.ja && avisarFotoPrivada.ja[etapa]) return;
+    avisarFotoPrivada.ja = { ...(avisarFotoPrivada.ja || {}), [etapa]: 1 };
+    try { evento('foto_privada_falhou', { etapa, erro: msg, path: String(path || '').slice(0, 70) }); enviarEventos(); } catch (_) {}
+    if (state && state.profile && state.profile.is_admin) toast(`Foto privada (${etapa}): ${msg}`, 'err');
+}
 async function linkPrivado(ref, validadeSeg = 3600) {
     const path = ref.slice('privado:'.length);
     const c = cacheLinksPrivados[path];
     if (c && c.ate > Date.now() + 60000) return c.url;
-    const { data, error } = await sb.storage.from(BUCKET_PRIVADO).createSignedUrl(path, validadeSeg);
-    if (data && data.signedUrl) cacheLinksPrivados[path] = { url: data.signedUrl, ate: Date.now() + validadeSeg * 1000 };
-    else if (!linkPrivado.avisou) { linkPrivado.avisou = true; try { evento('foto_privada_falhou', { erro: String((error && (error.message || error.error)) || 'sem link').slice(0, 120), path: path.slice(0, 60) }); } catch (_) {} }
-    return data ? data.signedUrl : '';
+    try {
+        const { data, error } = await sb.storage.from(BUCKET_PRIVADO).createSignedUrl(path, validadeSeg);
+        if (data && data.signedUrl) { cacheLinksPrivados[path] = { url: data.signedUrl, ate: Date.now() + validadeSeg * 1000 }; return data.signedUrl; }
+        avisarFotoPrivada('link', error, path);
+    } catch (e) { avisarFotoPrivada('link', e, path); }
+    return '';
+}
+// pra mostrar na tela: baixa a foto com o login da pessoa (não depende do link assinado)
+const cacheBlobsPrivados = {};
+async function fotoPrivadaNaTela(ref) {
+    const path = ref.slice('privado:'.length);
+    if (cacheBlobsPrivados[path]) return cacheBlobsPrivados[path];
+    try {
+        const { data: blob, error } = await sb.storage.from(BUCKET_PRIVADO).download(path);
+        if (blob && blob.size) { const u = URL.createObjectURL(blob); cacheBlobsPrivados[path] = u; return u; }
+        avisarFotoPrivada('baixar', error, path);
+    } catch (e) { avisarFotoPrivada('baixar', e, path); }
+    return linkPrivado(ref);
 }
 // Qualquer <img src="privado:..."> que aparecer na tela é resolvida sozinha
 (function resolverImagensPrivadas() {
@@ -443,7 +465,13 @@ async function linkPrivado(ref, validadeSeg = 3600) {
             pendentes.add(img);
             img.setAttribute('src', 'data:image/gif;base64,R0lGODlhAQABAAAAACw=');
             img.dataset.privado = ref;
-            linkPrivado(ref).then(u => { if (u) img.src = u; pendentes.delete(img); });
+            img.loading = 'eager';
+            fotoPrivadaNaTela(ref).then(u => {
+                pendentes.delete(img);
+                if (!u) { img.classList.add('foto-falhou'); return; }
+                img.onerror = () => { img.classList.add('foto-falhou'); avisarFotoPrivada('carregar', 'a imagem não abriu', ref.slice(8)); };
+                img.src = u;
+            });
         });
     };
     new MutationObserver(() => { if (!agendado) { agendado = true; requestAnimationFrame(processar); } })
@@ -12539,7 +12567,9 @@ async function analisarRefeicao(id) {
     const { data: p } = await sb.from('posts').select('id, image_url, meta, meal_score').eq('id', id).eq('user_id', state.session.user.id).maybeSingle();
     if (!p || p.meal_score != null || !p.image_url) return { ok: false };
     const urlIA = ehPrivada(p.image_url) ? await linkPrivado(p.image_url, 600) : p.image_url;
+    if (!urlIA) return { ok: false };
     const { data: an, error } = await sb.functions.invoke('analyze-meal', { body: { imageUrl: urlIA } });
+    if (error && ehPrivada(p.image_url)) avisarFotoPrivada('analisar', error, p.image_url.slice(8));
     if (error || !an || typeof an.score !== 'number') return { ok: false };
     const meta = { ...(p.meta || {}) }; delete meta.analise_pendente;
     await sb.from('posts').update({ meal_score: an.score, meal_analysis: textoIA(an.analysis, an.score) || null, meta }).eq('id', id).eq('user_id', state.session.user.id);
