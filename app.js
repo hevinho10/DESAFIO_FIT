@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261299';
+const APP_VERSAO = '20261301';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -256,10 +256,11 @@ function workoutPoints(type, duration, hasPhoto) {
 }
 
 // Prato com nota acima de 8,5: a IA só elogia, sem sugerir mais nada
-const RX_SUGESTAO = /(^|\s)(para|pra) deixar|ainda mais|que tal|voc[eê] (pode|poderia)|experimente|sugest|considere|tente |uma dica|se quiser|adicione|adicionar|inclua|incluir|acrescent|faltou|falta |poderia|trocar|substitu|da pr[oó]xima/i;
+const RX_SUGESTAO = /(^|\s)(para|pra) (deixar|completar|equilibrar|melhorar)|recomend|vale a pena|seria bom|seria legal|melhor seria|ainda mais|que tal|voc[eê] (pode|poderia)|experimente|sugest|considere|tente |uma dica|se quiser|adicione|adicionar|inclua|incluir|acrescent|faltou|falta |poderia|trocar|substitu|da pr[oó]xima/i;
 function textoIA(txt, nota) {
     if (!txt) return txt;
-    if (!(Number(nota) > 8.5)) return txt;
+    // nota 8 ou mais: só o elogio, sem dica (dica só quando a nota for menor que 8)
+    if (!(Number(nota) >= 8)) return txt;
     const frases = String(txt).match(/[^.!?]+[.!?]*/g) || [txt];
     const boas = frases.filter(f => !RX_SUGESTAO.test(f)).map(f => f.trim()).filter(Boolean);
     return (boas.length ? boas : [frases[0].trim()]).join(' ');
@@ -392,6 +393,11 @@ function compressImage(file, maxSide = 1200, quality = 0.8) {
     });
 }
 
+// nome sorteado e impossível de adivinhar (fotos de refeição "Só eu": o post é trancado no banco e só o dono tem o endereço)
+function nomeSecreto() {
+    const b = new Uint8Array(20); (window.crypto || window.msCrypto).getRandomValues(b);
+    return [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
 async function uploadImage(bucket, file, opts = {}) {
     let blob = await compressImage(file, opts.maxSide || 1200, opts.quality || 0.8);
     // última garantia: nunca sobe HEIC (o Android e o computador não abrem)
@@ -403,7 +409,7 @@ async function uploadImage(bucket, file, opts = {}) {
     const ext = (blob.type === 'image/jpeg' || blob !== file) ? 'jpg' : (file.name.split('.').pop() || 'jpg');
     const path = opts.fixedName
         ? `${state.session.user.id}/${opts.fixedName}.${ext}`
-        : `${state.session.user.id}/${Date.now()}.${ext}`;
+        : `${state.session.user.id}/${opts.secreto ? nomeSecreto() : Date.now()}.${ext}`;
     if (opts.fixedName) await sb.storage.from(bucket).remove([path]);
     const { error } = await sb.storage.from(bucket).upload(path, blob, { upsert: !!opts.fixedName, contentType: blob.type || 'image/jpeg' });
     if (error) throw error;
@@ -524,10 +530,10 @@ async function tornarFotoPublica(postId) {
     document.querySelectorAll(`.post[data-post-id="${postId}"] img.post-photo`).forEach(i => { i.src = url; });
 }
 // Miniatura leve pra grade do perfil (a foto grande só carrega ao abrir)
-async function uploadMiniatura(file) {
+async function uploadMiniatura(file, secreto = false) {
     try {
         const blob = await compressImage(file, 420, 0.72);
-        const path = `${state.session.user.id}/${Date.now()}_t.jpg`;
+        const path = `${state.session.user.id}/${secreto ? nomeSecreto() : Date.now()}_t.jpg`;
         const { error } = await sb.storage.from('post-images').upload(path, blob, { contentType: 'image/jpeg' });
         if (error) return null;
         return sb.storage.from('post-images').getPublicUrl(path).data.publicUrl;
@@ -1974,9 +1980,9 @@ async function enviarFilaOffline(manual = false) {
                 const foto = await lerFotoFila(item.fotoId);
                 if (foto) {
                     const dims = await medirFoto(foto).catch(() => null);
-                    if (item.privada) item.post.image_url = await uploadImagemPrivada(foto);
+                    if (item.privada && item.post.kind !== 'meal') item.post.image_url = await uploadImagemPrivada(foto);
                     else {
-                        const [url, thumb] = await Promise.all([uploadImage('post-images', foto), uploadMiniatura(foto)]);
+                        const [url, thumb] = await Promise.all([uploadImage('post-images', foto, { secreto: !!item.privada }), uploadMiniatura(foto, !!item.privada)]);
                         item.post.image_url = url; if (thumb) item.post.thumb_url = thumb;
                     }
                     if (dims) item.post.meta = { ...(item.post.meta || {}), ...dims };
@@ -22513,14 +22519,11 @@ el$('composerSubmit').addEventListener('click', async () => {
             // Refeição fora do feed fica "Só eu": a foto vai pra pasta privada
             if (fotoGuardavel && !navigator.onLine) fotoOffline = true;
             else try {
-                if (soEu) {
-                    imageUrl = await uploadImagemPrivada(state.composerPhoto);
-                } else {
-                    [imageUrl, thumbUrl] = await Promise.all([
-                        uploadImage('post-images', state.composerPhoto),
-                        uploadMiniatura(state.composerPhoto),
-                    ]);
-                }
+                // "Só eu": mesma pasta das outras fotos, com nome sorteado; quem tranca é o banco (o post só aparece pro dono)
+                [imageUrl, thumbUrl] = await Promise.all([
+                    uploadImage('post-images', state.composerPhoto, { secreto: soEu }),
+                    uploadMiniatura(state.composerPhoto, soEu),
+                ]);
             } catch (eFoto) {
                 if (fotoGuardavel && ehErroDeRede(eFoto)) { fotoOffline = true; imageUrl = null; thumbUrl = null; }
                 else throw eFoto;
