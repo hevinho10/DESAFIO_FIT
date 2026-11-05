@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261303';
+const APP_VERSAO = '20261304';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -6365,6 +6365,7 @@ async function renderMessages() {
 
     let { data: convs, error } = await sb.rpc('list_conversations');
     const list = $('#convList');
+    if (!list) return;   // a pessoa trocou de tela antes da resposta chegar
 
     // Coach sempre fixo no topo
     const coachNovo = lsGet('pulso-coach-novo-' + state.session.user.id) === '1';
@@ -6510,7 +6511,7 @@ async function renderChat(conversationId, otherUser) {
         state.chatMessages = await loadChatMessages(conversationId);
         await carregarExtrasDoChat(conversationId);
     } catch (error) {
-        $('#chatMessages').innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`;
+        const bx = $('#chatMessages'); if (bx) bx.innerHTML = `<p style="color:var(--danger)">Erro: ${error.message}</p>`;
         return;
     }
     paintChatMessages();
@@ -6518,6 +6519,7 @@ async function renderChat(conversationId, otherUser) {
     updateUnreadBadge();
 
     const input = $('#chatInput');
+    if (!input || state.chatConversationId !== conversationId) return;   // saiu da conversa enquanto carregava
     let ultimoAviso = 0;
     input.addEventListener('input', () => {
         input.style.height = 'auto';
@@ -6836,6 +6838,7 @@ async function carregarExtrasDoChat(conv) {
 
 function ligarGestosDoChat(conv) {
     const box = $('#chatMessages');
+    if (!box) return;
     let timer = null, alvo = null, ultimoToque = 0, ultimoAlvo = null, moveu = false, x0 = 0, y0 = 0;
     box.addEventListener('pointerdown', e => {
         const b = e.target.closest('.cmsg-bubble[data-msg]');
@@ -6911,9 +6914,10 @@ function iniciarRespostaChat(mid) {
     const au = lerAudioDaMensagem(m.body);
     const txt = au ? '🎤 Áudio' : textoLimpo(m.body).slice(0, 80);
     state.chatRespondendo = { id: mid, txt, de: m.sender_id };
-    $('#chatRespTxt').textContent = txt;
-    $('#chatRespBarra').classList.remove('hidden');
-    $('#chatInput').focus();
+    const rt = $('#chatRespTxt'), rb = $('#chatRespBarra'), ci = $('#chatInput');
+    if (rt) rt.textContent = txt;
+    if (rb) rb.classList.remove('hidden');
+    if (ci) ci.focus();
 }
 function abrirMenuMensagem(mid, conv) {
     const m = state.chatMessages.find(x => x.id === mid);
@@ -14906,6 +14910,7 @@ async function renderCoach() {
     paintCoachChat();
 
     const input = $('#coachInput');
+    if (!input) return;   // trocou de tela enquanto carregava
     input.addEventListener('input', () => {
         input.style.height = 'auto';
         input.style.height = Math.min(120, input.scrollHeight) + 'px';
@@ -14958,7 +14963,7 @@ async function sendCoachMessage(forced) {
         return;
     }
     const input = $('#coachInput');
-    const source = (typeof forced === 'string' && forced) ? forced : input.value;
+    const source = (typeof forced === 'string' && forced) ? forced : (input ? input.value : '');
     const text = String(source || '').trim();
     if (!text) return;
 
@@ -15496,8 +15501,10 @@ function openWeightLogSheet() {
                     b.disabled = false; b.textContent = 'Ler da balança'; return;
                 }
             }
-            document.getElementById('wlKg').value = lido;
-            document.getElementById('wlKg').dispatchEvent(new Event('input'));
+            const kg = document.getElementById('wlKg');
+            if (!kg) return;   // fechou a tela enquanto lia
+            kg.value = lido;
+            kg.dispatchEvent(new Event('input'));
             toast(`Li ${String(lido).replace('.', ',')} kg. Confira e salve.`, 'ok');
         } catch (e) {
             toast('Não consegui ler o visor. Digite o peso na mão.', 'err');
@@ -17860,9 +17867,11 @@ async function openCommentSheet(postId) {
 
 async function loadComments(postId) {
     const list = document.getElementById('commentsList');
+    if (!list) return;
     list.innerHTML = '<div class="spinner"></div>';
     let { data: comments, error } = await sb.rpc('post_comments_v2', { pid: postId });
     if (error) ({ data: comments, error } = await sb.rpc('post_comments', { pid: postId }));
+    if (!list.isConnected) return;   // fechou os comentários antes de carregar
     if (error) { list.innerHTML = `<p style="color:var(--danger)">Erro: ${escapeHTML(error.message)}</p>`; return; }
     if (!comments || comments.length === 0) {
         list.innerHTML = '<p class="comments-empty">Nenhum comentário ainda. Seja o primeiro!</p>';
