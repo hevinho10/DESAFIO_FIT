@@ -7011,9 +7011,12 @@ details[open] > summary > .rg-seta{ transform:rotate(90deg); }
 .nov-feed .nov-abrir{ margin-top:18px; height:42px; }
 .nov-unico{ margin:4px -20px 0; }
 .nov-carrossel .pc-trilho{ align-items:stretch; }
-.gt-nov{ position:absolute; inset:0; display:flex; flex-direction:column; justify-content:flex-end; gap:4px; padding:10px; background:linear-gradient(160deg, rgba(var(--c),.32), #0B0B0C 75%); }
-.gt-nov small{ font-size:9.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:rgb(var(--c)); }
-.gt-nov b{ font-size:12.5px; line-height:1.25; color:#F4F4F5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.gt-nov{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:5px; padding:10px;
+    background:radial-gradient(90% 60% at 50% 70%, rgba(var(--c),.22), transparent 70%), #050606; }
+.gt-nov i{ font-style:normal; font-size:30px; line-height:1; }
+.gt-nov small{ font-size:8.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:rgb(var(--c)); margin-top:4px; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.gt-nov b{ font-size:12px; line-height:1.2; font-weight:800; color:#F4F4F5; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; text-wrap:balance; }
+.gt-nov-car{ position:absolute; top:7px; right:7px; width:15px; height:15px; color:#fff; opacity:.9; filter:drop-shadow(0 1px 2px rgba(0,0,0,.6)); pointer-events:none; }
 /* publicar como Pulso */
 .np-txt{ font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; line-height:1.4; }
 .np-acoes{ display:flex; gap:8px; margin-top:8px; }

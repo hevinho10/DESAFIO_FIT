@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261304';
+const APP_VERSAO = '20261305';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -5967,7 +5967,9 @@ function gridThumb(p) {
     const fix = p.pinned_at ? ' fixado' : '';
     if (p.meta && p.meta.novidade && (p.meta.novidade.slides || []).length) {
         const s0 = p.meta.novidade.slides[0];
-        return `<div class="grid-item${fix}" data-act="view-post" data-id="${p.id}"><div class="gt-nov" style="--c:${NOV_COR[s0.cor] || NOV_COR.verde}"><small>${escapeHTML(s0.k || 'Novidade')}</small><b>${escapeHTML(s0.t || '')}</b></div></div>`;
+        const nT = p.meta.novidade.slides.length;
+        // capa: emoji, nome da funcionalidade e o título, centralizados
+        return `<div class="grid-item${fix}" data-act="view-post" data-id="${p.id}"><div class="gt-nov" style="--c:${NOV_COR[s0.cor] || NOV_COR.verde}">${s0.e ? `<i>${escapeHTML(String(s0.e).slice(0, 4))}</i>` : ''}<small>${escapeHTML(String(s0.k || 'Novidade').split(' · ')[0])}</small><b>${escapeHTML(s0.t || '')}</b></div>${nT > 1 && !fix ? '<svg class="gt-nov-car" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="13" height="15" rx="2"/><path d="M4 7v12a2 2 0 0 0 2 2h10"/></svg>' : ''}</div>`;
     }
     if (p.kind === 'workout') {
         const km = Number(p.distance_km || 0);
@@ -18315,7 +18317,8 @@ function lerPacoteNovidade(txt) {
             : { u: String(x.user.u || '').slice(0, 30), txt: String(x.user.txt || '').slice(0, 60), av: String(x.user.av || '').slice(0, 400) } } : {}),
     }));
     if (!slides.length) throw new Error('O pacote não tem nenhuma tela (slides).');
-    return { slides, legenda: String(j.legenda || '').slice(0, 2000), destaque: String(j.destaque || '').trim().slice(0, 20) };
+    const capa = /^ic:[a-z-]+:[a-z]+$/.test(String(j.capa || '')) ? String(j.capa) : '';
+    return { slides, legenda: String(j.legenda || '').slice(0, 2000), destaque: String(j.destaque || '').trim().slice(0, 20), capa };
 }
 function abrirPublicarNovidade() {
     if (!state.profile || !state.profile.is_admin) return;
@@ -18424,7 +18427,7 @@ function abrirPublicarNovidade() {
                 slides = pac.slides.map(x => imgLocal(x.img) ? { ...x, img: subidas[nomeImg(x.img)] } : x);
             } catch (er) { toast('Não subiu as imagens: ' + (er.message || er), 'err'); pintar(); return; }
             b.textContent = 'Publicando…';
-            const { data, error } = await sb.rpc('publicar_novidade', { p: { slides, legenda: pac.legenda, story, feed, destaque: pac.destaque || null } });
+            const { data, error } = await sb.rpc('publicar_novidade', { p: { slides, legenda: pac.legenda, story, feed, destaque: pac.destaque || null, capa: pac.capa || null } });
             if (error) { toast(msgErro(error), 'err'); pintar(); return; }
             evento('novidade_publicada', { telas: pac.slides.length, story, feed, destaque: !!pac.destaque });
             const partes = [data && data.stories ? `${data.stories} ${data.stories === 1 ? 'story' : 'stories'}` : '', data && data.post ? 'post no feed' : '', data && data.destaque ? `destaque "${pac.destaque}"` : ''].filter(Boolean);
