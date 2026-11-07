@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261305';
+const APP_VERSAO = '20261306';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -10881,54 +10881,87 @@ async function renderChallengeDetail(cid) {
     // Destaques, médias e resumo só fazem sentido pra quem está dentro
     let destaquesHTML = '', grupoHTML = '', semanaHTML = '', relatorioHTML = '', semanaRank = [], saudeGrupo = null, saudeGrupoHTML = '';
     if (ch.im_member) {
-        const [{ data: destaques }, { data: grupo }, { data: semana }, { data: sg }] = await Promise.all([
+        const [{ data: destaques }, { data: grupo }, { data: semana }, { data: sg }, { data: dNovos }, { data: gNovo }] = await Promise.all([
             sb.rpc('challenge_highlights', { cid }),
             sb.rpc('challenge_group_stats', { cid }),
             sb.rpc('challenge_week_summary', { cid }),
             sb.rpc('challenge_saude_grupo', { cid }).then(r => r, () => ({ data: null })),
+            sb.rpc('desafio_destaques', { cid }).then(r => r, () => ({ data: null })),
+            sb.rpc('desafio_grupo', { cid }).then(r => r, () => ({ data: null })),
         ]);
         saudeGrupo = sg || null;
 
-        const rotulos = {
-            treinos: 'Quem mais treinou',
-            agua: 'Mais hidratado',
-            ofensiva: 'Maior ofensiva',
+        // Destaques: os 3 do servidor (água e sono divididos pelos dias que já passaram) + o destaque da semana
+        const eu = state.session.user.id;
+        const primeiroNome = (uid, nome) => uid === eu ? 'Você' : escapeHTML(String(nome || '').split(' ')[0]);
+        const n1 = v => String(Number(v)).replace('.', ',');
+        const cards = [];
+        const DEST = {
+            treinos: ['💪', 'Mais treinou', '16,185,129', 'dias'],
+            agua: ['💧', 'Mais hidratado', '95,176,255', 'L por dia'],
+            sono: ['😴', 'Melhor sono', '192,132,252', 'h por noite'],
+            semana: ['⚡', 'Da semana', '255,194,75', 'pts na semana'],
         };
-        const comValor = (destaques || []).filter(d => Number(d.valor) > 0);
-        // 4º destaque: quem mais pontuou na semana
-        const melhorSem = (semana || []).filter(x => Number(x.pontos_semana) > 0).sort((a, b) => Number(b.pontos_semana) - Number(a.pontos_semana))[0];
-        // (o destaque da semana vai dentro do "O grupo junto", pra grade de destaques ficar sempre simétrica)
-        if (comValor.length) {
-            const emoDest = { treinos: '💪', agua: '💧', ofensiva: '🔥', semana: '⚡' };
+        const cardDest = (tipo, uid, nome, avatar, valor, meuValor, minhaPos) => {
+            const [e, t, cor, un] = DEST[tipo];
+            const lider = uid === eu;
+            return `<div class="dc2" style="--c:${cor}" data-act="view-user" data-uid="${uid}">
+                <span class="dc2-lb"><i>${e}</i>${t}</span>
+                <span class="dc2-quem">${avatarHTML({ id: uid, display_name: nome, avatar_url: avatar }, 'sm')}<b>${primeiroNome(uid, nome)}</b></span>
+                <span class="dc2-val">${n1(valor)}<small>${un}</small></span>
+                <span class="dc2-eu">${lider ? '<span>Você é o 1º 🏆</span>' : meuValor != null ? `<span>Você</span><span><b>${n1(meuValor)}</b> · ${minhaPos}º</span>` : '<span>Você</span><span>sem registro</span>'}</span>
+            </div>`;
+        };
+        if (Array.isArray(dNovos)) {
+            dNovos.forEach(d => cards.push(cardDest(d.tipo, d.user_id, d.display_name, d.avatar_url, d.valor, d.meu_valor, d.minha_pos)));
+        } else {
+            // banco ainda sem a seção 51: usa os destaques antigos (sem a ofensiva)
+            (destaques || []).filter(d => Number(d.valor) > 0 && DEST[d.tipo]).forEach(d => cards.push(cardDest(d.tipo, d.user_id, d.display_name, d.avatar_url, d.valor, null, null)));
+        }
+        const rkSem = (semana || []).filter(x => Number(x.pontos_semana) > 0).sort((a, b) => Number(b.pontos_semana) - Number(a.pontos_semana));
+        if (rkSem.length) {
+            const m = rkSem[0], minhaI = rkSem.findIndex(x => x.user_id === eu);
+            cards.push(cardDest('semana', m.user_id, m.display_name, m.avatar_url, Math.round(m.pontos_semana),
+                minhaI >= 0 ? Math.round(rkSem[minhaI].pontos_semana) : null, minhaI >= 0 ? minhaI + 1 : null));
+        }
+        if (cards.length) {
             destaquesHTML = `<div class="chart-card">
-                <div class="chart-head"><span class="chart-title">Destaques</span></div>
-                <div class="dch-lista${comValor.length % 2 ? ' impar' : ''}">
-                    ${comValor.map(d => `<div class="dch" data-act="view-user" data-uid="${d.user_id}">
-                        <span class="dch-e">${emoDest[d.tipo] || '⭐'}</span>
-                        <b>${rotulos[d.tipo] || d.tipo}</b>
-                        <span class="dch-quem">${avatarHTML({ id: d.user_id, display_name: d.display_name, avatar_url: d.avatar_url }, 'sm')}${d.user_id === state.session.user.id ? 'Você' : escapeHTML(String(d.display_name || '').split(' ')[0])}</span>
-                        <em>${String(Number(d.valor)).replace('.', ',')} <small>${d.unidade}</small></em>
-                    </div>`).join('')}
-                </div>
+                <div class="chart-head"><span class="chart-title">Destaques</span><span class="chart-legend">até agora</span></div>
+                <div class="dc2-grade${cards.length % 2 ? ' impar' : ''}">${cards.join('')}</div>
             </div>`;
         }
 
+        // O grupo junto: barra do desafio + 4 cards
         const g = (grupo && grupo[0]) || null;
-        if (g) {
+        if (g || gNovo) {
+            const pessoas = gNovo ? Number(gNovo.pessoas) : null;
+            const treinos = gNovo ? Number(gNovo.treinos) : Number(g.treinos_total || 0);
+            const agua = gNovo ? (gNovo.agua_l != null ? Number(gNovo.agua_l) : null) : Number(g.agua_media_l || 0);
+            const metaAgua = gNovo && gNovo.meta_agua_l ? Number(gNovo.meta_agua_l) : 2;
+            const sono = gNovo ? (gNovo.sono_h != null ? Number(gNovo.sono_h) : null) : Number(g.sono_medio || 0);
+            const kg = saudeGrupo && saudeGrupo.kg_perdidos != null && Number(saudeGrupo.kg_perdidos) > 0 ? Number(saudeGrupo.kg_perdidos) : null;
+            const totalD = Math.max(1, Math.round((new Date(ch.ends_at) - new Date(ch.starts_at)) / 86400000));
+            const diaD = gNovo && gNovo.dias ? Number(gNovo.dias) : Math.min(totalD, Math.max(1, Math.ceil((Date.now() - new Date(ch.starts_at)) / 86400000)));
+            const restD = Math.max(0, (gNovo && gNovo.dias_total ? Number(gNovo.dias_total) : totalD) - diaD);
+            const totD = gNovo && gNovo.dias_total ? Number(gNovo.dias_total) : totalD;
+            const pct = (v, m) => Math.max(0, Math.min(100, Math.round(v / m * 100)));
+            const tile = (cor, e, rot, val, un, extra) => `<div class="gj2" style="--c:${cor}"><span class="dc2-lb"><i>${e}</i>${rot}</span><span class="dc2-val${cor === 'bom' ? '' : ''}">${val}<small>${un}</small></span>${extra}</div>`;
+            const tiles = [
+                tile('16,185,129', '💪', 'Treinos', treinos, '', `<span class="gj2-s">somados${pessoas ? ` · ~${Math.round(treinos / Math.max(1, pessoas))} cada` : ''}</span>`),
+                agua != null ? tile('95,176,255', '💧', 'Água', n1(agua), 'L/dia', `<span class="gj2-bar"><i style="width:${pct(agua, metaAgua)}%"></i></span><span class="gj2-s">${pct(agua, metaAgua)}% da meta diária</span>`)
+                    : tile('95,176,255', '💧', 'Água', '–', '', '<span class="gj2-s">ninguém registrou ainda</span>'),
+                sono != null ? tile('192,132,252', '😴', 'Sono', n1(sono), 'h/noite', `<span class="gj2-bar"><i style="width:${pct(sono, 8)}%"></i><u style="left:87.5%"></u></span><span class="gj2-s">o ideal é 7h ou mais</span>`)
+                    : tile('192,132,252', '😴', 'Sono', '–', '', '<span class="gj2-s">ninguém registrou ainda</span>'),
+                kg != null ? `<div class="gj2" style="--c:16,185,129"><span class="dc2-lb"><i>⚖️</i>Peso</span><span class="dc2-val bom">−${br(kg)}<small>kg</small></span><span class="gj2-s">perdidos juntos</span></div>`
+                    : saudeGrupo && saudeGrupo.min_semana != null ? tile('255,194,75', '⏱️', 'Ritmo', saudeGrupo.min_semana, 'min/sem', '<span class="gj2-s">treino por semana</span>') : '',
+            ].filter(Boolean);
             grupoHTML = `<div class="chart-card">
-                <div class="chart-head"><span class="chart-title">O grupo junto</span>${g.dias_restantes > 0 ? `<span class="chart-legend">${plural(g.dias_restantes, 'dia restante', 'dias restantes')}</span>` : ''}</div>
-                <div class="grupo-grid">
-                    <div class="grupo-item"><b>${g.treinos_total}</b><span>treinos somados</span></div>
-                    <div class="grupo-item"><b>${String(g.agua_media_l).replace('.', ',')} L</b><span>água por dia</span></div>
-                    <div class="grupo-item"><b>${String(g.sono_medio).replace('.', ',')}h</b><span>sono médio</span></div>
-                    ${saudeGrupo && saudeGrupo.kg_perdidos != null && Number(saudeGrupo.kg_perdidos) > 0
-                        ? `<div class="grupo-item"><b class="bom">−${br(Number(saudeGrupo.kg_perdidos))} kg</b><span>perdidos juntos</span></div>`
-                        : saudeGrupo && saudeGrupo.min_semana != null ? `<div class="grupo-item"><b>${saudeGrupo.min_semana} min</b><span>treino por semana</span></div>` : ''}
-                </div>
-                ${melhorSem ? `<div class="grupo-eu grupo-sem" data-act="view-user" data-uid="${melhorSem.user_id}"><span>⚡ Destaque da semana</span><span class="gs-quem">${avatarHTML({ id: melhorSem.user_id, display_name: melhorSem.display_name, avatar_url: melhorSem.avatar_url }, 'sm')}<b>${melhorSem.user_id === state.session.user.id ? 'Você' : escapeHTML(String(melhorSem.display_name || '').split(' ')[0])}</b> · ${Math.round(melhorSem.pontos_semana)} pts</span></div>` : ''}
+                <div class="chart-head"><span class="chart-title">O grupo junto</span>${pessoas ? `<span class="chart-legend">${plural(pessoas, 'pessoa', 'pessoas')}</span>` : ''}</div>
+                ${ch.status === 'ativo' ? `<div class="gj2-dia"><span>Dia <b>${diaD}</b> de ${totD}</span><span>${plural(restD, 'dia restante', 'dias restantes')}</span></div><div class="gj2-diab"><i style="width:${pct(diaD, totD)}%"></i></div>` : ''}
+                <div class="dc2-grade${tiles.length % 2 ? ' impar' : ''}">${tiles.join('')}</div>
                 ${(() => { const k = saudeGrupo && saudeGrupo.meu_kg != null ? Number(saudeGrupo.meu_kg) : null;
                     return k != null ? `<div class="grupo-eu"><span>Seu peso no desafio</span><b class="${k < 0 ? 'bom' : k > 0 ? 'ruim' : ''}">${k < 0 ? '−' : k > 0 ? '+' : ''}${br(Math.abs(k))} kg</b></div>` : ''; })()}
-                <p class="chart-foot" style="text-align:left">Médias do grupo inteiro, sem identificar ninguém. Cada um vê só a própria evolução.</p>
+                <p class="chart-foot" style="text-align:left">Médias de todos os dias do desafio, do grupo inteiro. Ninguém é identificado.</p>
             </div>`;
         }
         saudeGrupoHTML = htmlSaudeGrupo(saudeGrupo);
@@ -11055,6 +11088,7 @@ async function renderChallengeDetail(cid) {
             </div>
 
             ${pedidosHTML}
+            <div id="chEntrada"></div>
 
             ${ch.status === 'encerrado' && ch.im_member ? `<button class="ch-ver-fim" data-act="ver-encerramento" data-id="${cid}">🏆 Ver o encerramento do desafio</button>` : ''}
             <div class="chart-card" id="chRanking">
@@ -11077,6 +11111,7 @@ async function renderChallengeDetail(cid) {
     `;
     const rk = document.getElementById('chRanking');
     setTimeout(conferirMinhaLinhaRanking, 80);
+    pintarEntradaDesafio(cid);
     { // subiu de posição desde ontem: vibra de leve (uma vez por dia em cada desafio)
         const meuI = geral.findIndex(u => u.user_id === state.session.user.id), antes = ontemPos[state.session.user.id];
         const chave = 'pulso-subiu-' + cid + '-' + isoLocal(new Date());
@@ -13796,6 +13831,8 @@ async function renderGerenciarDesafio(cid) {
             ${terminou ? '' : linhaConfig('ger-encerrar', 'relogio', 'Encerrar agora')}
         </div>
 
+        <div id="gerPagamentos"></div>
+
         <div class="cfg-grupo">
             <div class="cfg-titulo">Participantes · ${state.gerRanking.length}</div>
             ${state.gerRanking.map(u => {
@@ -13809,7 +13846,59 @@ async function renderGerenciarDesafio(cid) {
             }).join('')}
         </div>
     </div>`;
+    carregarPagamentosDesafio(cid);
 }
+
+// ---- Entrada do desafio: prêmio acumulado (todos) + a sua situação ----
+async function pintarEntradaDesafio(cid) {
+    const box = document.getElementById('chEntrada'); if (!box) return;
+    const { data: en } = await sb.rpc('desafio_entrada', { cid }).then(r => r, () => ({ data: null }));
+    if (!box.isConnected || !en || !en.valor) return;
+    const pct = en.total ? Math.round(en.pagos / en.total * 100) : 0;
+    box.innerHTML = `<div class="pot">
+        <span class="pot-k">💰 Prêmio acumulado</span>
+        <b class="pot-v">${reais(en.acumulado)}</b>
+        <span class="pot-s">${en.pagos} de ${en.total} ${en.pagos === 1 ? 'pagou' : 'pagaram'} · ${reais(en.valor)} por pessoa</span>
+        <span class="pot-bar"><i style="width:${pct}%"></i></span>
+        ${en.membro ? `<span class="pot-meu${en.meu_pago ? '' : ' falta'}"><span>Sua entrada</span><b>${en.meu_pago ? '✓ Confirmada' : `Pendente · ${reais(en.valor)}`}</b></span>` : ''}
+        ${en.membro && !en.meu_pago ? '<span class="pot-nota">Pode pagar ao longo do desafio. Quando quem organiza confirmar, vira ✓.</span>' : ''}
+        ${en.gestor ? `<button class="pot-ger" data-act="go-gerenciar" data-id="${cid}">Marcar quem pagou</button>` : ''}
+    </div>`;
+}
+
+// ---- Entrada do desafio: quem pagou (só quem organiza marca) ----
+const reais = v => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: Number(v) % 1 ? 2 : 0, maximumFractionDigits: 2 });
+async function carregarPagamentosDesafio(cid, filtro) {
+    const box = document.getElementById('gerPagamentos'); if (!box) return;
+    const { data: en, error } = await sb.rpc('desafio_entrada', { cid });
+    if (!box.isConnected) return;
+    if (error || !en || !en.gestor || !Array.isArray(en.lista)) { box.innerHTML = ''; return; }
+    state.gerPagFiltro = filtro || state.gerPagFiltro || 'todos';
+    const f = state.gerPagFiltro;
+    const lista = en.lista.filter(u => f === 'todos' ? true : f === 'pagaram' ? !!u.pago_em : !u.pago_em);
+    const dia = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    box.innerHTML = `<div class="cfg-grupo pg-grupo">
+        <div class="pg-topo"><span class="cfg-titulo" style="margin:0">Pagamentos</span><small>${reais(en.acumulado)} de ${reais(en.valor * en.total)}</small></div>
+        <div class="pg-filtros">${[['todos', 'Todos', en.total], ['pagaram', 'Pagaram', en.pagos], ['faltam', 'Faltam', en.total - en.pagos]].map(([k, t, n]) => `<button class="pg-f${k === f ? ' on' : ''}" data-pgf="${k}">${t} ${n}</button>`).join('')}</div>
+        ${lista.map(u => `<div class="pg-linha">
+            ${avatarHTML({ id: u.user_id, display_name: u.display_name, avatar_url: u.avatar_url }, 'sm')}
+            <div class="pg-info"><b>${escapeHTML(u.display_name || u.username || '')}</b><small>${u.pago_em ? 'pagou em ' + dia(u.pago_em) : 'ainda não'}</small></div>
+            <button class="pg-bt${u.pago_em ? ' ok' : ''}" data-pg="${u.user_id}" data-pago="${u.pago_em ? 1 : 0}">${u.pago_em ? '✓ Pagou' : 'Marcar pago'}</button>
+        </div>`).join('') || `<p class="pg-vazio">${f === 'faltam' ? 'Todo mundo já pagou 🎉' : 'Ninguém aqui ainda.'}</p>`}
+        <p class="pg-nota">Um toque marca, outro desmarca. Só quem organiza vê essa lista.</p>
+    </div>`;
+}
+document.addEventListener('click', async e => {
+    const fb = e.target.closest('[data-pgf]');
+    if (fb && state.gerDesafio) { carregarPagamentosDesafio(state.gerDesafio.id, fb.dataset.pgf); return; }
+    const b = e.target.closest('[data-pg]'); if (!b || !state.gerDesafio || b.disabled) return;
+    const pago = b.dataset.pago !== '1';
+    b.disabled = true;
+    const { error } = await sb.rpc('desafio_marcar_pago', { cid: state.gerDesafio.id, uid: b.dataset.pg, pago });
+    if (error) { b.disabled = false; toast(msgErro(error), 'err'); return; }
+    vibrar(pago ? [8, 30, 10] : 6);
+    carregarPagamentosDesafio(state.gerDesafio.id);
+});
 
 document.addEventListener('click', async e => {
     const b = e.target.closest('[data-gx]'); if (!b || !state.gerDesafio) return;
@@ -13890,6 +13979,10 @@ function abrirEditarDesafio() {
                 <select id="edMetaT"><option value="">sem meta</option>${[['km', 'km juntos'], ['treinos', 'treinos juntos'], ['horas', 'horas juntos']].map(([v, n]) => `<option value="${v}"${ch.group_goal_type === v ? ' selected' : ''}>${n}</option>`).join('')}</select>
             </div>
         </div>
+        <div class="field"><label>Valor da entrada</label>
+            <label class="nc-reais"><span>R$</span><input type="number" id="edEntradaD" min="0" max="100000" step="1" inputmode="decimal" value="${ch.entrada_valor ? Number(ch.entrada_valor) : ''}" placeholder="sem entrada"></label>
+            <p class="field-hint">Quanto cada um paga. Vazio = desafio sem entrada.</p>
+        </div>
         <div class="field"><label>Termina em</label>
             <div class="data-campo tem"><input type="date" id="edFimD" value="${fim}" min="${fim}"></div>
             <p class="field-hint">Dá pra estender. Encurtar não, pra não tirar pontos de ninguém.</p>
@@ -13915,6 +14008,11 @@ function abrirEditarDesafio() {
             novo_fim: fimTs && fimTs > new Date(ch.ends_at) ? fimTs.toISOString() : null,
         });
         if (error) { toast(msgErro(error), 'err'); return; }
+        const entNova = Number(String(sheet.querySelector('#edEntradaD').value || '').replace(',', '.')) || null;
+        if ((entNova || null) !== (ch.entrada_valor ? Number(ch.entrada_valor) : null)) {
+            const { error: eE } = await sb.rpc('desafio_definir_entrada', { cid: ch.id, valor: entNova });
+            if (eE) { toast('Salvou, mas o valor da entrada não: ' + msgErro(eE), 'err'); }
+        }
         sheet.remove();
         toast('Desafio atualizado', 'ok');
         renderGerenciarDesafio(ch.id);
@@ -14241,7 +14339,7 @@ async function renderDepoimentos(uid, euSigo, nomeAlvo) {
         state.depsCache[x.id] = x;
         const podeApagar = meu || x.author_id === eu;
         return `<div class="dep-item dep-vidro${pendente ? ' pendente' : ''}" style="${estiloCorDep(x.cor)}"><span class="dep-brilho"></span>
-            <p class="dep-texto"><span class="dep-q a">“</span>${escapeHTML(x.texto)}<span class="dep-q f">”</span></p>
+            <span class="dep-q a" aria-hidden="true">“</span><p class="dep-texto">${escapeHTML(x.texto)}</p>
             <div class="dep-topo">
                 <span data-act="view-user" data-uid="${a.id}">${avatarHTML(a, 'sm')}</span>
                 <div class="dep-quem" data-act="view-user" data-uid="${a.id}"><b>${escapeHTML(a.display_name || a.username || '')}</b></div>
@@ -14376,14 +14474,25 @@ const estiloCorDep = cor => { const k = CORES_DEP[corDep(cor)]; return `--dc:${k
 function abrirEscreverDepoimento(uid, nome, editando = null) {
     let cor = corDep((editando && editando.cor) || 'verde');
     const primeiro = escapeHTML(String(nome || '').split(' ')[0]);
-    const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">${editando ? 'Editar depoimento' : `Depoimento pra ${primeiro}`}</h3>
-        <p class="dep-sub">Ela lê e decide se publica no perfil. Seja gentil e verdadeiro.</p>
-        <div class="dep-vidro dep-redigir" id="depCard" style="${estiloCorDep(cor)}"><span class="dep-brilho"></span>
-            <textarea id="depTexto" maxlength="140" rows="3" placeholder="O que te inspira em ${primeiro}?">${editando ? escapeHTML(editando.texto) : ''}</textarea>
-            <span class="dep-conta"><b id="depConta">${editando ? editando.texto.length : 0}</b>/140</span>
+    // folha simples: foto e nome em cima, o texto numa linha limpa, bolinhas de cor e o botão só com contorno
+    const titulo = n => editando ? 'Editar depoimento' : `Depoimento pra ${n}`;
+    const { f, fechar } = x1Folha(`<div class="dw-topo"><span class="dw-av" id="depAv">${avatarHTML({ id: uid, display_name: nome || '?' }, 'sm')}</span>
+            <span class="dw-tt"><b id="depTitulo">${titulo(primeiro)}</b><small>A pessoa decide se publica no perfil</small></span></div>
+        <div class="dw-campo" id="depCard" style="${estiloCorDep(cor)}">
+            <textarea id="depTexto" maxlength="140" rows="2" placeholder="O que te inspira ${primeiro ? 'em ' + primeiro : 'nessa pessoa'}?">${editando ? escapeHTML(editando.texto) : ''}</textarea>
+            <span class="dw-conta"><b id="depConta">${editando ? editando.texto.length : 0}</b>/140</span>
         </div>
-        <div class="dep-cores" id="depCores">${Object.entries(CORES_DEP).map(([k, v]) => `<button type="button" class="dep-cor${k === cor ? ' on' : ''}" data-cor="${k}" style="--dg:${v[1]};--dc:${v[0]}" aria-label="${k}"></button>`).join('')}</div>
-        <button class="btn x1-btn" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar'}</button>`, 'depSheet');
+        <div class="dw-cores" id="depCores">${Object.entries(CORES_DEP).map(([k, v]) => `<button type="button" class="dw-cor${k === cor ? ' on' : ''}" data-cor="${k}" style="--dg:${v[1]};--dc:${v[0]}" aria-label="Cor ${k}"></button>`).join('')}</div>
+        <button class="dw-enviar" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar depoimento'}</button>`, 'depSheet');
+    f.classList.add('dw-folha');
+    // foto e nome de verdade (quem abre pelo "Editar" não tem o nome na mão)
+    sb.from('profiles').select('id, display_name, username, avatar_url').eq('id', uid).maybeSingle().then(({ data: pr }) => {
+        if (!pr || !f.isConnected) return;
+        const av = f.querySelector('#depAv'); if (av) av.innerHTML = avatarHTML(pr, 'sm');
+        const n = escapeHTML(String(pr.display_name || pr.username || '').split(' ')[0]);
+        const t = f.querySelector('#depTitulo'); if (t && n) t.textContent = editando ? 'Editar depoimento' : `Depoimento pra ${String(pr.display_name || pr.username || '').split(' ')[0]}`;
+        const c = f.querySelector('#depTexto'); if (c && n && !primeiro) c.placeholder = `O que te inspira em ${String(pr.display_name || pr.username || '').split(' ')[0]}?`;
+    }, () => {});
     const campo = f.querySelector('#depTexto'), enviar = f.querySelector('#depEnviar'), card = f.querySelector('#depCard');
     const ajustar = () => { campo.style.height = 'auto'; campo.style.height = Math.min(160, campo.scrollHeight) + 'px'; };
     campo.addEventListener('input', () => { f.querySelector('#depConta').textContent = campo.value.length; enviar.disabled = !campo.value.trim(); ajustar(); });
@@ -14391,7 +14500,7 @@ function abrirEscreverDepoimento(uid, nome, editando = null) {
     f.querySelector('#depCores').addEventListener('click', e => {
         const b = e.target.closest('[data-cor]'); if (!b) return;
         cor = b.dataset.cor; card.setAttribute('style', estiloCorDep(cor));
-        f.querySelectorAll('.dep-cor').forEach(x => x.classList.toggle('on', x === b)); vibrar(5);
+        f.querySelectorAll('.dw-cor').forEach(x => x.classList.toggle('on', x === b)); vibrar(5);
     });
     enviar.onclick = async () => {
         const texto = campo.value.trim();
@@ -14400,11 +14509,11 @@ function abrirEscreverDepoimento(uid, nome, editando = null) {
         const { data: novoId, error } = editando
             ? await sb.rpc('editar_depoimento', { did: editando.id, texto })
             : await sb.rpc('enviar_depoimento', { alvo: uid, texto });
-        if (error) { toast(msgErro(error), 'err'); enviar.disabled = false; enviar.textContent = editando ? 'Salvar' : 'Enviar'; return; }
+        if (error) { toast(msgErro(error), 'err'); enviar.disabled = false; enviar.textContent = editando ? 'Salvar' : 'Enviar depoimento'; return; }
         const did = editando ? editando.id : novoId;
         if (did) await sb.rpc('depoimento_cor', { did, p_cor: cor }).then(() => {}, () => {});
         fechar();
-        toast(editando ? 'Depoimento atualizado' : 'Depoimento enviado. Agora é com ela!', 'ok');
+        toast(editando ? 'Depoimento atualizado' : 'Depoimento enviado! Agora é só esperar a pessoa aprovar', 'ok');
         const aba = document.querySelector('.ig-tab[data-tab="depoimentos"]');
         if (aba) aba.click();
     };
@@ -14577,6 +14686,11 @@ function openNewChallengeSheet() {
                     </div>
                     <p class="nd-dica">Um número que o grupo todo persegue junto, além da competição.</p>
                 </div>
+                <button type="button" class="nd-extra" data-extra="entrada">${ic('<rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.5"/><path d="M6.5 9.5v5M17.5 9.5v5"/>')}<span>Valor da entrada</span><small>opcional</small></button>
+                <div class="nd-extra-corpo hidden" id="ncEntradaBox">
+                    <label class="nc-reais"><span>R$</span><input type="number" id="ncEntrada" min="0" max="100000" step="1" inputmode="decimal" placeholder="ex: 20"></label>
+                    <p class="nd-dica">Quanto cada um paga pra participar. O pagamento é por fora (Pix, dinheiro); aqui você só marca quem já pagou.</p>
+                </div>
                 <button type="button" class="nd-extra" data-extra="regras">${ic('<path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h5"/>')}<span>Regras e prêmio</span><small>opcional</small></button>
                 <div class="nd-extra-corpo hidden" id="ncRegrasBox">
                     <textarea id="ncRegras" maxlength="600" rows="3" placeholder="ex: vale só treino com foto; prêmio pro primeiro lugar; quem sumir 7 dias sai"></textarea>
@@ -14612,7 +14726,7 @@ function openNewChallengeSheet() {
     ['#ncStart', '#ncEnd'].forEach(id => $(id).addEventListener('change', pintarPeriodo));
     pintarPeriodo();
     sheet.querySelectorAll('[data-extra]').forEach(b => b.addEventListener('click', () => {
-        const box = sheet.querySelector(b.dataset.extra === 'meta' ? '#ncMetaBox' : '#ncRegrasBox');
+        const box = sheet.querySelector(b.dataset.extra === 'meta' ? '#ncMetaBox' : b.dataset.extra === 'entrada' ? '#ncEntradaBox' : '#ncRegrasBox');
         box.classList.toggle('hidden'); b.classList.toggle('aberto', !box.classList.contains('hidden'));
     }));
     const capaEst = { aba: 'sim', ic: null, cor: null, url: null };
@@ -14646,6 +14760,8 @@ function openNewChallengeSheet() {
         btn.disabled = false; btn.textContent = 'Criar desafio';
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
         await sb.from('challenge_members').insert({ challenge_id: data.id, user_id: state.session.user.id });
+        const entrada = Number(String((document.getElementById('ncEntrada') || {}).value || '').replace(',', '.'));
+        if (entrada > 0) { const { error: eE } = await sb.rpc('desafio_definir_entrada', { cid: data.id, valor: entrada }); if (eE) toast('O desafio foi criado, mas o valor da entrada não salvou. Dá pra colocar em Gerenciar.', 'err'); }
         if (capaEst.ic || capaEst.cor || capaEst.arquivo) { try { await salvarCapa(data.id, capaEst); } catch (_) { toast('O desafio foi criado, mas a capa não salvou. Dá pra trocar em Gerenciar.', 'err'); } }
         close();
         vibrar([10, 40, 14]);
