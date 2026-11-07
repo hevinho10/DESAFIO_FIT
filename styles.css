@@ -7207,3 +7207,27 @@ img.foto-falhou{ opacity:0; }
 .nc-reais{ display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:12px; padding:0 12px; }
 .nc-reais span{ font-weight:700; color:var(--ink-faint); }
 .nc-reais input{ flex:1; border:0 !important; background:none !important; outline:none; padding:11px 0 !important; color:var(--ink); font-family:inherit; font-size:15px; }
+
+/* ---- Saúde do grupo: IMC com régua da OMS e treino por semana ---- */
+.chart-card.sg2{ border:1px solid rgba(16,185,129,.22) !important; background:radial-gradient(110% 70% at 0% 0%, rgba(16,185,129,.10), transparent 60%), var(--bg-card) !important; }
+.sg2-bl{ padding:12px; border-radius:16px; background:var(--bg-elev, #121213); border:1px solid var(--line); }
+.sg2-bl + .sg2-bl{ margin-top:10px; }
+.sg2-bt{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.sg2-bt em{ font-style:normal; font-size:11px; color:var(--ink-faint); white-space:nowrap; }
+.sg2-num{ display:flex; align-items:baseline; gap:8px; margin-top:10px; font-family:var(--ff-display); font-size:26px; font-weight:800; letter-spacing:-.02em; color:var(--ink); }
+.sg2-num span, .sg2-num small{ font-family:inherit; font-size:14px; font-weight:600; letter-spacing:0; color:var(--ink-faint); }
+.sg2-num small{ font-size:12.5px; }
+.sg2-num .sg2-desce{ color:#34D399; font-size:13px; font-weight:700; }
+.sg2-num .sg2-sobe{ color:#FF7A4D; font-size:13px; font-weight:700; }
+.sg2-regua{ display:flex; gap:2px; height:8px; border-radius:9px; overflow:hidden; margin-top:14px; }
+.sg2-regua i{ display:block; height:100%; }
+.sg2-marca{ position:relative; height:12px; }
+.sg2-marca b{ position:absolute; top:-10px; width:12px; height:12px; margin-left:-6px; border-radius:50%; background:#F4F4F5; box-shadow:0 0 0 3px var(--bg-elev, #121213); }
+.sg2-marca u{ position:absolute; top:-8px; width:8px; height:8px; margin-left:-4px; border-radius:50%; background:#71717A; }
+.sg2-leg{ display:flex; justify-content:space-between; font-size:10px; color:var(--ink-faint); }
+.sg2-leg .on{ color:#FFC24B; font-weight:700; }
+.sg2-dica{ font-size:12.5px; line-height:1.45; color:var(--ink-dim, #D4D4D8); margin:10px 0 0; }
+.sg2-dica b{ color:#34D399; }
+.sg2-txt{ font-size:12.5px; line-height:1.5; color:var(--ink-dim, #D4D4D8); margin:12px 2px 0; }
+.sg2-txt b{ color:#34D399; }
+:root[data-theme="light"] .sg2-marca b{ background:#18181B; }

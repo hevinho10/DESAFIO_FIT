@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261306';
+const APP_VERSAO = '20261307';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -6732,13 +6732,32 @@ setInterval(() => {
 function htmlSaudeGrupo(sg) {
     if (!sg) return '';
     const n = x => x != null && !isNaN(Number(x)) ? Number(x) : null;
-    const kg = n(sg.kg_perdidos), i0 = n(sg.imc_ini), i1 = n(sg.imc_fim), p5 = n(sg.perderam_5pct), cp = n(sg.com_peso), min = n(sg.min_semana);
+    const i0 = n(sg.imc_ini), i1 = n(sg.imc_fim), p5 = n(sg.perderam_5pct), cp = n(sg.com_peso), min = n(sg.min_semana);
     const faixa = (n(sg.obes_para_sobre) || 0) + (n(sg.sobre_para_normal) || 0) + (n(sg.obes_para_normal) || 0);
-    const quad = [];
-    if (kg != null && kg > 0) quad.push(`<div><b class="bom">−${br(kg)} kg</b><small>perdidos juntos</small></div>`);
-    if (i0 != null && i1 != null && i1 < i0) quad.push(`<div><b>${br(i0)} → ${br(i1)}</b><small>IMC médio do grupo</small></div>`);
-    if (faixa > 0) quad.push(`<div><b class="bom">${faixa} ${faixa === 1 ? 'pessoa' : 'pessoas'}</b><small>saíram de uma faixa de peso de risco</small></div>`);
-    if (p5 != null && p5 > 0 && cp) quad.push(`<div><b class="bom">${p5} de ${cp}</b><small>perderam 5% do peso ou mais</small></div>`);
+    const blocos = [];
+    // IMC médio: régua com as faixas da OMS (16 a 36), bolinha de agora e a de quando começou
+    if (i1 != null) {
+        const pos = v => Math.max(1, Math.min(99, (v - 16) / 20 * 100));
+        const nomeF = v => v < 18.5 ? 'abaixo' : v < 25 ? 'normal' : v < 30 ? 'sobrepeso' : 'obesidade';
+        const dif = i0 != null ? Math.round((i1 - i0) * 10) / 10 : 0;
+        blocos.push(`<div class="sg2-bl">
+            <div class="sg2-bt"><span class="dc2-lb" style="--c:255,194,75"><i>📏</i>IMC médio</span><em>desde o início</em></div>
+            <div class="sg2-num">${br(i1)}${i0 != null && dif !== 0 ? `<span>antes ${br(i0)}</span><span class="${dif < 0 ? 'sg2-desce' : 'sg2-sobe'}">${dif < 0 ? '▼' : '▲'} ${br(Math.abs(dif))}</span>` : ''}</div>
+            <div class="sg2-regua"><i style="flex:2.5;background:#5FB0FF"></i><i style="flex:6.5;background:#10B981"></i><i style="flex:5;background:#FFC24B"></i><i style="flex:6;background:#FF7A4D"></i></div>
+            <div class="sg2-marca">${i0 != null && dif !== 0 ? `<u style="left:${pos(i0)}%"></u>` : ''}<b style="left:${pos(i1)}%"></b></div>
+            <div class="sg2-leg">${[['abaixo', '#5FB0FF'], ['normal', '#34D399'], ['sobrepeso', '#FFC24B'], ['obesidade', '#FF7A4D']].map(([f, c]) => `<span${f === nomeF(i1) ? ` class="on" style="color:${c}"` : ''}>${f}</span>`).join('')}</div>
+        </div>`);
+    }
+    // Treino por semana: quanto falta pros 150 min da OMS
+    if (min != null && min > 0) {
+        const falta = Math.max(0, 150 - min);
+        blocos.push(`<div class="sg2-bl">
+            <div class="sg2-bt"><span class="dc2-lb" style="--c:16,185,129"><i>⏱️</i>Treino por semana</span><em>média por pessoa</em></div>
+            <div class="sg2-num">${Math.round(min)}<small>de 150 min</small></div>
+            <div class="gj2-bar" style="--c:16,185,129"><i style="width:${Math.min(100, min / 150 * 100)}%"></i><u style="left:calc(100% - 2px)"></u></div>
+            <p class="sg2-dica">${falta > 0 ? `Faltam <b>${Math.round(falta)} min</b> por semana pra chegar no que a OMS recomenda. Uns <b>${Math.max(1, Math.round(falta / 30))} ${Math.round(falta / 30) > 1 ? 'treinos' : 'treino'} de 30 min</b> a mais.` : 'O grupo já treina o que a OMS recomenda <b>✓</b>. Isso está ligado, em média, a 20 a 30% menos risco de infarto e AVC.'}</p>
+        </div>`);
+    }
     const frases = [];
     if (faixa > 0) {
         const partes = [];
@@ -6747,19 +6766,13 @@ function htmlSaudeGrupo(sg) {
         if (sg.sobre_para_normal) partes.push(`${sg.sobre_para_normal} ${sg.sobre_para_normal === 1 ? 'saiu' : 'saíram'} do sobrepeso pro peso saudável`);
         frases.push(`<b>${faixa} ${faixa === 1 ? 'pessoa mudou' : 'pessoas mudaram'}</b> de faixa de peso: ${partes.join(', ')}.`);
     }
-    if (p5 != null && p5 > 0) frases.push('Quem perde 5 a 10% do peso melhora pressão, glicose e colesterol, que são os fatores ligados a infarto e AVC.');
-    const barra = min != null && min > 0 ? `<p class="sg-rot">Treino por semana (média do grupo)</p>
-        <div class="sg-barra"><i style="width:${Math.min(100, min / 240 * 100)}%"></i><u style="left:${150 / 240 * 100}%"></u></div>
-        <p class="sg-leg"><b class="${min >= 150 ? 'bom' : ''}">${min} min</b> · a OMS recomenda 150 (linha amarela)</p>` : '';
-    if (min != null && min >= 150) frases.push('Treinar 150 min por semana ou mais está ligado, em média, a <b class="bom">20 a 30% menos risco</b> de infarto e AVC.');
-    else if (min != null && min >= 75) frases.push(`Faltam uns ${150 - min} min por semana pro grupo chegar nos 150 da OMS, o ritmo que mais protege o coração.`);
-    if (!quad.length && !frases.length) return '';
-    return `<div class="chart-card sg-card">
-        <div class="chart-head"><span class="chart-title sg-tit">✦ Saúde do grupo</span></div>
-        ${quad.length ? `<div class="sg-grade${quad.length % 2 ? ' impar' : ''}">${quad.join('')}</div>` : ''}
-        ${barra}
-        ${frases.map(f => `<p class="sg-txt">${f}</p>`).join('')}
-        <p class="chart-foot" style="text-align:left">Baseado nos registros do app (peso, altura e treinos). Médias de estudos (OMS), não é diagnóstico. Ninguém é identificado.</p>
+    if (p5 != null && p5 > 0 && cp) frases.push(`<b>${p5} de ${cp}</b> já perderam 5% do peso ou mais, o que melhora pressão, glicose e colesterol.`);
+    if (!blocos.length && !frases.length) return '';
+    return `<div class="chart-card sg2">
+        <div class="chart-head"><span class="chart-title">✦ Saúde do grupo</span><span class="chart-legend">médias do grupo</span></div>
+        ${blocos.join('')}
+        ${frases.map(f => `<p class="sg2-txt">${f}</p>`).join('')}
+        <p class="chart-foot" style="text-align:left">Baseado nos registros do app (peso, altura e treinos) e nas faixas da OMS. Não é diagnóstico. Ninguém é identificado.</p>
     </div>`;
 }
 function grupoSubTxt(g, n) {
@@ -10961,7 +10974,7 @@ async function renderChallengeDetail(cid) {
                 <div class="dc2-grade${tiles.length % 2 ? ' impar' : ''}">${tiles.join('')}</div>
                 ${(() => { const k = saudeGrupo && saudeGrupo.meu_kg != null ? Number(saudeGrupo.meu_kg) : null;
                     return k != null ? `<div class="grupo-eu"><span>Seu peso no desafio</span><b class="${k < 0 ? 'bom' : k > 0 ? 'ruim' : ''}">${k < 0 ? '−' : k > 0 ? '+' : ''}${br(Math.abs(k))} kg</b></div>` : ''; })()}
-                <p class="chart-foot" style="text-align:left">Médias de todos os dias do desafio, do grupo inteiro. Ninguém é identificado.</p>
+                <p class="chart-foot" style="text-align:left">Água e sono: média dos dias em que cada um registrou. Ninguém é identificado.</p>
             </div>`;
         }
         saudeGrupoHTML = htmlSaudeGrupo(saudeGrupo);
