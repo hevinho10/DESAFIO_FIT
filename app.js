@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261308';
+const APP_VERSAO = '20261309';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -15871,7 +15871,7 @@ function closeMeasureSheet() {
 }
 
 // Resultado da análise do prato pela IA
-function showMealResult(an, pts, limitReached, postId = null, imageUrl = null) {
+function showMealResult(an, pts, limitReached, postId = null, imageUrl = null, refStory = null) {
     const cor = an.score >= 8 ? 'var(--vital)' : an.score >= 5 ? 'var(--gold)' : 'var(--effort)';
     let overlay = document.getElementById('mealResult');
     if (overlay) overlay.remove();
@@ -15892,7 +15892,8 @@ function showMealResult(an, pts, limitReached, postId = null, imageUrl = null) {
             ${limitReached
                 ? `<div class="mr-limit-note">Você já registrou essa refeição hoje, então essa não somou pontos. A análise continua sendo sua.</div>`
                 : `<div class="mr-points">+${pts} ${pts === 1 ? 'ponto' : 'pontos'}</div>`}
-            <button class="btn-primary" id="mealResultClose">Fechar</button>
+            ${refStory ? `<button class="mr-story" id="mealResultStory">Ajustar e postar no story (24h)</button>
+            <button class="mr-agora-nao" id="mealResultClose">Agora não</button>` : '<button class="btn-primary" id="mealResultClose">Fechar</button>'}
         </div>
     `;
     document.body.appendChild(overlay);
@@ -15901,6 +15902,7 @@ function showMealResult(an, pts, limitReached, postId = null, imageUrl = null) {
     const close = () => { overlay.remove(); document.body.style.overflow = ''; };
     overlay.onclick = e => { if (e.target === overlay) close(); };
     document.getElementById('mealResultClose').onclick = close;
+    if (refStory) document.getElementById('mealResultStory').onclick = () => { close(); setTimeout(() => abrirStoryRefeicao(refStory), 200); };
     if (postId && imageUrl && an.macros) { const box = document.getElementById('mrMacros'); if (box) box.innerHTML = macrosHTML(an.macros); }
     else if (postId && imageUrl) estimarMacros(postId, imageUrl).then(m => {
         const box = document.getElementById('mrMacros'); if (!box) return;
@@ -18599,27 +18601,26 @@ function abrirPublicarNovidade() {
 document.addEventListener('click', e => { if (e.target.closest('[data-act="publicar-novidade"]')) { e.stopPropagation(); abrirPublicarNovidade(); } });
 // Refeição pra seguidores/pública vira story por 24h: a foto + nota da IA + nutrientes
 const NOME_SLOT = { cafe: 'Café da manhã', almoco: 'Almoço', jantar: 'Jantar', lanche: 'Lanche' };
-async function criarStoryRefeicao(p) {
+async function abrirStoryRefeicao(p) {
+    // pega a versão mais nova do post (os nutrientes podem ter chegado depois)
+    try { const { data } = await sb.from('posts').select('id, user_id, image_url, created_at, meal_slot, meal_score, meal_analysis, meta').eq('id', p.id).maybeSingle(); if (data && data.id === p.id) p = data; } catch (_) {}
     const m = p.meta && p.meta.macros;
-    const card = { tipo: 'refeicao', pid: p.id, slot: p.meal_slot || null, hora: new Date(p.created_at || Date.now()).toISOString(),
+    const card = { tipo: 'refeicao', pid: p.id, uid: p.user_id || state.session.user.id, slot: p.meal_slot || null, hora: new Date(p.created_at || Date.now()).toISOString(),
         ...(p.meal_score != null ? { nota: Number(p.meal_score) } : {}),
         ...(p.meal_analysis ? { txt: String(p.meal_analysis).split(/(?<=[.!?])\s/)[0].slice(0, 120) } : {}),
         ...(m ? { mac: { kcal: m.kcal, p: m.p, c: m.c, g: m.g } } : {}) };
-    const { error } = await sb.from('stories').insert({ user_id: state.session.user.id, caption: null, image_url: p.image_url, background_color: null, style: { card } });
-    if (error) throw error;
-    if (state.view === 'feed') setTimeout(() => { if (state.view === 'feed') renderFeed(); }, 600);
+    await abrirEditorComCard({ card, url: p.image_url });
 }
 function htmlStoryRefeicao(c) {
     const n = c.nota != null ? Number(c.nota) : null;
     const nf = n != null ? String(Math.round(n * 10) / 10).replace('.', ',') : null;
     const hora = c.hora ? new Date(c.hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
     const m = c.mac;
-    return `<div class="card-story ref-cs">
-        <span class="ref-chip">🍽️ ${escapeHTML(NOME_SLOT[c.slot] || 'Refeição')}${hora ? ` · ${hora}` : ''}</span>
-        ${nf || m ? `<div class="ref-vidro">
-            ${nf ? `<div class="ref-n"><span class="ref-sc">${nf}</span><span><b>Prato nota ${nf}</b>${c.txt ? `<small>${escapeHTML(c.txt)}</small>` : ''}</span></div>` : ''}
-            ${m ? `<div class="ref-mac"><span><b>${Math.round(m.kcal) || '–'}</b>kcal</span><span><b>${m.p}g</b>proteína</span><span><b>${m.c}g</b>carbo</span><span><b>${m.g}g</b>gordura</span></div>` : ''}
-        </div>` : ''}
+    return `<div class="card-story ref2" data-post-card="${escapeHTML(String(c.pid || ''))}" data-autor="${escapeHTML(String(c.uid || ''))}" data-direto="1">
+        <span class="ref2-chip">🍽️ ${escapeHTML(NOME_SLOT[c.slot] || 'Refeição')}${hora ? ` · ${hora}` : ''}</span>
+        ${nf ? `<div class="ref-n"><span class="ref-sc">${nf}</span><span><b>Prato nota ${nf}</b>${c.txt ? `<small>${escapeHTML(c.txt)}</small>` : ''}</span></div>` : ''}
+        ${m ? `<div class="ref-mac"><span><b>${Math.round(m.kcal) || '–'}</b>kcal</span><span><b>${m.p}g</b>proteína</span><span><b>${m.c}g</b>carbo</span><span><b>${m.g}g</b>gordura</span></div>` : ''}
+        <span class="ref2-ver">Ver refeição ›</span>
     </div>`;
 }
 function htmlCardStory(st, comFoto) {
@@ -18745,6 +18746,7 @@ function htmlCardStory(st, comFoto) {
             <b class="cs-marca">Pulso.</b>
         </div>`;
     }
+    if (c.tipo === 'treino' && c.modelo && c.modelo !== 'classico') { const h = htmlTreinoModelo(c); if (h) return h; }
     if (c.tipo === 'treino') {
         const ic = ICONES_ATIVIDADE[c.atividade] || ICONES_ATIVIDADE.Outro;
         const dado = (v, u) => v ? `<div><b>${escapeHTML(String(v))}</b><small>${u}</small></div>` : '';
@@ -18913,6 +18915,110 @@ async function compartilharConquista(code, onde, extra = null) {
     toast(okFeed && okStory ? 'Conquista no feed e no story!' : okStory ? 'Conquista no seu story!' : 'Conquista compartilhada!', 'ok');
     if (document.getElementById('profileTabBody') && state.view === 'profile') renderAchievements();
 }
+// ---- Modelos do story do treino ----
+const MET_ATIV = { 'Musculação': 5, 'Corrida': 9.8, 'Caminhada': 3.8, 'Ciclismo': 7.5, 'Spinning': 8.5, 'Funcional': 8, 'Crossfit': 8, 'HIIT': 8, 'Natação': 7, 'Futebol': 7, 'Beach tennis': 7, 'Vôlei': 4, 'Basquete': 6.5, 'Pilates': 3, 'Yoga': 2.5, 'Alongamento': 2.3, 'Jiu-jitsu': 7.5, 'Muay thai': 8, 'Boxe': 8, 'Dança': 5, 'Trilha': 6, 'Remo': 7 };
+async function dadosModelosTreino(post) {
+    const eu = state.session.user.id, d = {};
+    const seg = new Date(); seg.setHours(0, 0, 0, 0); seg.setDate(seg.getDate() - ((seg.getDay() + 6) % 7));
+    const [{ data: sem }, { count }, { data: peso }] = await Promise.all([
+        sb.from('posts').select('created_at').eq('user_id', eu).eq('kind', 'workout').gte('created_at', seg.toISOString()),
+        sb.from('posts').select('id', { count: 'exact', head: true }).eq('user_id', eu).eq('kind', 'workout'),
+        sb.from('posts').select('weight_kg').eq('user_id', eu).eq('kind', 'weight').not('weight_kg', 'is', null).order('created_at', { ascending: false }).limit(1),
+    ]);
+    const dias = Array(7).fill(false);
+    (sem || []).forEach(x => { dias[(new Date(x.created_at).getDay() + 6) % 7] = true; });
+    d.semana = dias.map(Number); d.metaSem = (state.profile && state.profile.weekly_goal) || 3;
+    d.hoje = (new Date(post.created_at || Date.now()).getDay() + 6) % 7;
+    if (count) d.num = count;
+    const kg = peso && peso[0] ? Number(peso[0].weight_kg) : 75;
+    if (post.duration_min) d.kcal = Math.round((MET_ATIV[post.activity_type] || 6) * kg * post.duration_min / 60 / 10) * 10;
+    d.data = new Date(post.created_at || Date.now()).toISOString();
+    const m = post.meta || {};
+    if (m.ao_vivo) { d.aoVivo = true; if (m.ini) d.ini = m.ini; if (m.fim) d.fim = m.fim; }
+    if (Array.isArray(m.ex_det) && m.ex_det.length) d.ex = m.ex_det.slice(0, 10);
+    else if (Array.isArray(m.exercicios) && m.exercicios.length) d.ex = m.exercicios.slice(0, 10).map(n => ({ n }));
+    if (m.series) d.series = m.series;
+    // músculos: séries por grupo (treino ao vivo) ou só os grupos marcados
+    if (d.ex && d.ex.some(e => e.s)) {
+        const conta = {};
+        d.ex.forEach(e => { const g = grupoDoEx(e.n); if (g && e.s) conta[g] = (conta[g] || 0) + e.s; });
+        const tot = Object.entries(conta).sort((a, b) => b[1] - a[1]);
+        if (tot.length) d.musc = tot.slice(0, 5).map(([g, n]) => [g, Math.round(n / tot[0][1] * 100)]);
+    }
+    if (!d.musc && (post.muscle_groups || []).length) d.musc = post.muscle_groups.slice(0, 5).map(g => [g, 100]);
+    if (post.image_url && !ehPrivada(post.image_url)) d.foto = post.image_url;
+    return d;
+}
+const NOME_MODELO_TREINO = { classico: 'Clássico', semana: 'Semana', recibo: 'Recibo', resumo: 'Resumo', polaroid: 'Polaroid', ingresso: 'Ingresso', musculos: 'Músculos' };
+// quais modelos esse treino tem (o Recibo só com treino ao vivo; sem ele entra o Resumo), na ordem dos mais usados
+function modelosTreino(c) {
+    const l = ['classico', 'semana', c.aoVivo && c.ex && c.ex.length ? 'recibo' : 'resumo', 'polaroid', 'ingresso'];
+    if (c.musc && c.musc.length) l.push('musculos');
+    let uso = {}; try { uso = JSON.parse(lsGet('pulso-modelo-treino') || '{}') || {}; } catch (_) {}
+    return l.map((k, i) => [k, i]).sort((a, b) => (uso[b[0]] || 0) - (uso[a[0]] || 0) || a[1] - b[1]).map(x => x[0]);
+}
+function contarModeloTreino(k) {
+    try { const uso = JSON.parse(lsGet('pulso-modelo-treino') || '{}') || {}; uso[k] = (uso[k] || 0) + 1; lsSet('pulso-modelo-treino', JSON.stringify(uso)); } catch (_) {}
+}
+function htmlTreinoModelo(c) {
+    const at = escapeHTML(c.atividade || 'Treino');
+    const grp = (c.grupos || []).length ? escapeHTML(c.grupos.slice(0, 3).join(' e ').replace(/ e (?=.* e )/, ', ')) : '';
+    const titulo = grp || at;
+    const dt = c.data ? new Date(c.data) : new Date();
+    const hm = d => new Date(d).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const dur = c.min ? `${c.min} min` : '';
+    const fogo = c.ofensiva > 1 ? `🔥 ${c.ofensiva}` : '';
+    const feitosSem = (c.semana || []).filter(Boolean).length;
+    if (c.modelo === 'semana') {
+        const L = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+        const falta = Math.max(0, (c.metaSem || 3) - feitosSem);
+        return `<div class="card-story tm tm-semana"><small class="tm-k">Treino ${feitosSem} de ${c.metaSem || 3} da semana</small>
+            <h2>${at}${dur ? `<br>${dur}` : ''}</h2>
+            <div class="tm-dias">${L.map((l, i) => `<span><i class="${c.semana && c.semana[i] ? 'ok' : ''}${i === c.hoje ? ' hj' : ''}">${c.semana && c.semana[i] ? '✓' : ''}</i>${l}</span>`).join('')}</div>
+            ${fogo ? `<b class="tm-fogo">${fogo} dias seguidos</b>` : ''}
+            <p>${falta ? `Falta${falta > 1 ? 'm' : ''} ${falta} ${falta > 1 ? 'treinos' : 'treino'} pra bater a meta` : 'Meta da semana batida ✓'}</p></div>`;
+    }
+    if (c.modelo === 'recibo') {
+        return `<div class="card-story tm tm-recibo"><b class="tm-rh">PULSO · ${escapeHTML((c.atividade || 'TREINO').toUpperCase())}</b>
+            <small class="tm-rd">${dt.toLocaleDateString('pt-BR')}${c.ini ? ` · ${hm(c.ini)} às ${hm(c.fim || c.data)}` : ''}</small><hr>
+            ${(c.ex || []).map(e => `<div class="tm-rl"><span>${escapeHTML(e.n)}</span><span>${e.s ? `${e.s}x${e.r || ''}`.replace(/x$/, ' séries') : ''}</span></div>`).join('')}
+            <hr><div class="tm-rt"><span>TOTAL</span><span>${c.min || '–'} MIN</span></div>
+            <small class="tm-rv">✓ registrado ao vivo${c.series ? ` · ${c.series} séries` : ''}</small></div>`;
+    }
+    if (c.modelo === 'resumo') {
+        const cel = (v, u) => v ? `<div><b>${v}</b><small>${u}</small></div>` : '';
+        return `<div class="card-story tm tm-resumo"><small class="tm-k">Treino de hoje</small><h2>${at}${grp ? `<br>${grp}` : ''}</h2>
+            <div class="tm-g">${cel(c.km ? `${br(c.km)} km` : dur, c.km ? (dur || 'distância') : 'duração')}${cel(c.kcal ? `~${c.kcal}` : '', 'kcal estimadas')}${cel(fogo, 'dias seguidos')}${cel(`${feitosSem} de ${c.metaSem || 3}`, 'da semana')}</div></div>`;
+    }
+    if (c.modelo === 'polaroid') {
+        return `<div class="card-story tm tm-polaroid"><div class="tm-ph"${c.foto ? ` style="background-image:url('${escapeHTML(c.foto)}')"` : ''}>${c.foto ? '' : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONES_ATIVIDADE[c.atividade] || ICONES_ATIVIDADE.Outro}</svg>`}</div>
+            <p>${escapeHTML(titulo.toLowerCase())} ✓${dur ? ` ${dur}` : ''}</p></div>`;
+    }
+    if (c.modelo === 'ingresso') {
+        return `<div class="card-story tm tm-ingresso"><div class="tm-ia"><small>${c.num ? `Treino nº ${c.num}` : 'Treino'}</small><b>${titulo}</b>
+            <span>${dt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '').toUpperCase()}${dur ? ` · ${dur.toUpperCase()}` : ''}${c.km ? ` · ${br(c.km)} KM` : ''}</span></div><div class="tm-ic">PULSO</div></div>`;
+    }
+    if (c.modelo === 'musculos') {
+        return `<div class="card-story tm tm-musc"><small class="tm-k">O que trabalhei</small><h2>${at}${dur ? ` · ${dur}` : ''}</h2>
+            ${(c.musc || []).map(([g, p]) => `<div class="tm-m"><span>${escapeHTML(g)}</span><i><u style="width:${Math.max(12, p)}%"></u></i></div>`).join('')}</div>`;
+    }
+    return null;
+}
+// fileira de modelos no editor do story (só com card de treino)
+function pintarModelosTreino() {
+    const cr = document.getElementById('storyCreator'); if (!cr) return;
+    let bar = document.getElementById('scModelos');
+    if (!sc.card || sc.card.tipo !== 'treino' || !sc.card.modelo) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'scModelos'; bar.className = 'sc-modelos'; cr.appendChild(bar); }
+    const l = modelosTreino(sc.card);
+    bar.innerHTML = `<div class="scm-fita">${l.map(k => `<button type="button" class="scm-op${k === sc.card.modelo ? ' on' : ''}" data-modelo="${k}"><span class="scm-q"><span class="scm-in">${htmlCardStory({ card: { ...sc.card, modelo: k } }, false)}</span></span><small>${NOME_MODELO_TREINO[k]}</small></button>`).join('')}</div>`;
+}
+document.addEventListener('click', e => {
+    const b = e.target.closest('#scModelos [data-modelo]'); if (!b || !sc.card) return;
+    e.stopPropagation();
+    sc.card = { ...sc.card, modelo: b.dataset.modelo };
+    pintarCardCriador(); vibrar(5);
+});
 // Treino: abre o editor com o card do treino (e a foto, se tiver). card = outro card no lugar (ex.: recorde)
 async function publicarStoryTreino(post, file = null, cardOutro = null) {
     let card = cardOutro;
@@ -18925,6 +19031,8 @@ async function publicarStoryTreino(post, file = null, cardOutro = null) {
             grupos: post.activity_type === 'Musculação' ? (post.muscle_groups || []) : [],
             ofensiva: (of && of.current_streak) || 0,
         };
+        try { Object.assign(card, await dadosModelosTreino(post)); } catch (_) {}
+        card.modelo = modelosTreino(card)[0];
     }
     const foto = post && post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
     await abrirEditorComCard({ card, file, url: file ? null : foto });
@@ -19117,6 +19225,7 @@ function adicionarMencaoStory(p) {
 }
 
 function openStoryCreator() {
+    { const b = document.getElementById('scModelos'); if (b) b.remove(); }
     evento('story_abriu', {});
     state.storyPublicou = false;
     medirQuadroStory();
@@ -19165,6 +19274,7 @@ function openStoryCreator() {
 }
 
 function closeStoryCreator() {
+    { const b = document.getElementById('scModelos'); if (b) b.remove(); }
     if (state.storyPublicou === false) evento('story_desistiu', {});
     state.storyPublicou = null;
     state.storyResumoSemana = null;
@@ -19443,6 +19553,7 @@ function trocarEstiloPoster(k) {
 }
 function pintarCardCriador() {
     const el = elCardCriador();
+    try { pintarModelosTreino(); } catch (_) {}
     pintarEstilosPoster();
     el.classList.toggle('sc-poster', ehPoster(sc.card));
     if (!sc.card) { el.classList.add('hidden'); el.innerHTML = ''; $('#storyCreator').classList.remove('com-card'); return; }
@@ -20506,6 +20617,7 @@ el$('scPublish').addEventListener('click', async () => {
         style.card = sc.card;
         style.cardPos = { x: Math.round((sc.cardPos || {}).x || 50), y: Math.round((sc.cardPos || {}).y || 50) };
         if (sc.cardEsc !== 1) style.cardScale = Math.round(sc.cardEsc * 100) / 100;
+        if (sc.card && sc.card.tipo === 'treino' && sc.card.modelo) contarModeloTreino(sc.card.modelo);
         if (sc.cardRot) style.cardRot = Math.round(sc.cardRot);
     }
     if (sc.enquete) style.enquete = { p: sc.enquete.p, a: sc.enquete.a, b: sc.enquete.b, x: Math.round((sc.enqPos || {}).x || 50), y: Math.round((sc.enqPos || {}).y || 64) };
@@ -20796,7 +20908,7 @@ function showCurrentStory() {
         ? `<div class="sv-sticker" style="left:${(st.stickerPos || { x: 50 }).x}%;top:${(st.stickerPos || { y: 72 }).y}%;transform:translate(-50%, -50%) scale(${Number(st.stickerScale) || 1}) rotate(${Number(st.stickerRot) || 0}deg)">${htmlAdesivo(st.sticker)}</div>` : '';
     // card feito no editor (com posição): entra junto com o resto do story
     const posterHTML = st.card && ehPoster(st.card) ? (() => { const sl = posterSolto(st.cardPos, st.cardScale, st.cardRot); return `<div class="sv-poster${sl ? ' solto' : ''}"${sl ? ` style="transform:${transformPoster(st.cardPos, st.cardScale, st.cardRot)}"` : ''}>${htmlCardStory(st, false)}</div>`; })() : '';
-    const cardPosHTML = st.card && st.cardPos && !ehPoster(st.card) ? `<div class="sv-card${st.card.tipo === 'post' ? ' sv-card-post' : ''}" style="left:${Number(st.cardPos.x) || 50}%;top:${Number(st.cardPos.y) || 50}%;transform:translate(-50%, -50%) scale(${Number(st.cardScale) || 1}) rotate(${Number(st.cardRot) || 0}deg)">${htmlCardStory(st, !!item.image_url)}</div>` : '';
+    const cardPosHTML = st.card && st.cardPos && !ehPoster(st.card) ? `<div class="sv-card${st.card.tipo === 'post' || st.card.tipo === 'refeicao' ? ' sv-card-post' : ''}" style="left:${Number(st.cardPos.x) || 50}%;top:${Number(st.cardPos.y) || 50}%;transform:translate(-50%, -50%) scale(${Number(st.cardScale) || 1}) rotate(${Number(st.cardRot) || 0}deg)">${htmlCardStory(st, !!item.image_url)}</div>` : '';
     if (st.card && !st.cardPos) {
         content.className = 'story-content' + (item.image_url ? '' : ' text-story card-fundo');
         content.style.background = item.image_url ? '#000' : (item.background_color || CARD_STORY_BG);
@@ -20826,7 +20938,7 @@ function showCurrentStory() {
 
     hidratarEnqueteStory(content, item, group, souDonoDoStory, ehDestaque);
     content.querySelectorAll('[data-post-card]').forEach(cd => {
-        cd.addEventListener('click', ev => { ev.stopPropagation(); if (cd.classList.contains('bloqueado')) return; mostrarVerPost(cd); });
+        cd.addEventListener('click', ev => { ev.stopPropagation(); if (cd.classList.contains('bloqueado')) return; if (cd.dataset.direto && cd.dataset.postCard) { abrirPostDoStory(cd.dataset.postCard); return; } mostrarVerPost(cd); });
         // post de outra pessoa: só mostra se quem assiste ainda pode ver o post (privacidade mudou ou foi apagado)
         if (cd.dataset.autor && cd.dataset.autor !== group.user.id && cd.dataset.autor !== state.session.user.id) conferirCardPost(cd);
     });
@@ -22645,7 +22757,7 @@ function atualizarStory24() {
     const sw = document.getElementById('story24Switch');
     sw.classList.toggle('on', !!state.mealStory24); sw.setAttribute('aria-checked', String(!!state.mealStory24));
     const h = document.getElementById('story24Hint');
-    if (h) h.textContent = state.composerPrivacy === 'public' ? 'Aparece nos stories por 24h' : 'Seus seguidores veem o prato nos stories hoje';
+    if (h) h.textContent = 'Depois de registrar, você ajusta o card e posta no story';
 }
 el$('story24Switch').addEventListener('click', () => {
     state.mealStory24 = !state.mealStory24;
@@ -23138,9 +23250,8 @@ el$('composerSubmit').addEventListener('click', async () => {
             return;
         }
         if (created) setTimeout(checarConquistasNovas, 2500);
-        if (created && created.kind === 'meal' && created.image_url && created.visibility !== 'private' && state.mealStory24 !== false) {
-            criarStoryRefeicao(created).catch(e => console.warn('story da refeição', e));
-        }
+        // refeição pra seguidores/pública com "Mostrar por 24h": abre o editor do story pra ajustar o card
+        const refStory = created && created.kind === 'meal' && created.image_url && created.visibility !== 'private' && state.mealStory24 !== false ? created : null;
         if (created && post.meta && post.meta.com && post.meta.com.length) {
             sb.rpc('marcar_treino_com', { pid: created.id }).then(() => {});
         }
@@ -23222,7 +23333,9 @@ el$('composerSubmit').addEventListener('click', async () => {
         if (weeklyBonus > 0) msg += ` · +${weeklyBonus} semana válida ✅`;
 
         if (mealFeedback) {
-            showMealResult(mealFeedback, ptsToCredit, ptsToCredit === 0, created && created.id, imageUrl);
+            showMealResult(mealFeedback, ptsToCredit, ptsToCredit === 0, created && created.id, imageUrl, refStory);
+        } else if (refStory) {
+            setTimeout(() => abrirStoryRefeicao(refStory), 300);
         } else if (mealAnalysisFailed) {
             toast(mealAnalysisFailed === 'cota' ? 'A IA está ocupada agora. Sua refeição foi salva e a nota sai sozinha mais tarde, com os pontos.'
                 : mealAnalysisFailed === 'nao-comida' ? 'Refeição salva. A IA não reconheceu comida na foto, então essa não teve nota.'
@@ -25653,7 +25766,8 @@ function folhaConcluir(s, hist, aoFechar, feitas, min) {
             ...(km > 0 && km <= 500 ? { distance_km: Math.round(km * 100) / 100 } : {}),
             ...(musc && s.grupos.length ? { muscle_groups: s.grupos.filter(g => g !== 'Corpo todo') } : {}),
             visibility: vis, is_public: vis === 'public', in_feed: publicar,
-            meta: { ao_vivo: true, ...(dims || {}), ...(musc ? { series: feitas.length, volume, exercicios: s.exercicios.filter(ex => ex.series.some(x => x.ok)).map(ex => ex.nome).slice(0, 12) } : {}), ...(recordes.length ? { recordes } : {}) },
+            meta: { ao_vivo: true, ...(s.inicio ? { ini: new Date(s.inicio).toISOString(), fim: new Date().toISOString() } : {}), ...(dims || {}), ...(musc ? { series: feitas.length, volume, exercicios: s.exercicios.filter(ex => ex.series.some(x => x.ok)).map(ex => ex.nome).slice(0, 12),
+                ex_det: s.exercicios.filter(ex => ex.series.some(x => x.ok)).slice(0, 12).map(ex => { const ok = ex.series.filter(x => x.ok); return { n: ex.nome, s: ok.length, r: parseInt(ok[0] && ok[0].reps) || null }; }) } : {}), ...(recordes.length ? { recordes } : {}) },
         };
         b.textContent = 'Salvando...';
         const { data: criado, error } = await sb.from('posts').insert(post).select().single();
