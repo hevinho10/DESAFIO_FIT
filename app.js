@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261315';
+const APP_VERSAO = '20261316';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -13362,6 +13362,8 @@ function rgBlocosPontos(onde = 'geral') {
         rgBloco('Refeições', rgLinha('Café, almoço e jantar com foto', '+1', '1 de cada por dia') +
             rgLinha('Lanche com foto', '+1', 'Até 3 por dia'), 'A foto precisa ser analisada pela IA.', 'até 6'),
         rgBloco('Água', rgLinha('Primeiro registro do dia', '+1') + rgLinha('Bateu a meta do dia', '+3', `Sua meta: ${rgMetaAguaTxt()}`), '', 'até 4'),
+        rgBloco('Sono', rgLinha('Registrou a noite com 7h ou mais', '+1') + rgLinha('Registrou com menos de 7h', '+0,5'),
+            '1 registro por noite. Vale a noite de ontem ou de anteontem. Recomendado pra adultos: de 7 a 9 horas.', 'até 1'),
         rgBloco('Story e pesagem', rgLinha('Postar story', '+3', '1 vez por dia') +
             rgLinha('Registrar o peso', '+3', '1 vez por semana. Seu peso nunca aparece pros outros.'), '', '+3 cada'),
         rgBloco('Metas', rgLinha('Treinar nos dias da sua meta da semana', '+10', `Sua meta: ${metaSem} ${metaSem === 1 ? 'dia' : 'dias'} por semana`) +
@@ -13550,6 +13552,8 @@ document.addEventListener('click', e => {
     vibrar(5);
 });
 
+// em times, quem leva o prêmio: o time (padrão) ou quem fizer mais pontos (times só pra incentivar)
+const timeGanha = ch => !!(ch && ch.team_mode) && (ch.premio_times || 'time') !== 'individual';
 function regrasDesafioHTML(ch) {
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }).replace(/^0/, '').replace('/0', '/');
     const dias = Math.max(1, Math.round((new Date(ch.ends_at) - new Date(ch.starts_at)) / 86400000));
@@ -13562,11 +13566,11 @@ function regrasDesafioHTML(ch) {
         ${item('📅', 'Quando vale', `${dataBR(ch.starts_at)} até ${dataBR(ch.ends_at)} · ${plural(dias, 'dia', 'dias')}`,
             `<p class="cf-p">Vale tudo que você registrar de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. Seus pontos normais do app continuam valendo.</p>
             ${ch.rules ? `<div class="ch-regras-dono"><span>Combinados de quem criou</span><p>${escapeHTML(ch.rules).replace(/\n/g, '<br>')}</p></div>` : ''}`)}
-        ${item('⭐', 'O que dá ponto', 'treino, refeições, água, story e metas',
-            `<div class="cf-chips">${chip('Treino', 'até 18')}${chip('Refeições', 'até 6')}${chip('Água', 'até 4')}${chip('Story', '+3')}${chip('Pesagem', '+3')}${chip('Metas', '+10')}${chip('Ofensiva', 'até +20')}${chip('Convite', '+10')}</div>
+        ${item('⭐', 'O que dá ponto', 'treino, refeições, água, sono, story e metas',
+            `<div class="cf-chips">${chip('Treino', 'até 18')}${chip('Refeições', 'até 6')}${chip('Água', 'até 4')}${chip('Story', '+3')}${chip('Sono', 'até 1')}${chip('Pesagem', '+3')}${chip('Metas', '+10')}${chip('Ofensiva', 'até +20')}${chip('Convite', '+10')}</div>
             <details class="cf-tabela"><summary>Ver a tabela completa</summary>${rgTabela(rgBlocosPontos('grupo'))}</details>`)}
-        ${item('🏆', 'Quem ganha', ch.team_mode ? 'o time que somar mais pontos' : 'quem somar mais pontos até o fim',
-            `${ch.team_mode ? '<p class="cf-p">Em times, vale a soma dos pontos do time.</p>' : ''}
+        ${item('🏆', 'Quem ganha', timeGanha(ch) ? 'o time que somar mais pontos' : 'quem somar mais pontos até o fim',
+            `${timeGanha(ch) ? '<p class="cf-p">Em times, vale a soma dos pontos do time.</p>' : ch.team_mode ? '<p class="cf-p">Tem times pra um incentivar o outro, mas o prêmio é individual: leva quem fizer mais pontos.</p>' : ''}
             <div class="cf-ex">${linha('Musculação 50 min com foto', '11,3')}${linha('2 refeições com foto', '2')}${linha('Água: 1º registro e meta', '4')}${linha('Story', '3')}
             <div class="cf-tot"><span>Exemplo de um dia</span><b>20,3 pts</b></div></div>`)}
     </div>`;
@@ -13612,7 +13616,7 @@ async function renderPainelDesafio(cidEscolhido) {
     const palpite = cidEscolhido || state.desafioAtual || null;
     const adiantado = palpite ? Promise.all([
         sb.rpc('challenge_ranking', { cid: palpite }).then(r => r, () => ({ data: null })),
-        sb.from('challenges').select('rules, team_mode, team_count, team_names').eq('id', palpite).maybeSingle().then(r => r, () => ({ data: null })),
+        sb.from('challenges').select('*').eq('id', palpite).maybeSingle().then(r => r, () => ({ data: null })),
     ]) : null;
     const [meus, x1Res] = await Promise.all([meusDesafiosAtivos(), sb.rpc('x1_lista').then(r => r, () => ({ data: [] }))]);
     const x1s = (x1Res && x1Res.data) || [];
@@ -13637,7 +13641,7 @@ async function renderPainelDesafio(cidEscolhido) {
     const [[{ data: ranking }, { data: regrasRow }], { data: posOntemPd }, { data: saudePd }] = await Promise.all([
         adiantado && palpite === ch.id ? adiantado : Promise.all([
             sb.rpc('challenge_ranking', { cid: ch.id }),
-            sb.from('challenges').select('rules, team_mode, team_count, team_names').eq('id', ch.id).maybeSingle(),
+            sb.from('challenges').select('*').eq('id', ch.id).maybeSingle(),
         ]),
         sb.rpc('challenge_posicoes_ontem', { cid: ch.id }).then(x => x, () => ({ data: [] })),
         sb.rpc('challenge_health', { cid: ch.id }).then(x => x, () => ({ data: [] })),
@@ -13646,6 +13650,7 @@ async function renderPainelDesafio(cidEscolhido) {
     const diasPd = {}; (saudePd || []).forEach(m => { diasPd[m.user_id] = m.dias_treinados; });
     ch.rules = regrasRow ? regrasRow.rules : null;
     ch.team_mode = !!(regrasRow && regrasRow.team_mode);
+    ch.premio_times = (regrasRow && regrasRow.premio_times) || 'time';
     ch.team_names = (regrasRow && regrasRow.team_names) || NOMES_TIMES;
     let times = null, meuTime = null, membrosTime = {};
     if (ch.team_mode) {
@@ -13769,6 +13774,7 @@ const ptsBR = n => Math.round(Number(n || 0)).toLocaleString('pt-BR');
 function timesHTML(ch, times, meuTime, ranking, membrosTime, futuro) {
     const lista = [...(times || [])].sort((a, b) => Number(b.points) - Number(a.points));
     if (!lista.length) return '<p class="faixa-nota">Os times aparecem quando as pessoas entrarem no desafio.</p>';
+    const avisoIncentivo = !timeGanha(ch) ? '<div class="tm-incentivo">🤝<span>Os times são pra um incentivar o outro. <b>O prêmio é individual:</b> leva quem fizer mais pontos.</span></div>' : '';
     const eu = state.session.user.id;
     const meu = lista.find(t => t.team === meuTime);
     let placar = '';
@@ -13811,6 +13817,7 @@ function timesHTML(ch, times, meuTime, ranking, membrosTime, futuro) {
     const max = doMeuTime.length ? Math.max(1, ...doMeuTime.map(u => Number(u.points))) : 1;
     const souDono = ch.created_by === eu || state.profile.is_admin;
     return `
+        ${avisoIncentivo}
         ${placar}
         ${frase ? `<p class="tm-frase">${frase}</p>` : ''}
         ${meu ? `<div class="chart-card">
@@ -13947,6 +13954,7 @@ async function renderGerenciarDesafio(cid) {
             <div class="cfg-titulo">Desafio</div>
             ${terminou ? '' : linhaConfig('ger-editar', 'editar', 'Editar desafio')}
             ${!terminou && !ch.team_mode ? linhaConfig('ger-montar-times', 'times', 'Montar times') : ''}
+            ${!terminou && ch.team_mode ? linhaConfig('ger-premio-times', 'medalha', 'Quem leva o prêmio', (ch.premio_times || 'time') === 'individual' ? 'Individual' : 'O time') : ''}
             <button class="cfg-row" data-gx="capa">${capaQuadroHTML(ch, 'p')}<span class="cfg-txt">Capa do desafio<small class="cfg-sub-linha">Símbolo, cor ou foto</small></span><svg class="cfg-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
             ${terminou ? '' : `<button class="cfg-row" data-gx="aberto" role="switch" aria-checked="${ch.is_open !== false}"><span class="cfg-txt">Aberto pra qualquer pessoa<small class="cfg-sub-linha">${ch.is_open !== false ? 'Qualquer pessoa entra na hora' : 'Fechado: só entra com a sua aprovação'}</small></span><span class="cfg-switch${ch.is_open !== false ? ' on' : ''}"><i></i></span></button>`}
             ${linhaConfig('ger-passar', 'perfil', 'Passar a organização')}
@@ -14171,6 +14179,37 @@ function abrirEditarDesafio() {
     };
 }
 
+// "Quem leva o prêmio" quando o desafio tem times
+function opcoesPremioTimes(atual) {
+    const op = (k, t, d) => `<button type="button" class="mt-op${atual === k ? ' on' : ''}" data-premio="${k}"><span class="mt-rd"></span><span><b>${t}</b><small>${d}</small></span></button>`;
+    return op('individual', 'Quem fizer mais pontos', 'Continua individual. Os times são só pra um incentivar o outro')
+        + op('time', 'O time vencedor', 'Ganha o time que somar mais pontos');
+}
+function ligarOpcoesPremio(box) {
+    box.querySelectorAll('[data-premio]').forEach(b => b.onclick = () => box.querySelectorAll('[data-premio]').forEach(x => x.classList.toggle('on', x === b)));
+}
+function abrirPremioTimes() {
+    const ch = state.gerDesafio; if (!ch) return;
+    const old = document.getElementById('gerSheet'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'gerSheet'; sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card"><div class="sheet-handle"></div>
+        <h3 class="sheet-title">Quem leva o prêmio</h3>
+        ${opcoesPremioTimes(ch.premio_times || 'time')}
+        <div class="sheet-footer"><button class="btn-ghost" id="ptCanc">Cancelar</button><button class="btn-primary" id="ptOk">Salvar</button></div></div>`;
+    document.body.appendChild(sheet);
+    ligarOpcoesPremio(sheet);
+    sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
+    sheet.querySelector('#ptCanc').onclick = () => sheet.remove();
+    sheet.querySelector('#ptOk').onclick = async () => {
+        const premio = sheet.querySelector('[data-premio].on').dataset.premio;
+        const { error } = await sb.rpc('desafio_premio_times', { cid: ch.id, premio });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        sheet.remove();
+        toast(premio === 'individual' ? 'Prêmio individual: os times são pra incentivar' : 'Agora ganha o time vencedor', 'ok');
+        renderGerenciarDesafio(ch.id);
+    };
+}
 function abrirMontarTimes() {
     const ch = state.gerDesafio;
     const old = document.getElementById('gerSheet'); if (old) old.remove();
@@ -14181,7 +14220,10 @@ function abrirMontarTimes() {
         <div class="sheet-handle"></div>
         <h3 class="sheet-title">Montar times</h3>
         <p class="sheet-sub">O app divide todo mundo equilibrando pelos pontos atuais. O placar de cada time já começa com a soma do que cada um fez no desafio. Depois de montados, os times não podem ser desfeitos.</p>
+        <div class="mt-rot">Quantos times</div>
         <div class="nc-qtd">${[2, 3, 4].map(n => `<button type="button" class="${n === 2 ? 'on' : ''}" data-qtd="${n}">${n} times</button>`).join('')}</div>
+        <div class="mt-rot">Quem leva o prêmio</div>
+        ${opcoesPremioTimes('individual')}
         <div class="sheet-footer">
             <button class="btn-ghost" id="mtCanc">Cancelar</button>
             <button class="btn-primary" id="mtOk">Montar times</button>
@@ -14190,11 +14232,14 @@ function abrirMontarTimes() {
     document.body.appendChild(sheet);
     sheet.addEventListener('click', e => { if (e.target === sheet) sheet.remove(); });
     sheet.querySelectorAll('[data-qtd]').forEach(b => b.onclick = () => sheet.querySelectorAll('[data-qtd]').forEach(x => x.classList.toggle('on', x === b)));
+    ligarOpcoesPremio(sheet);
     sheet.querySelector('#mtCanc').onclick = () => sheet.remove();
     sheet.querySelector('#mtOk').onclick = async () => {
         const qtd = Number(sheet.querySelector('[data-qtd].on').dataset.qtd);
+        const premio = (sheet.querySelector('[data-premio].on') || {}).dataset?.premio || 'individual';
         const { error } = await sb.rpc('gestor_montar_times', { cid: ch.id, qtd });
         if (error) { toast(msgErro(error), 'err'); return; }
+        await sb.rpc('desafio_premio_times', { cid: ch.id, premio }).then(r => r, () => null);
         sheet.remove();
         toast('Times montados! Todo mundo foi avisado. 🟢🟠', 'ok');
         renderGerenciarDesafio(ch.id);
@@ -17150,6 +17195,8 @@ document.addEventListener('click', async e => {
         renderGerenciarDesafio(state.gerDesafio.id);
     } else if (act === 'ger-editar') {
         abrirEditarDesafio();
+    } else if (act === 'ger-premio-times') {
+        abrirPremioTimes();
     } else if (act === 'ger-montar-times') {
         abrirMontarTimes();
     } else if (act === 'ger-encerrar') {
