@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261311';
+const APP_VERSAO = '20261312';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -2373,6 +2373,7 @@ function voltarUmPasso() {
     const ts = document.getElementById('termsSheet');
     if (document.getElementById('onbTela') || (ts && ts.classList.contains('on') && ts.style.display !== 'none')) return true;
     if (fecharTopo()) return true;
+    if (document.querySelector('.enc-lista') && state.view === 'challenges') { renderChallenges(); return true; }
     if (voltarPraLista()) return true;
     const pilha = state.navPilha || [];
     if (pilha.length) { const ant = pilha.pop(); switchView(ant.v, { ...(ant.p || {}), _voltando: true }); return true; }
@@ -5722,6 +5723,7 @@ async function apagarRegistro(id, tipo) {
 function abrirDetalheTreino(id) {
     const w = (state.wkDados || {})[id];
     if (!w) return;
+    const meu = !w.user_id || w.user_id === state.session.user.id;
     const old = document.getElementById('regDetalhe'); if (old) old.remove();
     const d = new Date(w.created_at);
     const quando = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }) + ' · ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -5742,13 +5744,13 @@ function abrirDetalheTreino(id) {
             ${linha('Ritmo', ritmo)}
             ${linha('O que treinou', (w.muscle_groups || []).join(', '))}
             ${linha('Treinou com', com)}
-            ${linha('No feed', w.in_feed ? 'Publicado' : 'Só no seu histórico')}
+            ${meu ? linha('No feed', w.in_feed ? 'Publicado' : 'Só no seu histórico') : ''}
         </div>
-        <div class="sheet-footer">
+        ${meu ? `<div class="sheet-footer">
             <button class="btn-ghost btn-perigo-txt" data-act="reg-apagar" data-id="${w.id}" data-tipo="treino">Apagar</button>
             ${ehDeHoje(w.created_at) ? `<button class="btn-secondary" data-act="reg-editar" data-id="${w.id}" data-tipo="treino">Editar</button>` : ''}
             ${w.in_feed ? `<button class="btn-primary" data-act="view-post" data-id="${w.id}">Ver no feed</button>` : ''}
-        </div>
+        </div>` : w.in_feed ? `<div class="sheet-footer"><button class="btn-primary" data-act="view-post" data-id="${w.id}">Ver no feed</button></div>` : ''}
     </div>`;
     document.body.appendChild(sheet);
     sheet.addEventListener('click', e => { if (e.target === sheet || e.target.closest('[data-act="view-post"]')) sheet.remove(); });
@@ -5837,7 +5839,7 @@ async function renderWorkoutHistory(uid, ano, mes) {
     if (!body.querySelector('.calt, .esq-aba')) body.innerHTML = esqueletoAba('workouts');
     const ehMeuPerfil = uid === state.session.user.id;
     const ini = new Date(ano, mes, 1), fim = new Date(ano, mes + 1, 1);
-    const filtro = q => ehMeuPerfil ? q : q.eq('in_feed', true).not('image_url', 'is', null); // dos outros: só o que foi publicado com foto
+    const filtro = q => q; // todos os treinos (com ou sem foto); a privacidade de cada post vale pelo banco
     const campos = 'id, activity_type, duration_min, distance_km, caption, created_at, image_url, thumb_url, in_feed, muscle_groups, meta, user_id';
     const { data, error } = await filtro(sb.from('posts').select(campos).eq('user_id', uid).eq('kind', 'workout'))
         .gte('created_at', ini.toISOString()).lt('created_at', fim.toISOString()).order('created_at', { ascending: true }).limit(200);
@@ -5883,7 +5885,7 @@ async function renderWorkoutHistory(uid, ano, mes) {
     const legenda = tiposMes.length ? `<div class="calt-leg">${tiposMes.map(t => `<span><i style="background:rgb(${corAtividade(t)})"></i>${escapeHTML(t)}</span>`).join('')}</div>` : '';
     const vazioMes = !lista.length ? `<p class="calt-vazio">${ehMeuPerfil
         ? (ehMesAtual ? 'Nenhum treino esse mês ainda. Cada um vale até 15 pontos.' : `Nenhum treino em ${NOME_MES[mes]}.`)
-        : `Nenhum treino publicado em ${NOME_MES[mes]}.`}</p>${ehMeuPerfil && ehMesAtual ? '<button class="btn-mini calt-cta" data-act="quick-kind" data-kind="workout">Registrar treino</button>' : ''}` : '';
+        : `Nenhum treino em ${NOME_MES[mes]}.`}</p>${ehMeuPerfil && ehMesAtual ? '<button class="btn-mini calt-cta" data-act="quick-kind" data-kind="workout">Registrar treino</button>' : ''}` : '';
 
     body.innerHTML = `<div class="calt">
         <div class="calt-topo">
@@ -5942,7 +5944,7 @@ function abrirListaTreinos(ws, ehMeu = true) {
             const pace = km && (w.activity_type === 'Corrida' || w.activity_type === 'Caminhada') ? formatarPace(w.duration_min, km) : '';
             const det = [km ? br(km) + ' km' : '', pace, (w.muscle_groups || []).join(', '), new Date(w.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · ');
             const foto = w.image_url ? (w.thumb_url || w.image_url) : '';
-            const act = foto && w.in_feed ? `data-act="view-post" data-id="${w.id}"` : ehMeu ? `data-act="wk-detalhe" data-id="${w.id}"` : `data-act="view-post" data-id="${w.id}"`;
+            const act = foto && w.in_feed ? `data-act="view-post" data-id="${w.id}"` : `data-act="wk-detalhe" data-id="${w.id}"`;
             return `<button type="button" class="dia-item${foto ? ' com-foto' : ''}" ${act} style="--c:${corAtividade(w.activity_type)}">
                 ${foto ? `<span class="dia-foto"><img src="${escapeHTML(foto)}" alt="" loading="lazy"><i>${svgAtividade(w.activity_type)}</i></span>` : `<span class="atv-ic">${svgAtividade(w.activity_type)}</span>`}
                 <span class="dia-txt"><b>${escapeHTML(w.activity_type || 'Treino')} · ${w.duration_min || 0} min</b><small>${escapeHTML(det)}</small></span>
@@ -10735,6 +10737,47 @@ async function renderProgress() {
     refreshReportCard();
 }
 
+// ---- Desafios encerrados (separados da lista principal) ----
+async function renderDesafiosEncerrados() {
+    const c = $('#viewContainer');
+    const lista = state.desafiosEncerrados || [];
+    const eu = state.session.user.id;
+    const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    const topo = `<div class="user-topbar">
+            <button class="topbar-back" data-act="desafios-voltar">←</button>
+            <div class="topbar-title">Encerrados</div>
+            <div style="width:28px"></div>
+        </div>
+        <p class="enc-aviso">Esses desafios já acabaram. Os pontos não contam mais neles.</p>`;
+    c.innerHTML = `<div class="view">${topo}<div class="enc-lista">${lista.map(() => '<div class="enc-card enc-esq"></div>').join('')}</div></div>`;
+    window.scrollTo(0, 0);
+    const res = await Promise.all(lista.map(ch => sb.rpc('challenge_ranking', { cid: ch.id }).then(r => r.data || [], () => [])));
+    if (!document.querySelector('.enc-lista')) return;
+    let mesAtual = '', html = '';
+    lista.forEach((ch, i) => {
+        const r = res[i] || [];
+        const fim = new Date(ch.ends_at);
+        const mes = MESES[fim.getMonth()] + (fim.getFullYear() !== new Date().getFullYear() ? ' ' + fim.getFullYear() : '');
+        if (mes !== mesAtual) { html += `<div class="enc-mes">${mes}</div>`; mesAtual = mes; }
+        const camp = r[0];
+        const pos = r.findIndex(u => u.user_id === eu) + 1;
+        const meu = pos ? r[pos - 1] : null;
+        const nomeCamp = camp ? (camp.user_id === eu ? 'Você' : escapeHTML(String(camp.display_name || '').split(' ')[0])) : '';
+        html += `<div class="enc-card" data-act="open-challenge" data-id="${ch.id}">
+            <div class="ch-head"><span class="ch-name">${escapeHTML(ch.name)}</span><span class="ch-status fim">Terminou ${dataBR(ch.ends_at)}</span></div>
+            <div class="ch-meta"><span>${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span><span>${plural(ch.members || r.length, 'pessoa', 'pessoas')}</span></div>
+            ${camp ? `<div class="enc-res">
+                <div><small>Campeão</small><b>${avatarHTML({ id: camp.user_id, display_name: camp.display_name, avatar_url: camp.avatar_url }, 'sm')}<span>${nomeCamp}</span></b></div>
+                <div><small>Você</small><b>${pos ? `${pos}º de ${r.length}${pos === 1 ? ' 🏆' : ''}` : 'Não participou'}</b></div>
+                ${meu ? `<div><small>Seus pontos</small><b>${Math.round(meu.points || 0)}</b></div>` : ''}
+            </div>` : ''}
+            <span class="enc-ver">Ver resultado ›</span>
+        </div>`;
+    });
+    document.querySelector('.enc-lista').innerHTML = html || '<p class="enc-aviso">Nenhum desafio encerrado ainda.</p>';
+}
+
 async function renderChallenges() {
     const c = $('#viewContainer');
     c.innerHTML = esqueletoDesafio(true);
@@ -10755,14 +10798,21 @@ async function renderChallenges() {
     };
     const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
 
-    const cards = (challenges || []).map(ch => {
+    const DIA = 86400000;
+    const diaDoDesafio = ch => { const ini = new Date(ch.starts_at), fim = new Date(ch.ends_at);
+        const tot = Math.max(1, Math.round((fim - ini) / DIA)); const d = Math.min(tot, Math.max(1, Math.floor((Date.now() - ini) / DIA) + 1));
+        return { d, tot }; };
+    const cardDesafio = ch => {
         const st = STATUS[ch.status] || STATUS.futuro;
+        const dd = ch.status === 'ativo' ? diaDoDesafio(ch) : null;
+        const rot = dd ? `Dia ${dd.d} de ${dd.tot}` : ch.status === 'futuro' ? `Começa ${dataBR(ch.starts_at)}` : st.label;
         return `<div class="ch-card" data-act="open-challenge" data-id="${ch.id}">
             <div class="ch-head">
                 <span class="ch-name">${escapeHTML(ch.name)}</span>
-                <span class="ch-status ${st.cls}">${st.label}</span>
+                <span class="ch-status ${st.cls}">${rot}</span>
             </div>
             ${ch.description ? `<p class="ch-desc">${escapeHTML(ch.description.slice(0,90))}</p>` : ''}
+            ${dd ? `<div class="ch-prog"><i style="width:${Math.round(dd.d / dd.tot * 100)}%"></i></div>` : ''}
             ${!ch.im_member && ch.status !== 'encerrado' ? `<div class="dc-rodape ch-card-acao">
                 <div class="dc-social"><span class="dc-avatares">${avataresAmigos(amigosCh[ch.id])}</span><span>${provaSocial(ch, amigosCh[ch.id])}</span></div>
                 ${botaoEntrarDesafio(ch, pedidosCh[ch.id])}
@@ -10775,7 +10825,24 @@ async function renderChallenges() {
                 ${ch.pedidos > 0 ? `<span class="ch-pedidos">${plural(ch.pedidos, 'pedido', 'pedidos')}</span>` : ''}
             </div>
         </div>`;
-    }).join('');
+    };
+    const todosCh = challenges || [];
+    const ativosCh = todosCh.filter(ch => ch.status === 'ativo');
+    const futurosCh = todosCh.filter(ch => ch.status === 'futuro');
+    const encerradosCh = todosCh.filter(ch => ch.status === 'encerrado').sort((a, b) => new Date(b.ends_at) - new Date(a.ends_at));
+    state.desafiosEncerrados = encerradosCh;
+    const cards = (ativosCh.length ? `<div class="ch-sec">Rolando agora</div>${ativosCh.map(cardDesafio).join('')}` : '')
+        + (futurosCh.length ? `<div class="ch-sec">Em breve</div>${futurosCh.map(cardDesafio).join('')}` : '');
+    const ultimoEnc = encerradosCh[0];
+    const linhaEncerrados = encerradosCh.length ? `<button type="button" class="ch-enc-linha" data-act="desafios-encerrados">
+            <span class="ch-enc-ic">🏁</span>
+            <span class="ch-enc-txt"><b>Encerrados<span class="ch-enc-n">${encerradosCh.length}</span></b>
+            <small id="chEncSub">${cards ? 'Resultados e campeões dos que já terminaram' : `${escapeHTML(ultimoEnc.name)} · terminou ${dataBR(ultimoEnc.ends_at)}`}</small></span>
+            <span class="ch-enc-seta">›</span>
+        </button>` : '';
+    const vazioComEncerrados = `<div class="ch-sec">Desafios</div><div class="ch-vazio2"><b>Nenhum desafio rolando agora</b>
+            <p>Quando abrir um novo, ele aparece aqui pra você entrar.</p>
+            ${podeCriarDesafio() ? '<button class="ch-vazio2-bt" data-act="new-challenge">Criar desafio</button>' : ''}</div>`;
     const icTipo = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
     const heroVazio = `<div class="ch-hero">
             <span class="ch-hero-ic">${icTipo('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>')}</span>
@@ -10810,14 +10877,13 @@ async function renderChallenges() {
                 <div style="width:28px"></div>
             </div>
             <div id="x1Slot"></div>
-            ${cards ? `<div class="ch-title-row"><span class="page-sub">compare seu progresso com um grupo</span></div>` : ''}
-
-            ${!cards ? heroVazio : ''}
+            ${!cards && !encerradosCh.length ? heroVazio : ''}
+            ${!cards && encerradosCh.length ? vazioComEncerrados : ''}
             ${cards && podeCriarDesafio() ? `<button class="ch-criar" data-act="new-challenge">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
                 <span><b>Criar desafio</b><small>Defina período, regras e convide quem quiser</small></span>
             </button>` : ''}
-            <div class="ch-list">${cards}</div>
+            <div class="ch-list">${cards}${linhaEncerrados}</div>
 
             ${(s.usuarios_ativos || 0) > 0 ? `<h3 class="edit-section-title" style="margin-top:24px">Comunidade essa semana</h3>
             <div class="stat-grid">
@@ -10832,6 +10898,13 @@ async function renderChallenges() {
             </div>` : ''}
         </div>
     `;
+    if (!cards && ultimoEnc && ultimoEnc.im_member) {
+        sb.rpc('challenge_ranking', { cid: ultimoEnc.id }).then(({ data }) => {
+            const r = data || [], pos = r.findIndex(u => u.user_id === state.session.user.id) + 1;
+            const el = document.getElementById('chEncSub');
+            if (el && pos) el.textContent = `${ultimoEnc.name} · você ficou em ${pos}º`;
+        }, () => {});
+    }
     hydrateX1Lista();
 }
 
@@ -16779,6 +16852,10 @@ document.addEventListener('click', async e => {
         else if (btn.dataset.tab === 'badges') renderAchievements(btn.dataset.uid);
         else if (btn.dataset.tab === 'depoimentos') renderDepoimentos(btn.dataset.uid, btn.dataset.segue === '1', btn.dataset.nome);
         else $('#profileTabBody').innerHTML = `<div class="ig-grid">${state.profileGridHTML || ''}</div>`;
+    } else if (act === 'desafios-encerrados') {
+        renderDesafiosEncerrados();
+    } else if (act === 'desafios-voltar') {
+        renderChallenges();
     } else if (act === 'open-challenge') {
         switchView('challenge', { id: btn.dataset.id });
     } else if (act === 'new-challenge') {
@@ -19039,6 +19116,7 @@ async function publicarStoryTreino(post, file = null, cardOutro = null) {
         try { Object.assign(card, await dadosModelosTreino(post)); } catch (_) {}
         card.modelo = modelosTreino(card)[0];
     }
+    if (post && post.id && card && !card.pid) card = { ...card, pid: post.id }; // liga o story ao treino: apagou o treino, o story sai junto
     const foto = post && post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
     await abrirEditorComCard({ card, file, url: file ? null : foto });
 }

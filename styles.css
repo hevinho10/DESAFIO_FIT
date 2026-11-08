@@ -7393,3 +7393,33 @@ img.foto-falhou{ opacity:0; }
 .scm-dots i{ width:6px; height:6px; border-radius:9px; background:rgba(255,255,255,.4); transition:width .2s; }
 .scm-dots i.on{ width:16px; background:#34D399; }
 #storyCreator.arrastando .sc-modelos{ opacity:0; }
+
+/* ===== Desafios: rolando / em breve / encerrados ===== */
+.ch-sec{ font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); margin:4px 2px -2px; }
+.ch-sec:first-child{ margin-top:0; }
+.ch-prog{ height:3px; border-radius:3px; background:var(--bg-elev); margin-top:10px; overflow:hidden; }
+.ch-prog i{ display:block; height:100%; background:var(--vital); border-radius:3px; }
+.ch-enc-linha{ display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:transparent; border:1px solid var(--line); border-radius:16px; padding:12px 14px; margin-top:4px; color:var(--ink); cursor:pointer; font:inherit; }
+.ch-enc-ic{ width:34px; height:34px; border-radius:11px; background:var(--bg-elev); display:grid; place-items:center; font-size:16px; flex:none; }
+.ch-enc-txt{ flex:1; min-width:0; }
+.ch-enc-txt b{ font-size:14px; font-weight:600; display:flex; align-items:center; }
+.ch-enc-txt small{ display:block; font-size:11.5px; color:var(--ink-faint); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ch-enc-n{ display:inline-grid; place-items:center; min-width:20px; height:20px; padding:0 6px; border-radius:10px; background:var(--bg-elev); color:var(--ink-dim); font-size:11px; font-weight:700; margin-left:7px; }
+.ch-enc-seta{ color:var(--ink-faint); font-size:18px; flex:none; }
+.ch-vazio2{ border:1px dashed var(--line); border-radius:16px; padding:20px 16px; text-align:center; }
+.ch-vazio2 b{ font-size:14px; }
+.ch-vazio2 p{ font-size:12px; color:var(--ink-dim); margin:5px 0 0; }
+.ch-vazio2-bt{ margin-top:12px; background:transparent; border:1px solid rgba(16,185,129,.55); color:var(--vital); border-radius:12px; padding:9px 16px; font:inherit; font-size:13px; font-weight:600; cursor:pointer; }
+.enc-aviso{ font-size:12px; color:var(--ink-faint); margin:0 2px 6px; }
+.enc-lista{ display:flex; flex-direction:column; gap:10px; }
+.enc-mes{ font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); margin:8px 2px -2px; }
+.enc-card{ background:var(--bg-card); border:1px solid var(--line); border-radius:16px; padding:13px 14px; cursor:pointer; }
+.enc-card .ch-name{ color:var(--ink-dim); }
+.enc-esq{ height:150px; opacity:.5; }
+.enc-res{ display:flex; gap:10px; margin-top:11px; padding-top:11px; border-top:1px solid var(--line); }
+.enc-res > div{ flex:1; min-width:0; }
+.enc-res small{ display:block; font-size:10.5px; color:var(--ink-faint); }
+.enc-res b{ display:flex; align-items:center; gap:6px; margin-top:4px; font-size:13px; font-weight:600; white-space:nowrap; }
+.enc-res b span{ overflow:hidden; text-overflow:ellipsis; }
+.enc-res .avatar, .enc-res img{ width:20px !important; height:20px !important; font-size:9px; }
+.enc-ver{ display:block; font-size:12px; color:var(--vital); font-weight:600; margin-top:10px; }
