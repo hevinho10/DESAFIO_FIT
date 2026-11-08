@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261314';
+const APP_VERSAO = '20261315';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -11123,7 +11123,7 @@ async function renderChallengeDetail(cid) {
     const geral = (ranking || []).map(u => ({ ...u, sub: diasPorPessoa[u.user_id] != null ? plural(diasPorPessoa[u.user_id], 'dia treinado', 'dias treinados') : '' }));
     const rankGeralHTML = rankHTML(geral, true, 'pts');
     const rankSemanaHTML = rankHTML(semanaRank, false, 'pts');
-    const diaLocal = d => { const [a, m, dd] = String(d).slice(0, 10).split('-').map(Number); return new Date(a, m - 1, dd); };
+    const diaLocal = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }; // dia no horário do aparelho (o fim fica gravado 23:59, que em UTC já é o dia seguinte)
     const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
     const totalDias = Math.max(1, Math.round((diaLocal(ch.ends_at) - diaLocal(ch.starts_at)) / 86400000) + 1);
     const diaAtual = Math.min(totalDias, Math.max(1, Math.round((hoje0 - diaLocal(ch.starts_at)) / 86400000) + 1));
@@ -13380,8 +13380,10 @@ const DES_ICS = {
     raio: IC_CONQ.raio, montanha: '<path d="M3 20l6-10 4 6 3-4 5 8z"/>', bike: '<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8l3 8"/>',
     gota: IC_CONQ.gota, estrela: IC_CONQ.estrela, maca: '<path d="M12 7c-2-2-7-1.5-7 4 0 4 3 9 5 9 1 0 1.5-.5 2-.5s1 .5 2 .5c2 0 5-5 5-9 0-5.5-5-6-7-4zM12 7c0-2 1-3.5 3-4"/>',
 };
-const DES_CORES = ['#F97316', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EAB308'];
-const capaCor = ch => (ch && ch.capa_cor && DES_CORES.includes(ch.capa_cor)) ? ch.capa_cor : DES_CORES[Math.abs([...String((ch && ch.id) || 'x')].reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7)) % DES_CORES.length];
+const DES_CORES_BASE = ['#F97316', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EAB308'];
+// 2ª fileira: vermelho, vinho, ciano, lima, índigo, turquesa (a cor automática continua usando só a 1ª fileira)
+const DES_CORES = [...DES_CORES_BASE, '#EF4444', '#BE123C', '#06B6D4', '#84CC16', '#6366F1', '#14B8A6'];
+const capaCor = ch => (ch && ch.capa_cor && DES_CORES.includes(ch.capa_cor)) ? ch.capa_cor : DES_CORES_BASE[Math.abs([...String((ch && ch.id) || 'x')].reduce((a, c) => a * 31 + c.charCodeAt(0) | 0, 7)) % DES_CORES_BASE.length];
 const svgIc = (d, w = 24) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 function capaQuadroHTML(ch, cls = '') {
     const cor = capaCor(ch);
@@ -18507,7 +18509,7 @@ async function carregarOficial() {
     } catch (_) {}
 }
 const seloOficial = uid => ehOficial(uid) ? '<span class="selo-oficial" title="Conta oficial do Pulso" aria-label="Conta oficial"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12.5l4 4 8-9"/></svg></span>' : '';
-const NOV_COR = { verde: '16,185,129', azul: '95,176,255', amarelo: '255,194,75', roxo: '192,132,252', laranja: '255,122,77', rosa: '244,114,182' };
+const NOV_COR = { vermelho: '239,68,68', verde: '16,185,129', azul: '95,176,255', amarelo: '255,194,75', roxo: '192,132,252', laranja: '255,122,77', rosa: '244,114,182' };
 // "Abrir no app": pra onde cada tela da novidade leva
 const NOV_ABRIR = {
     'montar-treino': () => abrirModoTreino(),

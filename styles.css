@@ -6648,8 +6648,8 @@ button.tz-q{ border:0; padding:0; display:grid; place-items:center; cursor:point
 .cp-ics{ display:grid; grid-template-columns:repeat(6, 1fr); gap:8px; }
 .cp-ics button{ height:46px; border-radius:13px; border:1px solid var(--line); background:var(--bg-card, #0B0B0C); color:var(--ink-dim); display:grid; place-items:center; }
 .cp-ics button.on{ border-color:var(--vital, #10B981); color:var(--vital, #10B981); background:rgba(16,185,129,.08); }
-.cp-cores{ display:flex; gap:12px; }
-.cp-cores button{ width:32px; height:32px; border-radius:50%; border:0; }
+.cp-cores{ display:grid; grid-template-columns:repeat(6, 1fr); gap:12px 8px; justify-items:center; }
+.cp-cores button{ width:32px; height:32px; border-radius:50%; border:0; cursor:pointer; }
 .cp-cores button.on{ outline:2px solid #fff; outline-offset:2px; }
 .cp-foto{ display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; border:1px dashed var(--line); border-radius:14px; color:var(--ink); font-size:14.5px; font-weight:600; cursor:pointer; min-height:48px; }
 .cp-tirar{ align-self:center; font-size:13px; }

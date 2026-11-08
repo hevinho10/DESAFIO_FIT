@@ -5,7 +5,7 @@
 // ============================================================
 
 const CACHE = 'pulso-v104';
-const V = '20261314'; // mesma versão do ?v= do index.html
+const V = '20261315'; // mesma versão do ?v= do index.html
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js';
 const ESTATICOS = [
   './',
