@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261307';
+const APP_VERSAO = '20261308';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -13456,17 +13456,31 @@ document.addEventListener('click', e => {
 });
 
 function regrasDesafioHTML(ch) {
-    const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    const passo = (n, tit, resumo, corpo) => `<details class="rg-passo"><summary><span class="x1-ps-n">${n}</span><span class="rg-passo-t"><b>${tit}</b><small>${resumo}</small></span><i class="rg-seta">›</i></summary><div class="rg-passo-c">${corpo}</div></details>`;
-    return `<div class="chart-card ch-regras">
-        <div class="chart-head"><span class="chart-title">Regras e pontos</span></div>
-        ${passo(1, 'Quando vale', `${dataBR(ch.starts_at)} até ${dataBR(ch.ends_at)}`, `<p class="ch-regra-base">Vale o que você fizer de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. O ranking do desafio conta só esse período, e seus pontos normais do app continuam valendo.</p>
+    const dataBR = d => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }).replace(/^0/, '').replace('/0', '/');
+    const dias = Math.max(1, Math.round((new Date(ch.ends_at) - new Date(ch.starts_at)) / 86400000));
+    // cada item abre ao tocar (um aberto por vez)
+    const item = (ic, tit, resumo, corpo) => `<details class="cf-item"><summary><span class="cf-ic">${ic}</span><span class="cf-t"><b>${tit}</b><small>${resumo}</small></span><i class="cf-seta">${svgIc('<path d="M6 9l6 6 6-6"/>', 16)}</i></summary><div class="cf-corpo">${corpo}</div></details>`;
+    const chip = (t, v) => `<span class="cf-chip">${t}<em>${v}</em></span>`;
+    const linha = (t, v) => `<div><span>${t}</span><b>${v}</b></div>`;
+    return `<div class="chart-card cf-card">
+        <div class="chart-head"><span class="chart-title">Como funciona</span></div>
+        ${item('📅', 'Quando vale', `${dataBR(ch.starts_at)} até ${dataBR(ch.ends_at)} · ${plural(dias, 'dia', 'dias')}`,
+            `<p class="cf-p">Vale tudo que você registrar de <b>${dataBR(ch.starts_at)}</b> a <b>${dataBR(ch.ends_at)}</b>. Seus pontos normais do app continuam valendo.</p>
             ${ch.rules ? `<div class="ch-regras-dono"><span>Combinados de quem criou</span><p>${escapeHTML(ch.rules).replace(/\n/g, '<br>')}</p></div>` : ''}`)}
-        ${passo(2, 'O que dá ponto', 'treino, refeições, água, metas e mais', rgTabela(rgBlocosPontos('grupo')))}
-        ${passo(3, 'Quem ganha', ch.team_mode ? 'o time que somar mais pontos' : 'quem somar mais pontos até o fim', `<p class="rg-ex"><b>Quem ganha:</b> quem somar mais pontos até o fim.${ch.team_mode ? ' Em times, vale a soma do time.' : ''}</p>
-            <p class="rg-ex">Exemplo de um dia: musculação de 50 min com foto (8,3 + 3) + 2 refeições + meta de água (1 + 3) + story (3) = <b>20,3 pontos</b>.</p>`)}
+        ${item('⭐', 'O que dá ponto', 'treino, refeições, água, story e metas',
+            `<div class="cf-chips">${chip('Treino', 'até 18')}${chip('Refeições', 'até 6')}${chip('Água', 'até 4')}${chip('Story', '+3')}${chip('Pesagem', '+3')}${chip('Metas', '+10')}${chip('Ofensiva', 'até +20')}${chip('Convite', '+10')}</div>
+            <details class="cf-tabela"><summary>Ver a tabela completa</summary>${rgTabela(rgBlocosPontos('grupo'))}</details>`)}
+        ${item('🏆', 'Quem ganha', ch.team_mode ? 'o time que somar mais pontos' : 'quem somar mais pontos até o fim',
+            `${ch.team_mode ? '<p class="cf-p">Em times, vale a soma dos pontos do time.</p>' : ''}
+            <div class="cf-ex">${linha('Musculação 50 min com foto', '11,3')}${linha('2 refeições com foto', '2')}${linha('Água: 1º registro e meta', '4')}${linha('Story', '3')}
+            <div class="cf-tot"><span>Exemplo de um dia</span><b>20,3 pts</b></div></div>`)}
     </div>`;
 }
+// "Como funciona": abrir um item fecha os outros
+document.addEventListener('toggle', e => {
+    const d = e.target; if (!(d instanceof HTMLElement) || !d.classList.contains('cf-item') || !d.open) return;
+    d.closest('.cf-card').querySelectorAll('.cf-item[open]').forEach(x => { if (x !== d) x.open = false; });
+}, true);
 
 // ---- Ranking global por faixa (fora de desafio ninguém vê posição nem pontos dos outros) ----
 const FAIXAS = [[0.05, 'Top 5%'], [0.10, 'Top 10%'], [0.25, 'Top 25%'], [0.50, 'Top 50%']];
@@ -14491,13 +14505,18 @@ function abrirEscreverDepoimento(uid, nome, editando = null) {
     const titulo = n => editando ? 'Editar depoimento' : `Depoimento pra ${n}`;
     const { f, fechar } = x1Folha(`<div class="dw-topo"><span class="dw-av" id="depAv">${avatarHTML({ id: uid, display_name: nome || '?' }, 'sm')}</span>
             <span class="dw-tt"><b id="depTitulo">${titulo(primeiro)}</b><small>A pessoa decide se publica no perfil</small></span></div>
-        <div class="dw-campo" id="depCard" style="${estiloCorDep(cor)}">
+        <div class="dw-campo" id="depCard">
+            <span class="dw-q" aria-hidden="true">“</span>
             <textarea id="depTexto" maxlength="140" rows="2" placeholder="O que te inspira ${primeiro ? 'em ' + primeiro : 'nessa pessoa'}?">${editando ? escapeHTML(editando.texto) : ''}</textarea>
-            <span class="dw-conta"><b id="depConta">${editando ? editando.texto.length : 0}</b>/140</span>
+            <div class="dw-rod">${state.profile ? avatarHTML(state.profile, 'sm') : ''}<span>Você</span><span class="dw-conta"><b id="depConta">${editando ? editando.texto.length : 0}</b>/140</span></div>
         </div>
         <div class="dw-cores" id="depCores">${Object.entries(CORES_DEP).map(([k, v]) => `<button type="button" class="dw-cor${k === cor ? ' on' : ''}" data-cor="${k}" style="--dg:${v[1]};--dc:${v[0]}" aria-label="Cor ${k}"></button>`).join('')}</div>
-        <button class="dw-enviar" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar depoimento'}</button>`, 'depSheet');
+        <button class="dw-enviar" id="depEnviar" ${editando ? '' : 'disabled'}>${editando ? 'Salvar' : 'Enviar depoimento'}</button>
+        <p class="dw-dica">É assim que vai aparecer no perfil</p>`, 'depSheet');
     f.classList.add('dw-folha');
+    // a folha inteira (cartão, aspa, cursor, bolinha e botão) fica na cor escolhida
+    const pintarCor = () => f.setAttribute('style', (f.getAttribute('style') || '').replace(/--dc:[^;]*;--dg:[^;]*;?/g, '') + ';' + estiloCorDep(cor));
+    pintarCor();
     // foto e nome de verdade (quem abre pelo "Editar" não tem o nome na mão)
     sb.from('profiles').select('id, display_name, username, avatar_url').eq('id', uid).maybeSingle().then(({ data: pr }) => {
         if (!pr || !f.isConnected) return;
@@ -14512,7 +14531,7 @@ function abrirEscreverDepoimento(uid, nome, editando = null) {
     setTimeout(() => { campo.focus(); ajustar(); }, 250);
     f.querySelector('#depCores').addEventListener('click', e => {
         const b = e.target.closest('[data-cor]'); if (!b) return;
-        cor = b.dataset.cor; card.setAttribute('style', estiloCorDep(cor));
+        cor = b.dataset.cor; pintarCor();
         f.querySelectorAll('.dw-cor').forEach(x => x.classList.toggle('on', x === b)); vibrar(5);
     });
     enviar.onclick = async () => {
@@ -14593,9 +14612,10 @@ async function renderChallengeVitrine(ch) {
     }
     const [{ data: convite }, { data: regrasRow }] = await Promise.all([
         sb.rpc('my_challenge_invite', { cid }),
-        sb.from('challenges').select('rules').eq('id', cid).maybeSingle(),
+        sb.from('challenges').select('*').eq('id', cid).maybeSingle(),
     ]);
     ch.rules = regrasRow ? regrasRow.rules : ch.rules;
+    if (regrasRow) ['entrada_valor', 'capa_ic', 'capa_cor', 'capa_url'].forEach(k => { if (regrasRow[k] != null) ch[k] = regrasRow[k]; });
     const convidado = convite && convite.length ? convite[0] : null;
 
     const statusLbl = ch.status === 'ativo' ? 'Rolando agora' : ch.status === 'futuro' ? 'Em breve' : 'Encerrado';
@@ -14609,36 +14629,42 @@ async function renderChallengeVitrine(ch) {
                 <div style="width:28px"></div>
             </div>
 
-            <div class="ch-hero">
-                <span class="ch-status ${statusCls}">${statusLbl}</span>
-                <h1 class="ch-hero-name">${escapeHTML(ch.name)}</h1>
-                ${ch.description ? `<p class="ch-hero-desc">${escapeHTML(ch.description)}</p>` : ''}
-                <div class="ch-hero-meta">
-                    <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>${dataBR(ch.starts_at)} a ${dataBR(ch.ends_at)}</span>
-                    <span class="ch-m-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/></svg>${plural(ch.members, 'participante', 'participantes')}</span>
+            <div class="cv2">
+                <div class="cv2-topo">${capaQuadroHTML(ch, 'g')}
+                    <div class="cv2-tt"><span class="cv2-st ${statusCls}"><i></i>${statusLbl}</span><h1>${escapeHTML(ch.name)}</h1>${ch.description ? `<p>${escapeHTML(ch.description)}</p>` : ''}</div>
                 </div>
-                ${convidado && aberto ? `<div class="ch-convite">
-                    <span><b>${escapeHTML(convidado.inviter_name || 'Alguém')}</b> te convidou pra esse desafio</span>
-                    <div class="ch-convite-bts">
-                        <button class="btn-ghost btn-xs" data-act="responder-convite" data-id="${cid}" data-aceitar="0">Recusar</button>
-                        <button class="btn-primary-sm" data-act="responder-convite" data-id="${cid}" data-aceitar="1">Aceitar e entrar</button>
-                    </div>
+                ${(() => {
+                    const dias = Math.max(1, Math.round((new Date(ch.ends_at) - new Date(ch.starts_at)) / 86400000));
+                    const ate = ch.status === 'futuro' ? new Date(ch.starts_at) : new Date(ch.ends_at);
+                    const faltam = Math.max(0, Math.ceil((ate - Date.now()) / 86400000));
+                    const dm = d => { const x = new Date(d); return `${x.getDate()}/${x.getMonth() + 1}`; };
+                    const q = [[plural(dias, 'dia', 'dias'), `${dm(ch.starts_at)} a ${dm(ch.ends_at)}`]];
+                    if (aberto) q.push([plural(faltam, 'dia', 'dias'), ch.status === 'futuro' ? 'pra começar' : 'pra acabar']);
+                    q.push([String(ch.members || 0), ch.members === 1 ? 'participante' : 'participantes']);
+                    if (ch.entrada_valor) q.push(['R$ ' + Number(ch.entrada_valor).toLocaleString('pt-BR'), 'por pessoa']);
+                    return `<div class="cv2-q${q.length === 4 ? ' q4' : ''}">${q.map(([b, s]) => `<div><b>${b}</b><small>${s}</small></div>`).join('')}</div>`;
+                })()}
+                ${convidado && aberto ? `<div class="cv2-conv">${avatarHTML({ id: convidado.inviter_id || null, display_name: convidado.inviter_name || '?', avatar_url: convidado.inviter_avatar || null }, 'sm')}<span><b>${escapeHTML(convidado.inviter_name || 'Alguém')}</b> te convidou pra esse desafio</span></div>
+                <div class="cv2-bts">
+                    <button class="cv2-b" data-act="responder-convite" data-id="${cid}" data-aceitar="0">Recusar</button>
+                    <button class="cv2-b v" data-act="responder-convite" data-id="${cid}" data-aceitar="1">Entrar no desafio</button>
                 </div>` : ''}
-                <div class="ch-actions${convidado && aberto ? ' hidden' : ''}">
-                    ${podeEntrar ? `<button class="btn-primary-sm" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
-                    ${podePedir && !meuPedido ? `<button class="btn-primary-sm" data-act="pedir-acesso" data-id="${cid}">Solicitar entrada</button>` : ''}
+                ${!(convidado && aberto) ? `<div class="cv2-bts">
+                    ${podeEntrar ? `<button class="cv2-b v" data-act="join-challenge" data-id="${cid}">Entrar no desafio</button>` : ''}
+                    ${podePedir && !meuPedido ? `<button class="cv2-b v" data-act="pedir-acesso" data-id="${cid}">Solicitar entrada</button>` : ''}
                     ${meuPedido === 'pendente' ? '<span class="ch-pedido-tag">Pedido enviado, aguardando resposta</span>' : ''}
                     ${meuPedido === 'recusado' ? '<span class="ch-pedido-tag recusado">Pedido não aceito</span>' : ''}
-                    ${(podeEntrar || (podePedir && !meuPedido)) ? '<p class="ch-aviso-privacidade">Entrando, o grupo passa a ver seu percentual de evolução, seus dias treinados e seus pontos. Peso, medidas e refeições continuam privados.</p>' : ''}
-                </div>
+                </div>` : ''}
+                ${(podeEntrar || (podePedir && !meuPedido) || (convidado && aberto)) ? '<p class="cv2-priv">Entrando, o grupo vê seu percentual de evolução, seus dias treinados e seus pontos. Peso, medidas e refeições continuam privados.</p>' : ''}
             </div>
 
             ${aberto ? regrasDesafioHTML(ch) : ''}
 
-            <div class="ch-locked">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>
-                <p>${aberto ? 'Ranking e progresso do grupo ficam visíveis só pra quem participa.' : 'Esse desafio já terminou.'}</p>
-            </div>
+            ${aberto ? `<div class="chart-card cv2-lock">
+                <div class="chart-head"><span class="chart-title">Ranking</span></div>
+                ${[100, 72, 56].map(w => `<div class="cv2-lk"><i></i><u style="max-width:${w}%"></u><s></s></div>`).join('')}
+                <div class="cv2-lk-o"><b>🔒 Entre pra ver o ranking</b><small>e o progresso do grupo</small></div>
+            </div>` : `<div class="ch-locked"><p>Esse desafio já terminou.</p></div>`}
         </div>
     `;
 }
@@ -17809,6 +17835,8 @@ document.addEventListener('click', async e => {
         const { data: velho } = await sb.from('posts').select('image_url, thumb_url, meta').eq('id', postId).maybeSingle();
         const { error: errApagar } = await sb.from('posts').delete().eq('id', postId);
         if (errApagar) { toast(msgErro(errApagar), 'err'); return; }
+        // a refeição que estava nos stories sai junto
+        sb.from('stories').delete().eq('user_id', state.session.user.id).contains('style', { card: { tipo: 'refeicao', pid: postId } }).then(() => {}, () => {});
         // apaga do armazenamento todas as fotos do post (carrossel e miniatura também)
         if (velho) [...new Set([velho.image_url, velho.thumb_url, ...((velho.meta && velho.meta.fotos) || [])].filter(Boolean))].forEach(removeStoredImage);
         toast('Post apagado', 'ok');
@@ -18569,8 +18597,34 @@ function abrirPublicarNovidade() {
     ler(); setTimeout(carregarGer, 50);
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-act="publicar-novidade"]')) { e.stopPropagation(); abrirPublicarNovidade(); } });
+// Refeição pra seguidores/pública vira story por 24h: a foto + nota da IA + nutrientes
+const NOME_SLOT = { cafe: 'Café da manhã', almoco: 'Almoço', jantar: 'Jantar', lanche: 'Lanche' };
+async function criarStoryRefeicao(p) {
+    const m = p.meta && p.meta.macros;
+    const card = { tipo: 'refeicao', pid: p.id, slot: p.meal_slot || null, hora: new Date(p.created_at || Date.now()).toISOString(),
+        ...(p.meal_score != null ? { nota: Number(p.meal_score) } : {}),
+        ...(p.meal_analysis ? { txt: String(p.meal_analysis).split(/(?<=[.!?])\s/)[0].slice(0, 120) } : {}),
+        ...(m ? { mac: { kcal: m.kcal, p: m.p, c: m.c, g: m.g } } : {}) };
+    const { error } = await sb.from('stories').insert({ user_id: state.session.user.id, caption: null, image_url: p.image_url, background_color: null, style: { card } });
+    if (error) throw error;
+    if (state.view === 'feed') setTimeout(() => { if (state.view === 'feed') renderFeed(); }, 600);
+}
+function htmlStoryRefeicao(c) {
+    const n = c.nota != null ? Number(c.nota) : null;
+    const nf = n != null ? String(Math.round(n * 10) / 10).replace('.', ',') : null;
+    const hora = c.hora ? new Date(c.hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+    const m = c.mac;
+    return `<div class="card-story ref-cs">
+        <span class="ref-chip">🍽️ ${escapeHTML(NOME_SLOT[c.slot] || 'Refeição')}${hora ? ` · ${hora}` : ''}</span>
+        ${nf || m ? `<div class="ref-vidro">
+            ${nf ? `<div class="ref-n"><span class="ref-sc">${nf}</span><span><b>Prato nota ${nf}</b>${c.txt ? `<small>${escapeHTML(c.txt)}</small>` : ''}</span></div>` : ''}
+            ${m ? `<div class="ref-mac"><span><b>${Math.round(m.kcal) || '–'}</b>kcal</span><span><b>${m.p}g</b>proteína</span><span><b>${m.c}g</b>carbo</span><span><b>${m.g}g</b>gordura</span></div>` : ''}
+        </div>` : ''}
+    </div>`;
+}
 function htmlCardStory(st, comFoto) {
     const c = st.card || {};
+    if (c.tipo === 'refeicao') return htmlStoryRefeicao(c);
     if (c.tipo === 'novidade') return htmlNovidade(c, 'story');
     if (c.tipo === 'podio') {
         const pod = c.podio || [], o = pod.length >= 2 ? [pod[1], pod[0], pod[2]].filter(Boolean) : pod;
@@ -22066,6 +22120,7 @@ function setComposerKind(kind) {
     if (kind === 'water') { $('#wMl').value = 250; sincronizarContadores(); carregarAguaHoje(); }
     // refeição começa "Só eu"; a pessoa muda pra seguidores ou público se quiser
     if (kind === 'meal') { state.composerPrivacy = 'private'; updatePrivacyChip(); marcarSlotRefeicao(); atualizarFotoRefeicao(); }
+    atualizarStory24();
     setTimeout(sincronizarContadores, 0);
     $('#composerPick').classList.add('hidden');
     $('#composerForm').classList.remove('hidden');
@@ -22579,7 +22634,24 @@ function updatePrivacyChip() {
     document.querySelectorAll('[data-vis-ic]').forEach(el => { if (!el.innerHTML) el.innerHTML = ICONE_VIS[el.dataset.visIc] || ''; });
     $('#pcLabel').textContent = meta.label;
     $$('.privacy-opt').forEach(x => x.classList.toggle('on', x.dataset.privacy === state.composerPrivacy));
+    atualizarStory24();
 }
+// Refeição pra seguidores ou pública: pode aparecer nos stories por 24h (em "Só eu" nem aparece)
+function atualizarStory24() {
+    const row = document.getElementById('story24Row'); if (!row) return;
+    const mostra = state.composerKind === 'meal' && state.composerPrivacy !== 'private';
+    row.classList.toggle('hidden', !mostra);
+    if (state.mealStory24 == null) state.mealStory24 = lsGet('pulso-refeicao-24h') !== '0';
+    const sw = document.getElementById('story24Switch');
+    sw.classList.toggle('on', !!state.mealStory24); sw.setAttribute('aria-checked', String(!!state.mealStory24));
+    const h = document.getElementById('story24Hint');
+    if (h) h.textContent = state.composerPrivacy === 'public' ? 'Aparece nos stories por 24h' : 'Seus seguidores veem o prato nos stories hoje';
+}
+el$('story24Switch').addEventListener('click', () => {
+    state.mealStory24 = !state.mealStory24;
+    try { lsSet('pulso-refeicao-24h', state.mealStory24 ? '1' : '0'); } catch (_) {}
+    vibrar(5); atualizarStory24();
+});
 
 // Background color picker for story
 $$('.bg-color-swatch').forEach(s => s.addEventListener('click', e => {
@@ -23066,6 +23138,9 @@ el$('composerSubmit').addEventListener('click', async () => {
             return;
         }
         if (created) setTimeout(checarConquistasNovas, 2500);
+        if (created && created.kind === 'meal' && created.image_url && created.visibility !== 'private' && state.mealStory24 !== false) {
+            criarStoryRefeicao(created).catch(e => console.warn('story da refeição', e));
+        }
         if (created && post.meta && post.meta.com && post.meta.com.length) {
             sb.rpc('marcar_treino_com', { pid: created.id }).then(() => {});
         }

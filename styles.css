@@ -7131,7 +7131,7 @@ img.foto-falhou{ opacity:0; }
 .dw-tt{ min-width:0; }
 .dw-tt b{ display:block; font-family:var(--ff-display); font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .dw-tt small{ display:block; font-size:12px; color:var(--ink-faint); margin-top:1px; }
-.dw-campo{ --dc:16,185,129; position:relative; border-bottom:1px solid var(--line-strong, rgba(255,255,255,.14)); padding:0 0 22px; transition:border-color .2s; }
+.dw-campo{ position:relative; border-bottom:1px solid var(--line-strong, rgba(255,255,255,.14)); padding:0 0 22px; transition:border-color .2s; }
 .dw-campo:focus-within{ border-bottom-color:rgba(var(--dc), .8); }
 .dw-campo textarea{ display:block; width:100%; min-height:58px; border:0; outline:none; resize:none; background:none; color:var(--ink); font-family:inherit; font-size:17px; font-weight:600; line-height:1.42; padding:0; }
 .dw-campo textarea::placeholder{ color:var(--ink-faint); font-weight:500; }
@@ -7231,3 +7231,101 @@ img.foto-falhou{ opacity:0; }
 .sg2-txt{ font-size:12.5px; line-height:1.5; color:var(--ink-dim, #D4D4D8); margin:12px 2px 0; }
 .sg2-txt b{ color:#34D399; }
 :root[data-theme="light"] .sg2-marca b{ background:#18181B; }
+
+/* ---- Refeição nos stories (24h): chip do horário + vidro com a nota e os nutrientes ---- */
+.card-story.ref-cs{ position:absolute; inset:0; padding:0; margin:0; width:auto; height:auto; max-width:none; aspect-ratio:auto; background:linear-gradient(rgba(0,0,0,.45), transparent 22%, transparent 55%, rgba(0,0,0,.8)) !important; border:0; border-radius:0; box-shadow:none; pointer-events:none; display:block; transform:none; }
+.ref-chip{ position:absolute; top:max(76px, calc(env(safe-area-inset-top) + 64px)); left:14px; font-size:12.5px; font-weight:700; color:#fff; padding:7px 12px; border-radius:999px; background:rgba(0,0,0,.42); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); border:1px solid rgba(255,255,255,.16); }
+.ref-vidro{ position:absolute; left:14px; right:14px; bottom:calc(84px + env(safe-area-inset-bottom)); padding:14px; border-radius:20px; background:rgba(10,10,10,.55); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border:1px solid rgba(255,255,255,.12); color:#F4F4F5; text-align:left; }
+.ref-n{ display:flex; align-items:center; gap:11px; }
+.ref-sc{ flex:0 0 auto; width:48px; height:48px; border-radius:50%; display:grid; place-items:center; font-family:var(--ff-display); font-size:17px; font-weight:800; color:#34D399; border:2.5px solid #10B981; }
+.ref-n b{ display:block; font-size:15px; }
+.ref-n small{ display:block; font-size:12.5px; line-height:1.4; color:#D4D4D8; margin-top:2px; }
+.ref-mac{ display:flex; gap:6px; margin-top:12px; }
+.ref-mac span{ flex:1; text-align:center; font-size:10.5px; color:#A1A1AA; padding:7px 0; border-radius:12px; background:rgba(255,255,255,.07); }
+.ref-mac b{ display:block; font-size:14px; color:#F4F4F5; }
+.ref-n + .ref-mac{ margin-top:12px; }
+.ref-vidro > .ref-mac:first-child{ margin-top:0; }
+
+/* chave "Mostrar por 24h" no registro da refeição */
+.story24-row{ display:flex; align-items:center; gap:12px; margin:10px 0 2px; padding:12px 14px; border-radius:16px; border:1px solid var(--line); }
+.story24-row .fs-txt{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.story24-row .fs-txt span{ font-size:14px; font-weight:600; color:var(--ink); }
+.story24-row .fs-txt small{ font-size:12px; color:var(--ink-faint); margin-top:1px; }
+.card-story.ref-cs{ left:0; top:0; right:0; bottom:0; width:auto; -webkit-backdrop-filter:none; backdrop-filter:none; z-index:2; }
+
+/* ---- Escrever depoimento: o campo é o próprio cartão, na cor escolhida ---- */
+.dw-folha .dw-campo{ border:1px solid rgba(var(--dc), .45); border-radius:22px; padding:18px 16px 12px; padding-bottom:12px;
+    background:linear-gradient(160deg, rgba(var(--dc), .20), rgba(255,255,255,.015) 62%); box-shadow:0 0 0 4px rgba(var(--dc), .06);
+    transition:background .3s, border-color .3s, box-shadow .3s; }
+.dw-folha .dw-campo:focus-within{ border-color:rgba(var(--dc), .7); }
+.dw-q{ display:block; font-family:Georgia, serif; font-weight:700; font-size:48px; line-height:1; height:22px; margin:-6px 0 6px -2px; color:rgb(var(--dc)); opacity:.7; transition:color .3s; }
+.dw-folha .dw-campo textarea{ caret-color:rgb(var(--dc)); min-height:52px; }
+.dw-rod{ display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12px; color:var(--ink-faint); }
+.dw-rod .avatar{ width:22px !important; height:22px !important; font-size:10px; }
+.dw-folha .dw-conta{ position:static; margin-left:auto; }
+.dw-folha .dw-cor.on{ box-shadow:0 0 0 2px var(--bg-elev, #0E0E0F), 0 0 0 3.5px rgb(var(--dc)); }
+.dw-folha .dw-enviar{ border-color:rgba(var(--dc), .6); color:rgb(var(--dc)); transition:color .3s, border-color .3s; }
+.dw-folha .dw-enviar:disabled{ border-color:var(--line); color:var(--ink-faint); }
+.dw-dica{ font-size:11.5px; color:var(--ink-faint); text-align:center; margin:10px 0 0; }
+:root[data-theme="light"] .dw-folha .dw-campo{ background:linear-gradient(160deg, rgba(var(--dc), .2), rgba(255,255,255,.7) 62%); }
+
+/* ---- Convite do desafio (quem ainda não entrou) ---- */
+.cv2{ margin:4px 0 12px; padding:18px 16px; border-radius:22px; background:var(--bg-card); border:1px solid var(--line); }
+.cv2-topo{ display:flex; gap:14px; align-items:center; }
+.cv2-topo .cp-q{ flex:0 0 auto; width:58px !important; height:58px !important; border-radius:18px !important; }
+.cv2-tt{ min-width:0; }
+.cv2-tt h1{ font-family:var(--ff-display); font-size:22px; font-weight:800; letter-spacing:-.02em; margin:2px 0 0; color:var(--ink); }
+.cv2-tt p{ font-size:13px; color:var(--ink-faint); margin:2px 0 0; }
+.cv2-st{ display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:#34D399; }
+.cv2-st i{ width:7px; height:7px; border-radius:50%; background:#10B981; box-shadow:0 0 0 3px rgba(16,185,129,.2); }
+.cv2-st.futuro{ color:#FFC24B; } .cv2-st.futuro i{ background:#FFC24B; box-shadow:0 0 0 3px rgba(255,194,75,.2); }
+.cv2-st.fim{ color:var(--ink-faint); } .cv2-st.fim i{ background:#71717A; box-shadow:none; }
+.cv2-q{ display:grid; grid-template-columns:repeat(auto-fit, minmax(0, 1fr)); gap:8px; margin-top:14px; }
+.cv2-q div{ border:1px solid var(--line); border-radius:14px; padding:9px 10px; min-width:0; }
+.cv2-q b{ display:block; font-size:14px; font-weight:800; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cv2-q small{ display:block; font-size:10.5px; color:var(--ink-faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cv2-conv{ display:flex; align-items:center; gap:10px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line); font-size:13px; color:var(--ink-dim, #D4D4D8); }
+.cv2-conv b{ color:var(--ink); }
+.cv2-bts{ display:flex; gap:8px; margin-top:12px; }
+.cv2-bts:empty{ display:none; }
+.cv2-b{ flex:1; padding:12px; border-radius:999px; background:transparent; border:1px solid var(--line-strong, rgba(255,255,255,.14)); color:var(--ink-faint); font-family:inherit; font-size:14px; font-weight:700; }
+.cv2-b.v{ flex:2; border-color:rgba(16,185,129,.6); color:#34D399; }
+.cv2-b.v:active{ background:rgba(16,185,129,.08); }
+.cv2-priv{ font-size:11.5px; line-height:1.45; color:var(--ink-faint); margin:10px 2px 0; }
+.cv2-lock{ position:relative; overflow:hidden; }
+.cv2-lk{ display:flex; align-items:center; gap:10px; padding:8px 0; filter:blur(3.5px); opacity:.55; }
+.cv2-lk i{ width:26px; height:26px; border-radius:50%; background:#3F3F46; }
+.cv2-lk u{ flex:1; height:9px; border-radius:9px; background:#27272A; }
+.cv2-lk s{ width:40px; height:9px; border-radius:9px; background:#3F3F46; }
+.cv2-lk-o{ position:absolute; inset:36px 0 0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; background:linear-gradient(transparent, var(--bg-card) 55%); }
+.cv2-lk-o b{ font-size:13.5px; color:var(--ink); }
+.cv2-lk-o small{ font-size:12px; color:var(--ink-faint); }
+:root[data-theme="light"] .cv2-b.v{ color:#059669; border-color:rgba(5,150,105,.55); }
+
+/* ---- Como funciona (abre ao tocar) ---- */
+.cf-item{ border:1px solid var(--line); border-radius:16px; padding:0 12px; transition:border-color .2s, background .2s; }
+.cf-item + .cf-item{ margin-top:8px; }
+.cf-item summary{ display:flex; align-items:center; gap:12px; padding:12px 0; list-style:none; cursor:pointer; }
+.cf-item summary::-webkit-details-marker{ display:none; }
+.cf-ic{ flex:0 0 auto; width:32px; height:32px; border-radius:10px; display:grid; place-items:center; font-size:15px; background:rgba(16,185,129,.12); }
+.cf-t{ min-width:0; flex:1; }
+.cf-t b{ display:block; font-size:13.5px; color:var(--ink); }
+.cf-t small{ display:block; font-size:12px; color:var(--ink-faint); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cf-seta{ display:flex; color:var(--ink-faint); transition:transform .2s, color .2s; }
+.cf-item[open]{ border-color:rgba(16,185,129,.35); background:rgba(16,185,129,.04); }
+.cf-item[open] .cf-seta{ transform:rotate(180deg); color:#34D399; }
+.cf-corpo{ padding:0 0 12px 44px; }
+.cf-p{ font-size:12.5px; line-height:1.5; color:var(--ink-dim, #D4D4D8); margin:0 0 8px; }
+.cf-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.cf-chip{ font-size:11.5px; padding:5px 9px; border-radius:999px; border:1px solid var(--line); color:var(--ink-dim, #D4D4D8); }
+.cf-chip em{ font-style:normal; font-weight:700; color:#34D399; margin-left:4px; }
+.cf-tabela{ margin-top:10px; }
+.cf-tabela > summary{ font-size:12px; font-weight:600; color:#34D399; cursor:pointer; list-style:none; }
+.cf-tabela > summary::-webkit-details-marker{ display:none; }
+.cf-tabela[open] > summary{ margin-bottom:8px; }
+.cf-ex{ border-radius:14px; background:var(--bg-elev, #121213); padding:10px 12px; font-size:12px; color:var(--ink-faint); }
+.cf-ex > div{ display:flex; justify-content:space-between; gap:10px; padding:2px 0; }
+.cf-ex b{ color:var(--ink); font-weight:600; }
+.cf-tot{ border-top:1px solid var(--line); margin-top:5px; padding-top:6px !important; color:var(--ink) !important; font-weight:700; }
+.cf-tot b{ color:#34D399 !important; font-weight:800 !important; }
+.cv2-q.q4{ grid-template-columns:1fr 1fr; }
