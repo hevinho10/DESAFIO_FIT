@@ -27,7 +27,7 @@ setTimeout(function(){clearInterval(_t);_f();},12000);}}catch(e){}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261309">
+<link rel="stylesheet" href="styles.css?v=20261311">
 </head>
 <body>
 
@@ -408,6 +408,10 @@ setTimeout(function(){clearInterval(_t);_f();},12000);}}catch(e){}
             <button type="button" class="dest-btn" data-dest="feed"><span class="emo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l16-7-7 16-2-7-7-2z"/></svg></span><span>Publicar no feed</span></button>
         </div>
         <p id="destHint" class="dest-hint"></p>
+        <div class="story24-row story-tr-row hidden" id="storyTreinoRow">
+            <div class="fs-txt"><span>Postar no story</span><small>Depois de registrar, você escolhe o modelo</small></div>
+            <button type="button" class="nc-sw" id="storyTreinoSwitch" role="switch" aria-checked="false" aria-label="Postar no story"><i></i></button>
+        </div>
         <div class="feed-switch-row" id="feedSwitchRow">
             <div class="fs-foto">
                 <label class="cap-foto" id="capFoto" aria-label="Adicionar foto">
@@ -593,6 +597,6 @@ setTimeout(function(){clearInterval(_t);_f();},12000);}}catch(e){}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
-<script src="app.min.js?v=20261309"></script>
+<script src="app.min.js?v=20261311"></script>
 </body>
 </html>

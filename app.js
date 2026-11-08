@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261309';
+const APP_VERSAO = '20261311';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -3330,7 +3330,7 @@ async function adicionarPostAoStory(id) {
     if (!post) { toast('Não achei esse post', 'err'); return; }
     const eu = state.session.user.id, meu = post.user_id === eu;
     if (!meu && (post.visibility || 'public') !== 'public') { toast('Só dá pra compartilhar post público', 'err'); return; }
-    if (meu && post.kind === 'workout' && !post.image_url) { await publicarStoryTreino(post); return; }
+    if (meu && post.kind === 'workout') { await publicarStoryTreino(post); return; }
     const foto = post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
     if (!foto) {
         if (!meu) { toast('Esse post não tem foto pra compartilhar', 'err'); return; }
@@ -16014,6 +16014,7 @@ async function renderActivityLog() {
             <div class="log-meta">
                 <div class="log-time">${t}</div>
                 <div class="log-priv">${privacyIcon}</div>
+                ${p.kind === 'workout' && p.user_id === state.session.user.id ? `<button class="log-del log-story" data-act="post-ao-story" data-id="${p.id}" title="Postar no story" aria-label="Postar no story"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.6"/><path d="M12 8.5v7M8.5 12h7"/></svg></button>` : ''}
                 ${p.kind !== 'water' || isoDe(new Date(p.created_at)) === hojeISO() ? `<button class="log-del" data-act="delete-post" data-id="${p.id}" title="Apagar" aria-label="Apagar">${ICONE_LIXO}</button>` : ''}
             </div>
         </div>`;
@@ -18607,7 +18608,6 @@ async function abrirStoryRefeicao(p) {
     const m = p.meta && p.meta.macros;
     const card = { tipo: 'refeicao', pid: p.id, uid: p.user_id || state.session.user.id, slot: p.meal_slot || null, hora: new Date(p.created_at || Date.now()).toISOString(),
         ...(p.meal_score != null ? { nota: Number(p.meal_score) } : {}),
-        ...(p.meal_analysis ? { txt: String(p.meal_analysis).split(/(?<=[.!?])\s/)[0].slice(0, 120) } : {}),
         ...(m ? { mac: { kcal: m.kcal, p: m.p, c: m.c, g: m.g } } : {}) };
     await abrirEditorComCard({ card, url: p.image_url });
 }
@@ -18618,7 +18618,7 @@ function htmlStoryRefeicao(c) {
     const m = c.mac;
     return `<div class="card-story ref2" data-post-card="${escapeHTML(String(c.pid || ''))}" data-autor="${escapeHTML(String(c.uid || ''))}" data-direto="1">
         <span class="ref2-chip">🍽️ ${escapeHTML(NOME_SLOT[c.slot] || 'Refeição')}${hora ? ` · ${hora}` : ''}</span>
-        ${nf ? `<div class="ref-n"><span class="ref-sc">${nf}</span><span><b>Prato nota ${nf}</b>${c.txt ? `<small>${escapeHTML(c.txt)}</small>` : ''}</span></div>` : ''}
+        ${nf ? `<div class="ref-n"><span class="ref-sc">${nf}</span><span><b>Prato nota ${nf}</b><small>nota da IA</small></span></div>` : ''}
         ${m ? `<div class="ref-mac"><span><b>${Math.round(m.kcal) || '–'}</b>kcal</span><span><b>${m.p}g</b>proteína</span><span><b>${m.c}g</b>carbo</span><span><b>${m.g}g</b>gordura</span></div>` : ''}
         <span class="ref2-ver">Ver refeição ›</span>
     </div>`;
@@ -19004,21 +19004,26 @@ function htmlTreinoModelo(c) {
     }
     return null;
 }
-// fileira de modelos no editor do story (só com card de treino)
-function pintarModelosTreino() {
+// editor do story com card de treino: toque no card troca o modelo (etiqueta "Semana · 2 de 5" + bolinhas)
+function pintarModelosTreino(mostrarEtiqueta = false) {
     const cr = document.getElementById('storyCreator'); if (!cr) return;
     let bar = document.getElementById('scModelos');
     if (!sc.card || sc.card.tipo !== 'treino' || !sc.card.modelo) { if (bar) bar.remove(); return; }
     if (!bar) { bar = document.createElement('div'); bar.id = 'scModelos'; bar.className = 'sc-modelos'; cr.appendChild(bar); }
-    const l = modelosTreino(sc.card);
-    bar.innerHTML = `<div class="scm-fita">${l.map(k => `<button type="button" class="scm-op${k === sc.card.modelo ? ' on' : ''}" data-modelo="${k}"><span class="scm-q"><span class="scm-in">${htmlCardStory({ card: { ...sc.card, modelo: k } }, false)}</span></span><small>${NOME_MODELO_TREINO[k]}</small></button>`).join('')}</div>`;
+    const l = modelosTreino(sc.card), i = Math.max(0, l.indexOf(sc.card.modelo));
+    const primeira = !lsGet('pulso-dica-modelo');
+    bar.innerHTML = `<span class="scm-etq${mostrarEtiqueta || primeira ? ' on' : ''}">${mostrarEtiqueta ? `<b>${NOME_MODELO_TREINO[sc.card.modelo]}</b> · ${i + 1} de ${l.length}` : 'Toque no card pra trocar o modelo'}</span>
+        <span class="scm-dots">${l.map((_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('')}</span>`;
+    clearTimeout(bar._t);
+    if (mostrarEtiqueta || primeira) bar._t = setTimeout(() => { const e = bar.querySelector('.scm-etq'); if (e) e.classList.remove('on'); }, primeira && !mostrarEtiqueta ? 3200 : 1400);
 }
-document.addEventListener('click', e => {
-    const b = e.target.closest('#scModelos [data-modelo]'); if (!b || !sc.card) return;
-    e.stopPropagation();
-    sc.card = { ...sc.card, modelo: b.dataset.modelo };
-    pintarCardCriador(); vibrar(5);
-});
+function trocarModeloTreino() {
+    const l = modelosTreino(sc.card);
+    const i = l.indexOf(sc.card.modelo);
+    sc.card = { ...sc.card, modelo: l[(i + 1) % l.length] };
+    try { lsSet('pulso-dica-modelo', '1'); } catch (_) {}
+    pintarCardCriador(); pintarModelosTreino(true); vibrar(5);
+}
 // Treino: abre o editor com o card do treino (e a foto, se tiver). card = outro card no lugar (ex.: recorde)
 async function publicarStoryTreino(post, file = null, cardOutro = null) {
     let card = cardOutro;
@@ -19799,7 +19804,10 @@ tornarArrastavel($('#scText'), 'pos', () => {
     t.focus();
 });
 tornarArrastavel($('#scSticker'), 'adesivoPos', null);
-tornarArrastavel(elCardCriador(), 'cardPos', () => { if (sc.card && sc.card.tipo === 'post') abrirBalaoCardPost(); });
+tornarArrastavel(elCardCriador(), 'cardPos', () => {
+    if (sc.card && sc.card.tipo === 'post') abrirBalaoCardPost();
+    else if (sc.card && sc.card.tipo === 'treino' && sc.card.modelo) trocarModeloTreino();
+});
 (function deslizarEstiloPoster() {
     // pôster em tela cheia: deslizar pro lado troca o estilo. Pôster menor: um dedo arrasta. Toque duplo volta pra tela cheia.
     const stage = document.getElementById('scStage'); let ini = null, ultimoToque = 0;
@@ -22232,6 +22240,7 @@ function setComposerKind(kind) {
     if (kind === 'water') { $('#wMl').value = 250; sincronizarContadores(); carregarAguaHoje(); }
     // refeição começa "Só eu"; a pessoa muda pra seguidores ou público se quiser
     if (kind === 'meal') { state.composerPrivacy = 'private'; updatePrivacyChip(); marcarSlotRefeicao(); atualizarFotoRefeicao(); }
+    state.composerStoryIni = false;
     atualizarStory24();
     setTimeout(sincronizarContadores, 0);
     $('#composerPick').classList.add('hidden');
@@ -22541,6 +22550,12 @@ el$('pPhotoUnico').addEventListener('change', e => {
 });
 el$('capFotoX').addEventListener('click', () => { const c = $('#pPhotoClear'); if (c) c.click(); setTimeout(updateDestUI, 50); });
 state.composerStory = false;
+// treino: "Postar no story" fica lembrado (quem gosta de postar no story já encontra ligado)
+el$('storyTreinoSwitch').addEventListener('click', () => {
+    state.composerStory = !state.composerStory;
+    try { lsSet('pulso-tr-story-rapido', state.composerStory ? '1' : '0'); } catch (_) {}
+    vibrar(5); updateDestUI();
+});
 el$('feedSwitch').addEventListener('click', () => {
     if (!state.composerPhoto) { toast('Adicione uma foto pra publicar no feed', 'err'); return; }
     const alvo = state.composerDest === 'feed' ? 'log' : 'feed';
@@ -22696,6 +22711,14 @@ function updateDestUI() {
 
     $('#privacySection').classList.toggle('hidden', isStory || isWater || isSleep || (state.composerDest !== 'feed' && kind !== 'meal'));
 
+    // treino: chave do story (lembra a última escolha)
+    const rowSt = document.getElementById('storyTreinoRow');
+    if (rowSt) {
+        rowSt.classList.toggle('hidden', kind !== 'workout');
+        if (kind === 'workout' && state.composerStoryIni !== true) { state.composerStory = lsGet('pulso-tr-story-rapido') !== '0'; state.composerStoryIni = true; }
+        const sws = document.getElementById('storyTreinoSwitch');
+        sws.classList.toggle('on', !!state.composerStory); sws.setAttribute('aria-checked', String(!!state.composerStory));
+    }
     // modo treino: chave do feed no lugar dos dois botões
     const sw = $('#feedSwitch');
     if (sw) {
@@ -22714,7 +22737,7 @@ function updateDestUI() {
         btn.innerHTML = state.composerDest === 'feed' ? 'Publicar refeição' : `Registrar ${({ cafe: 'café', almoco: 'almoço', lanche: 'lanche', jantar: 'jantar' })[$('#mSlot').value] || 'refeição'}${state.composerPhoto ? '<span class="btn-pts">· +1 pt</span>' : ''}`;
     } else if (btn && !btn.disabled && kind === 'workout') {
         const pts = estimarPontosTreino();
-        btn.innerHTML = `${state.composerDest === 'feed' ? 'Publicar' : 'Registrar'}<span class="btn-pts">· +${pts} pts</span>`;
+        btn.innerHTML = `${state.composerDest === 'feed' ? 'Publicar' : 'Registrar'}${state.composerStory ? ' e postar no story' : ''}<span class="btn-pts">· +${pts} pts</span>`;
     } else if (btn && !btn.disabled) {
         btn.textContent = isPost ? 'Publicar'
             : isStory ? 'Publicar Story'

@@ -7384,15 +7384,12 @@ img.foto-falhou{ opacity:0; }
 .tm-m i{ flex:1; height:7px; border-radius:9px; background:rgba(255,255,255,.1); overflow:hidden; }
 .tm-m u{ display:block; height:100%; border-radius:9px; background:linear-gradient(90deg, #FFC24B, #FF7A4D); }
 
-/* fileira de modelos no editor */
-.sc-modelos{ position:absolute; left:0; right:0; bottom:calc(92px + env(safe-area-inset-bottom)); z-index:30; pointer-events:auto; }
-.scm-fita{ display:flex; gap:8px; padding:0 12px; overflow-x:auto; scrollbar-width:none; scroll-snap-type:x proximity; }
-.scm-fita::-webkit-scrollbar{ display:none; }
-.scm-op{ flex:0 0 64px; display:flex; flex-direction:column; align-items:center; gap:4px; padding:0; background:none; border:0; color:#D4D4D8; font-family:inherit; scroll-snap-align:start; }
-.scm-q{ position:relative; width:64px; height:92px; border-radius:12px; overflow:hidden; border:1.5px solid rgba(255,255,255,.18); background:linear-gradient(180deg, #05110c, #07080C); }
-.scm-in{ position:absolute; left:50%; top:50%; width:300px; transform:translate(-50%, -50%) scale(.2); pointer-events:none; }
-.scm-in .card-story{ position:relative; left:auto; top:auto; transform:none; width:100%; }
-.scm-in .card-story.tm-polaroid{ transform:rotate(-3deg); }
-.scm-op small{ font-size:10.5px; text-shadow:0 1px 3px rgba(0,0,0,.7); }
-.scm-op.on .scm-q{ border-color:#10B981; box-shadow:0 0 0 3px rgba(16,185,129,.3); }
-.scm-op.on small{ color:#34D399; font-weight:700; }
+/* editor: etiqueta do modelo + bolinhas (toque no card troca) */
+.sc-modelos{ position:absolute; left:0; right:0; bottom:calc(96px + env(safe-area-inset-bottom)); z-index:30; display:flex; flex-direction:column; align-items:center; gap:10px; pointer-events:none; }
+.scm-etq{ font-size:12.5px; font-weight:600; color:#fff; padding:7px 13px; border-radius:999px; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.15); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); opacity:0; transform:translateY(6px); transition:opacity .25s, transform .25s; white-space:nowrap; }
+.scm-etq.on{ opacity:1; transform:none; }
+.scm-etq b{ color:#34D399; }
+.scm-dots{ display:flex; gap:5px; }
+.scm-dots i{ width:6px; height:6px; border-radius:9px; background:rgba(255,255,255,.4); transition:width .2s; }
+.scm-dots i.on{ width:16px; background:#34D399; }
+#storyCreator.arrastando .sc-modelos{ opacity:0; }
