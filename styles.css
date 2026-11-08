@@ -7397,8 +7397,8 @@ img.foto-falhou{ opacity:0; }
 /* ===== Desafios: rolando / em breve / encerrados ===== */
 .ch-sec{ font-size:11px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); margin:4px 2px -2px; }
 .ch-sec:first-child{ margin-top:0; }
-.ch-prog{ height:3px; border-radius:3px; background:var(--bg-elev); margin-top:10px; overflow:hidden; }
-.ch-prog i{ display:block; height:100%; background:var(--vital); border-radius:3px; }
+.ch-cprog{ height:3px; border-radius:3px; background:var(--bg-elev); margin-top:10px; overflow:hidden; }
+.ch-cprog i{ display:block; height:100%; background:var(--vital); border-radius:3px; }
 .ch-enc-linha{ display:flex; align-items:center; gap:12px; width:100%; text-align:left; background:transparent; border:1px solid var(--line); border-radius:16px; padding:12px 14px; margin-top:4px; color:var(--ink); cursor:pointer; font:inherit; }
 .ch-enc-ic{ width:34px; height:34px; border-radius:11px; background:var(--bg-elev); display:grid; place-items:center; font-size:16px; flex:none; }
 .ch-enc-txt{ flex:1; min-width:0; }
@@ -7423,3 +7423,16 @@ img.foto-falhou{ opacity:0; }
 .enc-res b span{ overflow:hidden; text-overflow:ellipsis; }
 .enc-res .avatar, .enc-res img{ width:20px !important; height:20px !important; font-size:9px; }
 .enc-ver{ display:block; font-size:12px; color:var(--vital); font-weight:600; margin-top:10px; }
+
+/* ===== Entrada do desafio: selo na lista e aviso ao entrar ===== */
+.ch-entrada{ font-size:11px; font-weight:700; padding:2px 9px; border-radius:12px; border:1px solid rgba(250,204,21,.35); color:#FACC15; white-space:nowrap; }
+:root[data-theme="light"] .ch-entrada{ color:#A16207; border-color:rgba(161,98,7,.35); }
+.ent-val{ display:flex; align-items:baseline; gap:8px; margin:14px 0 6px; }
+.ent-val b{ font-family:var(--ff-display); font-size:34px; font-weight:800; letter-spacing:-.02em; color:var(--ink); }
+.ent-val small{ font-size:12px; color:var(--ink-faint); }
+.ent-li{ display:flex; align-items:center; gap:10px; font-size:13px; color:var(--ink-dim); padding:7px 0; }
+.ent-li svg{ width:16px; height:16px; color:var(--vital); flex:none; }
+.ent-bts{ display:flex; gap:10px; margin-top:16px; }
+.ent-b{ flex:1; font:inherit; font-size:13.5px; font-weight:600; padding:12px; border-radius:12px; background:transparent; border:1px solid var(--line); color:var(--ink-dim); cursor:pointer; }
+.ent-b.v{ border-color:rgba(16,185,129,.6); color:var(--vital); }
+.cfg-row.cfg-perigo, .cfg-row.cfg-perigo .cfg-txt{ color:#F87171; }

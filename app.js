@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261312';
+const APP_VERSAO = '20261314';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -6312,7 +6312,8 @@ function showChatMenu(anchor) {
     menu.innerHTML = `
         <button class="post-menu-item" data-act="chat-tema" data-id="${anchor.dataset.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18c1.7 0 2-1.2 1.2-2.2-.9-1.1-.3-2.8 1.3-2.8H17a4 4 0 0 0 4-4c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>Tema da conversa</button>
         ${anchor.dataset.grupo ? `<button class="post-menu-item" data-grupo-mudo="${anchor.dataset.id}">${state.chatGrupo && state.chatGrupo.silenciado ? '🔔 Ativar avisos do grupo' : '🔕 Silenciar o grupo'}</button>
-        <button class="post-menu-item" data-grupo-limpar="${anchor.dataset.id}">${icon('lixo')}Limpar conversa (só pra você)</button>`
+        <button class="post-menu-item" data-grupo-limpar="${anchor.dataset.id}">${icon('lixo')}Limpar conversa (só pra você)</button>
+        ${state.chatGrupo && state.chatGrupo.gestor ? `<button class="post-menu-item danger" data-grupo-apagar="${anchor.dataset.id}">${icon('lixo')}Apagar grupo pra todos</button>` : ''}`
         : `<button class="post-menu-item danger" data-act="clear-chat" data-id="${anchor.dataset.id}">${icon('lixo')}Apagar conversa</button>`}
     `;
     mostrarMenuFolha(menu);
@@ -6461,6 +6462,9 @@ async function renderChat(conversationId, otherUser) {
     const grp = otherUser && otherUser.grupo;
     state.chatGrupo = grp || null;
     state.chatMembros = {};
+    if (grp && grp.desafio_id && grp.desafio_fim && new Date(grp.desafio_fim) < new Date()) sb.rpc('pode_gerir_desafio', { cid: grp.desafio_id }).then(({ data }) => {
+        if (state.chatConversationId === conversationId && state.chatGrupo) state.chatGrupo.gestor = !!data;
+    }, () => {});
     if (grp) sb.rpc('grupo_membros', { conv: conversationId }).then(({ data }) => {
         if (state.chatConversationId !== conversationId) return;
         state.chatMembros = Object.fromEntries((data || []).map(m => [m.user_id, m]));
@@ -6807,6 +6811,16 @@ document.addEventListener('click', async e => {
         if (error) { toast('Não deu agora', 'err'); return; }
         if (state.chatGrupo) state.chatGrupo.silenciado = novo;
         toast(novo ? 'Grupo silenciado: sem avisos no celular' : 'Avisos do grupo ligados', 'ok'); return;
+    }
+    const ga = e.target.closest('[data-grupo-apagar]');
+    if (ga) {
+        hidePostMenu();
+        if (!(await confirmar('Apagar o grupo e todas as mensagens pra todos? O resultado do desafio continua em Encerrados. Não dá pra desfazer.'))) return;
+        const { error } = await sb.rpc('apagar_grupo_desafio', { conv: ga.dataset.grupoApagar });
+        if (error) { toast(msgErro(error), 'err'); return; }
+        toast('Grupo apagado', 'ok');
+        switchView('messages');
+        return;
     }
     const lp = e.target.closest('[data-grupo-limpar]');
     if (lp) {
@@ -10812,7 +10826,7 @@ async function renderChallenges() {
                 <span class="ch-status ${st.cls}">${rot}</span>
             </div>
             ${ch.description ? `<p class="ch-desc">${escapeHTML(ch.description.slice(0,90))}</p>` : ''}
-            ${dd ? `<div class="ch-prog"><i style="width:${Math.round(dd.d / dd.tot * 100)}%"></i></div>` : ''}
+            ${dd ? `<div class="ch-cprog"><i style="width:${Math.round(dd.d / dd.tot * 100)}%"></i></div>` : ''}
             ${!ch.im_member && ch.status !== 'encerrado' ? `<div class="dc-rodape ch-card-acao">
                 <div class="dc-social"><span class="dc-avatares">${avataresAmigos(amigosCh[ch.id])}</span><span>${provaSocial(ch, amigosCh[ch.id])}</span></div>
                 ${botaoEntrarDesafio(ch, pedidosCh[ch.id])}
@@ -10898,6 +10912,13 @@ async function renderChallenges() {
             </div>` : ''}
         </div>
     `;
+    const idsAbertos = [...ativosCh, ...futurosCh].map(ch => ch.id);
+    if (idsAbertos.length) sb.from('challenges').select('id, entrada_valor').in('id', idsAbertos).not('entrada_valor', 'is', null).then(({ data }) => {
+        (data || []).forEach(r => {
+            const m = document.querySelector(`.ch-card[data-id="${r.id}"] .ch-meta`);
+            if (m && Number(r.entrada_valor) && !m.querySelector('.ch-entrada')) m.insertAdjacentHTML('beforeend', `<span class="ch-entrada">${reais(r.entrada_valor)} de entrada</span>`);
+        });
+    }, () => {});
     if (!cards && ultimoEnc && ultimoEnc.im_member) {
         sb.rpc('challenge_ranking', { cid: ultimoEnc.id }).then(({ data }) => {
             const r = data || [], pos = r.findIndex(u => u.user_id === state.session.user.id) + 1;
@@ -11168,7 +11189,6 @@ async function renderChallengeDetail(cid) {
                     ${meuPedido === 'pendente' ? '<span class="ch-pedido-tag">Pedido enviado, aguardando resposta</span>' : ''}
                     ${meuPedido === 'recusado' ? '<span class="ch-pedido-tag recusado">Pedido não aceito</span>' : ''}
                     ${souDono ? `<button class="ch-mini" data-act="invite-challenge" data-id="${cid}">Convidar</button>` : ''}
-                    ${souDono ? `<button class="ch-mini perigo" data-act="delete-challenge" data-id="${cid}">Apagar</button>` : ''}
                 </div>
                 <div id="chRegrasMembro" class="hidden">${regrasDesafioHTML(ch)}</div>
             </div>
@@ -13929,6 +13949,7 @@ async function renderGerenciarDesafio(cid) {
             ${terminou ? '' : `<button class="cfg-row" data-gx="aberto" role="switch" aria-checked="${ch.is_open !== false}"><span class="cfg-txt">Aberto pra qualquer pessoa<small class="cfg-sub-linha">${ch.is_open !== false ? 'Qualquer pessoa entra na hora' : 'Fechado: só entra com a sua aprovação'}</small></span><span class="cfg-switch${ch.is_open !== false ? ' on' : ''}"><i></i></span></button>`}
             ${linhaConfig('ger-passar', 'perfil', 'Passar a organização')}
             ${terminou ? '' : linhaConfig('ger-encerrar', 'relogio', 'Encerrar agora')}
+            <button class="cfg-row cfg-perigo" data-act="delete-challenge" data-id="${cid}">${icon('lixo')}<span class="cfg-txt">Apagar desafio<small class="cfg-sub-linha">Some o ranking e o grupo pra todos</small></span></button>
         </div>
 
         <div id="gerPagamentos"></div>
@@ -13947,6 +13968,35 @@ async function renderGerenciarDesafio(cid) {
         </div>
     </div>`;
     carregarPagamentosDesafio(cid);
+}
+
+// ---- Desafio com entrada: avisa o valor antes de entrar ----
+async function confirmarEntradaDesafio(cid) {
+    const { data } = await sb.from('challenges').select('entrada_valor').eq('id', cid).maybeSingle().then(r => r, () => ({ data: null }));
+    const v = data && Number(data.entrada_valor);
+    if (!v) return true;
+    return new Promise(resolve => {
+        const old = document.getElementById('entradaSheet'); if (old) old.remove();
+        const sheet = document.createElement('div');
+        sheet.id = 'entradaSheet';
+        sheet.className = 'sheet on';
+        const ok = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+        sheet.innerHTML = `<div class="sheet-card ent-sheet">
+            <div class="sheet-handle"></div>
+            <h3 class="sheet-title">Esse desafio tem entrada</h3>
+            <div class="ent-val"><b>${reais(v)}</b><small>por pessoa</small></div>
+            <div class="ent-li">${ok}<span>Pode pagar ao longo do desafio</span></div>
+            <div class="ent-li">${ok}<span>Pagamento confirmado vira ✓</span></div>
+            <div class="ent-li">${ok}<span>O prêmio acumulado fica visível</span></div>
+            <div class="ent-bts"><button class="ent-b" data-e="0">Agora não</button><button class="ent-b v" data-e="1">Entrar no desafio</button></div>
+        </div>`;
+        const fechar = r => { sheet.remove(); resolve(r); };
+        sheet.addEventListener('click', e => {
+            if (e.target === sheet) return fechar(false);
+            const b = e.target.closest('[data-e]'); if (b) fechar(b.dataset.e === '1');
+        });
+        document.body.appendChild(sheet);
+    });
 }
 
 // ---- Entrada do desafio: prêmio acumulado (todos) + a sua situação ----
@@ -16925,6 +16975,7 @@ document.addEventListener('click', async e => {
         toast(salvar ? 'Salvo. Fica em Menu › Salvos.' : 'Removido dos salvos', 'ok');
     } else if (act === 'responder-convite') {
         const aceitar = btn.dataset.aceitar === '1';
+        if (aceitar && !(await confirmarEntradaDesafio(btn.dataset.id))) return;
         btn.disabled = true;
         const { error } = await sb.rpc('respond_challenge_invite', { cid: btn.dataset.id, accept: aceitar });
         if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
@@ -17386,6 +17437,7 @@ document.addEventListener('click', async e => {
         if (t) t.remove();
     } else if (act === 'pedir-acesso') {
         if (!(await garantirPesoInicial())) return;
+        if (!(await confirmarEntradaDesafio(btn.dataset.id))) return;
         btn.disabled = true;
         const { error } = await sb.from('challenge_requests').insert({
             challenge_id: btn.dataset.id, user_id: state.session.user.id,
@@ -17409,6 +17461,7 @@ document.addEventListener('click', async e => {
         if (await pedirPesoInicial('Qual é o seu peso hoje?')) { toast('Peso inicial salvo', 'ok'); const a = btn.closest('.aviso-peso-ini'); if (a) a.remove(); }
     } else if (act === 'join-challenge') {
         if (!(await garantirPesoInicial())) return;
+        if (!(await confirmarEntradaDesafio(btn.dataset.id))) return;
         btn.disabled = true;
         const { error } = await sb.from('challenge_members').insert({ challenge_id: btn.dataset.id, user_id: state.session.user.id });
         if (error) { toast(msgErro(error), 'err'); btn.disabled = false; return; }
@@ -17420,7 +17473,7 @@ document.addEventListener('click', async e => {
         toast('Você saiu do desafio', 'ok');
         renderChallengeDetail(btn.dataset.id);
     } else if (act === 'delete-challenge') {
-        if (!(await confirmar('Apagar este desafio? O ranking e os participantes somem junto.'))) return;
+        if (!(await confirmar('Apagar o desafio, o ranking e o grupo de conversa pra todos? Os pontos de cada um continuam. Não dá pra desfazer.'))) return;
         const { error } = await sb.from('challenges').delete().eq('id', btn.dataset.id);
         if (error) { toast('Erro: ' + error.message, 'err'); return; }
         toast('Desafio apagado', 'ok');
