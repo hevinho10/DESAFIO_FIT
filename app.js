@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261316';
+const APP_VERSAO = '20261317';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -19205,22 +19205,39 @@ function trocarModeloTreino() {
 }
 // Treino: abre o editor com o card do treino (e a foto, se tiver). card = outro card no lugar (ex.: recorde)
 async function publicarStoryTreino(post, file = null, cardOutro = null) {
-    let card = cardOutro;
+    let card = cardOutro, extras = null;
     if (!card) {
-        const { data: of } = await sb.from('daily_streaks').select('current_streak').eq('user_id', state.session.user.id).maybeSingle();
+        // o editor abre na hora; ofensiva e os dados dos modelos chegam em paralelo e completam o card
         const km = Number(post.distance_km || 0);
         card = {
             tipo: 'treino', atividade: post.activity_type || 'Treino', min: post.duration_min || null,
             km: km || null, ritmo: km && post.duration_min && ['Corrida', 'Caminhada'].includes(post.activity_type) ? formatarPace(post.duration_min, km) : null,
             grupos: post.activity_type === 'Musculação' ? (post.muscle_groups || []) : [],
-            ofensiva: (of && of.current_streak) || 0,
+            ofensiva: 0, // completa quando a ofensiva de hoje chegar
         };
-        try { Object.assign(card, await dadosModelosTreino(post)); } catch (_) {}
         card.modelo = modelosTreino(card)[0];
+        extras = Promise.all([
+            Promise.resolve(state.ofensivaPronta).catch(() => null).then(() => sb.from('daily_streaks').select('current_streak').eq('user_id', state.session.user.id).maybeSingle()).then(r => r.data, () => null),
+            dadosModelosTreino(post).catch(() => ({})),
+        ]);
     }
     if (post && post.id && card && !card.pid) card = { ...card, pid: post.id }; // liga o story ao treino: apagou o treino, o story sai junto
     const foto = post && post.image_url && !ehPrivada(post.image_url) ? post.image_url : null;
-    await abrirEditorComCard({ card, file, url: file ? null : foto });
+    state.ofensivaPronta = null;
+    const abrindo = abrirEditorComCard({ card, file, url: file ? null : foto });
+    if (extras) {
+        const [of, dados] = await extras;
+        const cr = document.getElementById('storyCreator');
+        if (sc.card === card && cr && cr.classList.contains('on')) { // ainda é o mesmo card e a pessoa não trocou o modelo
+            const novo = { ...card, ...(dados || {}) };
+            if (of && of.current_streak != null) novo.ofensiva = of.current_streak;
+            novo.modelo = modelosTreino(novo)[0];
+            sc.card = novo;
+            pintarCardCriador();
+            if (document.getElementById('scModelos')) pintarModelosTreino(false);
+        }
+    }
+    await abrindo;
 }
 // Copia a foto pra um arquivo novo seu (assim o repost não some se o original for apagado)
 async function copiarFotoStory(url) {
@@ -20841,22 +20858,14 @@ async function publicarStoryFundo(d) {
     state.storyEnviando = (state.storyEnviando || 0) + 1; pintarAnelEnvio();
     let imageUrl = d.repostUrl || null;
     try {
-        if (d.arquivo) {
-            imageUrl = await uploadImage('post-images', d.arquivo);
-            try {
-                const { data: mod } = await sb.functions.invoke('vision-tools', { body: { task: 'moderate', imageUrl } });
-                if (mod && mod.safe === false) {
-                    await removeStoredImage(imageUrl);
-                    toast(mod.reason || 'Essa foto não pode ser publicada.', 'err');
-                    return;
-                }
-            } catch (e) { console.warn('moderação indisponível', e); }
-        }
+        if (d.arquivo) imageUrl = await uploadImage('post-images', d.arquivo);
         const { data: story, error } = await sb.from('stories').insert({
             user_id: state.session.user.id, caption: d.caption, image_url: imageUrl,
             background_color: imageUrl ? null : d.bg, style: d.style,
         }).select().single();
         if (error) throw error;
+        // a IA confere a foto depois que o story já está no ar; se barrar, o story sai sozinho
+        if (d.arquivo && imageUrl) moderarStoryDepois(story.id, imageUrl);
         if (d.resumo) {
             lsSet('pulso-resumo-postado-' + state.session.user.id, d.resumo);
             const rs = document.getElementById('resumoSlot'); if (rs) rs.innerHTML = '';
@@ -20864,14 +20873,15 @@ async function publicarStoryFundo(d) {
         }
         if ((d.style.mencoes || []).length) sb.rpc('marcar_story_mencao', { sid: story.id }).then(() => {});
         if (d.style.avisar_post) sb.rpc('avisar_post_no_story', { pid: d.style.avisar_post }).then(() => {}, () => {});
+        state.storyEnviando = Math.max(0, state.storyEnviando - 1); d.feito = true;
+        pintarAnelEnvio();
+        if (state.view === 'feed') renderFeed();
+        else if (state.view === 'profile') renderProfile();
         updateStreak(hojeISO()).catch(() => {});
-        const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id });
+        const { data: stPts } = await sb.rpc('points_for_reference', { ref: story.id }).then(r => r, () => ({ data: 0 }));
         const ganhos = Number(stPts || 0);
         loadScore();
         toast(ganhos > 0 ? `+${ganhos} pontos! Story publicado` : 'Story publicado', 'ok');
-        state.storyEnviando = Math.max(0, state.storyEnviando - 1); d.feito = true;
-        if (state.view === 'feed') await renderFeed();
-        else if (state.view === 'profile') await renderProfile();
         return;
     } catch (err) {
         console.error(err);
@@ -20882,6 +20892,18 @@ async function publicarStoryFundo(d) {
         d.feito = false;
         pintarAnelEnvio();
     }
+}
+async function moderarStoryDepois(storyId, imageUrl) {
+    try {
+        const { data: mod } = await sb.functions.invoke('vision-tools', { body: { task: 'moderate', imageUrl } });
+        if (mod && mod.safe === false) {
+            await sb.from('stories').delete().eq('id', storyId);
+            removeStoredImage(imageUrl);
+            toast(mod.reason || 'Essa foto não pode ser publicada, então o story foi removido.', 'err');
+            if (state.view === 'feed') renderFeed();
+            else if (state.view === 'profile') renderProfile();
+        }
+    } catch (e) { console.warn('moderação indisponível', e); }
 }
 function pintarAnelEnvio() {
     document.querySelectorAll('.story-avatar.mine').forEach(el => el.classList.toggle('enviando', (state.storyEnviando || 0) > 0));
@@ -23486,22 +23508,29 @@ el$('composerSubmit').addEventListener('click', async () => {
             throw postErr;
         }
 
-        // A pontuação é calculada no servidor, o app só lê o resultado
-        const { data: servidorPts } = await sb.rpc('points_for_reference', { ref: created.id });
-        ptsToCredit = Number(servidorPts || 0);
-
-        let streakInfo = null;
-        let weeklyBonus = 0;
-        // Ofensiva estilo Duolingo: qualquer atividade do dia mantém a chama acesa
-        streakInfo = await updateStreak(today);
-        if (state.composerKind === 'workout') {
-            // Bônus de semana válida (só credita se atingiu 3 dias essa semana e ainda não creditou)
-            const { data: bonusData } = await sb.rpc('check_and_credit_weekly_bonus', { uid: state.session.user.id });
-            weeklyBonus = Number(bonusData || 0);
+        const eraTreino = post.kind === 'workout';
+        const querStory = eraTreino && created && state.composerStory;
+        const fotoStory = state.composerPhoto || null;
+        const ofensivaP = updateStreak(today).catch(() => null);
+        if (querStory) {
+            state.ofensivaPronta = ofensivaP; // o card do story espera a ofensiva de hoje antes de mostrar o número
+            // o editor do story abre já; pontos, ofensiva e placar se atualizam enquanto isso
+            state.depoisDoStory = () => { checarConquistas(false); setTimeout(() => perguntarEsforco(created.id), 900); };
+            limparRascunho('pCaption');
+            closeComposer();
+            publicarStoryTreino(created, fotoStory);
         }
 
-        await loadScore();
-        const eraTreino = post.kind === 'workout';
+        // A pontuação é calculada no servidor, o app só lê o resultado (tudo em paralelo)
+        const [servidorPts, streakInfo, weeklyBonus] = await Promise.all([
+            sb.rpc('points_for_reference', { ref: created.id }).then(r => r.data, () => 0),
+            // Ofensiva estilo Duolingo: qualquer atividade do dia mantém a chama acesa
+            ofensivaP,
+            // Bônus de semana válida (só credita se atingiu a meta da semana e ainda não creditou)
+            eraTreino ? sb.rpc('check_and_credit_weekly_bonus', { uid: state.session.user.id }).then(r => Number(r.data || 0), () => 0) : Promise.resolve(0),
+        ]);
+        ptsToCredit = Number(servidorPts || 0);
+        loadScore();
         if (eraTreino) {
             try {
                 const uso = JSON.parse(localStorage.getItem('pulso-uso-atividades') || '{}');
@@ -23509,14 +23538,12 @@ el$('composerSubmit').addEventListener('click', async () => {
                 localStorage.setItem('pulso-uso-atividades', JSON.stringify(uso));
             } catch (_) {}
         }
-        limparRascunho('pCaption');
-        const querStory = eraTreino && created && state.composerStory;
-        const fotoStory = state.composerPhoto || null;
-        closeComposer();
+        if (!querStory) {
+            limparRascunho('pCaption');
+            closeComposer();
+        }
         if (querStory) {
-            // o editor abre agora; conquistas e a pergunta do esforço esperam ele fechar
-            state.depoisDoStory = () => { checarConquistas(false); setTimeout(() => perguntarEsforco(created.id), 900); };
-            setTimeout(() => publicarStoryTreino(created, fotoStory), 250);
+            // conquistas e a pergunta do esforço esperam o editor fechar (state.depoisDoStory)
         } else {
             setTimeout(() => checarConquistas(false), 1200);
             if (eraTreino && created) setTimeout(() => perguntarEsforco(created.id), 1800);
@@ -23544,7 +23571,7 @@ el$('composerSubmit').addEventListener('click', async () => {
                 : mealAnalysisFailed === 'nao-comida' ? 'Refeição salva. A IA não reconheceu comida na foto, então essa não teve nota.'
                 : 'A análise do prato ficou pendente. Vou tentar de novo sozinho, e os pontos entram quando sair a nota.', 'ok');
         } else if (ptsToCredit === 0) {
-            const semFoto = state.composerKind === 'meal'
+            const semFoto = post.kind === 'meal'
                 ? 'Refeição registrada. Só as com foto analisada pela IA valem ponto.'
                 : 'Registrado! Hoje um treino seu já valeu mais pontos que esse.';
             toast(semFoto, 'ok');
