@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261318';
+const APP_VERSAO = '20261319';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -5062,7 +5062,8 @@ async function renderNotifications() {
         const cabNot = gNot !== grupoNotif ? `<div class="nt-grupo">${gNot}</div>` : '';
         grupoNotif = gNot;
         const quem = escapeHTML(n.actor_name || 'Alguém');
-        const autor = { id: n.actor_id, display_name: n.actor_name, username: n.actor_username, avatar_url: n.actor_avatar };
+        const autor = n.kind === 'aviso' && !n.actor_id ? { id: null, display_name: 'Pulso', username: 'pulso', avatar_url: null }
+            : { id: n.actor_id, display_name: n.actor_name, username: n.actor_username, avatar_url: n.actor_avatar };
         let texto, emo, act = '', extra = '';
         const mais = n.outros > 0 ? ` e mais ${n.outros} ${n.outros === 1 ? 'pessoa' : 'pessoas'}` : '';
         if (n.kind === 'comment') {
@@ -5174,6 +5175,11 @@ async function renderNotifications() {
             texto += convVencido
                 ? (stX ? `<span class="nt-acoes"><button class="btn-mini" data-act="x1-abrir" data-id="${m.x1 || ''}">Ver X1</button></span>` : '<span class="nt-acoes"><span class="nt-expirado">Convite encerrado</span></span>')
                 : `<span class="nt-acoes"><button class="btn-mini${n.kind === 'x1_convite' ? ' x1-nt-ver' : ''}" data-act="x1-abrir" data-id="${m.x1 || ''}">${n.kind === 'x1_convite' ? 'Ver convite' : 'Ver placar'}</button></span>`;
+        } else if (n.kind === 'aviso') {
+            // comunicado do Pulso (enviado pelo admin): título + texto; o toque abre o desafio, se tiver
+            const m = n.meta || {};
+            emo = '🏆'; texto = `<b>${escapeHTML(m.titulo || 'Pulso')}</b> ${escapeHTML(m.texto || '')}`;
+            if (n.challenge_id) act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         } else if (n.kind === 'desafio_convite') {
             emo = '🏆'; texto = `<b>${quem}</b> te convidou pro desafio <b>${escapeHTML(n.challenge_name || '')}</b>`;
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
@@ -5191,7 +5197,7 @@ async function renderNotifications() {
             act = ` data-act="open-challenge" data-id="${n.challenge_id}"`;
         }
         const varios = (n.atores || []).length > 1;
-        const avs = varios ? `<span class="nt-pilha">${avatarHTML(n.atores[1], 'sm')}${avatarHTML(n.atores[0], 'sm')}</span>` : avatarHTML(autor, 'sm');
+        const avs = varios ? `<span class="nt-pilha">${avatarHTML(n.atores[1], 'sm')}${avatarHTML(n.atores[0], 'sm')}</span>` : n.kind === 'aviso' && !n.actor_id ? '<span class="nt-pulso"><i></i></span>' : avatarHTML(autor, 'sm');
         return `${cabNot}<div class="notif-row${n.read_at ? '' : ' nova'}${varios ? ' agrupada' : ''}"${act}>
             <span class="notif-av">${avs}${marcaNotif(emo)}</span>
             <div class="notif-body">

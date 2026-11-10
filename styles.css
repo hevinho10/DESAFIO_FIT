@@ -7449,3 +7449,6 @@ img.foto-falhou{ opacity:0; }
 .tm-incentivo b{ color:var(--ink); }
 #gerSheet .nc-qtd{ display:flex; gap:8px; }
 #gerSheet .nc-qtd button{ flex:1; white-space:nowrap; padding:10px 8px; }
+/* aviso do Pulso no sininho: logo no lugar do avatar */
+.nt-pulso{ width:38px; height:38px; border-radius:50%; background:#000; border:1px solid var(--line); display:grid; place-items:center; }
+.nt-pulso i{ width:15px; height:15px; border-radius:50%; border:3px solid var(--vital); }
