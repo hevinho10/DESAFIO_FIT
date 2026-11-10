@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261317';
+const APP_VERSAO = '20261318';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -9353,24 +9353,28 @@ Se não der pra entender, use {"kind": null}.`);
 }
 
 // ---------- Narração do desafio ----------
+function fraseLocutorDesafio(ch, ranking) {
+    const pts = v => numBR(Math.round(Number(v || 0) * 10) / 10, 1) + ' pts';
+    const nome = r => String((r && r.display_name) || 'Alguém').split(' ')[0];
+    const dias = Math.max(0, Math.ceil((new Date(ch.ends_at) - Date.now()) / 86400000));
+    const prazo = dias <= 1 ? 'É o último dia!' : dias <= 3 ? `Faltam só ${dias} dias, cada registro conta agora. 🏁` : `Faltam ${dias} dias.`;
+    const eu = ranking.findIndex(r => r.user_id === state.session.user.id);
+    const p = i => Number((ranking[i] || {}).points || 0);
+    if (p(0) <= 0) return `O desafio está valendo e ninguém pontuou ainda. Quem registrar primeiro sai na frente! ${prazo}`;
+    if (eu < 0) return `${nome(ranking[0])} lidera com ${pts(p(0))}. ${prazo}`;
+    if (eu === 0) {
+        if (p(1) === p(0)) return `Empate no topo com ${pts(p(0))}. Quem registrar primeiro assume a liderança sozinho! ${prazo}`;
+        return `Você lidera com ${pts(p(0))}, ${pts(p(0) - p(1))} à frente do 2º lugar. Segura a ponta! 🏆 ${prazo}`;
+    }
+    const frente = ranking[eu - 1];
+    if (p(eu - 1) === p(eu)) return `Você está empatado com ${nome(frente)}, os dois com ${pts(p(eu))}. Um registro e você passa! ${prazo}`;
+    return `Você está em ${eu + 1}º, a ${pts(p(eu - 1) - p(eu))} de ${nome(frente)} (${eu}º lugar). ${dias > 3 ? 'Dá pra virar! ' : ''}${prazo}`;
+}
 async function hydrateNarracaoDesafio(ch, ranking) {
+    // locutor do desafio: frase montada na hora com o ranking da tela (sem IA: instantâneo, sempre certo, sem custo)
     const slot = document.getElementById('chNarracao');
     if (!slot || !ranking || ranking.length < 2 || ch.status !== 'ativo') return;
-    const chave = 'narr:' + ch.id;
-    let n = await iaGuardado(chave, hojeISO());
-    if (!n) {
-        const eu = ranking.findIndex(r => r.user_id === state.session.user.id);
-        const top = ranking.slice(0, 5).map((r, i) => `${i + 1}º ${String(r.display_name || '').split(' ')[0]}: ${Math.round(r.points)} pts`).join('; ');
-        const fim = Math.ceil((new Date(ch.ends_at) - Date.now()) / 86400000);
-        try {
-            n = await iaJSON(`Você narra o desafio "${ch.name}" do app Pulso, como um locutor animado mas respeitoso.
-Ranking atual: ${top}. Participantes: ${ranking.length}. Faltam ${fim} dias.
-Quem está lendo: ${eu >= 0 ? `${eu + 1}º lugar com ${Math.round(ranking[eu].points)} pts` : 'não está no ranking'}${eu > 0 ? `, a ${Math.round(ranking[eu - 1].points - ranking[eu].points)} pts de quem está na frente` : ''}.
-Nunca humilhe ninguém. Use só primeiros nomes e só os dados acima.
-Formato do JSON: {"texto": "2 frases no máximo, falando com quem está lendo no fim"}`);
-            await iaGuardar(chave, hojeISO(), n);
-        } catch (e) { return; }
-    }
+    const n = { texto: fraseLocutorDesafio(ch, ranking) };
     if (document.getElementById('chNarracao')) {
         slot.innerHTML = `<div class="ia-narracao curta">🎙️ ${escapeHTML(n.texto || '')}</div><button class="ia-narr-mais hidden" type="button">ler mais</button>`;
         const t = slot.querySelector('.ia-narracao'), b = slot.querySelector('.ia-narr-mais');
@@ -14391,7 +14395,7 @@ async function hydrateTotaisGrupo(ch) {
             <div><b>${numBR(valores.horas)}h</b><span>treinando</span></div>
             ${valores.km ? `<div><b>${numBR(valores.km, 1)}</b><span>km juntos</span></div>` : ''}
             ${valores.kg ? `<div><b>${numBR(valores.kg, 1)} kg</b><span>a menos, juntos</span></div>` : ''}
-            <div><b>🔥 ${numBR(t.ofensiva_soma || 0)}</b><span>dias de ofensiva somados</span></div>
+            ${t.ativos_hoje != null ? `<div><b>${numBR(t.ativos_hoje)} de ${numBR(t.pessoas || 0)}</b><span>registraram hoje</span></div>` : ''}
         </div>
         <p class="gm-nota">${valores.kg == null ? 'O total de kg aparece quando pelo menos 3 pessoas registrarem peso no período. ' : ''}Ninguém vê o peso de ninguém, só a soma.
         <button class="ia-link" data-act="peso-grupo-toggle" data-id="${ch.id}" data-sair="${optout ? '0' : '1'}">${optout ? 'Incluir meu peso no total' : 'Tirar meu peso do total'}</button></p>
