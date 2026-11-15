@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261321';
+const APP_VERSAO = '20261322';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -12799,7 +12799,12 @@ const ehErroCotaIA = e => /429|quota|cota|exceeded|Nenhum modelo/i.test(String((
 async function blobParaBase64(blob) {
     return await new Promise((ok, erro) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = erro; fr.readAsDataURL(blob); });
 }
-async function analisarPratoIA({ file = null, imageUrl = null, dica = '' }) {
+// nunca deixa a tela presa: se a IA demorar demais, desiste e a refeição fica pra analisar depois
+function comPrazo(promessa, ms, msg = 'demorou') {
+    let t; return Promise.race([promessa, new Promise((_, erro) => { t = setTimeout(() => erro(new Error(msg)), ms); })]).finally(() => clearTimeout(t));
+}
+async function analisarPratoIA(opc) { return comPrazo(analisarPratoIA0(opc), 45000, 'demorou'); }
+async function analisarPratoIA0({ file = null, imageUrl = null, dica = '' }) {
     let b64 = null;
     try {
         if (file) b64 = await imagemJpegParaIA(file, 1024, 0.85);

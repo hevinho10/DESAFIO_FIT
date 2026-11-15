@@ -85,14 +85,22 @@ async function chamarGemini(prompt: string, imgs: Img[], temperatura = 0.3) {
   const erros: string[] = [];
   for (const modelo of MODELOS) {
     for (let tentativa = 0; tentativa < 2; tentativa++) {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${CHAVE}`, {
+      // cada modelo tem até 25s pra responder; se travar, passa pro próximo
+      let r: Response;
+      try {
+        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${CHAVE}`, {
+        signal: AbortSignal.timeout(25000),
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }, ...imgs.map((i) => ({ inline_data: { mime_type: i.mime, data: i.b64 } }))] }],
           generationConfig: { temperature: temperatura, responseMimeType: "application/json" },
         }),
-      });
+        });
+      } catch (e) {
+        erros.push(`${modelo}: sem resposta (${(e as Error).name || "erro"})`);
+        break;
+      }
       if (r.ok) {
         const j = await r.json();
         const txt = j?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || "").join("") || "";
