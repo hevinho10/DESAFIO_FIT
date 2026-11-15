@@ -8,6 +8,7 @@
 //   geladeira → 3 refeições com o que tem em casa    { ideias:[{nome, tempo_min, como}], dica }
 //   coach     → Coach comenta a foto                 { resposta }
 //   macros    → estimativa do prato                  { proteina_g, carbo_g, gordura_g, kcal, confianca }
+//   refeicao  → nota + macros (pergunta = o que a pessoa disse que tem no prato, opcional)
 // Entrada: { task, imageUrl?  ou  imageBase64 + mimeType?  ou  imagens: [{ b64, mime }] (até 4), contexto?, pergunta? }
 // =====================================================================
 const CORS = {
@@ -50,9 +51,19 @@ function instrucao(task: string, contexto: string, pergunta: string): string {
       return `Você é nutricionista. Estime os macronutrientes do prato desta foto, considerando o tamanho visível das porções (prato comum de 25 cm). Some todos os alimentos visíveis. Se não for comida, devolva tudo null. ${base} Formato: {"proteina_g": número inteiro, "carbo_g": número inteiro, "gordura_g": número inteiro, "kcal": número inteiro, "confianca": "alta" ou "media" ou "baixa"}`;
     case "refeicao":
       return `Você é nutricionista de um app brasileiro de vida saudável. Avalie o prato desta foto numa chamada só: a nota e os macronutrientes.
+${pergunta ? `A PESSOA DESCREVEU O PRATO ASSIM: "${pergunta}". Confie nessa descrição para saber QUAIS alimentos são (ela sabe o que comeu); use a foto para ver as porções e o preparo. Se a descrição citar algo que não aparece, considere que está lá.` : ""}
+Comida brasileira é comum aqui, então pense nela primeiro. Cuidado com estas confusões:
+- tapioca: disco branco, fino e liso de goma, dobrado ou enrolado com recheio. NÃO é omelete (omelete é amarelo, de ovo) nem crepe.
+- crepioca: parecida com tapioca, mas amarelada (ovo com goma).
+- cuscuz nordestino: massa de milho amarela e granulada, em fatia ou bolo. Não é arroz nem polenta.
+- açaí: creme roxo escuro na tigela, com granola, banana ou leite em pó.
+- pão de queijo: bolinhas douradas. Baião de dois: arroz com feijão misturado e queijo coalho.
+- macaxeira/aipim (mandioca cozida ou frita), batata-doce, inhame, farofa, cuscuz, feijão tropeiro, paçoca de carne, carne de sol, frango desfiado, ovo mexido, queijo coalho, beiju.
+- marmita/prato feito: arroz, feijão, uma carne e salada, conte cada parte.
+Se não tiver certeza de um alimento, escolha o mais comum no Brasil com aquela aparência e não invente ingredientes que não aparecem.
 - score: nota de 0 a 10 (uma casa decimal) pra qualidade da refeição: equilíbrio (proteína, vegetais, carboidrato de qualidade), pouco ultraprocessado, fritura e açúcar, e porção razoável. Prato colorido e equilibrado fica entre 8 e 10; ultraprocessado ou só carboidrato fica abaixo de 5.
-- analysis: em português do Brasil, sem travessão, gentil. Se a nota for 8 ou mais: só 1 frase elogiando o ponto forte, SEM dica nem sugestão. Se a nota for menor que 8: o ponto forte e uma dica prática curta (2 frases no máximo). Nunca sugira dieta restritiva.
-- items: até 6 alimentos que aparecem, nomes curtos.
+- analysis: em português do Brasil, sem travessão, gentil, citando o alimento certo pelo nome. Se a nota for 7 ou mais: só 1 frase elogiando o ponto forte, SEM dica nem sugestão. Se a nota for menor que 7: o ponto forte e uma dica prática curta (2 frases no máximo). Nunca sugira dieta restritiva.
+- items: até 6 alimentos que aparecem, nomes curtos e em português do Brasil.
 - macros: estime pela porção visível (prato comum de 25 cm), somando tudo: proteina_g, carbo_g, gordura_g, kcal (números inteiros) e confianca ("alta", "media" ou "baixa").
 Se não for comida, devolva eh_comida false e score null. ${base} Formato: {"eh_comida": true, "score": 8.5, "analysis": "...", "items": ["..."], "proteina_g": 0, "carbo_g": 0, "gordura_g": 0, "kcal": 0, "confianca": "media"}`;
     case "ficha":
@@ -123,7 +134,7 @@ Deno.serve(async (req) => {
     if (!lista.length && b64) lista.push({ mime, b64 });
     if (!lista.length) return resp({ error: "sem foto" }, 400);
 
-    const out = await chamarGemini(prompt, lista, t === "ficha" ? 0.1 : 0.3);
+    const out = await chamarGemini(prompt, lista, t === "ficha" ? 0.1 : t === "refeicao" ? 0.2 : 0.3);
     return resp(out);
   } catch (e) {
     console.error("vision-tools erro:", e);

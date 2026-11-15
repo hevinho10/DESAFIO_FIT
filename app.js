@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261320';
+const APP_VERSAO = '20261321';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -259,8 +259,8 @@ function workoutPoints(type, duration, hasPhoto) {
 const RX_SUGESTAO = /(^|\s)(para|pra) (deixar|completar|equilibrar|melhorar)|recomend|vale a pena|seria bom|seria legal|melhor seria|ainda mais|que tal|voc[eê] (pode|poderia)|experimente|sugest|considere|tente |uma dica|se quiser|adicione|adicionar|inclua|incluir|acrescent|faltou|falta |poderia|trocar|substitu|da pr[oó]xima/i;
 function textoIA(txt, nota) {
     if (!txt) return txt;
-    // nota 8 ou mais: só o elogio, sem dica (dica só quando a nota for menor que 8)
-    if (!(Number(nota) >= 8)) return txt;
+    // nota 7 ou mais: só o elogio, sem dica (dica só quando a nota for menor que 7)
+    if (!(Number(nota) >= 7)) return txt;
     const frases = String(txt).match(/[^.!?]+[.!?]*/g) || [txt];
     const boas = frases.filter(f => !RX_SUGESTAO.test(f)).map(f => f.trim()).filter(Boolean);
     return (boas.length ? boas : [frases[0].trim()]).join(' ');
@@ -7940,7 +7940,7 @@ function renderPost(p) {
            </button>`;
 
     return `
-        <article class="post" data-post-id="${p.id}"${musPost ? ` data-mus-id="${escapeHTML(String(musPost.id))}" data-mus-ini="${Number(musPost.ini) || 0}" data-mus-dur="${Number(musPost.dur) || MUSICA_TRECHO}"` : ''} data-visibility="${p.visibility || 'public'}" data-coment-off="${p.comments_off ? '1' : '0'}" data-fixado="${p.pinned_at ? '1' : '0'}">
+        <article class="post" data-post-id="${p.id}" data-kind="${p.kind}" data-tem-foto="${p.image_url ? '1' : '0'}"${musPost ? ` data-mus-id="${escapeHTML(String(musPost.id))}" data-mus-ini="${Number(musPost.ini) || 0}" data-mus-dur="${Number(musPost.dur) || MUSICA_TRECHO}"` : ''} data-visibility="${p.visibility || 'public'}" data-coment-off="${p.comments_off ? '1' : '0'}" data-fixado="${p.pinned_at ? '1' : '0'}">
             <div class="post-head">
                 <span data-act="view-user" data-uid="${p.user_id}" class="post-head-link">${avatarHTML(user, 'sm')}</span>
                 <div class="post-meta" data-act="view-user" data-uid="${p.user_id}">
@@ -12799,7 +12799,7 @@ const ehErroCotaIA = e => /429|quota|cota|exceeded|Nenhum modelo/i.test(String((
 async function blobParaBase64(blob) {
     return await new Promise((ok, erro) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = erro; fr.readAsDataURL(blob); });
 }
-async function analisarPratoIA({ file = null, imageUrl = null }) {
+async function analisarPratoIA({ file = null, imageUrl = null, dica = '' }) {
     let b64 = null;
     try {
         if (file) b64 = await imagemJpegParaIA(file, 1024, 0.85);
@@ -12810,7 +12810,8 @@ async function analisarPratoIA({ file = null, imageUrl = null }) {
     } catch (_) { b64 = null; }
     let erroCota = false;
     try {
-        const body = b64 ? { task: 'refeicao', imageBase64: b64, mimeType: 'image/jpeg' } : { task: 'refeicao', imageUrl };
+        const pergunta = String(dica || '').trim().slice(0, 300);
+        const body = b64 ? { task: 'refeicao', imageBase64: b64, mimeType: 'image/jpeg', pergunta } : { task: 'refeicao', imageUrl, pergunta };
         const { data: r, error } = await sb.functions.invoke('vision-tools', { body });
         if (!error && r && !r.error) {
             if (r.eh_comida === false || r.score == null) return { score: null, naoComida: true };
@@ -16079,6 +16080,53 @@ function closeMeasureSheet() {
 }
 
 // Resultado da análise do prato pela IA
+// "Ajustar prato": a pessoa conta o que tem no prato e a IA refaz a análise da mesma foto (até 2 vezes; pontos não mudam)
+async function abrirAjustarPrato(postId, itensAtuais = [], refStory = null) {
+    const { data: p } = await sb.from('posts').select('id, image_url, meta, caption').eq('id', postId).eq('user_id', state.session.user.id).maybeSingle();
+    if (!p || !p.image_url) { toast('Essa refeição não tem foto pra analisar', 'err'); return; }
+    const feitos = Number((p.meta || {}).ajustes || 0);
+    if (feitos >= 2) { toast('Você já ajustou esse prato 2 vezes', 'err'); return; }
+    const itens = (itensAtuais.length ? itensAtuais : ((p.meta || {}).itens || [])).slice(0, 6);
+    const old = document.getElementById('ajustarPrato'); if (old) old.remove();
+    const sheet = document.createElement('div');
+    sheet.id = 'ajustarPrato'; sheet.className = 'sheet on';
+    sheet.innerHTML = `<div class="sheet-card ap-card"><div class="sheet-handle"></div>
+        <h3 class="sheet-title">Conte o que tem no prato</h3>
+        <p class="ap-sub">Escreva do seu jeito. A IA olha a foto de novo com essa dica e refaz a nota e os macros.</p>
+        <textarea id="apTexto" class="ap-campo" maxlength="200" rows="3" placeholder="Ex.: tapioca com frango e queijo"></textarea>
+        ${itens.length ? `<div class="ap-sug">${itens.map(i => `<button type="button" data-it="${escapeHTML(i)}">+ ${escapeHTML(i)}</button>`).join('')}</div>` : ''}
+        <p class="ap-nota">Dá pra ajustar até 2 vezes por refeição${feitos ? ` (falta ${2 - feitos})` : ''}. Os pontos não mudam.</p>
+        <button class="ap-bt v" id="apOk">Analisar de novo</button>
+        <button class="ap-bt" id="apCanc">Cancelar</button></div>`;
+    document.body.appendChild(sheet);
+    const tx = sheet.querySelector('#apTexto');
+    setTimeout(() => tx.focus(), 250);
+    sheet.querySelectorAll('[data-it]').forEach(b => b.onclick = () => {
+        const v = tx.value.trim(); tx.value = v ? `${v}, ${b.dataset.it.toLowerCase()}` : b.dataset.it; b.remove(); tx.focus();
+    });
+    const fechar = () => sheet.remove();
+    sheet.addEventListener('click', e => { if (e.target === sheet) fechar(); });
+    sheet.querySelector('#apCanc').onclick = fechar;
+    sheet.querySelector('#apOk').onclick = async () => {
+        const dica = tx.value.trim();
+        if (dica.length < 3) { toast('Conte o que tem no prato', 'err'); tx.focus(); return; }
+        const bt = sheet.querySelector('#apOk'); bt.disabled = true; bt.textContent = 'Analisando...';
+        let an = null;
+        try { an = await analisarPratoIA({ imageUrl: p.image_url, dica }); } catch (e) { an = null; }
+        if (!an || an.score == null) {
+            bt.disabled = false; bt.textContent = 'Analisar de novo';
+            toast('Não consegui analisar agora. Tenta de novo em instantes.', 'err'); return;
+        }
+        an.analysis = textoIA(an.analysis, an.score);
+        const meta = { ...(p.meta || {}), ajustes: feitos + 1, ajuste_texto: dica, ...(an.items && an.items.length ? { itens: an.items } : {}), ...(an.macros ? { macros: an.macros } : {}) };
+        const { error } = await sb.from('posts').update({ meal_score: an.score, meal_analysis: an.analysis || null, meta }).eq('id', postId).eq('user_id', state.session.user.id);
+        if (error) { bt.disabled = false; bt.textContent = 'Analisar de novo'; toast(msgErro(error), 'err'); return; }
+        fechar();
+        an.ajustado = true;
+        showMealResult(an, 0, false, postId, p.image_url, refStory);
+        if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile();
+    };
+}
 function showMealResult(an, pts, limitReached, postId = null, imageUrl = null, refStory = null) {
     const cor = an.score >= 8 ? 'var(--vital)' : an.score >= 5 ? 'var(--gold)' : 'var(--effort)';
     let overlay = document.getElementById('mealResult');
@@ -16097,7 +16145,8 @@ function showMealResult(an, pts, limitReached, postId = null, imageUrl = null, r
             <p class="mr-analysis">${escapeHTML(an.analysis || '')}</p>
             ${postId && imageUrl ? `<div id="mrMacros">${macrosHTML(null)}</div>` : ''}
             ${an.items && an.items.length ? `<div class="mr-items">${an.items.map(i => `<span class="mr-item">${escapeHTML(i)}</span>`).join('')}</div>` : ''}
-            ${limitReached
+            ${an.ajustado ? '<p class="mr-ajustado">✓ Ajustado por você</p>' : postId && imageUrl ? '<button class="mr-ajustar" id="mrAjustar">Ajustar prato ›</button>' : ''}
+            ${an.ajustado ? '' : limitReached
                 ? `<div class="mr-limit-note">Você já registrou essa refeição hoje, então essa não somou pontos. A análise continua sendo sua.</div>`
                 : `<div class="mr-points">+${pts} ${pts === 1 ? 'ponto' : 'pontos'}</div>`}
             ${refStory ? `<button class="mr-story" id="mealResultStory">Ajustar e postar no story (24h)</button>
@@ -16111,6 +16160,8 @@ function showMealResult(an, pts, limitReached, postId = null, imageUrl = null, r
     overlay.onclick = e => { if (e.target === overlay) close(); };
     document.getElementById('mealResultClose').onclick = close;
     if (refStory) document.getElementById('mealResultStory').onclick = () => { close(); setTimeout(() => abrirStoryRefeicao(refStory), 200); };
+    const aj = document.getElementById('mrAjustar');
+    if (aj) aj.onclick = () => { close(); abrirAjustarPrato(postId, an.items || [], refStory); };
     if (postId && imageUrl && an.macros) { const box = document.getElementById('mrMacros'); if (box) box.innerHTML = macrosHTML(an.macros); }
     else if (postId && imageUrl) estimarMacros(postId, imageUrl).then(m => {
         const box = document.getElementById('mrMacros'); if (!box) return;
@@ -16740,6 +16791,7 @@ document.addEventListener('click', async e => {
     if (act === 'ia-nota') { btn.classList.toggle('aberta'); return; }
     if (act === 'enviar-post') { abrirEnviarPost(btn); return; }
     if (act === 'post-ao-story') { hidePostMenu(); adicionarPostAoStory(btn.dataset.id); return; }
+    if (act === 'ajustar-prato') { hidePostMenu(); abrirAjustarPrato(btn.dataset.id); return; }
     if (act === 'meta-sug-nao') { lsSet(btn.dataset.k, '1'); const c = btn.closest('.meta-sug'); if (c) c.remove(); return; }
     if (act === 'meta-sug-sim') {
         const nova = Number(btn.dataset.meta);
@@ -18086,6 +18138,7 @@ function showPostMenu(postId, anchor) {
         <p class="mf-dica">${DICA_VIS[currentVis] || ''}</p>
         <div class="mf-lista">
         <button class="post-menu-item mf-destaque" data-act="post-ao-story" data-id="${postId}"><svg class="pm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 2.6"/><path d="M12 8.5v7M8.5 12h7"/></svg>Adicionar ao story</button>
+        ${postEl && postEl.dataset.kind === 'meal' && postEl.dataset.temFoto === '1' ? `<button class="post-menu-item" data-act="ajustar-prato" data-id="${postId}">${icon('editar')}Ajustar prato</button>` : ''}
         <button class="post-menu-item" data-act="edit-post" data-id="${postId}">${icon('editar')}Editar</button>
         <button class="post-menu-item" data-act="toggle-comentarios-post" data-id="${postId}">${icon('comentario')}${postEl && postEl.dataset.comentOff === '1' ? 'Ativar comentários' : 'Desativar comentários'}</button>
         <button class="post-menu-item" data-act="fixar-post" data-id="${postId}" data-fixar="${postEl && postEl.dataset.fixado === '1' ? '0' : '1'}"><svg class="pm-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 5 4 4H6l4-4zM12 13v7"/></svg>${postEl && postEl.dataset.fixado === '1' ? 'Desafixar do perfil' : 'Fixar no perfil'}</button>
@@ -23473,12 +23526,12 @@ el$('composerSubmit').addEventListener('click', async () => {
             if (imageUrl) {
                 btn.textContent = 'Analisando o prato...';
                 try {
-                    const an = await analisarPratoIA({ file: state.composerPhoto, imageUrl });
+                    const an = await analisarPratoIA({ file: state.composerPhoto, imageUrl, dica: post.caption || '' });
                     if (!an || an.score == null) throw new Error(an && an.naoComida ? 'nao-comida' : 'sem nota');
                     post.meal_score = an.score;
                     an.analysis = textoIA(an.analysis, an.score);
                     post.meal_analysis = an.analysis || null;
-                    if (an.macros) post.meta = { ...(post.meta || {}), macros: an.macros };
+                    post.meta = { ...(post.meta || {}), ...(an.macros ? { macros: an.macros } : {}), ...(an.items && an.items.length ? { itens: an.items } : {}) };
                     mealFeedback = an;
                 } catch (e) {
                     console.warn('análise do prato indisponível', e);
