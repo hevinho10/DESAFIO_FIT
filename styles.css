@@ -4836,7 +4836,7 @@ button.enq-total{ text-decoration:underline; text-underline-offset:2px; }
 .st-gota span i{ display:block; font-style:normal; font-size:14px; font-weight:600; opacity:.85; }
 .st-fogo{ display:inline-block; margin-top:14px; padding:10px 16px; border-radius:16px; background:rgba(255,122,77,.12); font-size:15px; }
 .st-fogo b{ font-size:20px; }
-.st-card-final{ border-radius:26px; padding:20px 18px 16px; background:linear-gradient(180deg,#141827,#0B0D14); border:1px solid rgba(255,255,255,.1); box-shadow:0 20px 50px rgba(0,0,0,.4); }
+.st-card-final{ display:flex; justify-content:center; }
 .st-card-final > small{ display:block; font-size:12px; color:#9AA3B5; text-transform:uppercase; letter-spacing:.4px; }
 .st-fim-num{ display:flex; justify-content:space-around; margin:12px 0 6px; }
 .st-fim-num b{ display:block; font-size:30px; font-weight:800; }
@@ -7452,3 +7452,20 @@ img.foto-falhou{ opacity:0; }
 /* aviso do Pulso no sininho: logo no lugar do avatar */
 .nt-pulso{ width:38px; height:38px; border-radius:50%; background:#000; border:1px solid var(--line); display:grid; place-items:center; }
 .nt-pulso i{ width:15px; height:15px; border-radius:50%; border:3px solid var(--vital); }
+
+/* ===== Minha semana no Pulso (story v2): só a semana, frente e costas ===== */
+.sem2 .cs-per{ font-size:12px; color:rgba(255,255,255,.6); margin-top:-4px; }
+.sem2 .cs-dias{ display:flex; justify-content:center; gap:6px; margin:4px 0 2px; }
+.sem2 .cs-dias i{ width:26px; height:26px; border-radius:50%; display:grid; place-items:center; font-style:normal; font-size:10.5px; font-weight:700; border:1.5px solid rgba(255,255,255,.16); color:rgba(255,255,255,.45); }
+.sem2 .cs-dias i.on{ background:#10B981; border-color:#10B981; color:#04140d; }
+.sem2 .cs-dois{ display:flex; justify-content:center; gap:8px; height:210px; }
+.sem2 .cs-dois .cs-corpo{ height:210px; margin:0; }
+.sem2 .cs-dois .cs-corpo .mc-svg{ height:210px; }
+.cs-leg{ display:flex; justify-content:center; gap:12px; font-size:11px; color:rgba(255,255,255,.6); }
+.cs-leg i{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+.st-corpo-svg.dois{ gap:10px; height:min(44vh,380px); }
+.st-corpo .cs-leg{ margin-top:10px; }
+.st-coach{ margin-top:18px; padding:12px 14px; border-radius:14px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); text-align:left; max-width:320px; }
+.st-coach small{ font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.5); }
+.st-coach p{ font-size:13.5px; margin:4px 0 0; color:rgba(255,255,255,.85); }
+.st-card-final .card-story{ position:static; transform:none; width:100%; max-width:340px; }

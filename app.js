@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261319';
+const APP_VERSAO = '20261320';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -10220,6 +10220,29 @@ function semanaRetro(base = new Date()) {
     return { ini, fim, fimX, chave: isoDe(ini) };
 }
 const fmtDiaMes = d => d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+// corpo da semana: só os músculos treinados naquela semana, pela quantidade de treinos (1x verde, 2x amarelo, 3x+ laranja)
+function intsDaSemana(treinos) {
+    const soma = {};
+    (treinos || []).forEach(t => {
+        const m = calcularMapaMuscular([t], +new Date(t.created_at) + 1000);
+        // conta o músculo principal do exercício; os de apoio só quando o treino não tem principal (ex.: corrida)
+        let alvo = Object.entries(m).filter(([s, v]) => NOME_MUSC[s] && v.semana >= 1);
+        if (!alvo.length) alvo = Object.entries(m).filter(([s, v]) => NOME_MUSC[s] && v.semana > 0);
+        alvo.forEach(([s]) => { soma[s] = (soma[s] || 0) + 1; });
+    });
+    const ints = {};
+    Object.entries(soma).forEach(([s, n]) => { ints[s] = n >= 3 ? 'alta' : n >= 2 ? 'quente' : 'media'; });
+    return { ints, soma };
+}
+// frase do story: sempre positiva (vai pra todo mundo ver); a análise honesta fica só na retrospectiva
+function fraseStorySemana(r) {
+    const t = r.treinos, d = r.dias;
+    if (r.recordes.length) return `${r.recordes.length} ${r.recordes.length === 1 ? 'recorde' : 'recordes'} na semana. Mais forte que nunca.`;
+    if (t >= 5) return `${t} treinos em ${d} ${d === 1 ? 'dia' : 'dias'}. Semana de quem leva a sério.`;
+    if (t >= 3) return `${t} treinos na semana. Constância é o que faz a diferença.`;
+    if (t === 2) return 'Dois treinos na semana. Bora subir esse número na próxima.';
+    return 'Um treino feito é melhor que nenhum. Semana que vem tem mais.';
+}
 async function calcularSemana(sem) {
     const uid = state.session.user.id;
     const iniAnt = new Date(sem.ini); iniAnt.setDate(iniAnt.getDate() - 7);
@@ -10247,7 +10270,8 @@ async function calcularSemana(sem) {
     const favorita = Object.entries(fav).sort((a, b) => b[1] - a[1])[0] || null;
     // mapa do corpo como estava no fim da semana
     const M = calcularMapaMuscular(todos.filter(p => p.kind === 'workout'), +sem.fimX);
-    return { sem, treinos: treinos.length, dias: dias.size, porDia, minutos, km: Math.round(km * 10) / 10, recordes, volume, maisLongo,
+    const { ints: intsSem, soma: somaSem } = intsDaSemana(treinos);
+    return { intsSem, somaSem, sem, treinos: treinos.length, dias: dias.size, porDia, minutos, km: Math.round(km * 10) / 10, recordes, volume, maisLongo,
         aguaMedia, aguaMeta: agua.goal_ml || 2000, ofensiva: (of && of.current_streak) || 0, antes: (ant || []).length, favorita, M };
 }
 async function fraseSemana(r) {
@@ -10276,7 +10300,9 @@ async function abrirSemana() {
     r.frase = await fraseSemana(r);
     state.semana = r;
     const sexo = sexoCorpo(state.profile);
-    const { ints, quentes, frios } = resumoMapa(r.M);
+    const ints = r.intsSem;
+    const quentes = MUSC_PRINCIPAIS.filter(s => (r.somaSem[s] || 0) >= 1).sort((a, b) => r.somaSem[b] - r.somaSem[a]).map(s => NOME_MUSC[s]);
+    const frios = MUSC_PRINCIPAIS.filter(s => !r.somaSem[s]);
     const h = Math.floor(r.minutos / 60), mi = r.minutos % 60;
     const tempo = h ? `${h}h${mi ? String(mi).padStart(2, '0') : ''}` : `${mi} min`;
     const LETRAS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
@@ -10290,17 +10316,15 @@ async function abrirSemana() {
             <div class="st-dias">${r.porDia.map((on, i) => `<i class="${on ? 'on' : ''}" style="--d:${i * 90}ms"><b>${LETRAS[i]}</b></i>`).join('')}</div>
             <p>${tempo} de atividade em ${r.dias} ${r.dias === 1 ? 'dia' : 'dias'}${r.km ? ` · ${br(r.km)} km` : ''}</p>
             ${r.treinos ? `<span class="st-tag ${dif > 0 ? 'up' : dif < 0 ? 'down' : ''}">${dif > 0 ? `+${dif} que a semana passada` : dif < 0 ? `${dif} que a semana passada` : 'igual à semana passada'}</span>` : ''}</div>`,
-        `<div class="st st-corpo"><small>Seu corpo esta semana</small><div class="st-corpo-svg">${svgCorpo(sexo, 'F', ints)}</div>
-            <div class="st-linhas">${quentes.length ? `<p>🔥 <b>${escapeHTML(quentes.slice(0, 3).join(', '))}</b> em chamas</p>` : '<p>Nenhum músculo aceso essa semana</p>'}${frios.length ? `<p>❄️ <b>${escapeHTML(frios.slice(0, 2).map(s => NOME_MUSC[s]).join(' e '))}</b> pedindo atenção</p>` : ''}</div></div>`,
+        `<div class="st st-corpo"><small>Seu corpo esta semana</small><div class="st-corpo-svg dois">${svgCorpo(sexo, 'F', ints)}${svgCorpo(sexo, 'C', ints)}</div>
+            ${LEGENDA_SEMANA}
+            <div class="st-linhas">${quentes.length ? `<p>🔥 Mais treinados: <b>${escapeHTML(quentes.slice(0, 3).join(', '))}</b></p>` : '<p>Nenhum músculo treinado essa semana</p>'}${frios.length && quentes.length ? `<p>❄️ Ficou de fora: <b>${escapeHTML(frios.slice(0, 2).map(s => NOME_MUSC[s]).join(' e '))}</b></p>` : ''}</div></div>`,
         r.recordes.length ? `<div class="st st-rec"><small>Recordes da semana</small><div class="st-trofeu">🏆</div><div class="st-rec-lista">${r.recordes.slice(0, 4).map((x, i) => `<div style="--d:${i * 140}ms"><span>${escapeHTML(x.ex)}</span><b>${kg(x.kg)} kg</b></div>`).join('')}</div><p>Mais forte que nunca.</p></div>`
         : r.maisLongo ? `<div class="st st-rec"><small>Seu treino mais forte</small><div class="st-trofeu">⚡</div><h2>${escapeHTML(r.maisLongo.activity_type || 'Treino')}</h2><p>${r.maisLongo.duration_min || 0} min${r.maisLongo.meta && r.maisLongo.meta.volume ? ` · ${Number(r.maisLongo.meta.volume).toLocaleString('pt-BR')} kg levantados` : ''}</p></div>` : '',
         `<div class="st st-agua"><small>Água e ofensiva</small><div class="st-gota" style="--p:${pctAgua}%"><span>${br(r.aguaMedia / 1000)}<i>L/dia</i></span></div><p>${pctAgua}% da sua meta de ${br(r.aguaMeta / 1000)} L</p>
-            ${r.ofensiva > 1 ? `<div class="st-fogo">🔥 <b>${r.ofensiva}</b> dias de ofensiva</div>` : ''}</div>`,
-        `<div class="st st-fim"><div class="st-card-final">
-            <small>Minha semana no Pulso</small>
-            <div class="st-fim-num"><div><b>${r.treinos}</b><span>treinos</span></div><div><b>${tempo}</b><span>ativo</span></div><div><b>${r.recordes.length}</b><span>recordes</span></div></div>
-            <div class="st-fim-corpo">${svgCorpo(sexo, 'F', ints, { brilho: false })}</div>
-            <p>“${escapeHTML(r.frase)}”</p><b class="cs-marca">Pulso.</b></div>
+            ${r.ofensiva > 1 ? `<div class="st-fogo">🔥 <b>${r.ofensiva}</b> dias de ofensiva</div>` : ''}
+            ${r.frase ? `<div class="st-coach"><small>Coach Pulso · só você vê</small><p>${escapeHTML(r.frase)}</p></div>` : ''}</div>`,
+        `<div class="st st-fim"><div class="st-card-final">${htmlCardStory({ card: cardSemana(r) })}</div>
             <button class="btn-primary st-btn" data-act="semana-story">Postar no story</button>
             <button class="st-link" data-st-plano>Ver o plano da próxima semana</button></div>`,
     ].filter(Boolean);
@@ -10336,12 +10360,16 @@ async function abrirSemana() {
     tela.addEventListener('pointerup', () => { clearTimeout(segura); if (pausado) setTimeout(seguir, 0); });
     ir(0);
 }
+const LEGENDA_SEMANA = '<div class="cs-leg"><span><i style="background:#10B981"></i>1x</span><span><i style="background:#FACC15"></i>2x</span><span><i style="background:#F97316"></i>3x ou mais</span></div>';
+function cardSemana(r) {
+    return { tipo: 'semana', v: 2, treinos: r.treinos, minutos: r.minutos, recordes: r.recordes.length, dias: r.dias,
+        porDia: r.porDia.map(x => x ? 1 : 0), frase: fraseStorySemana(r), sexo: sexoCorpo(state.profile),
+        ints: r.intsSem, ini: isoDe(r.sem.ini), fim: isoDe(r.sem.fim) };
+}
 async function postarSemanaNoStory(btn) {
     const r = state.semana; if (!r) return;
-    const { ints } = resumoMapa(r.M);
     const t = document.getElementById('semTela'); if (t) t.remove(); document.body.style.overflow = '';
-    abrirEditorComCard({ card: { tipo: 'semana', treinos: r.treinos, minutos: r.minutos, recordes: r.recordes.length,
-        ofensiva: r.ofensiva, frase: r.frase, sexo: sexoCorpo(state.profile), ints: intsCompactas(ints), ini: isoDe(r.sem.ini), fim: isoDe(r.sem.fim) } });
+    abrirEditorComCard({ card: cardSemana(r) });
 }
 // aviso no feed: domingo a partir das 17h e segunda/terça, até ver
 async function hydrateSemanaFeed() {
@@ -18857,6 +18885,23 @@ function htmlCardStory(st, comFoto) {
             <small class="cs-rot">Meu corpo esta semana</small>
             ${corpoParaStory(c.ints || {}, c.sexo === 'F' ? 'F' : 'M')}
             ${(c.quentes || []).length ? `<p class="cs-q">🔥 ${escapeHTML(c.quentes.join(' · '))}</p>` : ''}
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
+    if (c.tipo === 'semana' && c.v === 2) {
+        const h = Math.floor((c.minutos || 0) / 60), m = (c.minutos || 0) % 60;
+        const sx = c.sexo === 'F' ? 'F' : 'M';
+        const L = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+        const per = c.ini && c.fim ? (() => { const a = new Date(c.ini + 'T12:00'), b = new Date(c.fim + 'T12:00');
+            return a.getMonth() === b.getMonth() ? `${a.getDate()} a ${b.getDate()} de ${b.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}` : `${fmtDiaMes(a)} a ${fmtDiaMes(b)}`; })() : '';
+        return `<div class="card-story semana-cs sem2${comFoto ? ' sobre-foto' : ''}">
+            <small class="cs-rot">Minha semana no Pulso</small>
+            ${per ? `<span class="cs-per">${per}</span>` : ''}
+            <div class="cs-dias">${(c.porDia || []).map((on, i) => `<i class="${on ? 'on' : ''}">${L[i]}</i>`).join('')}</div>
+            <div class="cs-stats"><div><b>${c.treinos || 0}</b><small>${c.treinos === 1 ? 'treino' : 'treinos'}</small></div><div><b>${h ? `${h}h${m ? String(m).padStart(2, '0') : ''}` : `${m}min`}</b><small>ativo</small></div>${c.recordes ? `<div><b>${c.recordes}</b><small>${c.recordes === 1 ? 'recorde' : 'recordes'}</small></div>` : `<div><b>${c.dias || 0}</b><small>${c.dias === 1 ? 'dia' : 'dias'}</small></div>`}</div>
+            <div class="cs-dois">${corpoParaStory(c.ints || {}, sx, 'F')}${corpoParaStory(c.ints || {}, sx, 'C')}</div>
+            ${LEGENDA_SEMANA}
+            ${c.frase ? `<p>“${escapeHTML(c.frase)}”</p>` : ''}
             <b class="cs-marca">Pulso.</b>
         </div>`;
     }
