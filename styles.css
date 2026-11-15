@@ -7482,3 +7482,22 @@ img.foto-falhou{ opacity:0; }
 .ap-bt{ display:block; width:100%; margin-top:8px; padding:12px; border-radius:12px; border:1px solid var(--line); background:transparent; font:inherit; font-size:14px; font-weight:600; color:var(--ink-dim); cursor:pointer; }
 .ap-bt.v{ border-color:rgba(16,185,129,.6); color:var(--vital); }
 .ap-bt:disabled{ opacity:.6; }
+/* Ajustar prato v2: lista do que a IA viu */
+.ap-card{ padding-bottom:calc(18px + env(safe-area-inset-bottom)); }
+.ap-lista{ margin-top:14px; border:1px solid var(--line); border-radius:16px; overflow:hidden; max-height:46vh; overflow-y:auto; }
+.ap-linha{ display:flex; align-items:center; gap:6px; min-height:50px; padding:0 8px 0 4px; border-bottom:1px solid var(--line); }
+.ap-linha:last-child{ border-bottom:0; }
+.ap-nome{ flex:1; min-width:0; text-align:left; background:none; border:0; font:inherit; font-size:15px; color:var(--ink); padding:14px 10px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ap-nome s{ color:var(--ink-faint); margin-right:8px; }
+.ap-nome b{ color:var(--vital); font-weight:600; }
+.ap-linha.fora .ap-nome{ color:var(--ink-faint); text-decoration:line-through; cursor:default; }
+.ap-ico{ width:32px; height:32px; flex:none; border-radius:50%; display:grid; place-items:center; background:transparent; border:1px solid var(--line); color:var(--ink-faint); cursor:pointer; padding:0; }
+.ap-ico.leve{ border-color:transparent; color:var(--ink-dim); }
+.ap-ico svg{ width:15px; height:15px; }
+.ap-linha.ap-editando{ background:rgba(16,185,129,.06); padding:8px 10px; gap:10px; }
+.ap-input{ flex:1; min-width:0; border:1px solid rgba(16,185,129,.6); border-radius:11px; padding:9px 12px; font:inherit; font-size:15px; color:var(--ink); background:transparent; }
+.ap-input:focus{ outline:none; border-color:var(--vital); }
+.ap-ok{ background:none; border:0; font:inherit; font-size:13px; font-weight:700; color:var(--vital); padding:8px 4px; cursor:pointer; }
+.ap-add{ display:block; width:100%; text-align:left; background:none; border:0; font:inherit; font-size:14px; font-weight:600; color:var(--vital); padding:14px; cursor:pointer; }
+.ap-resumo{ font-size:12px; color:var(--ink-faint); text-align:center; margin:12px 0 2px; }
+.ap-bt.v:disabled{ opacity:.4; }

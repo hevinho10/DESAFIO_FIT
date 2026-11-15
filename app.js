@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261322';
+const APP_VERSAO = '20261323';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -16085,52 +16085,97 @@ function closeMeasureSheet() {
 }
 
 // Resultado da análise do prato pela IA
-// "Ajustar prato": a pessoa conta o que tem no prato e a IA refaz a análise da mesma foto (até 2 vezes; pontos não mudam)
+// "Ajustar prato": lista do que a IA viu; a pessoa troca, remove ou acrescenta alimentos e a IA refaz a análise da mesma foto
+// (até 2 vezes por refeição; os pontos não mudam)
 async function abrirAjustarPrato(postId, itensAtuais = [], refStory = null) {
     const { data: p } = await sb.from('posts').select('id, image_url, meta, caption').eq('id', postId).eq('user_id', state.session.user.id).maybeSingle();
     if (!p || !p.image_url) { toast('Essa refeição não tem foto pra analisar', 'err'); return; }
     const feitos = Number((p.meta || {}).ajustes || 0);
     if (feitos >= 2) { toast('Você já ajustou esse prato 2 vezes', 'err'); return; }
-    const itens = (itensAtuais.length ? itensAtuais : ((p.meta || {}).itens || [])).slice(0, 6);
+    const base = (itensAtuais.length ? itensAtuais : ((p.meta || {}).itens || [])).slice(0, 8);
+    // cada linha: o que a IA viu (orig), o que vale agora (nome), removido, ou novo (acrescentado pela pessoa)
+    const linhas = base.map(n => ({ orig: String(n), nome: String(n), fora: false, novo: false }));
+    let editando = linhas.length ? -1 : 'novo';
+    const ICO_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+    const ICO_VOLTA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4.5h4.5"/></svg>';
+    const ICO_LAPIS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>';
     const old = document.getElementById('ajustarPrato'); if (old) old.remove();
     const sheet = document.createElement('div');
     sheet.id = 'ajustarPrato'; sheet.className = 'sheet on';
-    sheet.innerHTML = `<div class="sheet-card ap-card"><div class="sheet-handle"></div>
-        <h3 class="sheet-title">Conte o que tem no prato</h3>
-        <p class="ap-sub">Escreva do seu jeito. A IA olha a foto de novo com essa dica e refaz a nota e os macros.</p>
-        <textarea id="apTexto" class="ap-campo" maxlength="200" rows="3" placeholder="Ex.: tapioca com frango e queijo"></textarea>
-        ${itens.length ? `<div class="ap-sug">${itens.map(i => `<button type="button" data-it="${escapeHTML(i)}">+ ${escapeHTML(i)}</button>`).join('')}</div>` : ''}
-        <p class="ap-nota">Dá pra ajustar até 2 vezes por refeição${feitos ? ` (falta ${2 - feitos})` : ''}. Os pontos não mudam.</p>
-        <button class="ap-bt v" id="apOk">Analisar de novo</button>
-        <button class="ap-bt" id="apCanc">Cancelar</button></div>`;
     document.body.appendChild(sheet);
-    const tx = sheet.querySelector('#apTexto');
-    setTimeout(() => tx.focus(), 250);
-    sheet.querySelectorAll('[data-it]').forEach(b => b.onclick = () => {
-        const v = tx.value.trim(); tx.value = v ? `${v}, ${b.dataset.it.toLowerCase()}` : b.dataset.it; b.remove(); tx.focus();
-    });
-    const fechar = () => sheet.remove();
-    sheet.addEventListener('click', e => { if (e.target === sheet) fechar(); });
-    sheet.querySelector('#apCanc').onclick = fechar;
-    sheet.querySelector('#apOk').onclick = async () => {
-        const dica = tx.value.trim();
-        if (dica.length < 3) { toast('Conte o que tem no prato', 'err'); tx.focus(); return; }
-        const bt = sheet.querySelector('#apOk'); bt.disabled = true; bt.textContent = 'Analisando...';
-        let an = null;
-        try { an = await analisarPratoIA({ imageUrl: p.image_url, dica }); } catch (e) { an = null; }
-        if (!an || an.score == null) {
-            bt.disabled = false; bt.textContent = 'Analisar de novo';
-            toast('Não consegui analisar agora. Tenta de novo em instantes.', 'err'); return;
-        }
-        an.analysis = textoIA(an.analysis, an.score);
-        const meta = { ...(p.meta || {}), ajustes: feitos + 1, ajuste_texto: dica, ...(an.items && an.items.length ? { itens: an.items } : {}), ...(an.macros ? { macros: an.macros } : {}) };
-        const { error } = await sb.from('posts').update({ meal_score: an.score, meal_analysis: an.analysis || null, meta }).eq('id', postId).eq('user_id', state.session.user.id);
-        if (error) { bt.disabled = false; bt.textContent = 'Analisar de novo'; toast(msgErro(error), 'err'); return; }
-        fechar();
-        an.ajustado = true;
-        showMealResult(an, 0, false, postId, p.image_url, refStory);
-        if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile();
+    const mudancas = () => {
+        const tro = linhas.filter(l => !l.novo && !l.fora && l.nome.trim() && l.nome.trim().toLowerCase() !== l.orig.toLowerCase()).length;
+        const rem = linhas.filter(l => !l.novo && l.fora).length;
+        const add = linhas.filter(l => l.novo && !l.fora && l.nome.trim()).length;
+        return { tro, rem, add, total: tro + rem + add };
     };
+    const campo = (valor, i) => `<div class="ap-linha ap-editando"><input class="ap-input" data-in="${i}" maxlength="40" value="${escapeHTML(valor)}" placeholder="${i === 'novo' ? 'Ex.: mocotó' : 'Nome certo'}" autocomplete="off"><button type="button" class="ap-ok" data-ok="${i}">OK</button></div>`;
+    const pintar = () => {
+        const m = mudancas();
+        const resumo = [m.tro && `${m.tro} ${m.tro === 1 ? 'trocado' : 'trocados'}`, m.rem && `${m.rem} ${m.rem === 1 ? 'removido' : 'removidos'}`, m.add && `${m.add} ${m.add === 1 ? 'acrescentado' : 'acrescentados'}`].filter(Boolean).join(' · ');
+        sheet.innerHTML = `<div class="sheet-card ap-card"><div class="sheet-handle"></div>
+            <h3 class="sheet-title">Ajustar prato</h3>
+            <p class="ap-sub">${linhas.length ? 'Isso foi o que a IA viu. Toque num alimento pra trocar, ou no ✕ se ele não está no prato.' : 'Conte o que tem no prato, um alimento por vez.'}</p>
+            <div class="ap-lista">
+                ${linhas.map((l, i) => editando === i ? campo(l.nome, i) : `<div class="ap-linha${l.fora ? ' fora' : ''}">
+                    <button type="button" class="ap-nome" data-ed="${i}"${l.fora ? ' disabled' : ''}>${!l.novo && !l.fora && l.nome.toLowerCase() !== l.orig.toLowerCase() ? `<s>${escapeHTML(l.orig)}</s><b>${escapeHTML(l.nome)}</b>` : l.novo ? `<b>${escapeHTML(l.nome)}</b>` : escapeHTML(l.nome)}</button>
+                    ${l.fora ? `<button type="button" class="ap-ico" data-volta="${i}" aria-label="Desfazer">${ICO_VOLTA}</button>`
+                        : `<button type="button" class="ap-ico leve" data-ed="${i}" aria-label="Trocar">${ICO_LAPIS}</button><button type="button" class="ap-ico" data-fora="${i}" aria-label="Não está no prato">${ICO_X}</button>`}
+                </div>`).join('')}
+                ${editando === 'novo' ? campo('', 'novo') : `<button type="button" class="ap-add" data-add="1">+ Adicionar alimento</button>`}
+            </div>
+            <p class="ap-resumo">${resumo || `Até 2 ajustes por refeição${feitos ? ` (falta ${2 - feitos})` : ''}. Os pontos não mudam.`}</p>
+            <button class="ap-bt v" id="apOk"${m.total ? '' : ' disabled'}>Analisar de novo</button>
+            <button class="ap-bt" id="apCanc">Cancelar</button></div>`;
+        const inp = sheet.querySelector('.ap-input');
+        if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
+            inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); confirmar(inp.dataset.in); } }; }
+    };
+    const confirmar = (i) => {
+        const inp = sheet.querySelector('.ap-input'); const v = inp ? inp.value.trim() : '';
+        if (i === 'novo') { if (v) linhas.push({ orig: v, nome: v, fora: false, novo: true }); }
+        else { const l = linhas[Number(i)]; if (v) l.nome = v; else if (l.novo) linhas.splice(Number(i), 1); else l.nome = l.orig; }
+        editando = -1; pintar();
+    };
+    const fechar = () => sheet.remove();
+    sheet.addEventListener('click', async e => {
+        if (e.target === sheet) return fechar();
+        const t = e.target.closest('button'); if (!t) return;
+        if (t.id === 'apCanc') return fechar();
+        if (t.dataset.ok != null) return confirmar(t.dataset.ok);
+        // tocar em outra coisa com um campo aberto: guarda o que foi digitado antes
+        if (editando !== -1 && t.dataset.ok == null && t.id !== 'apOk') confirmar(editando);
+        if (t.dataset.ed != null) { editando = Number(t.dataset.ed); return pintar(); }
+        if (t.dataset.fora != null) { const l = linhas[Number(t.dataset.fora)]; if (l.novo) linhas.splice(Number(t.dataset.fora), 1); else l.fora = true; return pintar(); }
+        if (t.dataset.volta != null) { linhas[Number(t.dataset.volta)].fora = false; return pintar(); }
+        if (t.dataset.add) { editando = 'novo'; return pintar(); }
+        if (t.id === 'apOk') {
+            if (editando !== -1) confirmar(editando);
+            if (!mudancas().total) return;
+            const ficam = linhas.filter(l => !l.fora && l.nome.trim()).map(l => l.nome.trim());
+            const trocas = linhas.filter(l => !l.novo && !l.fora && l.nome.trim().toLowerCase() !== l.orig.toLowerCase()).map(l => `"${l.orig}" na verdade é "${l.nome.trim()}"`);
+            const fora = linhas.filter(l => !l.novo && l.fora).map(l => l.orig);
+            const dica = [`Alimentos do prato, conferidos pela pessoa: ${ficam.join(', ') || 'nenhum'}.`,
+                trocas.length ? `Correções: ${trocas.join('; ')}.` : '', fora.length ? `Não está no prato: ${fora.join(', ')}.` : ''].filter(Boolean).join(' ');
+            const bt = sheet.querySelector('#apOk'); bt.disabled = true; bt.textContent = 'Analisando...';
+            let an = null;
+            try { an = await analisarPratoIA({ imageUrl: p.image_url, dica }); } catch (_) { an = null; }
+            if (!an || an.score == null) {
+                bt.disabled = false; bt.textContent = 'Analisar de novo';
+                toast('Não consegui analisar agora. Tenta de novo em instantes.', 'err'); return;
+            }
+            an.analysis = textoIA(an.analysis, an.score);
+            if (!an.items || !an.items.length) an.items = ficam.slice(0, 6);
+            const meta = { ...(p.meta || {}), ajustes: feitos + 1, ajuste_texto: dica.slice(0, 300), itens: an.items, ...(an.macros ? { macros: an.macros } : {}) };
+            const { error } = await sb.from('posts').update({ meal_score: an.score, meal_analysis: an.analysis || null, meta }).eq('id', postId).eq('user_id', state.session.user.id);
+            if (error) { bt.disabled = false; bt.textContent = 'Analisar de novo'; toast(msgErro(error), 'err'); return; }
+            fechar();
+            an.ajustado = true;
+            showMealResult(an, 0, false, postId, p.image_url, refStory);
+            if (state.view === 'feed') renderFeed(); else if (state.view === 'profile') renderProfile();
+        }
+    });
+    pintar();
 }
 function showMealResult(an, pts, limitReached, postId = null, imageUrl = null, refStory = null) {
     const cor = an.score >= 8 ? 'var(--vital)' : an.score >= 5 ? 'var(--gold)' : 'var(--effort)';
