@@ -1,6 +1,6 @@
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261323';
+const APP_VERSAO = '20261324';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -24463,6 +24463,20 @@ function x1StoryModeloHTML(c) {
         : `<span class="x1m-foto ini ${cls}" style="background:${colorFor(String(id || nome))}">${escapeHTML(initials(nome))}</span>`;
     const frase = c.empate ? 'Deu empate no X1!' : venc === 'eu' ? `${escapeHTML(nEu)} venceu o X1!` : `${escapeHTML(nEle)} venceu dessa vez. Revanche vem aí! 🔥`;
     const linha = `${escapeHTML(c.modalidade || '')}${c.periodo ? ' · ' + escapeHTML(c.periodo) : ''}`;
+    if (c.modelo === 'trofeu') {
+        const sub = `contra ${escapeHTML(nEle)}${c.modalidade ? ' · ' + escapeHTML(c.modalidade) : ''}${c.dur ? ' · ' + escapeHTML(c.dur) : ''}`;
+        const [emo, rot, nome] = c.empate ? ['🤝', 'X1 EMPATADO', `${escapeHTML(nEu)} e ${escapeHTML(nEle)}`]
+            : venc === 'eu' ? ['🏆', 'CAMPEÃO DO X1', escapeHTML(nEu)] : ['🥈', 'X1 DE RESPEITO', escapeHTML(nEu)];
+        return `<div class="card-story x1m x1m-trofeu${venc === 'eu' ? ' ouro' : c.empate ? '' : ' prata'}">
+            <div class="x1m-taca">${emo}</div>
+            ${foto(c.avEu, c.idEu, nEu, 'tf')}
+            <small class="x1m-trot">${rot}</small>
+            <div class="x1m-tnome">${nome}</div>
+            <div class="x1m-tpl">${x1Num(c.a)}<em>×</em>${x1Num(c.b)}</div>
+            <p class="x1m-tsub">${c.empate ? escapeHTML(c.modalidade || '') + (c.dur ? ' · ' + escapeHTML(c.dur) : '') : venc === 'eu' ? sub : `${sub}. Revanche vem aí! 🔥`}</p>
+            <b class="cs-marca">Pulso.</b>
+        </div>`;
+    }
     if (c.modelo === 'luta') {
         const [ga, gb] = venc === 'ele' ? [[c.avEle, c.idEle, nEle, c.b], [c.avEu, c.idEu, nEu, c.a]] : [[c.avEu, c.idEu, nEu, c.a], [c.avEle, c.idEle, nEle, c.b]];
         return `<div class="card-story x1m x1m-luta">
@@ -24528,21 +24542,42 @@ function x1StatsCarta(x, lado) {
 }
 // escolher o modelo antes de abrir o editor de story
 function escolherModeloStoryX1(dados) {
-    let modelo = 'placar';
     const BG = { placar: 'radial-gradient(80% 50% at 50% 30%, rgba(16,185,129,.35), transparent 70%), linear-gradient(180deg, #05110c, #07080C)',
         luta: 'linear-gradient(180deg, #0b0b0d, #07080C)',
-        carta: 'radial-gradient(60% 40% at 40% 45%, rgba(251,191,36,.28), transparent 70%), radial-gradient(50% 35% at 70% 55%, rgba(203,213,225,.12), transparent 70%), linear-gradient(180deg, #0e0f13, #07080C)' };
-    const mini = m => `<div class="x1m-mini-wrap"><div class="x1m-mini" style="background:${BG[m]}">${x1StoryModeloHTML({ ...dados, modelo: m })}</div></div>`;
+        carta: 'radial-gradient(60% 40% at 40% 45%, rgba(251,191,36,.28), transparent 70%), radial-gradient(50% 35% at 70% 55%, rgba(203,213,225,.12), transparent 70%), linear-gradient(180deg, #0e0f13, #07080C)',
+        trofeu: 'radial-gradient(60% 40% at 50% 36%, rgba(250,204,21,.32), transparent 70%), linear-gradient(180deg, #121008, #07080C)' };
+    const MODELOS = [['placar', 'Placar'], ['luta', 'Luta'], ['carta', 'Cartas'], ['trofeu', 'Troféu']];
+    // abre no modelo que a pessoa mais usou
+    let uso = {}; try { uso = JSON.parse(lsGet('pulso-x1-modelo') || '{}'); } catch (_) {}
+    const ordem = MODELOS.map(([k]) => k);
+    let atual = ordem.reduce((m, k) => (uso[k] || 0) > (uso[m] || 0) ? k : m, 'placar');
+    const slide = k => `<div class="x1g-slide" data-k="${k}"><div class="x1g-quadro" style="background:${BG[k]}"><div class="x1g-esc">${x1StoryModeloHTML({ ...dados, modelo: k })}</div></div></div>`;
     const { f, fechar } = x1Folha(`<h3 class="x1-folha-t">Escolha o modelo</h3>
-        <p class="x1m-sub">${dados.empate ? 'Deu empate! Como quer mostrar?' : dados.venci ? 'Você venceu o X1! Como quer mostrar?' : 'Mostre que foi um X1 de respeito.'}</p>
-        <div class="x1m-ops">${[['placar', 'Placar'], ['luta', 'Luta'], ['carta', 'Cartas']].map(([k, n]) => `<button type="button" class="x1m-op${k === modelo ? ' on' : ''}" data-m="${k}">${mini(k)}<span>${n}</span></button>`).join('')}</div>
+        <p class="x1m-sub">${dados.empate ? 'Deu empate! ' : dados.venci ? 'Você venceu o X1! ' : ''}Arraste pro lado pra ver os outros.</p>
+        <div class="x1g-trilho" id="x1gTrilho">${MODELOS.map(([k]) => slide(k)).join('')}</div>
+        <div class="x1g-tabs">${MODELOS.map(([k, n]) => `<button type="button" data-m="${k}">${n}</button>`).join('')}</div>
         <button class="btn x1-btn min" data-x1m="ok">Continuar pro story</button>`, 'x1Modelo');
-    requestAnimationFrame(() => f.querySelectorAll('.x1m-mini-wrap').forEach(w => w.firstElementChild.style.setProperty('--k', (w.clientWidth / 360).toFixed(3))));
+    const trilho = f.querySelector('#x1gTrilho');
+    const marcar = () => f.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === atual));
+    const ajustar = () => f.querySelectorAll('.x1g-quadro').forEach(q => q.firstElementChild.style.setProperty('--k', (q.clientWidth / 360).toFixed(3)));
+    const irPara = (k, suave = true) => { const el = trilho.querySelector(`[data-k="${k}"]`); if (el) trilho.scrollTo({ left: el.offsetLeft - trilho.offsetLeft, behavior: suave ? 'smooth' : 'auto' }); atual = k; marcar(); };
+    requestAnimationFrame(() => { ajustar(); irPara(atual, false); });
+    let tm = null;
+    trilho.addEventListener('scroll', () => {
+        clearTimeout(tm);
+        tm = setTimeout(() => {
+            const i = Math.round(trilho.scrollLeft / Math.max(1, trilho.clientWidth));
+            const k = ordem[Math.min(ordem.length - 1, Math.max(0, i))];
+            if (k !== atual) { atual = k; marcar(); vibrar(6); }
+        }, 80);
+    }, { passive: true });
     f.addEventListener('click', e => {
         const op = e.target.closest('[data-m]');
-        if (op) { modelo = op.dataset.m; f.querySelectorAll('.x1m-op').forEach(x => x.classList.toggle('on', x === op)); vibrar(6); return; }
+        if (op) { irPara(op.dataset.m); vibrar(6); return; }
         if (e.target.closest('[data-x1m="ok"]')) {
+            uso[atual] = (uso[atual] || 0) + 1; lsSet('pulso-x1-modelo', JSON.stringify(uso));
             fechar();
+            const modelo = atual;
             setTimeout(() => abrirEditorComCard({ card: { ...dados, modelo }, bg: BG[modelo] }), 200);
         }
     });

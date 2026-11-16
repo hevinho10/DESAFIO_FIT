@@ -7501,3 +7501,28 @@ img.foto-falhou{ opacity:0; }
 .ap-add{ display:block; width:100%; text-align:left; background:none; border:0; font:inherit; font-size:14px; font-weight:600; color:var(--vital); padding:14px; cursor:pointer; }
 .ap-resumo{ font-size:12px; color:var(--ink-faint); text-align:center; margin:12px 0 2px; }
 .ap-bt.v:disabled{ opacity:.4; }
+
+/* ===== X1: modelo Troféu ===== */
+.x1m-trofeu{ width:min(84%, 320px) !important; align-items:center !important; text-align:center !important; color:#fff; }
+.x1m-taca{ font-size:104px; line-height:1; filter:drop-shadow(0 12px 30px rgba(250,204,21,.45)); }
+.x1m-trofeu.prata .x1m-taca{ filter:drop-shadow(0 12px 30px rgba(203,213,225,.3)); }
+.x1m-foto.tf{ width:68px; height:68px; margin-top:16px; border:3px solid #FACC15; box-shadow:0 0 0 4px rgba(250,204,21,.15); font-size:22px; }
+.x1m-trofeu.prata .x1m-foto.tf{ border-color:#CBD5E1; box-shadow:0 0 0 4px rgba(203,213,225,.12); }
+.x1m-trot{ display:block; margin-top:14px; font-size:11.5px; font-weight:800; letter-spacing:.2em; color:#FACC15; }
+.x1m-trofeu.prata .x1m-trot{ color:#CBD5E1; }
+.x1m-tnome{ font-family:var(--ff-display); font-size:30px; font-weight:800; letter-spacing:-.02em; margin-top:4px; }
+.x1m-tpl{ font-family:var(--ff-display); font-size:48px; font-weight:800; letter-spacing:-.02em; margin-top:6px; line-height:1.1; }
+.x1m-tpl em{ font-style:normal; font-size:20px; color:rgba(255,255,255,.5); margin:0 10px; vertical-align:middle; }
+.x1m-tsub{ font-size:13px; color:rgba(255,255,255,.62); margin:4px 0 0; line-height:1.4; }
+.x1m-trofeu .cs-marca{ margin-top:22px; }
+
+/* ===== X1: escolha do modelo com prévia grande ===== */
+.x1g-trilho{ display:flex; overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none; margin:12px -4px 0; -webkit-overflow-scrolling:touch; }
+.x1g-trilho::-webkit-scrollbar{ display:none; }
+.x1g-slide{ flex:0 0 100%; scroll-snap-align:center; display:flex; justify-content:center; padding:0 4px; box-sizing:border-box; }
+.x1g-quadro{ width:min(68vw, 290px, calc((100dvh - 330px) * 9 / 16)); aspect-ratio:9/16; border-radius:20px; overflow:hidden; position:relative; border:1px solid var(--line); box-shadow:0 18px 40px rgba(0,0,0,.45); }
+.x1g-esc{ position:absolute; left:0; top:0; width:360px; height:640px; transform-origin:0 0; transform:scale(var(--k, .8)); pointer-events:none; }
+.x1g-esc .card-story{ transform:translate(-50%, -50%); }
+.x1g-tabs{ display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin:14px 0 14px; }
+.x1g-tabs button{ font:inherit; font-size:13px; padding:8px 14px; border-radius:20px; border:1px solid var(--line); background:transparent; color:var(--ink-dim); cursor:pointer; }
+.x1g-tabs button.on{ border-color:rgba(16,185,129,.6); color:var(--vital); font-weight:700; }
