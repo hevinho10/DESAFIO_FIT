@@ -1,6 +1,9 @@
+// cartões do topo do feed que dependem do momento: não entram na foto salva do feed
+const SLOTS_VIVOS = ['conviteSlot', 'prontSlot'];
+function limparSlotsVivos(raiz) { SLOTS_VIVOS.forEach(id => { const el = raiz.querySelector('#' + id); if (el) el.innerHTML = ''; }); }
 // Versão deste arquivo (a mesma do ?v= no index.html). Se o celular abriu um index de outra versão,
 // recarrega uma vez pra pegar os dois iguais (senão botões novos faltam e o app trava).
-const APP_VERSAO = '20261324';
+const APP_VERSAO = '20261325';
 (function conferirVersao() {
     try {
         const sc = document.currentScript, v = sc && new URL(sc.src, location.href).searchParams.get('v');
@@ -7631,7 +7634,7 @@ async function renderFeed() {
     const snap = !jaTemFeed && !state.cacheAtivo && !state.feedSnapUsado && snapObj ? snapObj.full : null;
     state.feedSnapUsado = true;
     // atualizando (puxar pra baixo ou voltar pro feed): mantém o que está na tela até o novo chegar
-    if (!jaTemFeed) c.innerHTML = snap || esqueleto('feed');
+    if (!jaTemFeed) { c.innerHTML = snap || esqueleto('feed'); if (snap) limparSlotsVivos(c); }
     // coisas que não dependem dos posts já saem junto
     const anivP = carregarAniversariantes();
     const sigoP = state.quantosSigo != null ? Promise.resolve(state.quantosSigo)
@@ -7667,7 +7670,7 @@ async function renderFeed() {
 
     if (error) {
         if (snap || ehErroDeRede(error) || !navigator.onLine) {
-            if (!snap) { const s2 = lsGet(chaveSnap); if (s2) c.innerHTML = s2; }
+            if (!snap) { const s2 = lsGet(chaveSnap); if (s2) { let h = s2; try { if (s2.charAt(0) === '{') h = JSON.parse(s2).full || ''; } catch (_) { h = ''; } if (h) { c.innerHTML = h; limparSlotsVivos(c); } } }
             if (c.querySelector('.feed-view') && !c.querySelector('.feed-offline')) c.querySelector('.feed-view').insertAdjacentHTML('afterbegin', '<div class="feed-offline">Sem internet. Mostrando o último feed salvo.</div>');
             else if (!c.querySelector('.feed-view')) c.innerHTML = '<div class="view"><div class="feed-offline">Sem internet agora. Puxe pra baixo pra tentar de novo.</div></div>';
             return;
@@ -7821,9 +7824,12 @@ async function renderFeed() {
     const naTela = c.querySelector('.feed-view:not(.esq-wrap)');
     if (!(naTela && telaBase === html)) {
         const antigos = {};
-        if (naTela) naTela.querySelectorAll('[id$="Slot"]').forEach(el => { if (el.innerHTML.trim()) antigos[el.id] = el.innerHTML; });
+        if (naTela) naTela.querySelectorAll('[id$="Slot"]').forEach(el => { if (!SLOTS_VIVOS.includes(el.id) && el.innerHTML.trim()) antigos[el.id] = el.innerHTML; });
         const y = window.scrollY;
+        // os cartões vivos passam inteiros (com os botões funcionando) pra tela nova
+        const vivos = naTela ? SLOTS_VIVOS.map(id => naTela.querySelector('#' + id)).filter(Boolean) : [];
         c.innerHTML = html;
+        vivos.forEach(el => { const novo = c.querySelector('#' + el.id); if (novo) novo.replaceWith(el); });
         Object.entries(antigos).forEach(([id, h]) => { const el = c.querySelector('#' + id); if (el && !el.innerHTML.trim()) el.innerHTML = h; });
         if (naTela) window.scrollTo(0, y);
     }
@@ -7832,7 +7838,9 @@ async function renderFeed() {
     setTimeout(() => {
         const fv = state.view === 'feed' && c.querySelector('.feed-view:not(.esq-wrap)');
         if (!fv) return;
-        const full = c.innerHTML;
+        const tpl = document.createElement('template'); tpl.innerHTML = c.innerHTML;
+        limparSlotsVivos(tpl.content);
+        const full = tpl.innerHTML;
         if (full.length < 400000) lsSet(chaveSnap, JSON.stringify({ base: html, full }));
     }, 6000);
 
@@ -12069,8 +12077,8 @@ async function hydrateAniversario() {
         <p class="aniv-dica">${dica}</p>
         ${treinos >= 4 ? '' : '<button class="bt-min" data-act="aniv-treino">Treino leve de 20 min</button>'}
     </div>`;
-    slot.querySelector('[data-act="aniv-treino"]')?.addEventListener('click', e => { e.stopPropagation(); abrirModoTreino({ a: 'Caminhada' }); });
 }
+document.addEventListener('click', e => { if (e.target.closest('#anivSlot [data-act="aniv-treino"]')) { e.stopPropagation(); abrirModoTreino({ a: 'Caminhada' }); } }, true);
 // parabéns: abre a conversa com 3 mensagens prontas
 const PARABENS_MSGS = ['Feliz aniversário! 🎉', 'Parabéns! Deus te abençoe 🙏', 'Bora comemorar com um treino? 💪'];
 async function abrirParabens(uid) {
@@ -13561,6 +13569,18 @@ async function abrirConvite(origem = 'perfil') {
         }
     });
 }
+// botões do aviso de convite: tratados no documento, então funcionam sempre
+document.addEventListener('click', e => {
+    const b = e.target.closest('[data-cvf]'); if (!b || !state.session) return;
+    const uid = state.session.user.id, slot = b.closest('#conviteSlot');
+    if (slot) slot.innerHTML = '';
+    if (b.dataset.cvf === 'nao') {
+        lsSet('pulso-cv-naos-' + uid, String(Number(lsGet('pulso-cv-naos-' + uid) || 0) + 1));
+        lsSet('pulso-cv-nao-em-' + uid, String(Date.now()));
+        evento('convite_aviso_nao', {}); return;
+    }
+    abrirConvite('feed');
+});
 // aviso discreto no feed: só num momento bom, no máximo a cada 15 dias, e some pra sempre depois de 2 "agora não"
 async function hydrateConviteFeed() {
     const slot = document.getElementById('conviteSlot'); if (!slot || !state.session) return;
@@ -13578,11 +13598,6 @@ async function hydrateConviteFeed() {
     slot.innerHTML = `<div class="cv-aviso"><div class="cv-av-l"><span class="pz-ic">${svgIc('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M19 8v6M16 11h6"/>', 20)}</span>
         <span><b>Treinar com amigo rende mais</b><small>Convide alguém: quando ele fizer o 1º treino, vocês dois ganham 10 pts.</small></span></div>
         <div class="cv-av-bts"><button type="button" class="bt-min" data-cvf="sim">Convidar</button><button type="button" class="link-btn" data-cvf="nao">Agora não</button></div></div>`;
-    slot.onclick = e => {
-        const b = e.target.closest('[data-cvf]'); if (!b) return;
-        if (b.dataset.cvf === 'nao') { lsSet('pulso-cv-naos-' + uid, String(naos + 1)); lsSet('pulso-cv-nao-em-' + uid, String(Date.now())); slot.innerHTML = ''; evento('convite_aviso_nao', {}); return; }
-        slot.innerHTML = ''; abrirConvite('feed');
-    };
 }
 document.addEventListener('click', e => { if (e.target.closest('[data-cvt]')) { e.preventDefault(); abrirConvite(e.target.closest('[data-cvt]').dataset.cvt || 'perfil'); } });
 
